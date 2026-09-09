@@ -9,6 +9,8 @@ bin/
 project.assets.json
 project.nuget.cache
 
+1.5/Assemblies/OverHaulers.dll
+1.6/Assemblies/OverHaulers.dll
 Libraries/
 
 # ==========================================
