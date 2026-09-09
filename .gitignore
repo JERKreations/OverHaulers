@@ -1,0 +1,44 @@
+# ==========================================
+# C# / .NET Build Artifacts & Intermediate Files
+# ==========================================
+obj/
+bin/
+*.user
+*.suo
+*.cache
+project.assets.json
+project.nuget.cache
+
+Libraries/
+
+# ==========================================
+# Temporary & Diagnostic Dumps
+# ==========================================
+DiagnosticDumps/
+TEMPDUMP/
+OverHaulers_*Dump_*.txt
+OverHaulers_*Dump_*.xml
+*.log
+
+# ==========================================
+# VS Code / Visual Studio Local Workspace Files
+# ==========================================
+.vs/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# ==========================================
+# OS Junk
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# Note on Reference Libraries & Assemblies
+# ==========================================
+# Your reference DLLs in Libraries/ and output DLLs in 1.5/ & 1.6/ 
+# can be safely committed to a private GitHub repo for easy backup.

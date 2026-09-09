@@ -1,0 +1,137 @@
+using System;
+using System.Text;
+using HarmonyLib;
+using RimWorld;
+using Verse;
+
+namespace OverHaulers
+{
+    #region 1. [INT-03] STANDALONE DIRECT HARMONY DRIVER
+
+    /// <summary>
+    /// A concrete implementation of the IPipelineDriver interface that provides a standalone direct Harmony driver for managing mass capacity stats
+    ///  within the Over Haulers mod.
+    /// </summary>
+    public class VanillaStatDriver : IPipelineDriver
+    {
+        #region FIELDS & CONSTRUCTOR
+
+        public string DriverIdentifier => "Standalone";
+        public bool IsStatDriven => true;
+        public StatDef ActiveMassCapacityStat { get; private set; }
+        public string UnitSuffix { get; private set; }
+
+        /// <summary>
+        /// Initializes a new instance of the VanillaStatDriver class with the specified unit suffix.
+        /// </summary>
+        /// <param name="unitSuffix">The unit suffix to be used for displaying mass capacity values.</param>
+        public VanillaStatDriver(string unitSuffix)
+        {
+            UnitSuffix = unitSuffix;
+        }
+
+        #endregion
+
+        #region INITIALIZATION & CLEANUP
+
+        /// <summary>
+        /// Initializes the VanillaStatDriver, setting up the active mass capacity stat and logging the direct fallback activation.
+        /// </summary>
+        /// <param name="harmony">The Harmony instance used for patching.</param>
+        public void Initialize(Harmony harmony)
+        {
+            ActiveMassCapacityStat = GetOrCreateStandaloneStat();
+            if (ActiveMassCapacityStat != null)
+            {
+                ActiveMassCapacityStat.showOnPawns = true;
+            }
+            OHLog.Integration.DirectFallbackActive(UnitSuffix);
+        }
+
+        /// <summary>
+        /// Cleans up the VanillaStatDriver, resetting the active mass capacity stat's visibility on pawns.
+        /// </summary>
+        public void Cleanup()
+        {
+            if (ActiveMassCapacityStat != null)
+            {
+                ActiveMassCapacityStat.showOnPawns = false;
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the standalone mass capacity stat, creating it if it does not already exist.
+        /// </summary>
+        /// <returns>The standalone mass capacity stat, or null if it could not be created.</returns>
+        private StatDef GetOrCreateStandaloneStat()
+        {
+            StatDef stat = DefDatabase<StatDef>.GetNamedSilentFail("OverHaulers_CaravanMassCapacity");
+            if (stat != null) return stat;
+
+            try
+            {
+                // Create a new standalone mass capacity stat if it does not already exist
+                stat = new StatDef
+                {
+                    defName = "OverHaulers_CaravanMassCapacity",
+                    label = "OverHaulers_StatLabel".Translate().ToString(),
+                    description = "OverHaulers_StatDesc".Translate().ToString(),
+                    category = DefDatabase<StatCategoryDef>.GetNamedSilentFail("BasicsPawn"),
+                    displayPriorityInCategory = 80,
+                    toStringStyle = ToStringStyle.FloatTwo,
+                    formatString = "{0} " + "kg".Translate(),
+                    showOnPawns = true,
+                    workerClass = typeof(MassCapacityStatWorker)
+                };
+
+                DefDatabase<StatDef>.Add(stat);
+                return stat;
+            }
+            catch (Exception ex)
+            {
+                OHLog.Integration.WarnHarmonyPatchFailed(ex);
+            }
+
+            return null;
+        }
+
+        #endregion
+
+        #region BASELINE & EGRESS DELIVERY
+
+        /// <summary>
+        /// Resolves the original baseline mass capacity for the specified pawn, taking into account archetype calibration.
+        /// </summary>
+        /// <param name="pawn">The pawn for which to resolve the original baseline mass capacity.</param>
+        /// <returns>The resolved original baseline mass capacity for the specified pawn.</returns>
+        public float ResolveOriginalBaseline(Pawn pawn)
+        {
+            if (pawn == null) return 0f;
+            return ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(pawn);
+        }
+
+        /// <summary>
+        /// Handles the postfix logic for the mass utility capacity calculation, allowing for additional modifications or explanations to be appended.
+        /// </summary>
+        /// <param name="pawn">The pawn for which the mass utility capacity is being calculated.</param>
+        /// <param name="result">The current result of the mass utility capacity calculation, which can be modified.</param>
+        /// <param name="explanation">A StringBuilder containing the explanation for the mass utility capacity calculation, which can be appended to.</param>
+        public void OnMassUtilityCapacityPostfix(Pawn pawn, ref float result, StringBuilder explanation)
+        {
+            // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
+            if (ModpackBaselineCalibration.IsResolvingBaseline) return;
+
+            // Ingress Gate: Completely skip non-caravan species during live play
+            if (pawn == null || !PawnDataRegistry.CanCarryCaravanMass(pawn)) return;
+
+            float cleanBiologicalBaseline = ResolveOriginalBaseline(pawn);
+            float calculatedOffset = PawnDataRegistry.GetOffset(pawn, cleanBiologicalBaseline);
+
+            result += calculatedOffset;
+        }
+
+        #endregion
+    }
+
+    #endregion
+}

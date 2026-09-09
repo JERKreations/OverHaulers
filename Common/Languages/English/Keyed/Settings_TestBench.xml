@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.A] TEST BENCH HEADER & ACTIONS                                    -->
+  <!-- ========================================================================= -->
+  <OverHaulers_DevAllowNonPackSpecies>Extend to Non-Pack Species (Live Play Testing Override)</OverHaulers_DevAllowNonPackSpecies>
+  <OverHaulers_DevAllowNonPackSpecies_Tooltip>Developer &amp; Test Bench Tool: Extends caravan mass capacity calculations, stat transforms, and cache tracking to ALL creatures in live gameplay, including non-pack wildlife.&#10;&#10;WARNING: Enabling this executes an immediate full catalogue calibration sweep across all loaded species, which may cause a brief frame hitch (~50-100ms), and increases background cache workload.</OverHaulers_DevAllowNonPackSpecies_Tooltip>
+
+  <OverHaulers_TestBenchHeader>Interactive Anatomical Test Bench</OverHaulers_TestBenchHeader>
+  <OverHaulers_TestBenchSubject>Subject: {0} ▼</OverHaulers_TestBenchSubject>
+  <OverHaulers_ActiveBodyTopology>Topology: {0} ({1} parts) • Mod: {2}</OverHaulers_ActiveBodyTopology>
+
+  <OverHaulers_RecompileData>Recompile Data</OverHaulers_RecompileData>
+  <OverHaulers_RecompileData_Tooltip>Flushes and fully recompiles all species skeletal topologies, XML mod extensions, medical recipe catalogs, and test subjects in real-time.</OverHaulers_RecompileData_Tooltip>
+
+  <OverHaulers_OpenDumpsFolder>Open Folder</OverHaulers_OpenDumpsFolder>
+  <OverHaulers_OpenDumpsFolder_Tooltip>Opens the date-cataloged DiagnosticDumps sub directory containing export files, or if date-cataloged dumps do not exist, opens the root DiagnosticDumps directory.</OverHaulers_OpenDumpsFolder_Tooltip>
+  
+  <OverHaulers_DumpBtn>Dump ▼</OverHaulers_DumpBtn>
+  <OverHaulers_DumpGrouping_Tooltip>Export detailed InfoCard and grouping breakdowns to a structured text or XML file on disk.</OverHaulers_DumpGrouping_Tooltip>
+  <OverHaulers_DumpTopology_Tooltip>Export canonical skeletal topologies and load-bearing weight vectors to a structured text or XML file on disk.</OverHaulers_DumpTopology_Tooltip>
+
+  <OverHaulers_DumpOption_Selected_Format>Selected Subject ({0}) [{1}]</OverHaulers_DumpOption_Selected_Format>
+  <OverHaulers_DumpOption_Archetype_Format>Archetype: {0} [{1}]</OverHaulers_DumpOption_Archetype_Format>
+  <OverHaulers_DumpOption_FullCensus_Format>Full Census (All Loaded) [{0}]</OverHaulers_DumpOption_FullCensus_Format>
+  <OverHaulers_DumpExportedMessage>[Over Haulers] Detailed census dump exported to: {0}</OverHaulers_DumpExportedMessage>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.B] SEARCHABLE TEST SUBJECT PICKER DIALOG                          -->
+  <!-- ========================================================================= -->
+  <OverHaulers_PickerTitle>Select Reference Test Subject</OverHaulers_PickerTitle>
+  <OverHaulers_SearchPlaceholder>Search species, colonists, mods, or anatomy...</OverHaulers_SearchPlaceholder>
+  <OverHaulers_NoSearchResults>No species or colonists match the search filter.</OverHaulers_NoSearchResults>
+
+  <OverHaulers_GroupMode_Mod>Source</OverHaulers_GroupMode_Mod>
+  <OverHaulers_GroupMode_BodyDef>Anatomy</OverHaulers_GroupMode_BodyDef>
+  <OverHaulers_GroupMode_Category>Category</OverHaulers_GroupMode_Category>
+  <OverHaulers_GroupMode_FleshType>Flesh</OverHaulers_GroupMode_FleshType>
+  <OverHaulers_GroupMode_Colony>Map Pawns</OverHaulers_GroupMode_Colony>
+
+  <OverHaulers_GroupColony_Colonists>Active Colonists</OverHaulers_GroupColony_Colonists>
+  <OverHaulers_GroupColony_Prisoners>Prisoners of Colony</OverHaulers_GroupColony_Prisoners>
+  <OverHaulers_GroupColony_Animals>Colony Animals &amp; Pack Beasts</OverHaulers_GroupColony_Animals>
+  <OverHaulers_GroupColony_Mechanoids>Controlled Mechanoids</OverHaulers_GroupColony_Mechanoids>
+  <OverHaulers_NoColonyActive>Game not loaded (Main Menu Mode)</OverHaulers_NoColonyActive>
+  <OverHaulers_NoColonyPawnsFound>No active pawns found on the current map.</OverHaulers_NoColonyPawnsFound>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.C] VIEW MODES & COMPARISON BANNER                                 -->
+  <!-- ========================================================================= -->
+  <OverHaulers_ViewMode_InfoCard>InfoCard Preview</OverHaulers_ViewMode_InfoCard>
+  <OverHaulers_ViewMode_TopologyXRay>Topology X-Ray</OverHaulers_ViewMode_TopologyXRay>
+
+  <OverHaulers_Delta_Baseline>Baseline</OverHaulers_Delta_Baseline>
+  <OverHaulers_Delta_Simulated>Simulated</OverHaulers_Delta_Simulated>
+  <OverHaulers_Delta_ComparisonLine><![CDATA[{0}: {1}  ➔  {2}: {3}  ]]></OverHaulers_Delta_ComparisonLine>
+  <OverHaulers_CalibrationMethod_Tooltip>Active Subject Baseline Resolution Method:&#10;• [0] Pristine Dummy: Verified unspawned pawn clean stat resolution.&#10;• [1] Testing Fallback: Naturally non-caravan species assigned standard testing benchmark scalar (35 kg/size).&#10;• [2] Live Rescue: Caravan-capable species rescued using a spawned live pawn.&#10;• [3] Emergency Failsafe: Calculation crashed; fell back to last-resort assumption.</OverHaulers_CalibrationMethod_Tooltip>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.D] TOPOLOGY X-RAY REPORT FORMATTING                               -->
+  <!-- ========================================================================= -->
+  <OverHaulers_XRay_NoTemplate>No topology template compiled for this species.</OverHaulers_XRay_NoTemplate>
+  <OverHaulers_XRay_Header>=== TOPOLOGY X-RAY: {0} ({1} Total Parts) ===</OverHaulers_XRay_Header>
+  <OverHaulers_XRay_RegionalBudgets>• Regional Mass Capacity Budgets (Normalized):</OverHaulers_XRay_RegionalBudgets>
+  <OverHaulers_XRay_RegionalBudgetsValues><![CDATA[  • Torso: {0} | Arms: {1} | Legs: {2}]]></OverHaulers_XRay_RegionalBudgetsValues>
+  <OverHaulers_XRay_AnatomicalTopology>• Compiled Load-Bearing Part Hierarchy &amp; Weight Factors:</OverHaulers_XRay_AnatomicalTopology>
+  <OverHaulers_ParentRoot>Root / Core</OverHaulers_ParentRoot>
+  <OverHaulers_XRay_PartEntry><![CDATA[  - {0}: {1} (Parent: {2}) [{3}]]]></OverHaulers_XRay_PartEntry>
+
+  <OverHaulers_PartType_Head>Head / Cranial</OverHaulers_PartType_Head>
+  <OverHaulers_PartType_Core>Torso / Core Column</OverHaulers_PartType_Core>
+  <OverHaulers_PartType_Manipulation>Manipulation Limb</OverHaulers_PartType_Manipulation>
+  <OverHaulers_PartType_Moving>Moving Limb</OverHaulers_PartType_Moving>
+  <OverHaulers_PartType_DualLimb>Dual (Manip / Move) Limb</OverHaulers_PartType_DualLimb>
+  <OverHaulers_PartType_Organ>Internal Metabolic Organ</OverHaulers_PartType_Organ>
+  <OverHaulers_PartType_VirtualAnchor>Apparel / Virtual Anchor</OverHaulers_PartType_VirtualAnchor>
+  <OverHaulers_VirtualAnchor_Tooltip>Virtual non-targetable equipment anchor (e.g. Utility/Belt layer). Does not carry structural weight or take direct combat damage.</OverHaulers_VirtualAnchor_Tooltip>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.E] UNIVERSAL SANDBOX SURGERY & PLANNER CONTROLS                   -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Duplicate_SearchPlaceholder>Search body parts (e.g. spine, arm, foot)...</OverHaulers_Duplicate_SearchPlaceholder>
+  <OverHaulers_Duplicate_AddDrug>[+] Add Condition ▼</OverHaulers_Duplicate_AddDrug>
+  <OverHaulers_Duplicate_ExpandAll>Expand</OverHaulers_Duplicate_ExpandAll>
+  <OverHaulers_Duplicate_CollapseAll>Collapse</OverHaulers_Duplicate_CollapseAll>
+  
+  <OverHaulers_Duplicate_RevertLive>Reset to Live State</OverHaulers_Duplicate_RevertLive>
+  <OverHaulers_Duplicate_RevertBaseline>Reset to Baseline</OverHaulers_Duplicate_RevertBaseline>
+  
+  <OverHaulers_Duplicate_OpBtn>Simulate ▼</OverHaulers_Duplicate_OpBtn>
+  
+  <!-- Single Target Operations -->
+  <OverHaulers_Op_AddReplacement>[+] {0} ({1}%)</OverHaulers_Op_AddReplacement>
+  <OverHaulers_Op_AddImplant>[+] {0}</OverHaulers_Op_AddImplant>
+  <OverHaulers_Op_Destroy>[-] Destroy / Max Damage</OverHaulers_Op_Destroy>
+  <OverHaulers_Op_Revert>↺ Revert to Source</OverHaulers_Op_Revert>
+  <OverHaulers_Op_DisabledParentProsthetic>Disabled by parent part status</OverHaulers_Op_DisabledParentProsthetic>
+  <OverHaulers_Op_DisabledParentMissing>Disabled: parent part missing</OverHaulers_Op_DisabledParentMissing>
+  <OverHaulers_SevereTrauma>Severe Trauma</OverHaulers_SevereTrauma>
+  <OverHaulers_Amputated>Amputated</OverHaulers_Amputated>
+
+  <!-- Dynamic Group Bulk Actions -->
+  <OverHaulers_Duplicate_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0}%)</OverHaulers_Duplicate_BulkMaxUpgrade>
+  <OverHaulers_Duplicate_BulkBudgetUpgrade>Bulk: Budget / Basic ({0}%)</OverHaulers_Duplicate_BulkBudgetUpgrade>
+  <OverHaulers_Duplicate_BulkDestroy>Destroy Entire Group</OverHaulers_Duplicate_BulkDestroy>
+  <OverHaulers_Duplicate_BulkRevert>Revert Entire Group</OverHaulers_Duplicate_BulkRevert>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-11.F] UNIFIED DYNAMIC NODE STATUS BADGES                             -->
+  <!-- ========================================================================= -->
+  <OverHaulers_NodeBadge_Prosthetic>{0} [{1}, {2}%]</OverHaulers_NodeBadge_Prosthetic>
+  <OverHaulers_NodeBadge_Implant>{0} [{1}]</OverHaulers_NodeBadge_Implant>
+  <OverHaulers_NodeBadge_Missing>{0} [Missing]</OverHaulers_NodeBadge_Missing>
+  <OverHaulers_NodeBadge_Inoperable>{0} [Inoperable]</OverHaulers_NodeBadge_Inoperable>
+  <OverHaulers_NodeBadge_Wounded>{0} [Wounded, {1}%]</OverHaulers_NodeBadge_Wounded>
+  <OverHaulers_NodeBadge_Natural>{0} [Natural]</OverHaulers_NodeBadge_Natural>
+  <OverHaulers_NodeBadge_VirtualAnchor>{0} [Apparel Anchor]</OverHaulers_NodeBadge_VirtualAnchor>
+
+</LanguageData>

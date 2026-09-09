@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- ========================================================================= -->
+  <!-- 1. BOOTSTRAP & INTEGRATION LOGS                                           -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Log_ExternalMassPatchesDetected>[Over Haulers] Detected external C# mod patch(es) targeting MassUtility.Capacity from owner(s): {0}.</OverHaulers_Log_ExternalMassPatchesDetected>
+  <OverHaulers_Log_CustomDriverRegistered>[Over Haulers] Successfully registered custom third-party caravan mass capacity driver '{0}'.</OverHaulers_Log_CustomDriverRegistered>
+  <OverHaulers_Log_StatDriven>[Over Haulers] Active Caravan Mass Capacity stat '{0}' bound for owner '{1}'. Registered StatPart driver with suffix '{2}'.</OverHaulers_Log_StatDriven>
+  <OverHaulers_Log_DirectFallback>[Over Haulers] Operating in Standalone Direct Postfix mode on MassUtility.Capacity with suffix '{0}'.</OverHaulers_Log_DirectFallback>
+  <OverHaulers_Log_StandaloneBypassEngaged>[Over Haulers] Standalone Direct Mode active alongside external patch(es) ({0}). Mass capacity calculations will function normally, but pawns may show 2 separate stat card listings.</OverHaulers_Log_StandaloneBypassEngaged>
+  <OverHaulers_Log_MedicalCatalogInitialized>[Over Haulers] Medical catalog pre-indexing complete ({0}ms): {1} replacement surgeries, {2} implant procedures, {3} stimulants/drugs indexed.</OverHaulers_Log_MedicalCatalogInitialized>
+
+  <!-- ========================================================================= -->
+  <!-- 2. PRECOMPILATION & BASELINE CALIBRATION CHECKPOINTS                      -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Log_TopologyCompilationCompleted>[Over Haulers] Topology layout compilation complete ({0}ms): Pre-compiled {1} species skeletal layouts. Max parts: {2} ({3}), Max depth: {4}.</OverHaulers_Log_TopologyCompilationCompleted>
+  <OverHaulers_Log_TopologyInvalidated>[Over Haulers] Species topology template for '{0}' was dynamically invalidated and purged from cache.</OverHaulers_Log_TopologyInvalidated>
+  <OverHaulers_Log_CalibrationSweepComplete>[Over Haulers] Species baseline calibration sweep complete ({0}ms - {1}): {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency Failsafe across {6} species.</OverHaulers_Log_CalibrationSweepComplete>
+  <OverHaulers_Log_FullRecompilationCompleted>[Over Haulers] Live recompilation complete: All skeletal topologies, medical catalogs, and test subjects refreshed in {0}ms.</OverHaulers_Log_FullRecompilationCompleted>
+
+  <!-- ========================================================================= -->
+  <!-- 3. WORLD LIFECYCLE                                                        -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Log_WorldReset>[Over Haulers] World loaded and initialized. Resetting registries and thread-local workspaces, preserving pre-compiled static topologies.</OverHaulers_Log_WorldReset>
+
+  <!-- ========================================================================= -->
+  <!-- 4. PERFORMANCE TELEMETRY & REPORT BUFFERS                                 -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Log_PerformanceReportHeader><![CDATA[[Over Haulers] ==== PERFORMANCE & CACHE METRICS REPORT (Last {0} Hours) ====]]></OverHaulers_Log_PerformanceReportHeader>
+  <OverHaulers_Log_PerformanceReport_Queries>  • Total Registry Queries: {0} (Main Thread: {1} | Background Worker Threads: {2})</OverHaulers_Log_PerformanceReport_Queries>
+  <OverHaulers_Log_PerformanceReport_Cache>  • Cache Hit Efficiency: {0}% (Hits: {1} | Recalculations: {2})</OverHaulers_Log_PerformanceReport_Cache>
+  <OverHaulers_Log_PerformanceReport_LifeCycle>  • Registry Lifecycle Events: {0} Invalidations | {1} Active Pawn Evictions</OverHaulers_Log_PerformanceReport_LifeCycle>
+  <OverHaulers_Log_PerformanceReport_Workspaces>  • Workspace Pooled Instances: {0} Active Thread-Static Workspaces</OverHaulers_Log_PerformanceReport_Workspaces>
+
+  <OverHaulers_Log_SafetyFloorClampsHeader>  • Pawns Clamped to Safety Floor:</OverHaulers_Log_SafetyFloorClampsHeader>
+  <OverHaulers_Log_SafetyFloorClampEntry><![CDATA[    - {0}: Raw {1}kg ➔ Clamped {2}kg]]></OverHaulers_Log_SafetyFloorClampEntry>
+  <OverHaulers_Log_EvictedPawnsBuffer>  • Evicted Pawn IDs Buffer ({0} total): {1}</OverHaulers_Log_EvictedPawnsBuffer>
+
+</LanguageData>

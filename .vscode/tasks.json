@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build RimWorld 1.6",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/OverHaulers.csproj",
+        "-c",
+        "Release_1.6",
+        "--no-incremental"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "Build RimWorld 1.5",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/OverHaulers.csproj",
+        "-c",
+        "Release_1.5",
+        "--no-incremental"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "Build ALL (1.5 + 1.6)",
+      "dependsOn": [
+        "Build RimWorld 1.5",
+        "Build RimWorld 1.6"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Clean All Assemblies",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/OverHaulers.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- ========================================================================= -->
+  <!-- [VIEW-05] CARAVAN FLEET BIOMECHANICAL SUMMARY (WORLD & DIALOG TOOLTIPS)   -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Fleet_Header><![CDATA[<b>Caravan Fleet Rating: {0}x ({1})</b>]]></OverHaulers_Fleet_Header>
+  <OverHaulers_Fleet_BaselineProgression>• Baseline: {0} ➔ Total: {1}</OverHaulers_Fleet_BaselineProgression>
+
+  <!-- Key Contributor Lines -->
+  <OverHaulers_Fleet_TopContributor>• Top Asset: {0} ({1})</OverHaulers_Fleet_TopContributor>
+  <OverHaulers_Fleet_MostImpaired>• Most Impaired: {0} ({1})</OverHaulers_Fleet_MostImpaired>
+
+  <!-- Grammatical Helpers -->
+  <OverHaulers_PawnSingle>pawn</OverHaulers_PawnSingle>
+  <OverHaulers_PawnPlural>pawns</OverHaulers_PawnPlural>
+
+</LanguageData>

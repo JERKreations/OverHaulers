@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- ========================================================================= -->
+  <!-- [VIEW-01 to VIEW-04] LIVE PAWN INFOCARD STAT DEFINITIONS & BREAKDOWNS     -->
+  <!-- ========================================================================= -->
+  <OverHaulers_StatLabel>Caravan mass capacity</OverHaulers_StatLabel>
+  <OverHaulers_StatDesc>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc>
+
+  <OverHaulers_TotalBodyRating><![CDATA[<b>Over Haulers - Total Body Rating ({0}x) {1}</b>]]></OverHaulers_TotalBodyRating>
+
+  <!-- Modifiers, Prefixes & Suffixes -->
+  <OverHaulers_AilmentPrefix> [ailment: {0}]</OverHaulers_AilmentPrefix>
+  <OverHaulers_MissingIgnored>Missing, ignored</OverHaulers_MissingIgnored>
+
+  <!-- Athletic Capacities Sub-Card -->
+  <OverHaulers_CapacitiesHeader>Athletic Capacities:</OverHaulers_CapacitiesHeader>
+  <OverHaulers_Breathing>- Breathing: {0}</OverHaulers_Breathing>
+  <OverHaulers_BloodPumping>- Blood Pumping: {0}</OverHaulers_BloodPumping>
+  <OverHaulers_Moving>- Moving: {0}</OverHaulers_Moving>
+  <OverHaulers_Manipulation>- Manipulation: {0}</OverHaulers_Manipulation>
+  <OverHaulers_Consciousness>- Consciousness: {0}</OverHaulers_Consciousness>
+
+  <!-- Systemic Conditions & Group Names -->
+  <OverHaulers_AthleticImpactsHeader>Athletic Impacts:</OverHaulers_AthleticImpactsHeader>
+  <OverHaulers_GroupDefName>{0} Group</OverHaulers_GroupDefName>
+
+  <!-- Fallback Anatomical Groups -->
+  <OverHaulers_GroupFallbackHead>Head FB</OverHaulers_GroupFallbackHead>
+  <OverHaulers_GroupFallbackTorso>Torso FB</OverHaulers_GroupFallbackTorso>
+  <OverHaulers_GroupDualLimbs>Dual-Purpose Limb</OverHaulers_GroupDualLimbs>
+
+</LanguageData>

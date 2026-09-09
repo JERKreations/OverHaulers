@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>OverHaulers</AssemblyName>
+    <RootNamespace>OverHaulers</RootNamespace>
+    <TargetFramework>net472</TargetFramework>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <!-- Embedded PDBs: Line numbers in error logs without extra .pdb files -->
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Deterministic>true</Deterministic>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Configurations>Release_1.6;Release_1.5</Configurations>
+    <Configuration Condition="'$(Configuration)' == ''">Release_1.6</Configuration>
+  </PropertyGroup>
+
+  <!-- ========================================== -->
+  <!-- RIMWORLD 1.6 BUILD CONFIGURATION           -->
+  <!-- ========================================== -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release_1.6' Or '$(Configuration)' == 'Release'">
+    <OutputPath>1.6\Assemblies\</OutputPath>
+    <DefineConstants>RW_1_6;TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <VersionFolder>1.6</VersionFolder>
+  </PropertyGroup>
+
+  <!-- ========================================== -->
+  <!-- RIMWORLD 1.5 BUILD CONFIGURATION           -->
+  <!-- ========================================== -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release_1.5'">
+    <OutputPath>1.5\Assemblies\</OutputPath>
+    <DefineConstants>RW_1_5;TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <VersionFolder>1.5</VersionFolder>
+  </PropertyGroup>
+
+  <!-- Fallback VersionFolder if built without configuration -->
+  <PropertyGroup Condition="'$(VersionFolder)' == ''">
+    <VersionFolder>1.6</VersionFolder>
+  </PropertyGroup>
+
+  <!-- ========================================== -->
+  <!-- DYNAMIC LOCAL ASSEMBLY REFERENCES          -->
+  <!-- ========================================== -->
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>Libraries\$(VersionFolder)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>Libraries\$(VersionFolder)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>Libraries\$(VersionFolder)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>Libraries\$(VersionFolder)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>Libraries\$(VersionFolder)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>Libraries\$(VersionFolder)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

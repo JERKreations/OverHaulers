@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- ========================================================================= -->
+  <!-- [SEC-10] ACCESSIBILITY, COLOR SCHEMES & PALETTES                          -->
+  <!-- ========================================================================= -->
+  <OverHaulers_AccessibilityHeader>Accessibility Options</OverHaulers_AccessibilityHeader>
+  
+  <OverHaulers_IconScaleLabel>Breakdown Icon Scale ( {0}% )</OverHaulers_IconScaleLabel>
+  <OverHaulers_IconScale_Desc>Adjusts the display size of prosthetic, athletic, and injury icons rendered across InfoCard breakdowns relative to text font height.</OverHaulers_IconScale_Desc>
+
+  <OverHaulers_ColorPaletteHeader>Medical Color Scheme &amp; Accessibility Presets</OverHaulers_ColorPaletteHeader>
+  <OverHaulers_Accessibility_Desc>Customize the health status LERP colors rendered across info card breakdowns. Select a colorblind-safe accessibility preset or manually adjust RGB sliders below.</OverHaulers_Accessibility_Desc>
+
+  <OverHaulers_PresetDefault>Standard Default</OverHaulers_PresetDefault>
+  <OverHaulers_PresetDeuteranopia>Red-Green Safe ( Deut / Prot )</OverHaulers_PresetDeuteranopia>
+  <OverHaulers_PresetTritanopia>Blue-Yellow Safe ( Tritanopia )</OverHaulers_PresetTritanopia>
+  <OverHaulers_PresetHighContrast>High Contrast Monochromacy</OverHaulers_PresetHighContrast>
+  <OverHaulers_PresetCustom>Custom Palette ( Manual Sliders )</OverHaulers_PresetCustom>
+
+  <OverHaulers_GradientPreviewHeader>Live Health Color Gradient Preview ( 0-20% ➔ 100% ➔ 200%+ ):</OverHaulers_GradientPreviewHeader>
+  <OverHaulers_ColorCriticalLabel>Critical Health Color ( 0% ➔ 20% )</OverHaulers_ColorCriticalLabel>
+  <OverHaulers_ColorHealthyLabel>Healthy Baseline Color ( 100% )</OverHaulers_ColorHealthyLabel>
+  <OverHaulers_ColorBoostedLabel>Boosted Capacity Color ( 100% ➔ 200%+ )</OverHaulers_ColorBoostedLabel>
+
+</LanguageData>
