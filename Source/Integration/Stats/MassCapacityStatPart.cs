@@ -26,6 +26,12 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Provides a detailed explanation for the mass capacity calculation of the specified pawn, including contributions from biological
+        ///  baseline and skeletal offsets.
+        /// </summary>
+        /// <param name="statRequest">The StatRequest containing the pawn for which the explanation is being generated.</param>
+        /// <returns>A string detailing the mass capacity calculation, or an empty string if no explanation is available.</returns>
         public override string ExplanationPart(StatRequest statRequest)
         {
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn)
@@ -38,6 +44,11 @@ namespace OverHaulers
             return null;
         }
 
+        /// <summary>
+        /// Retrieves the hyperlinks to the info card for the specified pawn, allowing users to quickly navigate to related information.
+        /// </summary>
+        /// <param name="statRequest">The StatRequest containing the pawn for which the info card hyperlinks are being retrieved.</param>
+        /// <returns>An enumerable of Dialog_InfoCard.Hyperlink objects related to the specified pawn.</returns>
         public override IEnumerable<Dialog_InfoCard.Hyperlink> GetInfoCardHyperlinks(StatRequest statRequest)
         {
             return HyperlinkUtility.ResolveHyperlinks(statRequest);

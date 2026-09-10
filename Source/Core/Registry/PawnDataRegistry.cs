@@ -498,12 +498,15 @@ namespace OverHaulers
         {
             int interval = SettingsDefaults.CacheCleanupInterval;
 
+            // If the current tick is less than the last cleanup tick, or if the interval has elapsed, perform cache cleanup.
             if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
             {
+                // Attempt to acquire the cleanup sentinel to ensure only one cleanup operation occurs at a time.
                 if (System.Threading.Interlocked.CompareExchange(ref activeCleanupSentinel, 1, 0) == 0)
                 {
                     try
                     {
+                        // Double-check the cleanup condition after acquiring the sentinel to avoid redundant cleanup operations.
                         if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
                         {
                             AssertMainThread("OverHaulers_Context_RegistryCleanup".Translate().ToString());
@@ -515,6 +518,7 @@ namespace OverHaulers
 
                             staleKeysScratch.Clear();
 
+                            // Iterate through the capacity cache to identify stale entries based on the long-term inactivity threshold.
                             foreach (var keyValuePair in capacityCache)
                             {
                                 int age = currentTick - keyValuePair.Value.CalculatedTick;
@@ -523,7 +527,7 @@ namespace OverHaulers
                                     staleKeysScratch.Add(keyValuePair.Key);
                                 }
                             }
-
+                            // Evict all identified stale entries from the cache.
                             for (int i = 0; i < staleKeysScratch.Count; i++)
                             {
                                 EvictCacheEntry(staleKeysScratch[i]);
@@ -535,6 +539,7 @@ namespace OverHaulers
                     }
                     finally
                     {
+                        // Release the cleanup sentinel to allow future cleanup operations to proceed.
                         System.Threading.Interlocked.Exchange(ref activeCleanupSentinel, 0);
                     }
                 }
@@ -560,8 +565,10 @@ namespace OverHaulers
         /// <returns>The current game tick, updated in a thread-safe manner.</returns>
         private static int GetSafeCurrentTick()
         {
+            // Ensure that the current tick is safely captured and updated on the main thread if necessary.
             if (UnityData.IsInMainThread)
             {
+                // Capture the current main thread tick to ensure thread-safe access.
                 if (Current.ProgramState == ProgramState.Playing && Find.TickManager != null)
                 {
                     int ticks = Find.TickManager.TicksGame;

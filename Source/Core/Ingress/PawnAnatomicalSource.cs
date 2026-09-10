@@ -41,6 +41,7 @@ namespace OverHaulers
 
                 try
                 {
+                    // Attempt to retrieve the short-capped label for the pawn, handling any potential exceptions.
                     return pawn.LabelShortCap.ToString();
                 }
                 catch
@@ -49,8 +50,14 @@ namespace OverHaulers
                 }
             }
         }
+
+        // Retrieves the body definition of the pawn, if available.
         public BodyDef BodyDef => pawn?.RaceProps?.body;
+
+        // Retrieves the safe base body size of the pawn, accounting for potential broken body size getters.
         public float BaseBodySize => MedicalClassifier.GetSafeBodySize(pawn);
+
+        // Determines whether the pawn is in a valid biological state.
         public bool IsValidBiologicalState => pawn.HasValidBiologicalState();
 
         #endregion

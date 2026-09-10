@@ -12,6 +12,9 @@ namespace OverHaulers
     {
         #region 1. FIELDS & STORAGE
 
+        /// <summary>
+        /// The thread-local anatomical workspace instance for the current thread.
+        /// </summary>
         [ThreadStatic]
         private static AnatomicalWorkspace activeWorkspace;
 
@@ -19,6 +22,9 @@ namespace OverHaulers
         private static readonly List<System.WeakReference<AnatomicalWorkspace>> allWorkspaces = 
             new List<System.WeakReference<AnatomicalWorkspace>>();
 
+        /// <summary>
+        /// Synchronization root for thread-safe access to the static workspace reference collection.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         #endregion

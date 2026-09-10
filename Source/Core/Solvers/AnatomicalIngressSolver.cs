@@ -68,6 +68,7 @@ namespace OverHaulers
             float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
             Array.Clear(injuryScratchBuffer, 0, partCount);
 
+            // Scratch buffers for workspace data
             var flags = workspace.Flags;
             var healths = workspace.HealthFractions;
             var effs = workspace.EfficiencyRatings;

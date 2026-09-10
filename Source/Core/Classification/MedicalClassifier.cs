@@ -382,6 +382,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
+                // Mark this pawn ID as having a broken body size getter to avoid repeated exceptions.
                 knownBrokenBodySizePawnIds.TryAdd(pawn.thingIDNumber, 0);
 
                 if (UnityData.IsInMainThread)
@@ -637,6 +638,9 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Clears all static caches and reinitializes metabolic organs.
+        /// </summary>
         public static void ClearStaticCaches()
         {
             extensionCache.Clear();

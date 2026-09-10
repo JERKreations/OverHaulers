@@ -1,0 +1,3 @@
+Compiled `OverHaulers.dll` for respective Rimworld version goes here.
+
+You can safely delete this .txt file.

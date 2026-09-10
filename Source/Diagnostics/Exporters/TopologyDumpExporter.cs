@@ -21,6 +21,14 @@ namespace OverHaulers
 
         #region 2. PRIMARY EXPORT ENTRY POINT
 
+        /// <summary>
+        /// Exports a topology dump for the specified settings, scope, format, and test subject.
+        /// </summary>
+        /// <param name="settings">The export settings to use.</param>
+        /// <param name="scope">The scope determining which bodies to include in the dump.</param>
+        /// <param name="format">The format of the export (text or XML).</param>
+        /// <param name="subject">The test subject entry, if any, to focus the dump on.</param>
+        /// <returns>The path to the exported topology dump file, or null if the export failed.</returns>
         public static string ExportTopologyDump(
             Settings settings, 
             DumpScope scope, 
@@ -70,6 +78,16 @@ namespace OverHaulers
 
         #region 3. TEXT SERIALIZATION ENGINE
 
+        /// <summary>
+        /// Exports the topology information in a human-readable text format.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to append the exported text to.</param>
+        /// <param name="settings">The export settings to use.</param>
+        /// <param name="scope">The scope determining which bodies to include in the dump.</param>
+        /// <param name="timestamp">The timestamp of the export.</param>
+        /// <param name="subject">The test subject entry, if any, to focus the dump on.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
+        /// <param name="allPawnThings">The list of all available pawn things to reference in the dump.</param>
         private static void ExportTopologyText(
             StringBuilder builder,
             Settings settings,
@@ -146,6 +164,16 @@ namespace OverHaulers
 
         #region 4. XML SERIALIZATION ENGINE
 
+        /// <summary>
+        /// Exports the topology information in XML format.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to append the exported XML to.</param>
+        /// <param name="settings">The export settings to use.</param>
+        /// <param name="scope">The scope determining which bodies to include in the dump.</param>
+        /// <param name="timestamp">The timestamp of the export.</param>
+        /// <param name="subject">The test subject entry, if any, to focus the dump on.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
+        /// <param name="allPawnThings">The list of all available pawn things to reference in the dump.</param>
         private static void ExportTopologyXml(
             StringBuilder builder,
             Settings settings,

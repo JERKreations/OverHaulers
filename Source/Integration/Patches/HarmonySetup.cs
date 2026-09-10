@@ -49,6 +49,11 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Installs safety patches for the main menu, ensuring that critical game components like UniqueIDsManager, TickManager, and
+        ///  FactionManager have fallback mechanisms in place to prevent errors during early game initialization.
+        /// </summary>
+        /// <param name="harmony">The active Harmony instance used to apply the safety patches.</param>
         private static void InstallMainMenuSafetyPatches(Harmony harmony)
         {
             try
@@ -115,6 +120,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Installs cache invalidation patches for various pawn-related events, ensuring that cached data is properly updated when changes occur.
+        /// </summary>
+        /// <param name="harmony">The active Harmony instance used to apply the cache invalidation patches.</param>
         private static void InstallInvalidationPatches(Harmony harmony)
         {
             try
@@ -173,12 +182,21 @@ namespace OverHaulers
 
     #region 2. MAIN MENU SAFETY PATCHES
 
+    /// <summary>
+    /// Provides safety patches for the main menu, ensuring that critical game components have fallback mechanisms to prevent errors during early
+    ///  game initialization.
+    /// </summary>
     public static class MainMenuSafetyPatches
     {
         private static UniqueIDsManager fallbackUniqueIDsManager;
         private static TickManager fallbackTickManager;
         private static FactionManager fallbackFactionManager;
 
+        /// <summary>
+        /// Provides a prefix patch for UniqueIDsManager, returning a fallback instance if the game is not yet initialized.
+        /// </summary>
+        /// <param name="__result">The result of the UniqueIDsManager instance, either the fallback or the actual game instance.</param>
+        /// <returns>False if the fallback instance is used, true otherwise.</returns>
         public static bool UniqueIDsManager_Prefix(ref UniqueIDsManager __result)
         {
             if (Current.Game == null)
@@ -190,6 +208,11 @@ namespace OverHaulers
             return true;
         }
 
+        /// <summary>
+        /// Provides a prefix patch for TickManager, returning a fallback instance if the game is not yet initialized.
+        /// </summary>
+        /// <param name="__result">The result of the TickManager instance, either the fallback or the actual game instance.</param>
+        /// <returns>False if the fallback instance is used, true otherwise.</returns>
         public static bool TickManager_Prefix(ref TickManager __result)
         {
             if (Current.Game == null)
@@ -201,6 +224,11 @@ namespace OverHaulers
             return true;
         }
 
+        /// <summary>
+        /// Provides a prefix patch for FactionManager, returning a fallback instance if the game is not yet initialized.
+        /// </summary>
+        /// <param name="__result">The result of the FactionManager instance, either the fallback or the actual game instance.</param>
+        /// <returns>False if the fallback instance is used, true otherwise.</returns>
         public static bool FactionManager_Prefix(ref FactionManager __result)
         {
             if (Current.Game == null)
@@ -212,18 +240,35 @@ namespace OverHaulers
             return true;
         }
 
+        /// <summary>
+        /// Provides a prefix patch for checking state changes on pawns, bypassing the check for the sandbox dummy pawn.
+        /// </summary>
+        /// <param name="___pawn">The pawn being checked for state changes.</param>
+        /// <returns>False if the pawn is the sandbox dummy pawn, true otherwise.</returns>
         public static bool CheckForStateChange_Prefix(Pawn ___pawn)
         {
             if (___pawn != null && ___pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId) return false; 
             return true;
         }
 
+        /// <summary>
+        /// Provides a prefix patch for the Pawn.Kill method, bypassing the kill operation for the sandbox dummy pawn.
+        /// </summary>
+        /// <param name="__instance">The pawn instance being killed.</param>
+        /// <returns>False if the pawn is the sandbox dummy pawn, true otherwise.</returns>
         public static bool Pawn_Kill_Prefix(Pawn __instance)
         {
             if (__instance != null && __instance.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId) return false; 
             return true;
         }
 
+        /// <summary>
+        /// Provides a finalizer patch for the HealthScale property, rescuing the base health scale for the sandbox dummy pawn if an exception occurs.
+        /// </summary>
+        /// <param name="__exception">The exception thrown during the original method execution, if any.</param>
+        /// <param name="__instance">The pawn instance whose health scale is being evaluated.</param>
+        /// <param name="__result">The result of the health scale calculation, which may be overridden in case of an exception.</param>
+        /// <returns>Null if the exception is handled and suppressed, otherwise the original exception.</returns>
         public static Exception HealthScale_Finalizer(Exception __exception, Pawn __instance, ref float __result)
         {
             if (__instance != null && __instance.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
@@ -242,6 +287,10 @@ namespace OverHaulers
         /// Catches and suppresses third-party postfix crashes (e.g. VEF Animal Genes) during
         /// dummy pawn evaluation on the Main Menu, rescuing the successfully calculated base result.
         /// </summary>
+        /// <param name="__exception">The exception thrown during the original method execution, if any.</param>
+        /// <param name="req">The StatRequest being evaluated.</param>
+        /// <param name="__result">The result of the stat calculation, which may be overridden in case of an exception.</param>
+        /// <returns>Null if the exception is handled and suppressed, otherwise the original exception.</returns>
         public static Exception StatWorker_GetValueUnfinalized_Finalizer(Exception __exception, StatRequest req, ref float __result)
         {
             if (__exception != null && ModpackBaselineCalibration.IsResolvingBaseline)
@@ -260,8 +309,21 @@ namespace OverHaulers
 
     #region 3. HARMONY PATCH DRIVER
 
+    /// <summary>
+    /// Provides a bridge for direct postfix patching, allowing the integration pipeline to handle mass utility capacity calculations for pawns.
+    /// </summary>
     public static class DirectPatchBridge
     {
+        /// <summary>
+        /// Postfix patch for mass utility capacity calculations.
+        /// </summary>
+        /// <param name="p">The pawn whose mass utility capacity is being evaluated.</param>
+        /// <param name="__result">The result of the mass utility capacity calculation, which may be modified by the integration pipeline.</param>
+        /// <param name="explanation">A StringBuilder containing the explanation for the mass utility capacity calculation.</param>
+        /// <remarks>
+        /// This method is intended to be used as a postfix patch in Harmony, allowing the integration pipeline to intervene after the original
+        ///  mass utility capacity calculation.
+        /// </remarks>
         public static void Postfix(Pawn p, ref float __result, System.Text.StringBuilder explanation)
         {
             if (p == null) return;

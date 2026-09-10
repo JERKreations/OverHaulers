@@ -53,6 +53,7 @@ namespace OverHaulers
                 return false;
             }
 
+            // 3. Attempt to resolve the StatDef by its name in the current session
             resolvedStat = DefDatabase<StatDef>.GetNamedSilentFail(statDefName);
             return resolvedStat != null;
         }

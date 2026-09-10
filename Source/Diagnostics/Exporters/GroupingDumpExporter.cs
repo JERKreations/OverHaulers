@@ -24,6 +24,15 @@ namespace OverHaulers
 
         #region 2. PRIMARY EXPORT ENTRY POINT
 
+        /// <summary>
+        /// Exports a diagnostic dump of body part groupings, nested hierarchy trees, load-bearing weight shares, applied pathology/prosthetics,
+        ///  systemic athletic capacities, and simulated InfoCards for the specified subject or scope.
+        /// </summary>
+        /// <param name="settings">The export settings to be used.</param>
+        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="format">The format of the export file (text or XML).</param>
+        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
+        /// <returns>The full path to the export file that was written.</returns>
         public static string ExportGroupingDump(
             Settings settings, 
             DumpScope scope, 
@@ -73,6 +82,16 @@ namespace OverHaulers
 
         #region 3. TEXT SERIALIZATION ENGINE
 
+        /// <summary>
+        /// Exports the body part grouping and related diagnostic information in plain text format.
+        /// </summary>
+        /// <param name="builder">The StringBuilder used to construct the text output.</param>
+        /// <param name="settings">The export settings to be used.</param>
+        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="timestamp">The timestamp of the export.</param>
+        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
+        /// <param name="allPawnThings">The list of all pawn things relevant to the dump.</param>
         private static void ExportGroupingText(
             StringBuilder builder,
             Settings settings,
@@ -231,6 +250,16 @@ namespace OverHaulers
 
         #region 4. XML SERIALIZATION ENGINE
 
+        /// <summary>
+        /// Exports the body part grouping and related diagnostic information in XML format.
+        /// </summary>
+        /// <param name="builder">The StringBuilder used to construct the XML output.</param>
+        /// <param name="settings">The export settings to be used.</param>
+        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="timestamp">The timestamp of the export.</param>
+        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
+        /// <param name="allPawnThings">The list of all pawn things relevant to the dump.</param>
         private static void ExportGroupingXml(
             StringBuilder builder,
             Settings settings,
@@ -332,6 +361,11 @@ namespace OverHaulers
         /// Populates a MassCapacityModel for diagnostic exports.
         /// Protects the active interactive TestBench session by evaluating non-active subjects inside an isolated ephemeral harness.
         /// </summary>
+        /// <param name="evalSubject">The test subject being evaluated.</param>
+        /// <param name="settings">The export settings to be used.</param>
+        /// <param name="cleanBaseline">The resolved clean baseline mass capacity for the subject.</param>
+        /// <param name="activeWorkspace">The active anatomical workspace used during evaluation.</param>
+        /// <returns>The populated MassCapacityModel for the given test subject.</returns>
         private static MassCapacityModel ResolveAndPopulateDiagnosticModel(
             TestSubjectEntry evalSubject,
             Settings settings,
@@ -378,6 +412,13 @@ namespace OverHaulers
 
         #region 6. TREE PARSING & ANOMALY SCANNER HELPERS
 
+        /// <summary>
+        /// Recursively dumps the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
+        ///  any anomalies.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the sub-part details will be appended.</param>
+        /// <param name="subParts">The list of sub-parts to be dumped.</param>
+        /// <param name="depth">The current depth in the body part hierarchy, used for indentation.</param>
         private static void DumpSubPartsRecursive(StringBuilder builder, List<PartViewNode> subParts, int depth)
         {
             if (subParts == null || subParts.Count == 0) return;
@@ -402,6 +443,11 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Builds a textual representation of the condition tags for the given body part node.
+        /// </summary>
+        /// <param name="node">The body part node for which to build the condition tags.</param>
+        /// <returns>A string containing the condition tags for the body part, or an empty string if there are none.</returns>
         private static string BuildTextConditionTag(PartViewNode node)
         {
             if (node == null) return string.Empty;
@@ -444,6 +490,11 @@ namespace OverHaulers
             return " [" + string.Join(", ", tags) + "]";
         }
 
+        /// <summary>
+        /// Builds a textual representation of the channel details (prosthetic, athletic, and health offsets) for the given body part node.
+        /// </summary>
+        /// <param name="node">The body part node for which to build the channel details.</param>
+        /// <returns>A string containing the channel details for the body part, or an empty string if there are none.</returns>
         private static string BuildTextChannelDetails(PartViewNode node)
         {
             if (node == null) return string.Empty;
@@ -462,6 +513,13 @@ namespace OverHaulers
             return $" ({string.Join(", ", channelBreakdowns)})";
         }
 
+        /// <summary>
+        /// Recursively dumps the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
+        ///  any anomalies.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the XML representation of the sub-parts will be appended.</param>
+        /// <param name="subParts">The list of sub-part nodes to be dumped.</param>
+        /// <param name="indentSpaces">The number of spaces to use for indentation in the XML output.</param>
         private static void DumpSubPartsXmlRecursive(StringBuilder builder, List<PartViewNode> subParts, int indentSpaces)
         {
             if (subParts == null || subParts.Count == 0) return;
@@ -536,6 +594,16 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Resolves the appropriate evaluation subject for the given scope, body, and available pawn things. If the scope is set to the
+        ///  selected subject and a subject is provided, it returns that subject; otherwise, it selects a sample pawn thing matching the body
+        ///  and constructs a new TestSubjectEntry.
+        /// </summary>
+        /// <param name="scope">The scope determining whether to use the selected subject or a sample pawn thing.</param>
+        /// <param name="subject">The currently selected test subject, if any.</param>
+        /// <param name="body">The body definition to match when selecting a sample pawn thing.</param>
+        /// <param name="allPawnThings">The list of all available pawn things to choose from.</param>
+        /// <returns>The resolved TestSubjectEntry based on the provided scope and available pawn things.</returns>
         private static TestSubjectEntry ResolveEvaluationSubject(
             DumpScope scope, 
             TestSubjectEntry subject, 
@@ -560,6 +628,13 @@ namespace OverHaulers
             );
         }
 
+        /// <summary>
+        /// Detects topological anomalies in the given species topology template and mass capacity model for the specified body.
+        /// </summary>
+        /// <param name="template">The species topology template to analyze.</param>
+        /// <param name="body">The body definition associated with the template.</param>
+        /// <param name="model">The mass capacity model to check for anomalies.</param>
+        /// <returns>A list of strings describing any detected topological anomalies.</returns>
         private static List<string> DetectTopologicalAnomalies(SpeciesTopologyTemplate template, BodyDef body, MassCapacityModel model)
         {
             List<string> anomalies = new List<string>();

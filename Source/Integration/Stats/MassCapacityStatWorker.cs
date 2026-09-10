@@ -15,6 +15,11 @@ namespace OverHaulers
     {
         #region STAT VISIBILITY GATE
 
+        /// <summary>
+        /// Determines whether the mass capacity stat should be shown for the given stat request.
+        /// </summary>
+        /// <param name="req">The stat request containing the context for which the visibility is being determined.</param>
+        /// <returns>True if the mass capacity stat should be shown; otherwise, false.</returns>
         public override bool ShouldShowFor(StatRequest req)
         {
             if (!(IntegrationPipeline.ActiveDriver is VanillaStatDriver))
@@ -33,6 +38,12 @@ namespace OverHaulers
 
         #region STAT VALUE EVALUATION
 
+        /// <summary>
+        /// Calculates the unfinalized mass capacity value for the given stat request, taking into account the OverHaulers breakdown.
+        /// </summary>
+        /// <param name="req">The stat request containing the pawn for which the value is being calculated.</param>
+        /// <param name="applyPostProcess">Indicates whether post-processing should be applied to the calculated value.</param>
+        /// <returns>The unfinalized mass capacity value for the specified pawn.</returns>
         public override float GetValueUnfinalized(StatRequest req, bool applyPostProcess = true)
         {
             if (req.HasThing && req.Thing is Pawn pawn)
@@ -64,6 +75,7 @@ namespace OverHaulers
         {
             if (req.HasThing && req.Thing is Pawn pawn)
             {
+                // Ingress Gate: Completely skip non-caravan species during live play
                 if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
                 {
                     return string.Empty;
@@ -90,6 +102,11 @@ namespace OverHaulers
 
         #region INFOCARD HYPERLINKS
 
+        /// <summary>
+        /// Retrieves the hyperlinks to the info card for the specified pawn, allowing users to quickly navigate to related information.
+        /// </summary>
+        /// <param name="req">The stat request containing the pawn for which the info card hyperlinks are being retrieved.</param>
+        /// <returns>An enumerable of Dialog_InfoCard.Hyperlink objects related to the specified pawn.</returns>
         public override IEnumerable<Dialog_InfoCard.Hyperlink> GetInfoCardHyperlinks(StatRequest req)
         {
             return HyperlinkUtility.ResolveHyperlinks(req);

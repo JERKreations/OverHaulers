@@ -289,7 +289,7 @@ namespace OverHaulers
             // negative deltas indicate deficits that reduce capacity.
             if (context.EnableAthletics)
             {
-                // 1. Breathing Delta
+                // 1. Positive and Negative Breathing Delta
                 float deltaBreath = context.SnappedBreathing - 1.0f;
                 if (deltaBreath > 0f)
                 {
@@ -305,7 +305,7 @@ namespace OverHaulers
                     legNegativeDelta += neg * context.LegDeficitBreathing;
                 }
 
-                // 2. Blood Pumping Delta
+                // 2. Positive and Negative Blood Pumping Delta
                 float deltaBlood = context.SnappedBloodPumping - 1.0f;
                 if (deltaBlood > 0f)
                 {
@@ -321,7 +321,7 @@ namespace OverHaulers
                     legNegativeDelta += neg * context.LegDeficitBlood;
                 }
 
-                // 3. Moving Delta (Kinetic Chain Cascade)
+                // 3. Positive and Negative Moving Delta (Kinetic Chain Cascade)
                 float deltaMove = context.SnappedMoving - 1.0f;
                 if (deltaMove > 0f)
                 {
@@ -337,7 +337,7 @@ namespace OverHaulers
                     legNegativeDelta += neg * context.LegDeficitMoving;
                 }
 
-                // 4. Manipulation Delta (Bilateral Synergy)
+                // 4. Positive and Negative Manipulation Delta (Bilateral Synergy)
                 float deltaManip = context.SnappedManipulation - 1.0f;
                 if (deltaManip > 0f)
                 {
@@ -354,6 +354,7 @@ namespace OverHaulers
                 }
             }
 
+            // 5. Dual Limb Contributions (Averaged for Symmetry)
             float dualPositiveDelta = (armPositiveDelta + legPositiveDelta) * 0.5f;
             float dualNegativeDelta = (armNegativeDelta + legNegativeDelta) * 0.5f;
 
@@ -367,6 +368,7 @@ namespace OverHaulers
             {
                 PartType type = partTypes[i];
 
+                // Skip non-contributing parts (e.g., head or undefined)
                 if (type == PartType.None || type == PartType.HeadPart) 
                     continue;
 
@@ -398,7 +400,10 @@ namespace OverHaulers
                 {
                     if (context.EnableProsthetics)
                     {
+                        // Retrieve the efficiency of the added prosthetic part
                         float efficiency = effs[i];
+
+                        // Branch A: Positive Prosthetic Delta (Efficiency Boost)
                         if (efficiency > 1.0f)
                         {
                             float efficiencyBoost = efficiency - 1.0f;
@@ -409,6 +414,7 @@ namespace OverHaulers
 
                             calculatedProsthetic = partNormalizedWeight * efficiencyBoost * context.ProstheticAnchorScale * symmetryMultiplier;
                         }
+                        // Branch B: Negative Prosthetic Delta (Efficiency Deficit)
                         else if (efficiency < 1.0f)
                         {
                             float efficiencyDeficit = 1.0f - efficiency;
@@ -429,6 +435,7 @@ namespace OverHaulers
                     float regionalPositiveDelta = 0f;
                     float regionalNegativeDelta = 0f;
 
+                    // Determine regional positive and negative deltas based on part type
                     switch (type)
                     {
                         case PartType.CorePart:
@@ -448,12 +455,13 @@ namespace OverHaulers
                             regionalNegativeDelta = dualNegativeDelta;
                             break;
                     }
-
+                    // Apply regional positive delta if applicable
                     if (regionalPositiveDelta > 0f && !hasAddedPart)
                     {
                         calculatedAthletic += partNormalizedWeight * regionalPositiveDelta * context.AthleticAnchorScale;
                     }
 
+                    // Apply regional negative delta if applicable
                     if (regionalNegativeDelta > 0f)
                     {
                         calculatedAthletic -= partPlayableBudget * regionalNegativeDelta * context.AthleticScalingMultiplier;
@@ -525,6 +533,8 @@ namespace OverHaulers
                 if (calcAthletics[i] < 0f) partNegative += Math.Abs(calcAthletics[i]);
                 if (calcHealths[i] < 0f) partNegative += Math.Abs(calcHealths[i]);
 
+                // At this point, partPositive and partNegative have been calculated for the current part, so we distribute the negative
+                //  contributions to the appropriate regional deficits based on part type.
                 switch (type)
                 {
                     case PartType.CorePart:
@@ -607,11 +617,12 @@ namespace OverHaulers
         /// </remarks>
         public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
         {
+            // If the compatibility safety floor setting is disabled, bypass the safety floor enforcement.
             if (OverHaulers.settings != null && !OverHaulers.settings.compatibilitySafetyFloor)
             {
                 return finalCapacity;
             }
-            
+            // If the safety floor enforcement is enabled, check against the minimum threshold and clamp if necessary.
             if (finalCapacity < 0.01f)
             {
                 float clampedValue = 0.01f;

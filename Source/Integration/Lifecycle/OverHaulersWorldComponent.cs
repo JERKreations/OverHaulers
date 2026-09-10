@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
@@ -54,6 +53,7 @@ namespace OverHaulers
         /// per-species data lazily and aren't guaranteed ready on that first tick - a short delay lets them settle
         /// before we pre-calibrate against them, avoiding species being misclassified as needing live-pawn rescue.
         /// </summary>
+        /// <param name="currentTick">The current game tick used to determine if the deferred calibration sweep should run.</param>
         private void MaybeRunDeferredCalibrationSweep(int currentTick)
         {
             if (isCalibrationSweepDone || coreInitializedTick < 0) return;
@@ -112,6 +112,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Evaluates a pawn for warmup, pre-populating the mass snapshot cache if the pawn is capable of carrying caravan mass.
+        /// </summary>
+        /// <param name="pawn">The pawn to evaluate for warmup.</param>
         private void EvaluatePawnForWarmup(Pawn pawn)
         {
             if (pawn != null && PawnDataRegistry.CanCarryCaravanMass(pawn))
@@ -121,6 +125,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Performs periodic updates for the world component, including deferred calibration sweeps and performance telemetry reporting.
+        /// </summary>
+        /// <remarks>
+        /// This method is called once per game tick and is responsible for ensuring that the world component remains up-to-date.
+        /// It handles deferred calibration sweeps for pawns and updates the performance telemetry at specified intervals.
+        /// </remarks>
         public override void WorldComponentTick()
         {
             base.WorldComponentTick();
@@ -142,6 +153,7 @@ namespace OverHaulers
                     ? OverHaulers.settings.ReportMetricsIntervalTicks 
                     : SettingsDefaults.ReportMetricsIntervalHours * GenDate.TicksPerHour;
 
+                // Check if it's time to report performance telemetry based on the configured interval.
                 if (intervalTicks > 0)
                 {
                     if (currentTick - lastReportTick >= intervalTicks || currentTick < lastReportTick)
@@ -154,6 +166,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Exposes the data for saving and loading, including the last report tick.
+        /// </summary>
+        /// <remarks>
+        /// This method is called by the RimWorld save/load system to persist the state of the world component.
+        /// It ensures that the last report tick is correctly saved and restored across game sessions.
+        /// </remarks>
         public override void ExposeData()
         {
             base.ExposeData();

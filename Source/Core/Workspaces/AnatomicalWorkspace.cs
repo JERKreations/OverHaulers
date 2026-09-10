@@ -112,6 +112,10 @@ namespace OverHaulers
             AllocateArrays(initialCapacity);
         }
 
+        /// <summary>
+        /// Allocates the internal arrays for the workspace based on the specified capacity.
+        /// </summary>
+        /// <param name="capacity">The number of part slots to allocate for the workspace.</param>
         private void AllocateArrays(int capacity)
         {
             healthFractions = new float[capacity];
@@ -200,6 +204,7 @@ namespace OverHaulers
                     ? Math.Max(SettingsDefaults.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount)
                     : healthFractions.Length;
                 
+                // Double the target size until it meets or exceeds the required layout size.
                 while (targetSize < layoutSize)
                 {
                     targetSize *= 2;
