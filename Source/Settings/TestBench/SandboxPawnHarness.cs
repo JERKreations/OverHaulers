@@ -78,11 +78,6 @@ namespace OverHaulers
         protected Pawn sourcePawn;
         protected TestSubjectEntry boundSubject;
 
-        /// <summary>
-        /// When true, replacing a parent joint (e.g., Bionic Arm) cascades prosthetic efficiencies down child segments.
-        /// </summary>
-        public bool CascadeToChildren { get; set; } = true;
-
         /// <summary>Simulated replacement modifications (Prosthetics/Amputations/Trauma) indexed by target BodyPartRecord.</summary>
         public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas = 
             new Dictionary<BodyPartRecord, SimulatedModification>();
@@ -115,8 +110,12 @@ namespace OverHaulers
         #region 4. CONSTRUCTOR & SUBJECT BINDING
 
         /// <summary>
-        /// Initializes a new instance of <see cref="SandboxPawnHarness"/>.
+        /// Initializes a new instance of the <see cref="SandboxPawnHarness"/> class.
         /// </summary>
+        /// <remarks>
+        /// The constructor does not automatically bind a test subject or create a sandbox pawn.
+        /// Use <see cref="BindSubject"/> to initialize the harness with a specific test subject.
+        /// </remarks>
         public SandboxPawnHarness()
         {
         }
@@ -159,6 +158,10 @@ namespace OverHaulers
             try
             {
                 #region 5A. Raw Pawn Shell Allocation & Tracker Creation
+                // This section handles the raw allocation of the sandbox pawn shell and the creation of essential trackers.
+                // It ensures that the sandbox pawn is properly instantiated with the correct race, kind, gender, and faction.
+                // Physiological, needs, and equipment trackers are initialized to prevent null reference issues during testing.
+
                 // 1. Direct Instantiation: Bypasses ThingMaker.MakeThing / ThingIDMaker.GiveIDTo (Safe on Main Menu)
                 sandboxPawn = (Pawn)Activator.CreateInstance(raceDef.thingClass);
                 sandboxPawn.def = raceDef;
@@ -204,9 +207,13 @@ namespace OverHaulers
                     sandboxPawn.mindState = mindState;
                 }
                 catch { }
+
                 #endregion
 
                 #region 5B. Life-Stage & Backing-Field Pinning
+                // This section ensures that the sandbox pawn's age and life stage are correctly initialized.
+                // It calculates the appropriate biological and chronological ticks based on the source pawn or defaults to adult values.
+
                 List<LifeStageAge> lifeStageAges = raceDef.race?.lifeStageAges;
                 int adultStageIdx = (lifeStageAges != null && lifeStageAges.Count > 0) ? (lifeStageAges.Count - 1) : 0;
                 float adultAgeYears = (lifeStageAges != null && lifeStageAges.Count > 0) ? lifeStageAges[adultStageIdx].minAge : 20f;
@@ -220,10 +227,14 @@ namespace OverHaulers
                 SafeSetField(sandboxPawn.ageTracker, "birthAbsTicksInt", -targetChronoTicks);
                 SafeSetField(sandboxPawn.ageTracker, "cachedLifeStageIndex", targetStageIdx);
                 SafeSetField(sandboxPawn.ageTracker, "curLifeStageIndex", targetStageIdx);
+
                 #endregion
 
                 #region 5C. Story & Biotech Gene Tracking
-                // Initialize Story Tracker (Humanoids only)
+                // This section initializes the sandbox pawn's story tracker for humanoid pawns and sets up biotech gene tracking if the Biotech
+                //  mod is active.
+                // It ensures that body type, head type, xenotype, and genes are correctly copied from the source pawn when available.
+
                 if (raceDef.race != null && raceDef.race.Humanlike && sandboxPawn.story == null)
                 {
                     sandboxPawn.story = new Pawn_StoryTracker(sandboxPawn);
@@ -280,9 +291,13 @@ namespace OverHaulers
                         }
                     }
                 }
+
                 #endregion
 
                 #region 5D. Authentic Hediff Graph Synchronization
+                // This section ensures that the sandbox pawn's health state mirrors the source pawn's authentic hediff graph.
+                // Any missing body parts or hediffs are handled gracefully, and the health cache is marked dirty after synchronization.
+
                 SyncHediffsFromSource();
                 #endregion
             }
@@ -297,6 +312,10 @@ namespace OverHaulers
         /// Synchronizes the sandbox pawn's health with the source colonist's authentic hediff graph.
         /// If the harness is bound to a generic species archetype, clears all hediffs to pristine health.
         /// </summary>
+        /// <remarks>
+        /// This method ensures that the sandbox pawn's health state mirrors that of the source pawn.
+        /// Any missing body parts or hediffs are handled gracefully, and the health cache is marked dirty after synchronization.
+        /// </remarks>
         public void SyncHediffsFromSource()
         {
             if (sandboxPawn?.health?.hediffSet == null) return;
@@ -341,6 +360,14 @@ namespace OverHaulers
             DirtySandboxHealthCache();
         }
 
+        /// <summary>
+        /// Safely sets the value of a specified field on the target object using reflection, handling any exceptions that may occur.
+        /// </summary>
+        /// <typeparam name="TTarget">The type of the target object on which the field is to be set.</typeparam>
+        /// <typeparam name="TVal">The type of the value to be assigned to the field.</typeparam>
+        /// <param name="target">The target object on which to set the field value.</param>
+        /// <param name="fieldName">The name of the field to set.</param>
+        /// <param name="value">The value to assign to the specified field.</param>
         protected static void SafeSetField<TTarget, TVal>(TTarget target, string fieldName, TVal value) where TTarget : class
         {
             if (target == null) return;
@@ -355,6 +382,11 @@ namespace OverHaulers
             catch { }
         }
 
+        /// <summary>
+        /// Calculates the depth of the specified body part within the hierarchy of the pawn's body.
+        /// </summary>
+        /// <param name="part">The BodyPartRecord for which to calculate the depth.</param>
+        /// <returns>An integer representing the depth of the body part within the hierarchy, with root parts having a depth of 0.</returns>
         private static int GetPartDepth(BodyPartRecord part)
         {
             if (part == null) return -1;
@@ -368,6 +400,11 @@ namespace OverHaulers
             return depth;
         }
 
+        /// <summary>
+        /// Resolves the appropriate PawnKindDef for the specified race, falling back to a default colonist kind if necessary.
+        /// </summary>
+        /// <param name="raceDef">The ThingDef representing the race for which to resolve the PawnKindDef.</param>
+        /// <returns>The resolved PawnKindDef for the specified race, or a default colonist kind if no specific kind is found.</returns>
         private static PawnKindDef ResolvePawnKindForRace(ThingDef raceDef)
         {
             if (raceDef == null) return PawnKindDefOf.Colonist ?? DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist");
@@ -397,10 +434,19 @@ namespace OverHaulers
         #region 6. NATIVE SURGICAL MUTATION PIPELINE
 
         #region 6A. Artificial Replacement Procedures
+
         /// <summary>
         /// Simulates installing an artificial prosthetic or bionic replacement onto a specific BodyPartRecord.
         /// Flushes existing socket conflicts, then cleanly installs the genuine Hediff.
         /// </summary>
+        /// <param name="part">The BodyPartRecord representing the part to simulate replacement on.</param>
+        /// <param name="recipe">The RecipeDef representing the replacement procedure.</param>
+        /// <param name="hediff">The HediffDef representing the replacement to be installed.</param>
+        /// <param name="label">The display label for the replacement operation.</param>
+        /// <param name="efficiency">The efficiency value for the replacement operation.</param>
+        /// <remarks>
+        /// This method ensures that any existing conflicting implants or replacements are removed before installing the new replacement.
+        /// </remarks>
         public void SimulateReplacement(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label, float efficiency)
         {
             if (sandboxPawn?.health == null || part == null || hediff == null) return;
@@ -436,13 +482,19 @@ namespace OverHaulers
 
             DirtySandboxHealthCache();
         }
+
         #endregion
 
         #region 6B. Destructive Amputation & Trauma Simulation
+
         /// <summary>
         /// Simulates a surgical amputation or permanent limb loss (0% HP) on the sandbox pawn.
         /// Strictly reserved for structural appendages (Arms, Legs, Hands, Feet, Dual Limbs).
         /// </summary>
+        /// <param name="part">The BodyPartRecord representing the part to simulate amputation on.</param>
+        /// <remarks>
+        /// This method ensures that the specified part is cleanly removed and marked as missing, simulating a surgical amputation.
+        /// </remarks>
         public void SimulateAmputation(BodyPartRecord part)
         {
             if (sandboxPawn?.health == null || part == null) return;
@@ -475,6 +527,10 @@ namespace OverHaulers
         /// Simulates severe structural trauma leaving exactly 1 HP remaining on non-limb bones, craniums, and organs.
         /// Skips zero-coverage virtual anchor parts (e.g. Waist / apparel hooks) to prevent vanilla hit-validation errors.
         /// </summary>
+        /// <param name="part">The BodyPartRecord representing the part to simulate severe trauma on.</param>
+        /// <remarks>
+        /// This method ensures that the part is left with exactly 1 HP, simulating severe trauma without causing immediate destruction.
+        /// </remarks>
         public void SimulateSevereTrauma(BodyPartRecord part)
         {
             // BREAKPOINT ANCHOR: Null & Zero-Coverage Part Guard
@@ -518,12 +574,21 @@ namespace OverHaulers
 
             DirtySandboxHealthCache();
         }
+
         #endregion
 
         #region 6C. Localized Implants & Systemic Drugs
+
         /// <summary>
-        /// Simulates adding a non-replacing localized implant (e.g. Glands, Ribs) onto the sandbox pawn.
+        /// Simulates adding a non-replacing localized implant (e.g., Glands, Ribs) onto the sandbox pawn.
         /// </summary>
+        /// <param name="part">The BodyPartRecord where the implant will be added.</param>
+        /// <param name="recipe">The RecipeDef representing the implant procedure.</param>
+        /// <param name="hediff">The HediffDef representing the implant to be added.</param>
+        /// <param name="label">The display label for the implant operation.</param>
+        /// <remarks>
+        /// This method ensures that the implant is added only if the part is healthy or has been restored from trauma.
+        /// </remarks>
         public void SimulateAddImplant(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label)
         {
             if (sandboxPawn?.health == null || part == null || hediff == null) return;
@@ -565,6 +630,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Removes a simulated localized implant from the sandbox pawn.
+        /// --- Reserved for granular implant removal, maybe ---
         /// </summary>
         public void SimulateRemoveImplant(BodyPartRecord part, HediffDef hediff)
         {

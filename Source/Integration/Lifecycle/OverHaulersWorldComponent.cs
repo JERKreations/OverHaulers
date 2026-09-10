@@ -39,7 +39,7 @@ namespace OverHaulers
             MedicalRecipeCatalog.InitializeCatalog();
 
             // 4. Reset dynamic baseline calibrations (batch sweep itself is deferred - see MaybeRunDeferredCalibrationSweep)
-            ModpackBaselineCalibration.Reset();
+            SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = Find.TickManager?.TicksGame ?? 0;
 
@@ -64,7 +64,7 @@ namespace OverHaulers
             isCalibrationSweepDone = true;
 
             // BATCH PRE-CALIBRATION SWEEP: Pre-calibrate caravan species ThingDefs in one fast sweep
-            ModpackBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "World Load");
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "World Load");
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
             WarmupActivePawns();

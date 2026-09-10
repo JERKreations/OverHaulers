@@ -80,15 +80,15 @@
   <!-- ========================================================================= -->
   <!-- [SEC-11.E] UNIVERSAL SANDBOX SURGERY & PLANNER CONTROLS                   -->
   <!-- ========================================================================= -->
-  <OverHaulers_Duplicate_SearchPlaceholder>Search body parts (e.g. spine, arm, foot)...</OverHaulers_Duplicate_SearchPlaceholder>
-  <OverHaulers_Duplicate_AddDrug>[+] Add Condition ▼</OverHaulers_Duplicate_AddDrug>
-  <OverHaulers_Duplicate_ExpandAll>Expand</OverHaulers_Duplicate_ExpandAll>
-  <OverHaulers_Duplicate_CollapseAll>Collapse</OverHaulers_Duplicate_CollapseAll>
+  <OverHaulers_Sandbox_SearchPlaceholder>Search body parts (e.g. spine, arm, foot)...</OverHaulers_Sandbox_SearchPlaceholder>
+  <OverHaulers_Sandbox_AddDrug>[+] Add Condition ▼</OverHaulers_Sandbox_AddDrug>
+  <OverHaulers_Sandbox_ExpandAll>Expand</OverHaulers_Sandbox_ExpandAll>
+  <OverHaulers_Sandbox_CollapseAll>Collapse</OverHaulers_Sandbox_CollapseAll>
   
-  <OverHaulers_Duplicate_RevertLive>Reset to Live State</OverHaulers_Duplicate_RevertLive>
-  <OverHaulers_Duplicate_RevertBaseline>Reset to Baseline</OverHaulers_Duplicate_RevertBaseline>
+  <OverHaulers_Sandbox_RevertLive>Reset to Live State</OverHaulers_Sandbox_RevertLive>
+  <OverHaulers_Sandbox_RevertBaseline>Reset to Baseline</OverHaulers_Sandbox_RevertBaseline>
   
-  <OverHaulers_Duplicate_OpBtn>Simulate ▼</OverHaulers_Duplicate_OpBtn>
+  <OverHaulers_Sandbox_OpBtn>Simulate ▼</OverHaulers_Sandbox_OpBtn>
   
   <!-- Single Target Operations -->
   <OverHaulers_Op_AddReplacement>[+] {0} ({1}%)</OverHaulers_Op_AddReplacement>
@@ -101,10 +101,10 @@
   <OverHaulers_Amputated>Amputated</OverHaulers_Amputated>
 
   <!-- Dynamic Group Bulk Actions -->
-  <OverHaulers_Duplicate_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0}%)</OverHaulers_Duplicate_BulkMaxUpgrade>
-  <OverHaulers_Duplicate_BulkBudgetUpgrade>Bulk: Budget / Basic ({0}%)</OverHaulers_Duplicate_BulkBudgetUpgrade>
-  <OverHaulers_Duplicate_BulkDestroy>Destroy Entire Group</OverHaulers_Duplicate_BulkDestroy>
-  <OverHaulers_Duplicate_BulkRevert>Revert Entire Group</OverHaulers_Duplicate_BulkRevert>
+  <OverHaulers_Sandbox_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0}%)</OverHaulers_Sandbox_BulkMaxUpgrade>
+  <OverHaulers_Sandbox_BulkBudgetUpgrade>Bulk: Budget / Basic ({0}%)</OverHaulers_Sandbox_BulkBudgetUpgrade>
+  <OverHaulers_Sandbox_BulkDestroy>Destroy Entire Group</OverHaulers_Sandbox_BulkDestroy>
+  <OverHaulers_Sandbox_BulkRevert>Revert Entire Group</OverHaulers_Sandbox_BulkRevert>
 
   <!-- ========================================================================= -->
   <!-- [SEC-11.F] UNIFIED DYNAMIC NODE STATUS BADGES                             -->

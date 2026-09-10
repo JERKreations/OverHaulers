@@ -21,6 +21,11 @@ namespace OverHaulers
 
         #region 2. SINGLE-PASS FLEET AGGREGATION
 
+        /// <summary>
+        /// Compiles a summary of the caravan fleet's mass capacity from a list of transferable pawns.
+        /// </summary>
+        /// <param name="transferables">The list of transferable pawns to be aggregated.</param>
+        /// <returns>A CaravanFleetSummary containing the aggregated mass capacity information for the specified transferables.</returns>
         public static CaravanFleetSummary CompileFromTransferables(List<TransferableOneWay> transferables)
         {
             CaravanFleetSummary summary = default;
@@ -60,6 +65,11 @@ namespace OverHaulers
             return summary;
         }
 
+        /// <summary>
+        /// Compiles a summary of the caravan fleet's mass capacity from a list of pawns.
+        /// </summary>
+        /// <param name="pawns">The list of pawns to be aggregated.</param>
+        /// <returns>A CaravanFleetSummary containing the aggregated mass capacity information for the specified pawns.</returns>
         public static CaravanFleetSummary CompileFromPawns(List<Pawn> pawns)
         {
             CaravanFleetSummary summary = default;
@@ -77,20 +87,25 @@ namespace OverHaulers
             return summary;
         }
 
+        /// <summary>
+        /// Aggregates the mass capacity information of a single pawn into the provided caravan fleet summary.
+        /// </summary>
+        /// <param name="pawn">The pawn whose mass capacity information is to be aggregated.</param>
+        /// <param name="summary">The caravan fleet summary to which the pawn's mass capacity information will be added.</param>
         private static void AggregatePawnIntoSummary(Pawn pawn, ref CaravanFleetSummary summary)
         {
             if (pawn == null) return;
 
-            float modpackBaseline = IntegrationPipeline.ActiveDriver != null 
+            float speciesBaseline = IntegrationPipeline.ActiveDriver != null 
                 ? IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn) 
-                : ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(pawn);
+                : SpeciesBaselineCalibration.ResolveBaseline(pawn);
 
-            if (modpackBaseline <= 0f) return;
+            if (speciesBaseline <= 0f) return;
 
-            float offset = PawnDataRegistry.GetOffset(pawn, modpackBaseline);
-            float finalCapacity = Mathf.Max(0.01f, modpackBaseline + offset);
+            float offset = PawnDataRegistry.GetOffset(pawn, speciesBaseline);
+            float finalCapacity = Mathf.Max(0.01f, speciesBaseline + offset);
 
-            summary.TotalBaseline += modpackBaseline;
+            summary.TotalBaseline += speciesBaseline;
             summary.TotalCapacity += finalCapacity;
             summary.TotalPawnCount++;
 
@@ -100,7 +115,7 @@ namespace OverHaulers
                 summary.TopContributorCapacity = finalCapacity;
             }
 
-            MassCapacityModel model = PawnDataRegistry.GetDetailedModel(pawn, modpackBaseline);
+            MassCapacityModel model = PawnDataRegistry.GetDetailedModel(pawn, speciesBaseline);
             if (model?.EvaluatedParts != null && model.EvaluatedParts.Count > 0)
             {
                 float pawnProsthetic = 0f;
@@ -143,6 +158,11 @@ namespace OverHaulers
 
         #region 3. FLEET SUMMARY EXPLANATION BUILDER
 
+        /// <summary>
+        /// Builds a textual explanation of the caravan fleet's mass capacity summary for display in the InfoCard overlay.
+        /// </summary>
+        /// <param name="summary">The caravan fleet summary to be explained.</param>
+        /// <returns>A string containing the formatted explanation of the caravan fleet's mass capacity summary.</returns>
         public static string BuildFleetExplanation(in CaravanFleetSummary summary)
         {
             if (!UnityData.IsInMainThread || summary.TotalPawnCount == 0) return string.Empty;

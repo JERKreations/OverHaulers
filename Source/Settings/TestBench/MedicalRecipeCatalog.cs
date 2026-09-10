@@ -396,6 +396,11 @@ namespace OverHaulers
             return Mathf.Max(targetSeverity, bestStage.minSeverity);
         }
 
+        /// <summary>
+        /// Determines whether the specified HediffStage causes immediate zero consciousness.
+        /// </summary>
+        /// <param name="stage">The HediffStage to evaluate for immediate zero consciousness.</param>
+        /// <returns>True if the stage causes immediate zero consciousness; otherwise, false.</returns>
         private static bool StageCausesImmediateZeroConsciousness(HediffStage stage)
         {
             if (stage?.capMods == null) return false;
@@ -418,6 +423,8 @@ namespace OverHaulers
         /// <summary>
         /// Returns a formatted display label for the condition dropdown, including stage indicators if impactful.
         /// </summary>
+        /// <param name="def">The HediffDef for which to retrieve the formatted condition label.</param>
+        /// <returns>A formatted string representing the condition label, including stage indicators if impactful.</returns>
         public static string GetFormattedConditionLabel(HediffDef def)
         {
             if (def == null) return string.Empty;
@@ -440,6 +447,8 @@ namespace OverHaulers
         /// <summary>
         /// Returns true if any replacement or implant surgeries are available for this BodyPartDef.
         /// </summary>
+        /// <param name="partDef">The BodyPartDef for which to check available operations.</param>
+        /// <returns>True if any replacement or implant surgeries are available for the specified BodyPartDef; otherwise, false.</returns>
         public static bool HasAnyOperationsFor(BodyPartDef partDef)
         {
             if (partDef == null) return false;
@@ -454,6 +463,8 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves all indexed replacement (prosthetic/bionic) operations available for a specific BodyPartDef.
         /// </summary>
+        /// <param name="partDef">The BodyPartDef for which to retrieve replacement operations.</param>
+        /// <returns>A list of all indexed replacement operations for the specified BodyPartDef, or null if none are available.</returns>
         public static List<MedicalOperationEntry> GetReplacementsFor(BodyPartDef partDef)
         {
             if (!isInitialized) InitializeCatalog();
@@ -467,6 +478,8 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves all indexed localized implant operations available for a specific BodyPartDef.
         /// </summary>
+        /// <param name="partDef">The BodyPartDef for which to retrieve implant operations.</param>
+        /// <returns>A list of all indexed implant operations for the specified BodyPartDef, or null if none are available.</returns>
         public static List<MedicalOperationEntry> GetImplantsFor(BodyPartDef partDef)
         {
             if (!isInitialized) InitializeCatalog();
@@ -480,6 +493,7 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves the list of all verified systemic drugs, stimulants, depressants, sedatives, and whole-body conditions.
         /// </summary>
+        /// <returns>A list of all verified systemic drugs, stimulants, depressants, sedatives, and whole-body conditions.</returns>
         public static List<HediffDef> GetSystemicDrugs()
         {
             if (!isInitialized) InitializeCatalog();

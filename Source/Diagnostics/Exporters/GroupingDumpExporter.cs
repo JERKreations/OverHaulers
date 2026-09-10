@@ -620,11 +620,9 @@ namespace OverHaulers
                 sampleThing.LabelCap.ToString(),
                 body,
                 sampleThing,
-                sampleThing.race?.baseBodySize > 0f ? sampleThing.race.baseBodySize : 1.0f,
-                sampleThing.modContentPack,
                 sampleThing.modContentPack?.Name ?? "Core",
-                "Diagnostic", // Replaced FleshTypeDef with string
-                "Diagnostic"  // Replaced BiologicalClassName with string
+                "Diagnostic",
+                "Diagnostic"
             );
         }
 

@@ -10,7 +10,7 @@ namespace OverHaulers
 
     /// <summary>
     /// A concrete implementation of the IPipelineDriver interface that provides a standalone direct Harmony driver for managing mass capacity stats
-    ///  within the Over Haulers mod.
+    /// within the Over Haulers mod.
     /// </summary>
     public class VanillaStatDriver : IPipelineDriver
     {
@@ -60,7 +60,9 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the standalone mass capacity stat, creating it if it does not already exist.
+        /// Dynamically registers the 'OverHaulers_CaravanMassCapacity' StatDef into DefDatabase at runtime.
+        /// Binds its workerClass to <see cref="MassCapacityStatWorker"/> to give vanilla pawns a full
+        /// InfoCard breakdown that vanilla RimWorld otherwise completely lacks.
         /// </summary>
         /// <returns>The standalone mass capacity stat, or null if it could not be created.</returns>
         private StatDef GetOrCreateStandaloneStat()
@@ -70,7 +72,8 @@ namespace OverHaulers
 
             try
             {
-                // Create a new standalone mass capacity stat if it does not already exist
+                // Create a new standalone mass capacity stat if it does not already exist.
+                // workerClass binds directly to MassCapacityStatWorker to drive InfoCard breakdowns and hyperlinks.
                 stat = new StatDef
                 {
                     defName = "OverHaulers_CaravanMassCapacity",
@@ -107,11 +110,11 @@ namespace OverHaulers
         public float ResolveOriginalBaseline(Pawn pawn)
         {
             if (pawn == null) return 0f;
-            return ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
         }
 
         /// <summary>
-        /// Handles the postfix logic for the mass utility capacity calculation, allowing for additional modifications or explanations to be appended.
+        /// Handles the postfix logic for the mass utility capacity calculation, directly offsetting MassUtility.Capacity.
         /// </summary>
         /// <param name="pawn">The pawn for which the mass utility capacity is being calculated.</param>
         /// <param name="result">The current result of the mass utility capacity calculation, which can be modified.</param>
@@ -119,7 +122,7 @@ namespace OverHaulers
         public void OnMassUtilityCapacityPostfix(Pawn pawn, ref float result, StringBuilder explanation)
         {
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
-            if (ModpackBaselineCalibration.IsResolvingBaseline) return;
+            if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
 
             // Ingress Gate: Completely skip non-caravan species during live play
             if (pawn == null || !PawnDataRegistry.CanCarryCaravanMass(pawn)) return;

@@ -23,10 +23,14 @@ namespace OverHaulers
         private static readonly AccessTools.FieldRef<Dialog_LoadTransporters, List<TransferableOneWay>> loadTransportersAccessor;
         private static readonly AccessTools.FieldRef<Dialog_SplitCaravan, List<TransferableOneWay>> splitCaravanAccessor;
 
+        /// <summary>
+        /// Initializes the compiled IL field accessors for the Caravan UI integration hooks.
+        /// </summary>
         static CaravanUIIntegration()
         {
             try
             {
+                // Initialize the compiled IL field accessor for the load transporters dialog.
                 loadTransportersAccessor = AccessTools.FieldRefAccess<Dialog_LoadTransporters, List<TransferableOneWay>>("transferables");
             }
             catch (Exception ex)
@@ -36,6 +40,7 @@ namespace OverHaulers
 
             try
             {
+                // Initialize the compiled IL field accessor for the split caravan dialog.
                 splitCaravanAccessor = AccessTools.FieldRefAccess<Dialog_SplitCaravan, List<TransferableOneWay>>("transferables");
             }
             catch (Exception ex)
@@ -52,12 +57,15 @@ namespace OverHaulers
         /// Postfix hook on Caravan.MassCapacityExplanation.
         /// Compiles and prepends the aggregate Caravan Fleet Summary directly onto the world map inspect panel tooltip.
         /// </summary>
+        /// <param name="__instance">The caravan instance for which the mass capacity explanation is being generated.</param>
+        /// <param name="__result">The resulting mass capacity explanation string, which will be modified to include the fleet summary.</param>
         public static void Caravan_MassCapacityExplanation_Postfix(Caravan __instance, ref string __result)
         {
             if (__instance?.PawnsListForReading == null || __instance.PawnsListForReading.Count == 0) return;
 
             try
             {
+                // Compile the caravan fleet summary from the list of pawns in the caravan.
                 CaravanFleetSummary summary = CaravanFleetAggregator.CompileFromPawns(__instance.PawnsListForReading);
                 if (summary.TotalPawnCount == 0) return;
 
@@ -81,6 +89,11 @@ namespace OverHaulers
         /// Prefix hook on CaravanUIUtility.DrawCaravanInfo.
         /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject fleet breakdowns.
         /// </summary>
+        /// <param name="info">The caravan info structure containing the mass capacity explanation to be potentially modified.</param>
+        /// <remarks>
+        /// This prefix hook ensures that the fleet breakdown is injected into the mass capacity explanation
+        /// before the caravan info is drawn in the top bar UI.
+        /// </remarks>
         public static void DrawCaravanInfo_Prefix(ref CaravanUIUtility.CaravanInfo info)
         {
             if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
@@ -136,6 +149,11 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Injects the compiled fleet summary into the provided mass capacity explanation string.
+        /// </summary>
+        /// <param name="transferables">The list of transferables (pawns and items) involved in the caravan or transport operation.</param>
+        /// <param name="explanation">The mass capacity explanation string to be modified with the fleet summary.</param>
         private static void InjectSummaryIntoExplanation(List<TransferableOneWay> transferables, ref string explanation)
         {
             try

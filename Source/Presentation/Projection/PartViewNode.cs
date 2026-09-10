@@ -94,6 +94,10 @@ namespace OverHaulers
 
         #region 2. SUB-PART COLLECTION MANAGEMENT
 
+        /// <summary>
+        /// Adds a sub-part to this part's collection of child sub-parts.
+        /// </summary>
+        /// <param name="sub">The sub-part to be added to this part's collection of child sub-parts.</param>
         public void AddSubPart(PartViewNode sub)
         {
             if (sub == null) return;
@@ -105,6 +109,12 @@ namespace OverHaulers
 
         #region 3. NODE STATE RECYCLING
 
+        /// <summary>
+        /// Resets the state of this part view node, clearing all cached data and returning it to its default state.
+        /// </summary>
+        /// <remarks>
+        /// This method is typically used to recycle part view nodes for reuse, ensuring that no stale data persists between evaluations.
+        /// </remarks>
         public void Reset()
         {
             Record = null;

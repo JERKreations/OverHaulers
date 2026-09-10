@@ -16,13 +16,15 @@ namespace OverHaulers
         Colony = 4
     }
 
+    /// <summary>
+    /// [TEST-03] Lightweight descriptor blueprinting a test subject for the Test Bench.
+    /// Represents either an unspawned species archetype or an authentic live pawn.
+    /// </summary>
     public class TestSubjectEntry
     {
         public string Label;
         public BodyDef BodyDef;
         public ThingDef RaceDef;
-        public float BaseBodySize;
-        public ModContentPack ModPack;
         public string ModName;
         public string CategoryName;
         public string FleshTypeName;
@@ -34,8 +36,6 @@ namespace OverHaulers
             string label, 
             BodyDef bodyDef, 
             ThingDef raceDef, 
-            float baseBodySize,
-            ModContentPack modPack,
             string modName,
             string categoryName,
             string fleshTypeName,
@@ -44,8 +44,6 @@ namespace OverHaulers
             Label = label;
             BodyDef = bodyDef;
             RaceDef = raceDef;
-            BaseBodySize = baseBodySize;
-            ModPack = modPack;
             ModName = modName;
             CategoryName = categoryName;
             FleshTypeName = fleshTypeName;
@@ -53,6 +51,9 @@ namespace OverHaulers
         }
     }
 
+    /// <summary>
+    /// Represents a group of test subjects categorized under a specific label.
+    /// </summary>
     public class TestSubjectGroup
     {
         public string GroupLabel;
@@ -66,6 +67,10 @@ namespace OverHaulers
 
     #endregion
 
+    /// <summary>
+    /// [TEST-03] Central indexing registry categorizing all loaded species and live colony pawns
+    /// across 5 dimensions (Mod, BodyDef, Category, FleshType, and Colony Map Pawns).
+    /// </summary>
     public static class TestSubjectRegistry
     {
         #region 2. STORAGE & STATIC CACHES
@@ -92,6 +97,10 @@ namespace OverHaulers
 
         #region 3. PUBLIC QUERY API
 
+        /// <summary>
+        /// Retrieves the default test subject, prioritizing the human body definition if available.
+        /// </summary>
+        /// <returns>The default test subject entry, or null if no subjects are available.</returns>
         public static TestSubjectEntry GetDefaultSubject()
         {
             EnsureCacheInitialized();
@@ -107,6 +116,12 @@ namespace OverHaulers
             return allSubjects.Count > 0 ? allSubjects[0] : null;
         }
 
+        /// <summary>
+        /// Retrieves the test subject groups filtered by the specified dimension and search text.
+        /// </summary>
+        /// <param name="dimension">The dimension by which to group the test subjects.</param>
+        /// <param name="filterText">The text to filter the group labels by.</param>
+        /// <returns>A list of test subject groups matching the filter criteria.</returns>
         public static List<TestSubjectGroup> GetFilteredGroups(GroupingDimension dimension, string filterText)
         {
             if (dimension == GroupingDimension.Colony)
@@ -166,6 +181,12 @@ namespace OverHaulers
             return filteredResult;
         }
 
+        /// <summary>
+        /// Determines whether a given test subject entry matches the specified filter text.
+        /// </summary>
+        /// <param name="entry">The test subject entry to evaluate against the filter.</param>
+        /// <param name="cleanFilter">The normalized filter text to match against the entry's properties.</param>
+        /// <returns>True if the entry matches the filter; otherwise, false.</returns>
         private static bool MatchesFilter(TestSubjectEntry entry, string cleanFilter)
         {
             if (entry.Label != null && entry.Label.ToLowerInvariant().Contains(cleanFilter)) return true;
@@ -176,6 +197,9 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>
+        /// Clears the cached test subject data, including all subjects and grouped collections, and resets the initialization state.
+        /// </summary>
         public static void ClearCache()
         {
             lock (initLock)
@@ -193,6 +217,11 @@ namespace OverHaulers
 
         #region 4. LIVE COLONY PAWN INGRESS ENGINE
 
+        /// <summary>
+        /// Builds and retrieves the groups of live colony pawns, filtered by the specified search text.
+        /// </summary>
+        /// <param name="filterText">The text to filter the live colony pawns by.</param>
+        /// <returns>A list of test subject groups containing the live colony pawns that match the filter.</returns>
         private static List<TestSubjectGroup> BuildLiveColonyGroups(string filterText)
         {
             List<TestSubjectGroup> colonyGroups = new List<TestSubjectGroup>();
@@ -248,6 +277,15 @@ namespace OverHaulers
             return colonyGroups;
         }
 
+        /// <summary>
+        /// Adds a live pawn to the specified test subject group if it matches the given filter text.
+        /// </summary>
+        /// <param name="group">The test subject group to add the pawn to.</param>
+        /// <param name="pawn">The live pawn to evaluate and potentially add.</param>
+        /// <param name="cleanFilter">The normalized filter text to match against the pawn's properties.</param>
+        /// <remarks>
+        /// This method evaluates the pawn against the filter and only adds it to the group if it matches.
+        /// </remarks>
         private static void AddLivePawnIfMatches(TestSubjectGroup group, Pawn pawn, string cleanFilter)
         {
             string label = pawn.LabelShortCap.ToString();
@@ -257,8 +295,8 @@ namespace OverHaulers
             if (cleanFilter != null)
             {
                 bool matches = displayLabel.ToLowerInvariant().Contains(cleanFilter) ||
-                            pawn.def.defName.ToLowerInvariant().Contains(cleanFilter) ||
-                            pawn.RaceProps.body.defName.ToLowerInvariant().Contains(cleanFilter);
+                               pawn.def.defName.ToLowerInvariant().Contains(cleanFilter) ||
+                               pawn.RaceProps.body.defName.ToLowerInvariant().Contains(cleanFilter);
 
                 if (!matches) return;
             }
@@ -267,8 +305,6 @@ namespace OverHaulers
                 displayLabel,
                 pawn.RaceProps.body,
                 pawn.def,
-                MedicalClassifier.GetSafeBodySize(pawn),
-                pawn.def.modContentPack,
                 pawn.Faction?.Name ?? "Colony",
                 ResolveCategory(pawn.def),
                 ResolveFleshType(pawn.def),
@@ -282,6 +318,10 @@ namespace OverHaulers
 
         #region 5. INITIALIZATION & STATIC INDEXING PIPELINE
 
+        /// <summary>
+        /// Ensures that the test subject cache is initialized, populating all subjects and grouped collections if necessary.
+        /// This method is thread-safe and will only perform initialization once.
+        /// </summary>
         public static void EnsureCacheInitialized()
         {
             if (isInitialized) return;
@@ -312,7 +352,6 @@ namespace OverHaulers
                         string readableName = thing.LabelCap.ToString();
                         if (string.IsNullOrEmpty(readableName)) readableName = thing.defName;
 
-                        float bodySize = thing.race.baseBodySize > 0f ? thing.race.baseBodySize : 1.0f;
                         ModContentPack modPack = thing.modContentPack;
                         string modName = modPack?.Name ?? "Core";
                         
@@ -323,8 +362,6 @@ namespace OverHaulers
                             readableName,
                             thing.race.body,
                             thing,
-                            bodySize,
-                            modPack,
                             modName,
                             catName,
                             fleshName
@@ -384,6 +421,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Populates a list of test subject groups from a dictionary mapping keys to lists of test subject entries.
+        /// </summary>
+        /// <typeparam name="TKey">The type of the keys in the source dictionary.</typeparam>
+        /// <param name="map">The source dictionary mapping keys to lists of test subject entries.</param>
+        /// <param name="targetList">The target list to populate with test subject groups.</param>
+        /// <param name="coreFirst">Indicates whether groups labeled "Core" should be prioritized at the top of the list.</param>
         private static void PopulateGroupList<TKey>(Dictionary<TKey, List<TestSubjectEntry>> map, List<TestSubjectGroup> targetList, bool coreFirst)
         {
             foreach (var kvp in map)
@@ -407,6 +451,11 @@ namespace OverHaulers
             });
         }
 
+        /// <summary>
+        /// Resolves the category of the given ThingDef, typically based on its thing categories or intelligence level.
+        /// </summary>
+        /// <param name="thing">The ThingDef for which to resolve the category.</param>
+        /// <returns>A string representing the resolved category of the ThingDef.</returns>
         private static string ResolveCategory(ThingDef thing)
         {
             if (thing?.race == null) return "Unknown";
@@ -417,6 +466,11 @@ namespace OverHaulers
             return thing.race.intelligence.ToString().CapitalizeFirst(); 
         }
 
+        /// <summary>
+        /// Resolves the flesh type of the given ThingDef, typically based on its race's FleshType.
+        /// </summary>
+        /// <param name="thing">The ThingDef for which to resolve the flesh type.</param>
+        /// <returns>A string representing the resolved flesh type of the ThingDef.</returns>
         private static string ResolveFleshType(ThingDef thing)
         {
             if (thing?.race?.FleshType == null) return "Unknown";

@@ -26,6 +26,10 @@ namespace OverHaulers
         /// <summary>UI icon for injuries/deficits ([I]).</summary>
         public static Texture2D BandageIcon => bandageIcon ?? (bandageIcon = ResolveBandageIcon());
 
+        /// <summary>
+        /// Resolves the appropriate texture for the prosthetics/bionics UI icon ([P]).
+        /// </summary>
+        /// <returns>The resolved texture for the prosthetics/bionics UI icon.</returns>
         private static Texture2D ResolveProstheticIcon()
         {
             try
@@ -47,6 +51,10 @@ namespace OverHaulers
             return BaseContent.WhiteTex;
         }
 
+        /// <summary>
+        /// Resolves the appropriate texture for the athletics/stamina UI icon ([A]).
+        /// </summary>
+        /// <returns>The resolved texture for the athletics/stamina UI icon.</returns>
         private static Texture2D ResolveAthleticIcon()
         {
             try
@@ -64,6 +72,10 @@ namespace OverHaulers
             return BaseContent.WhiteTex;
         }
 
+        /// <summary>
+        /// Resolves the appropriate texture for the injuries/deficits UI icon ([I]).
+        /// </summary>
+        /// <returns>The resolved texture for the injuries/deficits UI icon.</returns>
         private static Texture2D ResolveBandageIcon()
         {
             try

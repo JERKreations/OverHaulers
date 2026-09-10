@@ -110,7 +110,7 @@ namespace OverHaulers
                 return cachedBaseline;
             }
 
-            return ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
         }
 
         /// <summary>

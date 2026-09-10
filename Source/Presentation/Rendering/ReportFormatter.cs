@@ -257,6 +257,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends the structural sub-parts of the specified part to the provided StringBuilder, including only modified sub-parts unless verbose
+        ///  mode is enabled.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the structural sub-parts will be appended.</param>
+        /// <param name="part">The parent part whose structural sub-parts are to be appended.</param>
+        /// <param name="verbose">Indicates whether to include all sub-parts regardless of modification status.</param>
         private static void AppendStructuralSubParts(StringBuilder builder, PartViewNode part, bool verbose)
         {
             if (part.SubParts.Count == 0) return;
@@ -281,6 +288,14 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Recursively appends the structural sub-parts of the specified parent part to the provided StringBuilder, including only modified
+        ///  sub-parts unless verbose mode is enabled.
+        /// </summary>
+        /// <param name="statsBuilder">The StringBuilder to which the structural sub-parts will be appended.</param>
+        /// <param name="parent">The parent part whose structural sub-parts are to be appended.</param>
+        /// <param name="depth">The current depth of the recursive traversal, used for indentation.</param>
+        /// <param name="verbose">Indicates whether to include all sub-parts regardless of modification status.</param>
         private static void AppendSubPartsRecursive(StringBuilder statsBuilder, PartViewNode parent, int depth, bool verbose)
         {
             if (parent?.SubParts == null || parent.SubParts.Count == 0) return;
@@ -306,6 +321,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends a single structural sub-part line to the provided StringBuilder, including details about prosthetics, implants, and damage status.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the sub-part line will be appended.</param>
+        /// <param name="sub">The sub-part whose details are to be appended.</param>
+        /// <param name="depth">The current depth of the sub-part within the hierarchy, used for indentation.</param>
+        /// <param name="verbose">Indicates whether to include all details regardless of modification status.</param>
         private static void AppendSubPartLine(StringBuilder builder, PartViewNode sub, int depth, bool verbose)
         {
             builder.Append("- ");
@@ -387,6 +409,11 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends indentation spaces to the provided StringBuilder based on the specified depth.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the indentation spaces will be appended.</param>
+        /// <param name="depth">The current depth of the indentation, determining the number of spaces to append.</param>
         private static void AppendIndent(StringBuilder builder, int depth)
         {
             int spaceCount = 4 + depth;
@@ -396,6 +423,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends a line representing the capacity of a specific attribute to the provided StringBuilder, including the value and its modification status.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the capacity line will be appended.</param>
+        /// <param name="translationKey">The translation key for the capacity label.</param>
+        /// <param name="value">The current value of the capacity.</param>
+        /// <param name="verbose">Indicates whether to include all details regardless of modification status.</param>
         private static void AppendCapacityLine(StringBuilder builder, string translationKey, float value, bool verbose)
         {
             float difference = value - 1.0f;
@@ -409,6 +443,11 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends an ailment suffix for the specified part to the provided StringBuilder, if the part has a local ailment.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the ailment suffix will be appended.</param>
+        /// <param name="part">The part whose local ailment is to be appended as a suffix.</param>
         private static void AppendAilmentSuffix(StringBuilder builder, PartViewNode part)
         {
             if (part == null || string.IsNullOrEmpty(part.LocalAilmentName)) return;
@@ -416,6 +455,12 @@ namespace OverHaulers
             builder.Append("OverHaulers_AilmentPrefix".Translate(part.LocalAilmentName.Colorize(part.LocalAilmentColor)).ToString());
         }
 
+        /// <summary>
+        /// Determines the appropriate color for a medical value based on its magnitude, using configured thresholds for healthy, critical, and
+        ///  boosted states.
+        /// </summary>
+        /// <param name="value">The medical value for which to determine the color.</param>
+        /// <returns>The color corresponding to the specified medical value.</returns>
         public static Color GetMedicalColor(float value)
         {
             Color healthy = OverHaulers.settings?.colorHealthy ?? SettingsDefaults.ColorHealthyDefault;
@@ -437,6 +482,12 @@ namespace OverHaulers
             return critical;
         }
 
+        /// <summary>
+        /// Determines whether a sub-part should be omitted from the report based on its relationship to the parent part.
+        /// </summary>
+        /// <param name="sub">The sub-part to evaluate for omission.</param>
+        /// <param name="parent">The parent part against which the sub-part is evaluated.</param>
+        /// <returns>True if the sub-part should be omitted from the report; otherwise, false.</returns>
         private static bool ShouldOmitSubPart(PartViewNode sub, PartViewNode parent)
         {
             if (sub == null || parent == null || parent.Record == null) return false;
@@ -467,6 +518,11 @@ namespace OverHaulers
             return true;
         }
 
+        /// <summary>
+        /// Determines whether the specified part has any modified descendant sub-parts.
+        /// </summary>
+        /// <param name="model">The part to evaluate for modified descendants.</param>
+        /// <returns>True if the part has any modified descendant sub-parts; otherwise, false.</returns>
         private static bool HasModifiedDescendants(PartViewNode model)
         {
             if (model?.SubParts == null) return false;

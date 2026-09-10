@@ -22,7 +22,7 @@ namespace OverHaulers
     /// Manages species-specific baseline carrying capacity scalars using a 3-Tier Fallback system: 
     /// Pristine Dummy Pawn -> Live Pawn Rescue -> Testing/Emergency Assumption.
     /// </summary>
-    public static class ModpackBaselineCalibration
+    public static class SpeciesBaselineCalibration
     {
         #region 2. QUARANTINED TESTING & LAST-RESORT SENTINEL
 
@@ -104,7 +104,7 @@ namespace OverHaulers
                 {
                     TestSubjectEntry dummySubject = new TestSubjectEntry(
                         raceDef.defName, raceDef.race?.body, raceDef,
-                        raceDef.race?.baseBodySize ?? 1f, null, "Core", "Unknown", "Unknown"
+                        "Core", "Unknown", "Unknown"
                     );
 
                     harness.BindSubject(dummySubject);
@@ -228,7 +228,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Classifies a dummy-pawn evaluation result into a cache entry, applying the shared 3-tier sentinel rules.
-        /// Single source of truth for this mapping - used by both PrecalibrateDef and ResolveArchetypeCalibratedBaseline.
+        /// Single source of truth for this mapping - used by both PrecalibrateDef and ResolveBaseline.
         /// </summary>
         /// <param name="dummyScalar">The evaluated mass capacity scalar for the dummy pawn.</param>
         /// <param name="errorDetail">Any error detail encountered during the evaluation.</param>
@@ -357,7 +357,7 @@ namespace OverHaulers
         /// against its cached, species-specific pristine scalar.
         /// Executes silently for individual on-demand lookups.
         /// </summary>
-        public static float ResolveArchetypeCalibratedBaseline(Pawn pawn)
+        public static float ResolveBaseline(Pawn pawn)
         {
             if (pawn == null || pawn.def == null) return 0f;
 

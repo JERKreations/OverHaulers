@@ -101,7 +101,7 @@ namespace OverHaulers
                 return IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
             }
 
-            return ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
         }
 
         #endregion

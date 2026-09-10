@@ -293,7 +293,7 @@ namespace OverHaulers
         /// <returns>Null if the exception is handled and suppressed, otherwise the original exception.</returns>
         public static Exception StatWorker_GetValueUnfinalized_Finalizer(Exception __exception, StatRequest req, ref float __result)
         {
-            if (__exception != null && ModpackBaselineCalibration.IsResolvingBaseline)
+            if (__exception != null && SpeciesBaselineCalibration.IsResolvingBaseline)
             {
                 if (req.HasThing && req.Thing is Pawn dummy && dummy.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
                 {

@@ -34,6 +34,12 @@ namespace OverHaulers
 
         #region 2. CONSTRUCTOR & WINDOW CONFIG
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Dialog_TestSubjectPicker"/> class.
+        /// </summary>
+        /// <param name="initialDimension">The initial grouping dimension to display.</param>
+        /// <param name="currentSelected">The currently selected test subject entry.</param>
+        /// <param name="onSelected">The callback to invoke when a test subject is selected.</param>
         public Dialog_TestSubjectPicker(
             GroupingDimension initialDimension, 
             TestSubjectEntry currentSelected, 
@@ -49,12 +55,30 @@ namespace OverHaulers
             this.absorbInputAroundWindow = true;
         }
 
+        /// <summary>
+        /// Gets the initial size of the test subject picker dialog.
+        /// </summary>
+        /// <returns>The initial size of the test subject picker dialog.</returns>
+        /// </summary>
+        /// <remarks>
+        /// This property defines the initial size of the dialog window when it is first displayed.
+        /// DO NOT DELETE: 0 reference is a false positive.
+        /// </remarks>
         public override Vector2 InitialSize => new Vector2(620f, 660f);
 
         #endregion
 
         #region 3. WINDOW DRAWING LIFECYCLE
 
+        /// <summary>
+        /// Draws the contents of the test subject picker dialog within the specified rectangle.
+        /// </summary>
+        /// <param name="inRect">The rectangle within which to draw the dialog contents.</param>
+        /// <remarks>
+        /// This method is called by the RimWorld UI framework to render the dialog's contents.
+        /// It is responsible for drawing the header, search bar, dimension tabs, and the scrollable list of test subjects.
+        /// DO NOT DELETE: 0 reference is a false positive.
+        /// </remarks>
         public override void DoWindowContents(Rect inRect)
         {
             float y = inRect.y;
@@ -80,6 +104,13 @@ namespace OverHaulers
             DrawSubjectList(listRect);
         }
 
+        /// <summary>
+        /// Draws the search bar with a clear button within the specified rectangle.
+        /// </summary>
+        /// <param name="rect">The rectangle within which to draw the search bar.</param>
+        /// <remarks>
+        /// The search bar includes a text input field and a clear button. The clear button resets the search text when clicked.
+        /// </remarks>
         private void DrawSearchBar(Rect rect)
         {
             float clearBtnWidth = 24f;
@@ -111,6 +142,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the dimension tabs for grouping test subjects.
+        /// </summary>
+        /// <param name="rect">The rectangle area within which the dimension tabs should be drawn.</param>
         private void DrawDimensionTabs(Rect rect)
         {
             bool inGame = Current.ProgramState == ProgramState.Playing && Current.Game != null;
@@ -130,6 +165,12 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws a single dimension button within the specified rectangle.
+        /// </summary>
+        /// <param name="rect"></param>
+        /// <param name="label"></param>
+        /// <param name="dimension"></param>
         private void DrawDimensionButton(Rect rect, string label, GroupingDimension dimension)
         {
             bool isSelected = currentDimension == dimension;
@@ -152,6 +193,10 @@ namespace OverHaulers
             GUI.color = origColor;
         }
 
+        /// <summary>
+        /// Draws the list of test subjects within the specified rectangle, including group headers and individual entries.
+        /// </summary>
+        /// <param name="rect">The rectangle area within which the subject list should be drawn.</param>
         private void DrawSubjectList(Rect rect)
         {
             List<TestSubjectGroup> groups = TestSubjectRegistry.GetFilteredGroups(currentDimension, searchText);
@@ -276,12 +321,17 @@ namespace OverHaulers
             Widgets.EndScrollView();
         }
 
+        /// <summary>
+        /// Generates the secondary tag text for a given test subject entry based on the current grouping dimension.
+        /// </summary>
+        /// <param name="entry">The test subject entry for which to generate the secondary tag.</param>
+        /// <returns>A formatted string representing the secondary tag for the entry.</returns>
         private string GetSecondaryTag(TestSubjectEntry entry)
         {
             if (entry.IsLivePawn)
             {
                 float safeBodySize = MedicalClassifier.GetSafeBodySize(entry.LivePawn);
-                float baseMassCapacity = ModpackBaselineCalibration.ResolveArchetypeCalibratedBaseline(entry.LivePawn);
+                float baseMassCapacity = SpeciesBaselineCalibration.ResolveBaseline(entry.LivePawn);
                 float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
                 float finalMass = Mathf.Max(0.01f, baseMassCapacity + currentOffset);
                 return $"BodySize {safeBodySize:F1}x • {finalMass.ToStringMass()}";

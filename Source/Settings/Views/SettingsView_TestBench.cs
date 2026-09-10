@@ -15,7 +15,7 @@ namespace OverHaulers
     {
         #region 1. CONSTANTS & ACCORDION STATES
 
-        private static string duplicateSearchText = string.Empty;
+        private static string sandboxSearchText = string.Empty;
 
         // Expanded group labels
         private static readonly HashSet<string> expandedGroupLabels = new HashSet<string>();
@@ -50,7 +50,7 @@ namespace OverHaulers
                 if (current)
                 {
                     // Full catalogue sweep across ALL species on enable
-                    ModpackBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "Full Catalogue");
+                    SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "Full Catalogue");
                 }
 
                 PawnDataRegistry.ClearAllCaches();
@@ -350,7 +350,7 @@ namespace OverHaulers
 
             // 1. Search Bar & Clear Button
             Rect searchBarRect = new Rect(inner.x, leftY, leftWidth, 24f);
-            DrawDuplicateSearchBar(searchBarRect);
+            DrawSandboxSearchBar(searchBarRect);
             leftY += 28f;
 
             // 2. Systemic Stimulants & Staged Conditions Dropdown
@@ -359,7 +359,7 @@ namespace OverHaulers
             Rect expandButtonRect = new Rect(inner.x + halfWidth + 6f, leftY, (halfWidth - 4f) / 2f, 22f);
             Rect collapseButtonRect = new Rect(expandButtonRect.x + expandButtonRect.width + 4f, leftY, expandButtonRect.width, 22f);
 
-            if (Widgets.ButtonText(drugButtonRect, "OverHaulers_Duplicate_AddDrug".Translate().ToString()))
+            if (Widgets.ButtonText(drugButtonRect, "OverHaulers_Sandbox_AddDrug".Translate().ToString()))
             {
                 List<FloatMenuOption> drugOptions = new List<FloatMenuOption>();
                 List<HediffDef> availableDrugs = MedicalRecipeCatalog.GetSystemicDrugs();
@@ -382,14 +382,14 @@ namespace OverHaulers
             }
 
             Text.Font = GameFont.Tiny;
-            if (Widgets.ButtonText(expandButtonRect, "OverHaulers_Duplicate_ExpandAll".Translate().ToString()))
+            if (Widgets.ButtonText(expandButtonRect, "OverHaulers_Sandbox_ExpandAll".Translate().ToString()))
             {
                 for (int g = 0; g < model.EvaluatedParts.Count; g++)
                 {
                     expandedGroupLabels.Add(model.EvaluatedParts[g].Label);
                 }
             }
-            if (Widgets.ButtonText(collapseButtonRect, "OverHaulers_Duplicate_CollapseAll".Translate().ToString()))
+            if (Widgets.ButtonText(collapseButtonRect, "OverHaulers_Sandbox_CollapseAll".Translate().ToString()))
             {
                 expandedGroupLabels.Clear();
             }
@@ -428,8 +428,8 @@ namespace OverHaulers
                 Text.Font = GameFont.Tiny;
 
                 string revertButtonLabel = isLiveSubject 
-                    ? "OverHaulers_Duplicate_RevertLive".Translate().ToString() 
-                    : "OverHaulers_Duplicate_RevertBaseline".Translate().ToString();
+                    ? "OverHaulers_Sandbox_RevertLive".Translate().ToString() 
+                    : "OverHaulers_Sandbox_RevertBaseline".Translate().ToString();
 
                 if (Widgets.ButtonText(clearPlanRect, revertButtonLabel))
                 {
@@ -461,26 +461,26 @@ namespace OverHaulers
 
         #region 6B. Search Bar & Passive Group Accordion Headers
 
-        private static void DrawDuplicateSearchBar(Rect searchBarRect)
+        private static void DrawSandboxSearchBar(Rect searchBarRect)
         {
             float clearButtonWidth = 24f;
             Rect inputRect = new Rect(searchBarRect.x, searchBarRect.y, searchBarRect.width - clearButtonWidth - 4f, searchBarRect.height);
             Rect clearRect = new Rect(searchBarRect.x + searchBarRect.width - clearButtonWidth, searchBarRect.y, clearButtonWidth, searchBarRect.height);
 
-            duplicateSearchText = Widgets.TextField(inputRect, duplicateSearchText);
+            sandboxSearchText = Widgets.TextField(inputRect, sandboxSearchText);
 
-            if (string.IsNullOrEmpty(duplicateSearchText) && Event.current.type == EventType.Repaint)
+            if (string.IsNullOrEmpty(sandboxSearchText) && Event.current.type == EventType.Repaint)
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.4f);
                 Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(inputRect.x + 6f, inputRect.y + 4f, inputRect.width - 12f, inputRect.height), "OverHaulers_Duplicate_SearchPlaceholder".Translate().ToString());
+                Widgets.Label(new Rect(inputRect.x + 6f, inputRect.y + 4f, inputRect.width - 12f, inputRect.height), "OverHaulers_Sandbox_SearchPlaceholder".Translate().ToString());
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
             }
 
             if (Widgets.ButtonText(clearRect, "✕"))
             {
-                duplicateSearchText = string.Empty;
+                sandboxSearchText = string.Empty;
             }
         }
 
@@ -492,7 +492,7 @@ namespace OverHaulers
         {
             if (groupNode == null) return currentY;
 
-            string searchFilter = duplicateSearchText.Trim().ToLowerInvariant();
+            string searchFilter = sandboxSearchText.Trim().ToLowerInvariant();
             bool isSearching = !string.IsNullOrEmpty(searchFilter);
 
             if (isSearching && !GroupMatchesFilter(groupNode, searchFilter))
@@ -517,7 +517,7 @@ namespace OverHaulers
 
             // Group Quick Actions [Options ▼]
             Rect bulkButtonRect = new Rect(headerRect.x + headerRect.width - 74f, headerRect.y + 2f, 70f, 20f);
-            if (Widgets.ButtonText(bulkButtonRect, "OverHaulers_Duplicate_OpBtn".Translate().ToString()))
+            if (Widgets.ButtonText(bulkButtonRect, "OverHaulers_Sandbox_OpBtn".Translate().ToString()))
             {
                 OpenGroupBulkOperationsMenu(groupNode.SubParts, harness);
             }
@@ -594,7 +594,7 @@ namespace OverHaulers
                     GUI.enabled = true;
                     TooltipHandler.TipRegion(buttonRect, "OverHaulers_VirtualAnchor_Tooltip".Translate().ToString());
                 }
-                else if (node.Record != null && Widgets.ButtonText(buttonRect, "OverHaulers_Duplicate_OpBtn".Translate().ToString()))
+                else if (node.Record != null && Widgets.ButtonText(buttonRect, "OverHaulers_Sandbox_OpBtn".Translate().ToString()))
                 {
                     OpenPartSimulationMenu(node.Record, harness);
                 }
@@ -783,7 +783,7 @@ namespace OverHaulers
                 int minPct = Mathf.RoundToInt(minEfficiency * 100f);
 
                 // 1. Bulk Maximum Upgrade Option
-                options.Add(new FloatMenuOption("OverHaulers_Duplicate_BulkMaxUpgrade".Translate(maxPct).ToString(), () =>
+                options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkMaxUpgrade".Translate(maxPct).ToString(), () =>
                 {
                     ApplyBulkReplacementTier(targetRecords, harness, pickHighest: true);
                 }));
@@ -791,7 +791,7 @@ namespace OverHaulers
                 // 2. Bulk Budget / Basic Option
                 if (minPct != maxPct)
                 {
-                    options.Add(new FloatMenuOption("OverHaulers_Duplicate_BulkBudgetUpgrade".Translate(minPct).ToString(), () =>
+                    options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkBudgetUpgrade".Translate(minPct).ToString(), () =>
                     {
                         ApplyBulkReplacementTier(targetRecords, harness, pickHighest: false);
                     }));
@@ -799,7 +799,7 @@ namespace OverHaulers
             }
 
             // 3. Bulk Destroy
-            options.Add(new FloatMenuOption("OverHaulers_Duplicate_BulkDestroy".Translate().ToString(), () =>
+            options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkDestroy".Translate().ToString(), () =>
             {
                 for (int i = 0; i < targetRecords.Count; i++)
                 {
@@ -819,7 +819,7 @@ namespace OverHaulers
             }));
 
             // 4. Bulk Revert
-            options.Add(new FloatMenuOption("OverHaulers_Duplicate_BulkRevert".Translate().ToString(), () =>
+            options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkRevert".Translate().ToString(), () =>
             {
                 for (int i = 0; i < targetRecords.Count; i++)
                 {
@@ -1040,7 +1040,7 @@ namespace OverHaulers
             Color deltaColor = deltaMass > 0.001f ? settings.colorBoosted : (deltaMass < -0.001f ? settings.colorCritical : settings.colorHealthy);
 
             // Fetch resolution method [0/1/2/3] for the active subject
-            CalibrationMethod method = ModpackBaselineCalibration.GetResolutionMethod(TestBench.ActiveSubject?.RaceDef);
+            CalibrationMethod method = SpeciesBaselineCalibration.GetResolutionMethod(TestBench.ActiveSubject?.RaceDef);
             string methodTag = $"[{(int)method}]";
 
             string baselineComparisonLine = "OverHaulers_Delta_ComparisonLine".Translate(
@@ -1054,7 +1054,7 @@ namespace OverHaulers
             Widgets.Label(baselineLabelRect, baselineComparisonLine);
 
             string methodTooltip = "OverHaulers_CalibrationMethod_Tooltip".Translate().ToString();
-            string lastErrorDetail = ModpackBaselineCalibration.GetLastErrorDetail(TestBench.ActiveSubject?.RaceDef);
+            string lastErrorDetail = SpeciesBaselineCalibration.GetLastErrorDetail(TestBench.ActiveSubject?.RaceDef);
             if (!string.IsNullOrEmpty(lastErrorDetail))
             {
                 methodTooltip += "\n\n" + lastErrorDetail;

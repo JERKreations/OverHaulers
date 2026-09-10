@@ -51,17 +51,19 @@ namespace OverHaulers
             }
         }
 
-        public static float lastCalculatedBaseline = 0.0f;
         public static float lastCalculatedFinalMass = 0.0f;
         public static float lastCalculatedDelta = 0.0f;
 
         private static bool isDirty = true;
         private static string cachedExplanation = string.Empty;
-        private static float cachedModpackBaseline = 0.0f;
+        private static float cachedSpeciesBaseline = 0.0f;
         private static readonly MassCapacityModel cachedModel = new MassCapacityModel();
 
         private static readonly StringBuilder pooledXRayBuilder = new StringBuilder(2048);
 
+        /// <summary>
+        /// Gets or sets the currently active test subject entry for the Test Bench.
+        /// </summary>
         public static TestSubjectEntry ActiveSubject
         {
             get
@@ -84,11 +86,17 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Marks the Test Bench as dirty, indicating that cached calculations and explanations need to be refreshed.
+        /// </summary>
         public static void MarkDirty()
         {
             isDirty = true;
         }
 
+        /// <summary>
+        /// Resets the Test Bench to its default state, including the active grouping dimension, view mode, and sandbox harness.
+        /// </summary>
         public static void ResetTestBench()
         {
             activeGroupingDimension = GroupingDimension.Mod;
@@ -124,9 +132,9 @@ namespace OverHaulers
             TopologyLayoutCompiler.EnsureInitialized();
 
             // 4. Reset & re-run dynamic modpack baseline calibration sweep
-            ModpackBaselineCalibration.Reset();
+            SpeciesBaselineCalibration.Reset();
             bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devAllowNonPackSpeciesInLivePlay;
-            ModpackBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "Recompile All");
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "Recompile All");
 
             // 5. Rebuild test subject registry (species, flesh types, categories)
             TestSubjectRegistry.ClearCache();
@@ -176,32 +184,54 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves the pre-calculated MassCapacityModel for passive, zero-calculation UI drawing.
         /// </summary>
-        public static MassCapacityModel GetCachedModel(Settings settings, out float modpackBaseline)
+        /// <param name="settings">The current Test Bench settings used for model calculation.</param>
+        /// <param name="speciesBaseline">Outputs the baseline mass capacity for the species.</param>
+        /// <remarks>
+        /// This method ensures that the cached MassCapacityModel is up-to-date before returning it.
+        /// The species baseline is also output for reference in UI calculations.
+        /// </remarks>
+        public static MassCapacityModel GetCachedModel(Settings settings, out float speciesBaseline)
         {
             EnsureModelFresh(settings);
-            modpackBaseline = cachedModpackBaseline;
+            speciesBaseline = cachedSpeciesBaseline;
             return cachedModel;
         }
 
-        public static string GetCachedExplanation(Settings settings, out float modpackBaseline)
+        /// <summary>
+        /// Retrieves the cached explanation for the current Test Bench settings.
+        /// </summary>
+        /// <param name="settings">The current Test Bench settings used for explanation generation.</param>
+        /// <param name="speciesBaseline">Outputs the baseline mass capacity for the species.</param>
+        /// <returns>The cached explanation string.</returns>
+        public static string GetCachedExplanation(Settings settings, out float speciesBaseline)
         {
             EnsureModelFresh(settings);
-            modpackBaseline = cachedModpackBaseline;
+            speciesBaseline = cachedSpeciesBaseline;
             return cachedExplanation;
         }
 
+        /// <summary>
+        /// Ensures that the cached MassCapacityModel and explanation are up-to-date for the given settings.
+        /// </summary>
+        /// <param name="settings">The current Test Bench settings used for model validation and potential recalculation.</param>
         private static void EnsureModelFresh(Settings settings)
         {
             if (isDirty)
             {
-                cachedExplanation = GenerateTestExplanation(settings, out cachedModpackBaseline);
+                cachedExplanation = GenerateTestExplanation(settings, out cachedSpeciesBaseline);
                 isDirty = false;
             }
         }
 
-        private static string GenerateTestExplanation(Settings settings, out float modpackBaseline)
+        /// <summary>
+        /// Generates a detailed explanation for the current Test Bench settings, including mass capacity calculations and topology analysis.
+        /// </summary>
+        /// <param name="settings">The current Test Bench settings used for explanation generation.</param>
+        /// <param name="speciesBaseline">Outputs the baseline mass capacity for the species.</param>
+        /// <returns>A detailed explanation string for the current Test Bench settings.</returns>
+        private static string GenerateTestExplanation(Settings settings, out float speciesBaseline)
         {
-            modpackBaseline = 0.0f;
+            speciesBaseline = 0.0f;
 
             try
             {
@@ -215,14 +245,13 @@ namespace OverHaulers
                 // =========================================================================
                 IAnatomicalDataSource dataSource = new PawnAnatomicalSource(Harness.SandboxPawn);
 
-                modpackBaseline = dataSource.ResolveBaselineCapacity();
+                speciesBaseline = dataSource.ResolveBaselineCapacity();
 
                 float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
-                    dataSource, modpackBaseline, out modpackBaseline, settings, true, out AnatomicalWorkspace workspace);
+                    dataSource, speciesBaseline, out speciesBaseline, settings, true, out AnatomicalWorkspace workspace);
 
-                lastCalculatedBaseline = modpackBaseline;
                 lastCalculatedDelta = solvedOffset;
-                lastCalculatedFinalMass = Mathf.Max(0.01f, modpackBaseline + solvedOffset);
+                lastCalculatedFinalMass = Mathf.Max(0.01f, speciesBaseline + solvedOffset);
 
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {
@@ -232,10 +261,10 @@ namespace OverHaulers
                 }
 
                 // Populate cached model directly for passive UI consumption
-                ViewProjection.RebuildDetailedModel_Internal(dataSource, cachedModel, solvedOffset, modpackBaseline, workspace);
+                ViewProjection.RebuildDetailedModel_Internal(dataSource, cachedModel, solvedOffset, speciesBaseline, workspace);
 
                 bool verbose = settings?.verboseBreakdown ?? false;
-                string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, modpackBaseline, forceFullCard: true);
+                string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
 
                 workspace?.Clear();
                 return explanation ?? string.Empty;
@@ -247,6 +276,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Generates an X-Ray style report for the anatomical topology of the given species template.
+        /// </summary>
+        /// <param name="template">The species topology template to generate the X-Ray report for.</param>
+        /// <param name="settings">The current Test Bench settings used for report generation.</param>
+        /// <param name="subject">The test subject entry associated with the report.</param>
+        /// <returns>A formatted X-Ray style report string for the anatomical topology of the species template.</returns>
         private static string GenerateTopologyXRayReport(SpeciesTopologyTemplate template, Settings settings, TestSubjectEntry subject)
         {
             if (template == null) return "OverHaulers_XRay_NoTemplate".Translate().ToString();
@@ -300,6 +336,12 @@ namespace OverHaulers
             return result;
         }
 
+        /// <summary>
+        /// Retrieves the localized display tag for a given body part type, optionally considering the specific body part.
+        /// </summary>
+        /// <param name="type">The type of the body part.</param>
+        /// <param name="part">The specific body part record (optional).</param>
+        /// <returns>A localized string representing the body part type.</returns>
         public static string GetLocalizedPartTypeTag(PartType type, BodyPartRecord part = null)
         {
             if (part != null && part.coverageAbs <= 0f && part != part.body?.corePart)
