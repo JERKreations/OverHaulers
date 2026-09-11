@@ -77,6 +77,7 @@ namespace OverHaulers
         {
             if (req.HasThing && req.Thing is Pawn pawn)
             {
+                // INGRESS GATE: Completely skip non-caravan species during live play
                 if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
                 {
                     return 0f;
@@ -85,7 +86,9 @@ namespace OverHaulers
                 float baseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
                 float offset = PawnDataRegistry.GetOffset(pawn, baseline);
 
-                return baseline + offset;
+                // EGRESS CLAMP: Guarantee the actual game result obeys the safety floor
+                float finalVal = baseline + offset;
+                return MassCapacitySolver.EnforceSafetyFloor(finalVal, pawn.LabelShortCap);
             }
             return base.GetValueUnfinalized(req, applyPostProcess);
         }

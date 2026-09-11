@@ -124,13 +124,16 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
 
-            // Ingress Gate: Completely skip non-caravan species during live play
+            // INGRESS GATE: Completely skip non-caravan species during live play
             if (pawn == null || !PawnDataRegistry.CanCarryCaravanMass(pawn)) return;
 
             float cleanBiologicalBaseline = ResolveOriginalBaseline(pawn);
             float calculatedOffset = PawnDataRegistry.GetOffset(pawn, cleanBiologicalBaseline);
 
             result += calculatedOffset;
+
+            // EGRESS CLAMP: Guarantee the actual game result obeys the safety floor
+            result = MassCapacitySolver.EnforceSafetyFloor(result, pawn.LabelShortCap);
         }
 
         #endregion

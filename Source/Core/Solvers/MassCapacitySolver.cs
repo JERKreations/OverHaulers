@@ -124,18 +124,17 @@ namespace OverHaulers
                 // PASS 03: Parallel vector calculations across contiguous SoA arrays (Smooth, unclamped)
                 SolveRawPartOffsets(workspace, context, totalPlayableBudget);
 
-                // PASS 04: Regional budget normalization against the Safety Floor window
+                // PASS 04: Regional budget clamping and proportional deficit scaling
                 RegionalDeficits deficits = CalculateClampedGroupBudgetDeficits(workspace, context, totalPlayableBudget, out float totalPositiveBoosts);
 
-                float finalBiologicalCapacity = biologicalBaseline - deficits.TotalClampedDeficit + totalPositiveBoosts;
-                float clampedCapacity = Mathf.Max(context.CapacityFloor, finalBiologicalCapacity);
+                // The net biological delta: positive boosts minus clamped deficits
+                float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
 
-                clampedCapacity = EnforceSafetyFloor(clampedCapacity, source.EntityLabel);
-
+                // Populate visual nodes with the exact matching deltas
                 PopulateVisualNodeOffsets(workspace, in deficits);
 
                 isSuccessful = true;
-                return clampedCapacity - biologicalBaseline;
+                return netBiologicalOffset;
             }
             catch (Exception ex)
             {

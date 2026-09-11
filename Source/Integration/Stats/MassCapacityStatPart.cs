@@ -28,7 +28,7 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
 
-            // Ingress Gate: Completely skip non-caravan species during live play
+            // INGRESS GATE: Completely skip non-caravan species during live play
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
@@ -36,6 +36,9 @@ namespace OverHaulers
 
                 float skeletalOffset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
                 val += skeletalOffset;
+
+                // EGRESS CLAMP: Prevent external stat debuffs + our offset from driving capacity negative
+                val = MassCapacitySolver.EnforceSafetyFloor(val, pawn.LabelShortCap);
             }
         }
 
