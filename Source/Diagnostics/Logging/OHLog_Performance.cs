@@ -1,23 +1,47 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
 using Verse;
 
 namespace OverHaulers
 {
     public static partial class OHLog
     {
-        #region 4. [PERF-00] PERFORMANCE LOGGING DOMAIN
+        #region 1. [PERF-00] PERFORMANCE TRACE MODELS & STATE BUFFERS
+
+        public struct SafetyClampRecord
+        {
+            public float RawMass;
+            public float ClampedMass;
+        }
+
+        #endregion
+
+        #region 2. [PERF-00] PERFORMANCE LOGGING DOMAIN
 
         /// <summary>
-        /// Logs warnings and informational messages related to performance metrics, 
-        /// including pawn evictions, safety floor clamps, and cumulative performance reports.
+        /// Manages performance telemetry buffers, periodic cumulative reporting,
+        /// safety floor clamp tracking, and pawn cache eviction auditing.
         /// </summary>
         public static class Performance
         {
+            private static readonly HashSet<int> pendingEvictedPawnIds = new HashSet<int>(64);
+            private static readonly Dictionary<string, SafetyClampRecord> pendingClampedPawns = new Dictionary<string, SafetyClampRecord>(16);
+            private static readonly StringBuilder pooledReportBuilder = new StringBuilder(1024);
+            private static readonly object bufferLock = new object();
+
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Performance, context, ex, customMessage);
+
             public static void RecordPawnEvicted(int thingID)
             {
                 if (OverHaulers.settings == null) return;
                 if (OverHaulers.settings.reportMetricsIntervalHours > 0 && OverHaulers.settings.logPawnEvictions)
                 {
-                    pendingEvictedPawnIds.Add(thingID);
+                    lock (bufferLock)
+                    {
+                        pendingEvictedPawnIds.Add(thingID);
+                    }
                 }
             }
 
@@ -26,18 +50,24 @@ namespace OverHaulers
                 if (OverHaulers.settings == null) return;
                 if (OverHaulers.settings.reportMetricsIntervalHours > 0 && OverHaulers.settings.logSafetyFloorClamps)
                 {
-                    pendingClampedPawns[pawnName] = new SafetyClampRecord 
-                    { 
-                        RawMass = rawMass, 
-                        ClampedMass = clampedMass 
-                    };
+                    lock (bufferLock)
+                    {
+                        pendingClampedPawns[pawnName] = new SafetyClampRecord 
+                        { 
+                            RawMass = rawMass, 
+                            ClampedMass = clampedMass 
+                        };
+                    }
                 }
             }
 
             public static void ClearTraceBuffers()
             {
-                pendingEvictedPawnIds.Clear();
-                pendingClampedPawns.Clear();
+                lock (bufferLock)
+                {
+                    pendingEvictedPawnIds.Clear();
+                    pendingClampedPawns.Clear();
+                }
             }
 
             public static void DispatchCumulativeReport(
@@ -50,7 +80,7 @@ namespace OverHaulers
                 var settings = OverHaulers.settings;
                 if (settings == null) return;
 
-                lock (pooledReportBuilder)
+                lock (bufferLock)
                 {
                     pooledReportBuilder.Clear();
 
@@ -105,7 +135,8 @@ namespace OverHaulers
                     Log.Message(pooledReportBuilder.ToString());
 
                     pooledReportBuilder.Clear();
-                    ClearTraceBuffers();
+                    pendingEvictedPawnIds.Clear();
+                    pendingClampedPawns.Clear();
                 }
             }
         }

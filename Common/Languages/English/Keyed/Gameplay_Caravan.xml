@@ -12,7 +12,7 @@
   <OverHaulers_Fleet_MostImpaired>• Most Impaired: {0} ({1})</OverHaulers_Fleet_MostImpaired>
 
   <!-- Grammatical Helpers -->
-  <OverHaulers_PawnSingle>pawn</OverHaulers_PawnSingle>
-  <OverHaulers_PawnPlural>pawns</OverHaulers_PawnPlural>
+  <OverHaulers_Fleet_PawnSingle>pawn</OverHaulers_Fleet_PawnSingle>
+  <OverHaulers_Fleet_PawnPlural>pawns</OverHaulers_Fleet_PawnPlural>
 
 </LanguageData>

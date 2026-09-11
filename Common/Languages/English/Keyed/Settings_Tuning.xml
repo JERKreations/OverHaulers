@@ -19,15 +19,15 @@
   <!-- ========================================================================= -->
   <OverHaulers_GlobalModifiersHeader>Main Scalar Settings &amp; Safety Floor Clamping</OverHaulers_GlobalModifiersHeader>
   
-  <OverHaulers_ProstheticTarget>Prosthetic Scaling</OverHaulers_ProstheticTarget>
+  <OverHaulers_ProstheticScaling_Label>Prosthetic Scaling</OverHaulers_ProstheticScaling_Label>
   <OverHaulers_ProstheticScaling_Desc>Adjusts the rate at which prosthetics and bionics influence caravan mass capacity.</OverHaulers_ProstheticScaling_Desc>
   
-  <OverHaulers_AthleticTarget>Athletic Scaling</OverHaulers_AthleticTarget>
+  <OverHaulers_AthleticScaling_Label>Athletic Scaling</OverHaulers_AthleticScaling_Label>
   <OverHaulers_AthleticScaling_Desc>Adjusts the rate at which elevated breathing, blood pumping, moving, and manipulation influence caravan mass capacity.</OverHaulers_AthleticScaling_Desc>
   
-  <OverHaulers_DeficitsTarget>Physical Deficits</OverHaulers_DeficitsTarget>
+  <OverHaulers_Deficits_Label>Physical Deficits</OverHaulers_Deficits_Label>
   <OverHaulers_DeficitsFloorReadout>Floor: {0}</OverHaulers_DeficitsFloorReadout>
-  <OverHaulers_DeficitsDesc>Enables caravan mass capacity penalties for physical wounds, damaged tissue, and amputated limbs. The slider sets the Maximum Impact Floor: no matter how severe the trauma, penalties will never reduce a pawn below this percentage of their base capacity (e.g. at 20%, injuries can reduce capacity by at most 80%).</OverHaulers_DeficitsDesc>
+  <OverHaulers_Deficits_Desc>Enables caravan mass capacity penalties for physical wounds, damaged tissue, and amputated limbs. The slider sets the Maximum Impact Floor: no matter how severe the trauma, penalties will never reduce a pawn below this percentage of their base capacity (e.g. at 20%, injuries can reduce capacity by at most 80%).</OverHaulers_Deficits_Desc>
 
   <OverHaulers_EnableGlobalSafetyFloor>Global Compatibility Safety Floor</OverHaulers_EnableGlobalSafetyFloor>
   <OverHaulers_EnableGlobalSafetyFloor_Tooltip>If checked, forces a global absolute mass capacity minimum of 0.01kg (10 grams) to protect micro-critters from reaching 0 mass. If unchecked (Compatibility Mode), it allows other mods' negative traits, debuffs, or heavy apparel modifiers to fully drive mass capacities into absolute negative numbers if they intend to do so.</OverHaulers_EnableGlobalSafetyFloor_Tooltip>
@@ -36,7 +36,7 @@
   <!-- [SEC-02] CORE BODY GROUP BUDGETS                                          -->
   <!-- ========================================================================= -->
   <OverHaulers_BodyPartWeightsHeader>Core Body Group Weights</OverHaulers_BodyPartWeightsHeader>
-  <OverHaulers_BodyPartImpactsLabel>Controls how the pawn's total biological load budget is divided across major body regions. The torso provides vertical structural compression support, legs drive long-distance marching power, and arms act as hooks to stabilize and hold payloads.</OverHaulers_BodyPartImpactsLabel>
+  <OverHaulers_BodyPartWeights_Desc>Controls how the pawn's total biological load budget is divided across major body regions. The torso provides vertical structural compression support, legs drive long-distance marching power, and arms act as hooks to stabilize and hold payloads.</OverHaulers_BodyPartWeights_Desc>
   
   <OverHaulers_TorsoImpact>Torso ({0})</OverHaulers_TorsoImpact>
   <OverHaulers_ArmsImpact>Arms ({0})</OverHaulers_ArmsImpact>
@@ -71,7 +71,7 @@
   <!-- [SEC-05] TORSO MACRO TOPOLOGY & AXIAL COLUMN                              -->
   <!-- ========================================================================= -->
   <OverHaulers_CoreBonesHeader>Torso Macro Topology</OverHaulers_CoreBonesHeader>
-  <OverHaulers_CoreBonesLabel>Dynamic graph traversal isolates the primary load-bearing vertical column (Spine, Pelvis, or exo-axis) from peripheral chest bones. HitPoint density weighting automatically scales budget share based on bone sturdiness across all species.</OverHaulers_CoreBonesLabel>
+  <OverHaulers_CoreBones_Desc>Dynamic graph traversal isolates the primary load-bearing vertical column (Spine, Pelvis, or exo-axis) from peripheral chest bones. HitPoint density weighting automatically scales budget share based on bone sturdiness across all species.</OverHaulers_CoreBones_Desc>
 
   <OverHaulers_TorsoAxialBias>Axial Column Weight ({0})</OverHaulers_TorsoAxialBias>
   <OverHaulers_TorsoAxialBias_Desc>The portion of the Torso budget allocated to bones on the primary load-bearing vertical path (Spine, Pelvis, or exo-axis connecting core to legs). Higher values give spine/pelvis structural priority over ribcages and collarbones.</OverHaulers_TorsoAxialBias_Desc>
@@ -83,7 +83,7 @@
   <!-- [SEC-06] LIMB BRANCH TOPOLOGY & GEOMETRIC DEPTH DECAY                     -->
   <!-- ========================================================================= -->
   <OverHaulers_LimbDepthImpactsHeader>Limb Segment Depth Decay</OverHaulers_LimbDepthImpactsHeader>
-  <OverHaulers_LimbDepthImpactsLabel>Applies an exponential geometric power curve down limb parent-child chains during warm-start precompilation. Each segment level inherits a fraction of its parent joint's structural budget (Decay^Depth) before normalized allocation across sibling branches.</OverHaulers_LimbDepthImpactsLabel>
+  <OverHaulers_LimbDepth_Desc>Applies an exponential geometric power curve down limb parent-child chains during warm-start precompilation. Each segment level inherits a fraction of its parent joint's structural budget (Decay^Depth) before normalized allocation across sibling branches.</OverHaulers_LimbDepth_Desc>
   
   <OverHaulers_LimbDepthDecayFactor>Depth Decay Ratio ({0})</OverHaulers_LimbDepthDecayFactor>
   <OverHaulers_LimbDepthDecayFactor_Desc>Controls weight loss along limb chains. Lower ratios concentrate carrying strength at major root joints (shoulders/hips), while higher ratios distribute budget deeper into hands, feet, and digits—making lost digits or bionic hands far more impactful.</OverHaulers_LimbDepthDecayFactor_Desc>

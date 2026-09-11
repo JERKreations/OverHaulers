@@ -97,8 +97,8 @@
   <OverHaulers_Op_Revert>↺ Revert to Source</OverHaulers_Op_Revert>
   <OverHaulers_Op_DisabledParentProsthetic>Disabled by parent part status</OverHaulers_Op_DisabledParentProsthetic>
   <OverHaulers_Op_DisabledParentMissing>Disabled: parent part missing</OverHaulers_Op_DisabledParentMissing>
-  <OverHaulers_SevereTrauma>Severe Trauma</OverHaulers_SevereTrauma>
-  <OverHaulers_Amputated>Amputated</OverHaulers_Amputated>
+  <OverHaulers_Op_SevereTrauma>Severe Trauma</OverHaulers_Op_SevereTrauma>
+  <OverHaulers_Op_Amputated>Amputated</OverHaulers_Op_Amputated>
 
   <!-- Dynamic Group Bulk Actions -->
   <OverHaulers_Sandbox_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0}%)</OverHaulers_Sandbox_BulkMaxUpgrade>

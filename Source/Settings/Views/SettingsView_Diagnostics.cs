@@ -5,10 +5,21 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// Provides the diagnostics and telemetry settings view for the OverHaulers mod, including verbose breakdowns,
+    /// report intervals, cache eviction settings, and sub-section toggles for report content.
+    /// </summary>
     public static partial class SettingsView
     {
         #region [SEC-09] DIAGNOSTICS & TELEMETRY DRAWER
 
+        /// <summary>
+        /// Draws the diagnostics and telemetry settings section, including verbose breakdown toggles, report intervals, and cache eviction settings.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area in which to draw the diagnostics section.</param>
+        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
+        /// <param name="settings">The settings object containing the diagnostics and telemetry configuration.</param>
+        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
         public static void DrawDiagnosticsSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
             Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Diagnostics", ref currentY, fallbackEstimate: 260f);

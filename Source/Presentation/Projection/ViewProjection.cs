@@ -223,7 +223,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string targetName = source?.EntityLabel ?? "Unknown";
-                OHLog.Presentation.WarnException($"ViewProjection:{targetName}", ex);
+                OHLog.Presentation.Warn("InfoCard", ex, $"Failed to project view for pawn {targetName}.");
             }
             finally
             {

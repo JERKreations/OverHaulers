@@ -73,7 +73,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Solver.WarnException("ExportGroupingDump", ex);
+                OHLog.TestBench.Warn("ExportGroupingDumpFailed", ex, "Failed to export grouping dump.");
                 return null;
             }
         }

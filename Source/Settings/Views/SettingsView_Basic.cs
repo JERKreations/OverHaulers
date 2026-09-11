@@ -4,6 +4,9 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// Provides the basic settings view for the OverHaulers mod, including main scalar modifiers and safety floors.
+    /// </summary>
     public static partial class SettingsView
     {
         #region [SEC-01] MAIN SCALAR SETTINGS & SAFETY FLOORS
@@ -26,7 +29,7 @@ namespace OverHaulers
                 localY = SettingsViewUtilities.DrawToggleSettingRowWithDescriptionDirect(
                     inner,
                     ref settings.enableProsthetics,
-                    "OverHaulers_ProstheticTarget".Translate().ToString(),
+                    "OverHaulers_ProstheticScaling_Label".Translate().ToString(),
                     ref settings.prostheticScaling,
                     SettingsDefaults.ProstheticScalingMin, SettingsDefaults.ProstheticScalingMax,
                     "OverHaulers_ProstheticScaling_Desc".Translate().ToString(),
@@ -38,7 +41,7 @@ namespace OverHaulers
                 localY = SettingsViewUtilities.DrawToggleSettingRowWithDescriptionDirect(
                     inner,
                     ref settings.enableAthletics,
-                    "OverHaulers_AthleticTarget".Translate().ToString(),
+                    "OverHaulers_AthleticScaling_Label".Translate().ToString(),
                     ref settings.athleticScaling,
                     SettingsDefaults.AthleticScalingMin, SettingsDefaults.AthleticScalingMax,
                     "OverHaulers_AthleticScaling_Desc".Translate().ToString(),
@@ -55,10 +58,10 @@ namespace OverHaulers
                 localY = SettingsViewUtilities.DrawToggleSettingRowWithDescriptionDirect(
                     inner,
                     ref settings.enablePartHealth,
-                    "OverHaulers_DeficitsTarget".Translate().ToString(),
+                    "OverHaulers_Deficits_Label".Translate().ToString(),
                     ref settings.massCapacityFloor,
                     SettingsDefaults.MassCapacityFloorMin, SettingsDefaults.MassCapacityFloorMax,
-                    "OverHaulers_DeficitsDesc".Translate().ToString(),
+                    "OverHaulers_Deficits_Desc".Translate().ToString(),
                     localY,
                     highlight: isResetHovered,
                     customValueLabel: floorReadout

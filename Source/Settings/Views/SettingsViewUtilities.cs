@@ -30,11 +30,18 @@ namespace OverHaulers
         private static int currentControlIndex = 0;
         private static readonly List<string> cachedControlNames = new List<string>(128);
 
+        /// <summary>
+        /// Resets the internal control index, preparing the zero-allocation control ID cache for a new GUI frame.
+        /// </summary>
         public static void ResetControlIndex()
         {
             currentControlIndex = 0;
         }
 
+        /// <summary>
+        /// Retrieves the next unique control name from the zero-allocation control ID cache.
+        /// </summary>
+        /// <returns>The next unique control name as a string.</returns>
         private static string GetNextControlName()
         {
             if (currentControlIndex >= cachedControlNames.Count)
@@ -44,16 +51,28 @@ namespace OverHaulers
             return cachedControlNames[currentControlIndex++];
         }
 
+        /// <summary>
+        /// Clears all active input buffers, effectively resetting any text input states.
+        /// </summary>
         public static void ClearInputBuffers()
         {
             activeInputBuffers.Clear();
         }
 
+        /// <summary>
+        /// Clears the cached section heights, forcing recalculation on the next layout pass.
+        /// </summary>
         public static void ClearHeightCache()
         {
             sectionHeightCache.Clear();
         }
 
+        /// <summary>
+        /// Retrieves the cached height for a given section, or returns a fallback value if not available or invalid.
+        /// </summary>
+        /// <param name="key">The unique key identifying the section.</param>
+        /// <param name="fallback">The fallback height to use if no valid cached height exists.</param>
+        /// <returns>The cached section height or the fallback value.</returns>
         public static float GetCachedSectionHeight(string key, float fallback = 120f)
         {
             if (sectionHeightCache.TryGetValue(key, out float h) && h > 20f)
@@ -63,6 +82,11 @@ namespace OverHaulers
             return fallback;
         }
 
+        /// <summary>
+        /// Records the height of a section in the cache.
+        /// </summary>
+        /// <param name="key">The unique key identifying the section.</param>
+        /// <param name="height">The height to record for the section.</param>
         public static void RecordSectionHeight(string key, float height)
         {
             sectionHeightCache[key] = height;
@@ -76,6 +100,9 @@ namespace OverHaulers
         /// Single centralized endpoint invoked whenever any slider, input box, or toggle mutates in settings.
         /// Flushes the TestBench dirty cache, clears precompiled topology layouts, and purges runtime pawn caches.
         /// </summary>
+        /// <remarks>
+        /// This method should be called whenever any setting is changed to ensure that all dependent systems are updated accordingly.
+        /// </remarks>
         public static void OnSettingMutated()
         {
             TestBench.MarkDirty();
@@ -87,6 +114,13 @@ namespace OverHaulers
 
         #region 3. DYNAMIC TEXT & DIRECT LAYOUT HELPERS
 
+        /// <summary>
+        /// Calculates the height required to render the specified text within the given width and font.
+        /// </summary>
+        /// <param name="text">The text to measure.</param>
+        /// <param name="width">The available width for rendering the text.</param>
+        /// <param name="font">The font to use for rendering the text.</param>
+        /// <returns>The height required to render the text within the specified width and font.</returns>
         public static float CalcTextHeight(string text, float width, GameFont font = GameFont.Tiny)
         {
             if (string.IsNullOrEmpty(text) || width <= 0f) return 0f;
@@ -103,6 +137,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws a section description directly within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area to draw the description within.</param>
+        /// <param name="descriptionText">The description text to render.</param>
+        /// <param name="currentY">The current Y position within the container, updated as the description is drawn.</param>
+        /// <returns>The updated Y position after drawing the description.</returns>
         public static float DrawSectionDescriptionDirect(Rect containerRect, string descriptionText, float currentY)
         {
             if (string.IsNullOrEmpty(descriptionText)) return currentY;
@@ -130,6 +171,14 @@ namespace OverHaulers
 
         #region 4. DIRECT SECTION BOX ENGINE
 
+        /// <summary>
+        /// Begins a section box directly within the specified view rectangle, using a cached height if available.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area of the view.</param>
+        /// <param name="sectionKey">The unique key identifying the section.</param>
+        /// <param name="currentY">The current Y position within the view, updated as the section is drawn.</param>
+        /// <param name="fallbackEstimate">The fallback height estimate to use if no cached height is available.</param>
+        /// <returns>The rectangle representing the section box, contracted by a margin for content placement.</returns>
         public static Rect BeginSectionBoxDirect(Rect viewRect, string sectionKey, ref float currentY, float fallbackEstimate = 120f)
         {
             float boxHeight = GetCachedSectionHeight(sectionKey, fallbackEstimate);
@@ -140,6 +189,14 @@ namespace OverHaulers
             return boxRect.ContractedBy(10f);
         }
 
+        /// <summary>
+        /// Ends a section box that was begun with BeginSectionBoxDirect, recording its actual height and updating the current Y position.
+        /// </summary>
+        /// <param name="sectionKey">The unique key identifying the section.</param>
+        /// <param name="startY">The starting Y position of the section box.</param>
+        /// <param name="endY">The ending Y position of the section box.</param>
+        /// <param name="currentY">The current Y position within the view, updated as the section is closed.</param>
+        /// <param name="bottomGap">The gap to add below the section box.</param>
         public static void EndSectionBoxDirect(string sectionKey, float startY, float endY, ref float currentY, float bottomGap = 15f)
         {
             float actualHeight = (endY - startY) + 20f; 
@@ -151,6 +208,15 @@ namespace OverHaulers
 
         #region 5. DIRECT HEADER & GRID BUILDERS
 
+        /// <summary>
+        /// Draws a header with an associated reset button directly within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="headerLabelKey">The translation key for the header label.</param>
+        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="nextY">The updated Y position after drawing the header and reset button.</param>
+        /// <returns>Indicates whether the reset button is currently hovered.</returns>
         public static bool DrawHeaderWithResetDirect(
             Rect containerRect,
             string headerLabelKey,
@@ -180,6 +246,16 @@ namespace OverHaulers
             return isHovered;
         }
 
+        /// <summary>
+        /// Draws a single row containing a checkbox with an optional tooltip and highlighting.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="label">The label for the checkbox.</param>
+        /// <param name="value">The current value of the checkbox.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="tooltip">The tooltip text to display when hovering over the row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row.</returns>
         public static float DrawCheckboxRowDirect(
             Rect containerRect, 
             string label, 
@@ -211,6 +287,19 @@ namespace OverHaulers
             return currentY + 28f;
         }
 
+        /// <summary>
+        /// Draws a single row containing two checkboxes side by side, each with an optional tooltip and highlighting.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="leftLabel">The label for the left checkbox.</param>
+        /// <param name="leftValue">The current value of the left checkbox.</param>
+        /// <param name="leftTooltip">The tooltip text for the left checkbox.</param>
+        /// <param name="rightLabel">The label for the right checkbox.</param>
+        /// <param name="rightValue">The current value of the right checkbox.</param>
+        /// <param name="rightTooltip">The tooltip text for the right checkbox.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row.</returns>
         public static float Draw2x2CheckboxGridRowDirect(
             Rect containerRect,
             string leftLabel, ref bool leftValue, string leftTooltip,
@@ -246,6 +335,16 @@ namespace OverHaulers
 
         #region 6. ROW LAYOUT ENGINE
 
+        /// <summary>
+        /// Calculates the layout for a single row containing a label, a slider, and a text input field.
+        /// </summary>
+        /// <param name="rowRect">The rectangle defining the area of the row.</param>
+        /// <param name="labelText">The text for the label.</param>
+        /// <param name="labelRect">The calculated rectangle for the label.</param>
+        /// <param name="sliderRect">The calculated rectangle for the slider.</param>
+        /// <param name="textRect">The calculated rectangle for the text input field.</param>
+        /// <param name="isStacked">Indicates whether the row layout is stacked vertically.</param>
+        /// <returns>True if the row is stacked, false otherwise.</returns>
         private static bool CalculateRowLayout(
             Rect rowRect, 
             string labelText, 
@@ -287,6 +386,13 @@ namespace OverHaulers
         /// The single underlying atomic slider and text-input engine for the entire mod settings interface.
         /// Handles slider dragging, focus-aware text buffering, text parsing, bounds clamping, and centralized cache invalidation.
         /// </summary>
+        /// <param name="sliderRect">The rectangle defining the area of the slider.</param>
+        /// <param name="textRect">The rectangle defining the area of the text input field.</param>
+        /// <param name="value">The current value of the slider and text input.</param>
+        /// <param name="min">The minimum allowed value.</param>
+        /// <param name="max">The maximum allowed value.</param>
+        /// <param name="isInteger">Indicates whether the value should be treated as an integer.</param>
+        /// <returns>True if the value was changed, false otherwise.</returns>
         private static bool DrawCoreSliderWithInputDirect(
             Rect sliderRect, 
             Rect textRect, 
@@ -350,6 +456,18 @@ namespace OverHaulers
 
         #region 8. PUBLIC SLIDER ROW DRAWERS
 
+        /// <summary>
+        /// Draws a single setting row with a slider and an optional text input field.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="label">The label text for the setting row.</param>
+        /// <param name="value">The current value of the setting.</param>
+        /// <param name="min">The minimum allowed value.</param>
+        /// <param name="max">The maximum allowed value.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="tooltip">An optional tooltip for the setting row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row.</returns>
         public static float DrawSettingRowDirect(
             Rect containerRect, 
             string label, 
@@ -371,6 +489,19 @@ namespace OverHaulers
             return currentY + 28f;
         }
 
+        /// <summary>
+        /// Draws a single setting row with a slider, an optional text input field, and a description below it.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="label">The label text for the setting row.</param>
+        /// <param name="value">The current value of the setting.</param>
+        /// <param name="min">The minimum allowed value.</param>
+        /// <param name="max">The maximum allowed value.</param>
+        /// <param name="description">The description text to display below the setting row.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="tooltip">An optional tooltip for the setting row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row and its description.</returns>
         public static float DrawSettingRowWithDescriptionDirect(
             Rect containerRect, 
             string label, 
@@ -403,6 +534,21 @@ namespace OverHaulers
             return currentY + descH + 6f;
         }
 
+        /// <summary>
+        /// Draws a single setting row with a toggle, a slider, an optional text input field, and a description below it.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="toggleValue">The current value of the toggle.</param>
+        /// <param name="headingLabel">The label text for the setting row.</param>
+        /// <param name="sliderValue">The current value of the slider.</param>
+        /// <param name="min">The minimum allowed value for the slider.</param>
+        /// <param name="max">The maximum allowed value for the slider.</param>
+        /// <param name="description">The description text to display below the setting row.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="tooltip">An optional tooltip for the setting row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <param name="customValueLabel">An optional custom label for the slider value.</param>
+        /// <returns>The updated Y position after drawing the row and its description.</returns>
         public static float DrawToggleSettingRowWithDescriptionDirect(
             Rect containerRect,
             ref bool toggleValue,
@@ -480,6 +626,15 @@ namespace OverHaulers
             return currentY + descH + 8f;
         }
 
+        /// <summary>
+        /// Draws a single setting row with a slider and an optional text input field.
+        /// </summary>
+        /// <param name="baseRect">The rectangle defining the area of the row.</param>
+        /// <param name="label">The label text for the slider row.</param>
+        /// <param name="value">The current value of the slider.</param>
+        /// <param name="min">The minimum allowed value for the slider.</param>
+        /// <param name="max">The maximum allowed value for the slider.</param>
+        /// <param name="tooltip">An optional tooltip for the slider row.</param>
         public static void DrawSliderAndInputRowDirect(
             Rect baseRect, 
             string label, 
@@ -493,6 +648,16 @@ namespace OverHaulers
             value = Mathf.RoundToInt(floatVal);
         }
 
+        /// <summary>
+        /// Draws a single setting row with a slider and an optional text input field.
+        /// </summary>
+        /// <param name="baseRect">The rectangle defining the area of the row.</param>
+        /// <param name="label">The label text for the slider row.</param>
+        /// <param name="value">The current value of the slider.</param>
+        /// <param name="min">The minimum allowed value for the slider.</param>
+        /// <param name="max">The maximum allowed value for the slider.</param>
+        /// <param name="isInteger">Whether the slider should only allow integer values.</param>
+        /// <param name="tooltip">An optional tooltip for the slider row.</param>
         public static void DrawSliderAndInputRowDirect(
             Rect baseRect, 
             string label, 

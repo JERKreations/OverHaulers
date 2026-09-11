@@ -341,7 +341,8 @@ namespace OverHaulers
             {
                 if (UnityData.IsInMainThread)
                 {
-                    OHLog.Solver.WarnGetCapacityLevelException(pawn.LabelShort, capacity.defName, ex);
+                    string safeName = pawn.def?.defName ?? "Pawn";
+                    OHLog.Solver.Warn("GetCapacityLevelFailed", ex, $"Failed to get capacity level for pawn {safeName} and capacity {capacity.defName}.");
                 }
             }
             
@@ -388,7 +389,7 @@ namespace OverHaulers
                 if (UnityData.IsInMainThread)
                 {
                     string safeLabel = pawn.def?.label ?? "Pawn";
-                    OHLog.Integration.WarnBodySizeAccessFailed(safeLabel, ex);
+                    OHLog.Integration.Warn("BodySizeAccess", ex, $"Failed to access body size for pawn ID {pawn.thingIDNumber}: {safeLabel}");
                 }
             }
 
@@ -634,7 +635,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.WarnMetabolicInitFailed(ex);
+                OHLog.Integration.Warn("MetabolicInitFailed", ex, "Failed to initialize metabolic organs.");
             }
         }
 

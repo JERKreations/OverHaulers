@@ -17,6 +17,10 @@ namespace OverHaulers
         private static Vector2 scrollPositionIntegration = Vector2.zero;
         private static Vector2 scrollPositionAccessibility = Vector2.zero;
 
+        /// <summary>
+        /// Initializes a new instance of the OverHaulers mod with the specified content pack.
+        /// </summary>
+        /// <param name="content">The content pack associated with this mod instance.</param>
         public OverHaulers(ModContentPack content) : base(content)
         {
             ContentPack = content;
@@ -27,6 +31,9 @@ namespace OverHaulers
 
         #region 2. SETTINGS LIFECYCLE & WINDOW DRAWING
 
+        /// <summary>
+        /// Writes the current settings to persistent storage and clears relevant caches.
+        /// </summary>
         public override void WriteSettings()
         {
             base.WriteSettings();
@@ -35,6 +42,10 @@ namespace OverHaulers
             MedicalClassifier.ClearStaticCaches();
         }
 
+        /// <summary>
+        /// Draws the contents of the settings window within the specified rectangle.
+        /// </summary>
+        /// <param name="inRect">The rectangle within which to draw the settings window contents.</param>
         public override void DoSettingsWindowContents(Rect inRect)
         {
             Rect outRect = inRect.ContractedBy(4f);
@@ -81,6 +92,10 @@ namespace OverHaulers
             base.DoSettingsWindowContents(inRect);
         }
 
+        /// <summary>
+        /// Returns the name of the settings category for this mod.
+        /// </summary>
+        /// <returns>The translated name of the settings category.</returns>
         public override string SettingsCategory()
         {
             return "OverHaulers_SettingsCategory".Translate().ToString();
@@ -90,6 +105,10 @@ namespace OverHaulers
 
         #region 3. TAB NAVIGATION BAR DRAWER
 
+        /// <summary>
+        /// Draws the horizontal tab navigation strip within the specified rectangle.
+        /// </summary>
+        /// <param name="rect">The rectangle within which to draw the tab navigation strip.</param>
         private static void DrawTabNavigationStrip(Rect rect)
         {
             float gap = 4f;
@@ -102,6 +121,15 @@ namespace OverHaulers
             DrawSingleTabButton(new Rect(rect.x + (tabWidth + gap) * 3f, rect.y, tabWidth, rect.height), "OverHaulers_Tab_Accessibility".Translate().ToString(), SettingsTab.Accessibility);
         }
 
+        /// <summary>
+        /// Draws a single tab button within the specified rectangle.
+        /// </summary>
+        /// <param name="rect">The rectangle within which to draw the tab button.</param>
+        /// <param name="label">The label to display on the tab button.</param>
+        /// <param name="targetTab">The tab that this button corresponds to.</param>
+        /// <remarks>
+        /// This method handles the visual representation and interaction logic for a single tab button.
+        /// </remarks>
         private static void DrawSingleTabButton(Rect rect, string label, SettingsTab targetTab)
         {
             bool isSelected = settings.activeTab == targetTab;
@@ -134,6 +162,10 @@ namespace OverHaulers
 
         #region 4. ACTIVE TAB CONTENT ROUTING
 
+        /// <summary>
+        /// Draws the content of the currently active settings tab within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle within which to draw the active tab content.</param>
         private static void DrawActiveTabContent(Rect containerRect)
         {
             switch (settings.activeTab)
@@ -156,6 +188,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the content of the Tuning tab within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle within which to draw the Tuning tab content.</param>
         private static void DrawTuningTab(Rect containerRect)
         {
             float systemicHeight = settings.linkSystemicWeights ? 340f : 520f;
@@ -203,6 +239,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the content of the Test Bench tab within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle within which to draw the Test Bench tab content.</param>
         private static void DrawTestBenchTab(Rect containerRect)
         {
             float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_TestBench", 560f) + 60f;
@@ -226,6 +266,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the content of the Integration tab within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle within which to draw the Integration tab content.</param>
         private static void DrawIntegrationTab(Rect containerRect)
         {
             float totalEstimatedHeight = 
@@ -252,6 +296,10 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the content of the Accessibility tab within the specified container rectangle.
+        /// </summary>
+        /// <param name="containerRect">The rectangle within which to draw the Accessibility tab content.</param>
         private static void DrawAccessibilityTab(Rect containerRect)
         {
             float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_Accessibility", 360f) + 20f;

@@ -484,8 +484,14 @@ namespace OverHaulers
                         // Strategy B falls back to direct field access if DefDatabase lookup fails. This may trigger the static constructor.
                         if (resolvedStat == null)
                         {
-                            try { resolvedStat = fieldInfo.GetValue(null) as StatDef; }
-                            catch (Exception ex) { OHLog.Integration.WarnPatchDisassemblyFailed(fieldInfo.DeclaringType?.Name + "." + fieldInfo.Name, ex); }
+                            try {
+                                resolvedStat = fieldInfo.GetValue(null) as StatDef;
+                            }
+                            catch (Exception ex)
+                            {
+                                string fieldName = $"{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}";
+                                OHLog.Integration.Warn("StatDefFieldResolution", ex, $"Failed to resolve field {fieldName}.");
+                            }
                         }
 
                         AddCandidateIfValid(resolvedStat, candidates);
@@ -505,7 +511,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string methodName = method.DeclaringType != null ? $"{method.DeclaringType.FullName}.{method.Name}" : method.Name;
-                OHLog.Integration.WarnPatchDisassemblyFailed(methodName, ex);
+                OHLog.Integration.Warn("CilMethodInspection", ex, $"Failed to inspect method {methodName}.");
             }
         }
 

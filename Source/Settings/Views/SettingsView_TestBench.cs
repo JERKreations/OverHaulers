@@ -9,8 +9,11 @@ namespace OverHaulers
     /// <summary>
     /// Provides the rendering logic for the interactive Test Bench section of the OverHaulers settings view, including controls for selecting
     /// test subjects, configuring test parameters, and previewing results.
-    /// Annotated with Canonical Semantic Tag [SEC-11].
     /// </summary>
+    /// <remarks>
+    /// Provides the interactive Test Bench settings view for the OverHaulers mod, allowing developers to experiment with anatomical configurations
+    ///  and preview results.
+    /// </remarks>
     public static partial class SettingsView
     {
         #region 1. CONSTANTS & ACCORDION STATES
@@ -235,6 +238,14 @@ namespace OverHaulers
             return localY + barHeight + 10f;
         }
 
+        /// <summary>
+        /// Opens the dump menu for exporting test bench data in various formats.
+        /// </summary>
+        /// <param name="settings">The settings object containing the test bench configuration.</param>
+        /// <param name="subjectLabel">The label of the subject being tested.</param>
+        /// <param name="bodyDefName">The body definition name of the subject.</param>
+        /// <param name="activeSubject">The currently active test subject entry.</param>
+        /// <param name="exportAction">The action to invoke for exporting the dump data.</param>
         private static void OpenDumpMenu(
             Settings settings, 
             string subjectLabel, 
@@ -278,6 +289,10 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(dumpOptions));
         }
 
+        /// <summary>
+        /// Notifies the user of the result of a dump export operation.
+        /// </summary>
+        /// <param name="path">The file path of the exported dump result.</param>
         private static void NotifyDumpResult(string path)
         {
             if (!string.IsNullOrEmpty(path))
@@ -294,6 +309,12 @@ namespace OverHaulers
         /// Draws the left control column of the Test Bench section, which includes the reference subject picker button, topology readout badge,
         /// and universal sandbox medical planner.
         /// </summary>
+        /// <param name="inner">The rectangle defining the area in which to draw the left control column.</param>
+        /// <param name="columnStartY">The starting vertical position within the column.</param>
+        /// <param name="leftWidth">The width of the left control column.</param>
+        /// <param name="isResetHovered">Indicates whether the reset button is currently hovered.</param>
+        /// <param name="settings">The settings object containing the test bench configuration.</param>
+        /// <returns>The updated vertical position after drawing the left control column.</returns>
         private static float DrawLeftControlColumn(Rect inner, float columnStartY, float leftWidth, bool isResetHovered, Settings settings)
         {
             float leftY = columnStartY;
@@ -339,6 +360,14 @@ namespace OverHaulers
 
         #region 6A. Planner Main Controls & Simulated Drug Badges
 
+        /// <summary>
+        /// Draws the universal sandbox planner view, including search bar, systemic stimulants, and staged conditions controls.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the area in which to draw the planner view.</param>
+        /// <param name="leftY">The current vertical position within the left control column, updated as elements are drawn.</param>
+        /// <param name="leftWidth">The width of the left control column.</param>
+        /// <param name="settings">The settings object containing the test bench configuration.</param>
+        /// <returns>The updated vertical position after drawing the planner view.</returns>
         private static float DrawUniversalSandboxPlannerView(
             Rect inner, 
             float leftY, 
@@ -461,6 +490,10 @@ namespace OverHaulers
 
         #region 6B. Search Bar & Passive Group Accordion Headers
 
+        /// <summary>
+        /// Draws the sandbox search bar, allowing the user to filter passive group accordions based on the search text.
+        /// </summary>
+        /// <param name="searchBarRect">The rectangle defining the area in which to draw the search bar.</param>
         private static void DrawSandboxSearchBar(Rect searchBarRect)
         {
             float clearButtonWidth = 24f;
@@ -484,6 +517,14 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws a passive group accordion, including its header and any child elements, within the sandbox test bench view.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area in which to draw the accordion.</param>
+        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
+        /// <param name="groupNode">The passive group node representing the accordion's content.</param>
+        /// <param name="harness">The sandbox pawn harness providing context for the accordion.</param>
+        /// <returns>The updated vertical position after drawing the accordion.</returns>
         private static float DrawPassiveGroupAccordion(
             Rect viewRect,
             float currentY,
@@ -549,6 +590,16 @@ namespace OverHaulers
 
         #region 6C. Recursive Part Node Rendering & Badge Formatter
 
+        /// <summary>
+        /// Recursively draws a passive part node and its child nodes within the sandbox test bench view.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area in which to draw the part node.</param>
+        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
+        /// <param name="node">The passive part node to be drawn.</param>
+        /// <param name="depth">The depth level of the node within the hierarchy, used for indentation.</param>
+        /// <param name="harness">The sandbox pawn harness providing context for the part node.</param>
+        /// <param name="searchFilter">The search filter text used to determine if the node should be displayed.</param>
+        /// <returns>The updated vertical position after drawing the part node and its children.</returns>
         private static float DrawPassivePartNodeRecursive(
             Rect viewRect,
             float currentY,
@@ -617,6 +668,11 @@ namespace OverHaulers
         /// <summary>
         /// Builds a display string for a passive part node, dynamically applying the user's active accessibility palette LERP curves.
         /// </summary>
+        /// <param name="node">The passive part node for which to build the display string.</param>
+        /// <param name="harness">The sandbox pawn harness providing context for the part node.</param>
+        /// <param name="isVirtualAnchor">Indicates whether the node represents a virtual anchor.</param>
+        /// <param name="labelColor">The color to be applied to the label text, determined based on the node's status.</param>
+        /// <returns>A formatted display string for the passive part node.</returns>
         private static string BuildPassiveNodeDisplayString(
             PartViewNode node, 
             SandboxPawnHarness harness, 
@@ -710,6 +766,12 @@ namespace OverHaulers
             return "OverHaulers_NodeBadge_Natural".Translate(node.Label).Colorize(labelColor);
         }
 
+        /// <summary>
+        /// Determines whether the specified group node or any of its sub-parts match the given search filter.
+        /// </summary>
+        /// <param name="groupNode">The group node to be evaluated against the search filter.</param>
+        /// <param name="searchFilter">The search filter text used to determine if the node should be displayed.</param>
+        /// <returns>True if the group node or any of its sub-parts match the search filter; otherwise, false.</returns>
         private static bool GroupMatchesFilter(PartViewNode groupNode, string searchFilter)
         {
             if (groupNode.Label.ToLowerInvariant().Contains(searchFilter)) return true;
@@ -724,6 +786,12 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>
+        /// Determines whether the specified node or any of its sub-parts match the given search filter.
+        /// </summary>
+        /// <param name="node">The node to be evaluated against the search filter.</param>
+        /// <param name="searchFilter">The search filter text used to determine if the node should be displayed.</param>
+        /// <returns>True if the node or any of its sub-parts match the search filter; otherwise, false.</returns>
         private static bool NodeMatchesFilter(PartViewNode node, string searchFilter)
         {
             if (node.Label.ToLowerInvariant().Contains(searchFilter)) return true;
@@ -743,6 +811,15 @@ namespace OverHaulers
 
         #region 6D. Bulk Operations & Replacement Tiers
 
+        /// <summary>
+        /// Opens the bulk operations menu for the specified group of sub-parts within the sandbox pawn harness context.
+        /// </summary>
+        /// <param name="subParts">The list of sub-part nodes for which to open the bulk operations menu.</param>
+        /// <param name="harness">The sandbox pawn harness providing context for the bulk operations.</param>
+        /// <remarks>
+        /// This method collects all body part records from the specified sub-parts and presents a bulk operations menu
+        /// allowing the user to apply replacements to multiple parts simultaneously.
+        /// </remarks>
         private static void OpenGroupBulkOperationsMenu(
             List<PartViewNode> subParts, 
             SandboxPawnHarness harness)
@@ -831,6 +908,12 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Applies a bulk replacement tier to the specified body part records within the sandbox pawn harness context.
+        /// </summary>
+        /// <param name="targetRecords">The list of body part records to which the replacement tier should be applied.</param>
+        /// <param name="harness">The sandbox pawn harness providing context for the replacement operations.</param>
+        /// <param name="pickHighest">Indicates whether to pick the highest efficiency replacement (true) or the lowest efficiency replacement (false).</param>
         private static void ApplyBulkReplacementTier(List<BodyPartRecord> targetRecords, SandboxPawnHarness harness, bool pickHighest)
         {
             Pawn pawn = harness.SandboxPawn;
@@ -870,6 +953,12 @@ namespace OverHaulers
             TestBench.MarkDirty();
         }
 
+        /// <summary>
+        /// Gets the depth of the specified body part within the body part hierarchy. The depth is defined as the number of parent parts above
+        ///  the specified part.
+        /// </summary>
+        /// <param name="part">The body part record for which to determine the depth.</param>
+        /// <returns>The depth of the specified body part within the hierarchy, with 0 indicating a top-level part.</returns>
         private static int GetPartDepth(BodyPartRecord part)
         {
             int depth = 0;
@@ -877,6 +966,11 @@ namespace OverHaulers
             return depth;
         }
 
+        /// <summary>
+        /// Recursively collects all body part records from the specified list of part view nodes and adds them to the results list.
+        /// </summary>
+        /// <param name="nodes">The list of part view nodes to process.</param>
+        /// <param name="results">The list to which collected body part records will be added.</param>
         private static void CollectSubPartRecordsRecursive(List<PartViewNode> nodes, List<BodyPartRecord> results)
         {
             if (nodes == null) return;
@@ -891,6 +985,11 @@ namespace OverHaulers
 
         #region 6E. Single Part Simulation Menus & Limb Predicates
 
+        /// <summary>
+        /// Opens the simulation menu for the specified body part, allowing the user to perform various operations on it.
+        /// </summary>
+        /// <param name="targetPart">The body part for which to open the simulation menu.</param>
+        /// <param name="harness">The sandbox pawn harness associated with the simulation.</param>
         private static void OpenPartSimulationMenu(
             BodyPartRecord targetPart, 
             SandboxPawnHarness harness)
@@ -999,6 +1098,11 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Determines whether the specified body part is considered a limb (arm or leg) part.
+        /// </summary>
+        /// <param name="part">The body part to check.</param>
+        /// <returns>True if the body part is a limb part; otherwise, false.</returns>
         private static bool IsLimbPartRecord(BodyPartRecord part)
         {
             if (part?.def == null) return false;
@@ -1017,6 +1121,13 @@ namespace OverHaulers
         /// Draws the right-hand preview column, which includes the top action toolbar (View Modes & Dump options),
         /// a comparison delta banner, and an info card breakdown of the simulated changes.
         /// </summary>
+        /// <param name="inner">The inner rectangle defining the drawing area.</param>
+        /// <param name="columnStartY">The starting Y position of the column.</param>
+        /// <param name="rightX">The X position of the right column.</param>
+        /// <param name="rightWidth">The width of the right column.</param>
+        /// <param name="leftColumnHeight">The height of the left column, used for alignment purposes.</param>
+        /// <param name="settings">The current settings object.</param>
+        /// <returns>The updated Y position after drawing the right preview column.</returns>
         private static float DrawRightPreviewColumn(
             Rect inner, 
             float columnStartY, 

@@ -99,7 +99,8 @@ namespace OverHaulers
                 catch (Exception ex)
                 {
                     // Avoid pawn.LabelShortCap here: it can itself throw from third-party label patches while already handling an exception.
-                    OHLog.Solver.WarnSystemicAilmentExtractionFailed(pawn.def?.label ?? "Unknown", ex);
+                    string pawnLabel = pawn.def?.label ?? "Unknown";
+                    OHLog.Solver.Warn("StampLiveHediffs", ex, $"An error occurred while extracting systemic ailment impactors for {pawnLabel}");
                 }
             }
 

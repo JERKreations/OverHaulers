@@ -1,69 +1,130 @@
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
+using System;
+using System.Collections.Concurrent;
 using Verse;
 
 namespace OverHaulers
 {
+    public enum LogDomain
+    {
+        Lifecycle,
+        Integration,
+        Topology,
+        Solver,
+        Presentation,
+        TestBench,
+        Performance
+    }
+
     /// <summary>
-    /// Centralized, thread-safe logging and diagnostics wrapper for OverHaulers.
-    /// Implements a 3-print count-based interlocked throttle to provide full stack traces without log spam.
+    /// Centralized, thread-safe diagnostics and logging engine for OverHaulers.
+    /// Provides dynamic context-based throttles for hardcoded error logs (max 3 prints per unique source),
+    /// while routing informative lifecycle events through localized XML translation keys.
     /// </summary>
     public static partial class OHLog
     {
-        #region 1. SHARED TRACE BUFFERS & ATOMIC THROTTLES
+        #region 1. DYNAMIC ATOMIC THROTTLING ENGINE
 
-        public struct SafetyClampRecord
-        {
-            public float RawMass;
-            public float ClampedMass;
-        }
-
-        private const int MaxWarnCutoff = 3;
-
-        private static readonly HashSet<int> pendingEvictedPawnIds = new HashSet<int>(64);
-        private static readonly Dictionary<string, SafetyClampRecord> pendingClampedPawns = new Dictionary<string, SafetyClampRecord>(16);
-        private static readonly StringBuilder pooledReportBuilder = new StringBuilder(1024);
-
-        private static int warnCountPatchDisassembly = 0;
-        private static int warnCountGetCapacityLevel = 0;
-        private static int warnCountMetabolicInit = 0;
-        private static int warnCountConsciousnessImpact = 0;
-        private static int warnCountHarmonyPatchFailed = 0;
-        private static int warnCountTopologyCompilationFailed = 0;
-        private static int warnCountSolverException = 0;
-        private static int warnCountBodySizeAccess = 0;
-        private static int warnCountReferenceDesync = 0;
-        private static int warnCountSystemicAilmentExtraction = 0;
-        private static int warnCountCalibrationFallback = 0;
-        private static int warnCountPresentationException = 0;
-        private static int warnCountTestBenchException = 0;
-
-        #endregion
-        
-        #region 2. [LIFE-00] LIFECYCLE LOGGING DOMAIN
+        public const int MaxWarnCutoff = 3;
+        private static readonly ConcurrentDictionary<string, int> throttleCounts = new ConcurrentDictionary<string, int>();
 
         /// <summary>
-        /// Logs warnings and informational messages related to the OverHaulers lifecycle, including world load resets and other lifecycle events.
+        /// Emits a hardcoded, unlocalized warning with full exception details, 
+        /// throttled to a maximum of 3 prints per unique (domain + context) key to prevent log spam.
         /// </summary>
+        public static void Warn(LogDomain domain, string context, Exception ex = null, string customMessage = null)
+        {
+            string throttleKey = $"{domain}_{context}";
+            int count = throttleCounts.AddOrUpdate(throttleKey, 1, (_, cur) => cur + 1);
+
+            if (count <= MaxWarnCutoff)
+            {
+                string countTag = $"#{count}/{MaxWarnCutoff}";
+                string msgPart = !string.IsNullOrEmpty(customMessage) ? $" {customMessage}" : "";
+                string exPart = ex != null ? $": {ex}" : "";
+
+                Log.Warning($"[Over Haulers] {domain} Warning {countTag} [{context}]{msgPart}{exPart}");
+            }
+        }
+
+        /// <summary>
+        /// Emits an unthrottled, hardcoded critical error.
+        /// </summary>
+        public static void Error(LogDomain domain, string context, Exception ex = null, string customMessage = null)
+        {
+            string msgPart = !string.IsNullOrEmpty(customMessage) ? $" {customMessage}" : "";
+            string exPart = ex != null ? $": {ex}" : "";
+
+            Log.Error($"[Over Haulers] {domain} Error [{context}]{msgPart}{exPart}");
+        }
+
+        #endregion
+
+        #region 2. DOMAIN CONVENIENCE WRAPPERS & INFORMATIVE LOGS
+
+        // --- LIFECYCLE DOMAIN ---
         public static class Lifecycle
         {
-            public static void WorldLoadedReset()
-            {
+            public static void WorldLoadedReset() => 
                 Log.Message("OverHaulers_Log_WorldReset".Translate().ToString());
-            }
 
-            /// <summary>
-            /// Logs a warning indicating a species' baseline calibration was irrecoverable and a testing/fallback scalar was applied instead.
-            /// </summary>
-            public static void WarnCalibrationFallbackApplied(string speciesDefName, float fallbackScalar)
-            {
-                int count = Interlocked.Increment(ref warnCountCalibrationFallback);
-                if (count <= MaxWarnCutoff)
-                {
-                    Log.Warning($"[Over Haulers] Calibration Warning #{count}/{MaxWarnCutoff}: Irrecoverable mass calibration failure for caravan-capable species '{speciesDefName}'. Falling back to testing and fallback baseline assumption ({fallbackScalar}).");
-                }
-            }
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Lifecycle, context, ex, customMessage);
+        }
+
+        // --- INTEGRATION DOMAIN ---
+        public static class Integration
+        {
+            public static void ExternalPatchesDetected(string modOwners) => 
+                Log.Message("OverHaulers_Log_ExternalMassPatchesDetected".Translate(modOwners).ToString());
+
+            public static void CustomDriverRegistered(string driverId) => 
+                Log.Message("OverHaulers_Log_CustomDriverRegistered".Translate(driverId).ToString());
+
+            public static void StatDrivenBound(string owner, string statName, string suffix) => 
+                Log.Message("OverHaulers_Log_StatDriven".Translate(statName, owner, suffix).ToString());
+
+            public static void DirectFallbackActive(string suffix) => 
+                Log.Message("OverHaulers_Log_DirectFallback".Translate(suffix).ToString());
+
+            public static void MedicalCatalogInitialized(float ms, int replacements, int implants, int drugs) => 
+                Log.Message("OverHaulers_Log_MedicalCatalogInitialized".Translate(ms.ToString("F2"), replacements, implants, drugs).ToString());
+
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Integration, context, ex, customMessage);
+        }
+
+        // --- TOPOLOGY DOMAIN ---
+        public static class Topology
+        {
+            public static void CompilationCompleted(float ms, int species, int maxParts, string maxDef, int maxDepth) => 
+                Log.Message("OverHaulers_Log_TopologyCompilationCompleted".Translate(ms.ToString("F2"), species, maxParts, maxDef, maxDepth).ToString());
+
+            public static void TopologyInvalidated(string bodyDefName) => 
+                Log.Message("OverHaulers_Log_TopologyInvalidated".Translate(bodyDefName).ToString());
+
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Topology, context, ex, customMessage);
+        }
+
+        // --- SOLVER DOMAIN ---
+        public static class Solver
+        {
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Solver, context, ex, customMessage);
+        }
+
+        // --- PRESENTATION DOMAIN ---
+        public static class Presentation
+        {
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.Presentation, context, ex, customMessage);
+        }
+
+        // --- TESTBENCH DOMAIN ---
+        public static class TestBench
+        {
+            public static void Warn(string context, Exception ex = null, string customMessage = null) => 
+                OHLog.Warn(LogDomain.TestBench, context, ex, customMessage);
         }
 
         #endregion

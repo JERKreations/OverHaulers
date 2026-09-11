@@ -365,7 +365,7 @@ namespace OverHaulers
         /// <param name="thingID">The unique identifier of the pawn to invalidate.</param>
         public static void Invalidate(int thingID)
         {
-            AssertMainThread("OverHaulers_Context_CacheInvalidation".Translate().ToString());
+            AssertMainThread("Cache Invalidation");
 
             bool invalidatedMain = false;
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
@@ -391,7 +391,7 @@ namespace OverHaulers
         /// <param name="thingID">The unique identifier of the pawn whose cache entry is to be evicted.</param>
         public static void EvictCacheEntry(int thingID)
         {
-            AssertMainThread("OverHaulers_Context_CacheEviction".Translate().ToString());
+            AssertMainThread("Cache Eviction");
 
             bool removedMain = capacityCache.Remove(thingID);
             bool removedGlobal = MassSnapshotCache.Evict(thingID);
@@ -509,7 +509,7 @@ namespace OverHaulers
                         // Double-check the cleanup condition after acquiring the sentinel to avoid redundant cleanup operations.
                         if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
                         {
-                            AssertMainThread("OverHaulers_Context_RegistryCleanup".Translate().ToString());
+                            AssertMainThread("Registry Cleanup");
                             lastCleanupTick = currentTick;
 
                             int longTermInactivityThreshold = OverHaulers.settings != null 

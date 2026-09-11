@@ -189,12 +189,12 @@ namespace OverHaulers
             if (summary.HasSignificantModifications)
             {
                 string pawnLabelBoosted = summary.BoostedPawnCount == 1 
-                    ? "OverHaulers_PawnSingle".Translate().ToString() 
-                    : "OverHaulers_PawnPlural".Translate().ToString();
+                    ? "OverHaulers_Fleet_PawnSingle".Translate().ToString() 
+                    : "OverHaulers_Fleet_PawnPlural".Translate().ToString();
 
                 string pawnLabelImpaired = summary.ImpairedPawnCount == 1 
-                    ? "OverHaulers_PawnSingle".Translate().ToString() 
-                    : "OverHaulers_PawnPlural".Translate().ToString();
+                    ? "OverHaulers_Fleet_PawnSingle".Translate().ToString() 
+                    : "OverHaulers_Fleet_PawnPlural".Translate().ToString();
 
                 if (summary.TotalProstheticBoost > SettingsDefaults.EfficiencyEpsilon)
                 {

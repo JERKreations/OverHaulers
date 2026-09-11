@@ -303,7 +303,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.TestBench.WarnException("SandboxPawnHarness:RebuildSandboxPawn", ex);
+                OHLog.TestBench.Warn("SandboxPawnHarness:RebuildSandboxPawn", ex, "An error occurred while rebuilding the sandbox pawn.");
                 TeardownSandboxPawn();
             }
         }
@@ -516,7 +516,7 @@ namespace OverHaulers
                 OpType = SimulatedOpType.Amputate,
                 SourceRecipe = null,
                 TargetHediff = null,
-                DisplayLabel = "OverHaulers_Amputated".Translate().ToString(),
+                DisplayLabel = "OverHaulers_Op_Amputated".Translate().ToString(),
                 Efficiency = 0f
             };
 
@@ -568,7 +568,7 @@ namespace OverHaulers
                 OpType = SimulatedOpType.Trauma,
                 SourceRecipe = null,
                 TargetHediff = null,
-                DisplayLabel = "OverHaulers_SevereTrauma".Translate().ToString(),
+                DisplayLabel = "OverHaulers_Op_SevereTrauma".Translate().ToString(),
                 Efficiency = 1f / Math.Max(1f, maxHp)
             };
 
@@ -842,7 +842,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.TestBench.WarnException($"LiveSandboxPawnHarness:InitializeComps ({sandboxPawn.def.defName})", ex);
+                OHLog.TestBench.Warn("LiveSandboxPawnHarness:InitializeComps", ex, $"Failed to initialize comps for sandbox pawn ({sandboxPawn.def.defName}).");
             }
         }
     }

@@ -4,10 +4,20 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// Provides methods for drawing the various settings sections related to body part and systemic health weightings in the OverHaulers mod.
+    /// </summary>
     public static partial class SettingsView
     {
         #region 1. [SEC-02] CORE BODY GROUP WEIGHTS DRAWER
 
+        /// <summary>
+        /// Draws the section for configuring core body group weightings, including torso, arm, and leg impact sliders.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area to draw the section within.</param>
+        /// <param name="currentY">The current Y position within the view, updated as the section is drawn.</param>
+        /// <param name="settings">The current settings object containing the weight values.</param>
+        /// <param name="resetAnatomy">An action to reset the anatomy weightings to their default values.</param>
         public static void DrawCoreBodyGroupWeights(Rect viewRect, ref float currentY, Settings settings, Action resetAnatomy)
         {
             Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_CoreBodyWeights", ref currentY, fallbackEstimate: 180f);
@@ -26,7 +36,7 @@ namespace OverHaulers
                 float colStartY = localY;
 
                 // LEFT COLUMN: Description & Anatomical Rationale
-                string leftDesc = "OverHaulers_BodyPartImpactsLabel".Translate().ToString();
+                string leftDesc = "OverHaulers_BodyPartWeights_Desc".Translate().ToString();
                 float leftY = SettingsViewUtilities.DrawSectionDescriptionDirect(new Rect(inner.x, colStartY, leftWidth, 0f), leftDesc, colStartY);
 
                 // RIGHT COLUMN: 3 Normalized Impact Sliders
@@ -81,6 +91,16 @@ namespace OverHaulers
 
         #region 2. [SEC-03 & SEC-04] SYSTEMIC HEALTH WEIGHTINGS DRAWER
 
+        /// <summary>
+        /// Draws the section for configuring systemic health weightings, including torso, arm, and leg deficits and positives.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area to draw the section within.</param>
+        /// <param name="currentY">The current Y position within the view, updated as the section is drawn.</param>
+        /// <param name="settings">The current settings object containing the weight values.</param>
+        /// <param name="resetTorso">An action to reset the torso weightings to their default values.</param>
+        /// <param name="resetArm">An action to reset the arm weightings to their default values.</param>
+        /// <param name="resetLeg">An action to reset the leg weightings to their default values.</param>
+        /// <param name="resetAll">An action to reset all systemic health weightings to their default values.</param>
         public static void DrawSystemicHealthWeights(
             Rect viewRect, 
             ref float currentY, 
@@ -184,6 +204,14 @@ namespace OverHaulers
 
         #region 3. [SEC-05 & SEC-06] TORSO MACRO TOPOLOGY & LIMB DEPTH DECAY DRAWER (50/50 Split)
 
+        /// <summary>
+        /// Draws the section for configuring torso macro topology and limb depth decay settings.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area to draw the section within.</param>
+        /// <param name="currentY">The current Y position within the view, updated as the section is drawn.</param>
+        /// <param name="settings">The current settings object containing the torso and limb depth values.</param>
+        /// <param name="resetTorso">An action to reset the torso macro topology settings to their default values.</param>
+        /// <param name="resetLimbDepths">An action to reset the limb depth decay settings to their default values.</param>
         public static void DrawTorsoAndLimbDepths(Rect viewRect, ref float currentY, Settings settings, Action resetTorso, Action resetLimbDepths)
         {
             float cachedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_TorsoLimbDepths", 260f);
@@ -199,8 +227,8 @@ namespace OverHaulers
             Rect leftInner = leftBox.ContractedBy(10f);
             Rect rightInner = rightBox.ContractedBy(10f);
 
-            string leftLabel = "OverHaulers_CoreBonesLabel".Translate().ToString();
-            string rightLabel = "OverHaulers_LimbDepthImpactsLabel".Translate().ToString();
+            string leftLabel = "OverHaulers_CoreBones_Desc".Translate().ToString();
+            string rightLabel = "OverHaulers_LimbDepth_Desc".Translate().ToString();
 
             string axialLabel = "OverHaulers_TorsoAxialBias".Translate(settings.torsoAxialBias.ToStringPercent()).ToString();
             string axialDesc = "OverHaulers_TorsoAxialBias_Desc".Translate().ToString();
@@ -263,6 +291,25 @@ namespace OverHaulers
 
         #region 4. MODULAR REGIONAL CARD DRAWERS
 
+        /// <summary>
+        /// Draws a region card for configuring the capacities of different body functions (breathing, blood pumping, moving, manipulation) with
+        ///  dual values for positional and default capacities.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the area to draw the region card within.</param>
+        /// <param name="headerKey">The translation key for the header of the region card.</param>
+        /// <param name="posBreathing">Reference to the positional breathing capacity value.</param>
+        /// <param name="defBreathing">Reference to the default breathing capacity value.</param>
+        /// <param name="posBlood">Reference to the positional blood pumping capacity value.</param>
+        /// <param name="defBlood">Reference to the default blood pumping capacity value.</param>
+        /// <param name="posMoving">Reference to the positional moving capacity value.</param>
+        /// <param name="defMoving">Reference to the default moving capacity value.</param>
+        /// <param name="posManip">Reference to the positional manipulation capacity value.</param>
+        /// <param name="defManip">Reference to the default manipulation capacity value.</param>
+        /// <param name="isLinked">Indicates whether the positional and default values are linked.</param>
+        /// <param name="resetAction">The action to reset the region card values to their defaults.</param>
+        /// <param name="localY">The current Y position within the region card, updated as rows are drawn.</param>
+        /// <param name="isMainResetHovered">Indicates whether the main reset button is currently hovered.</param>
+        /// <returns>The updated Y position after drawing the region card.</returns>
         private static float DrawRegionCard(
             Rect inner,
             string headerKey,
@@ -286,6 +333,17 @@ namespace OverHaulers
             return localY + SettingsViewUtilities.GroupGap;
         }
 
+        /// <summary>
+        /// Draws a single row for a dual capacity setting, including both positional and default values, with optional highlighting.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the row.</param>
+        /// <param name="capacityPrefix">The prefix label for the capacity (e.g., "Breathing").</param>
+        /// <param name="posValue">The positional value for the capacity.</param>
+        /// <param name="defValue">The default value for the capacity.</param>
+        /// <param name="isLinked">Indicates whether the positional and default values are linked.</param>
+        /// <param name="currentY">The current Y position for drawing the row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row.</returns>
         private static float DrawSingleLineDualCapacityRow(
             Rect inner,
             string capacityPrefix,

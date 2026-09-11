@@ -116,7 +116,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.WarnHarmonyPatchFailed(ex);
+                OHLog.Integration.Warn("HarmonySetup", ex, "Failed to install main menu safety patches.");
             }
         }
 
@@ -173,7 +173,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.WarnHarmonyPatchFailed(ex);
+                OHLog.Integration.Warn("HarmonySetup", ex, "Failed to install invalidation patches.");
             }
         }
     }

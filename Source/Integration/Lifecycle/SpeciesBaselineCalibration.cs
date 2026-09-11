@@ -420,7 +420,7 @@ namespace OverHaulers
                             {
                                 entry = new CalibrationEntry { Scalar = EmergencyFailsafeSentinel, Method = CalibrationMethod.EmergencyFailsafe, LastErrorDetail = liveError };
                                 CountEmergencyFallback++;
-                                OHLog.Lifecycle.WarnCalibrationFallbackApplied(pawn.def.defName, massCapacityScalarTestingAndFallbackOnly);
+                                OHLog.Lifecycle.Warn(pawn.def.defName, null, liveError);
                             }
                             speciesCache[pawn.def] = entry;
                         }

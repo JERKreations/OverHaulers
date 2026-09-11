@@ -44,7 +44,6 @@
   <OverHaulers_Badge_CSharpDriver>C# Driver</OverHaulers_Badge_CSharpDriver>
 
   <!-- Dynamic Verification & What to Expect Sub-Card -->
-  <OverHaulers_Verify_Header>In-Game Verification &amp; What to Expect</OverHaulers_Verify_Header>
   <OverHaulers_Verify_Field_Display>Info Card:</OverHaulers_Verify_Field_Display>
   <OverHaulers_Verify_Field_Gear>Apparel &amp; Gear:</OverHaulers_Verify_Field_Gear>
   <OverHaulers_Verify_Field_Confirm>How to Confirm:</OverHaulers_Verify_Field_Confirm>

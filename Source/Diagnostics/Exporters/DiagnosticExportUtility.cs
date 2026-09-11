@@ -130,7 +130,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Solver.WarnException("ResolveRootExportDirectory", ex);
+                OHLog.TestBench.Warn("ResolveRootExportDirectory", ex, "Failed to resolve root export directory.");
             }
 
             string fallbackRoot = Path.Combine(GenFilePaths.SaveDataFolderPath, "OverHaulers_DiagnosticDumps");
@@ -181,7 +181,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Solver.WarnException("OpenExportDirectoryFailed", ex);
+                OHLog.TestBench.Warn("OpenExportDirectoryFailed", ex, "Failed to open export directory.");
             }
         }
 
@@ -247,7 +247,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Solver.WarnException("WriteExportFileModRootFailed", ex);
+                OHLog.TestBench.Warn("WriteExportFileModRootFailed", ex, "Failed to write export file to the primary export directory.");
                 string fallbackDir = Path.Combine(GenFilePaths.SaveDataFolderPath, "OverHaulers_DiagnosticDumps", DateTime.Now.ToString("yyyy-MM-dd"));
                 if (!Directory.Exists(fallbackDir)) Directory.CreateDirectory(fallbackDir);
 

@@ -92,7 +92,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.WarnHarmonyPatchFailed(ex);
+                OHLog.Integration.Warn("GetOrCreateStandaloneStat", ex, "Failed to create standalone StatDef 'OverHaulers_CaravanMassCapacity'.");
             }
 
             return null;

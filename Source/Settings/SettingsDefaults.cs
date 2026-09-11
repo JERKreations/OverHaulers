@@ -132,12 +132,16 @@ namespace OverHaulers
 
         #region 9. [SEC-09] DIAGNOSTICS & TELEMETRY DEFAULTS
 
+        // Verbose breakdown flag for diagnostics. When true, instances of InfoCard are forced to display all groupings details regardless of
+        // part states and health conditions.
         public const bool VerboseBreakdown = false;
         
+        // Report metrics interval in hours. This defines how frequently diagnostic metrics are reported.
         public const int ReportMetricsIntervalHours = 0;
         public const int ReportMetricsIntervalHoursMin = 0;
         public const int ReportMetricsIntervalHoursMax = 48;
 
+        // Flags to enable or disable logging of various diagnostic metrics.
         public const bool LogQueryMetrics = true;
         public const bool LogCacheMetrics = true;
         public const bool LogLifecycleMetrics = true;
@@ -145,6 +149,7 @@ namespace OverHaulers
         public const bool LogSafetyFloorClamps = false;
         public const bool LogPawnEvictions = false;
         
+        // Timeframe in hours for considering pawn evictions. This defines the window within which pawn evictions are evaluated.
         public const int PawnEvictionTimeframeHours = 24;
         public const int PawnEvictionTimeframeHoursMin = 1;
         public const int PawnEvictionTimeframeHoursMax = 72;
@@ -157,18 +162,22 @@ namespace OverHaulers
         public const float IconScalePercentMin = 0.50f;
         public const float IconScalePercentMax = 1.20f;
 
+        // Default color palette.
         public static readonly Color ColorHealthyDefault = new Color(0.90f, 0.90f, 0.90f);
         public static readonly Color ColorCriticalDefault = new Color(0.90f, 0.33f, 0.33f);
         public static readonly Color ColorBoostedDefault = new Color(0.40f, 0.82f, 1.00f);
 
+        // Deuteranopia color palette.
         public static readonly Color ColorHealthyDeuteranopia = new Color(0.35f, 0.70f, 0.90f);
         public static readonly Color ColorCriticalDeuteranopia = new Color(0.95f, 0.65f, 0.15f);
         public static readonly Color ColorBoostedDeuteranopia = new Color(0.85f, 0.40f, 0.85f);
 
+        // Tritanopia color palette.
         public static readonly Color ColorHealthyTritanopia = new Color(0.20f, 0.75f, 0.65f);
         public static readonly Color ColorCriticalTritanopia = new Color(0.90f, 0.25f, 0.40f);
         public static readonly Color ColorBoostedTritanopia = new Color(0.65f, 0.40f, 0.90f);
 
+        // High contrast color palette.
         public static readonly Color ColorHealthyHighContrast = new Color(1.00f, 1.00f, 1.00f);
         public static readonly Color ColorCriticalHighContrast = new Color(0.45f, 0.45f, 0.45f);
         public static readonly Color ColorBoostedHighContrast = new Color(1.00f, 0.85f, 0.20f);
@@ -179,13 +188,20 @@ namespace OverHaulers
 
         #region 11. ENGINE & PERFORMANCE INVARIANTS
 
+        // Cache expiry base interval in ticks. This is the base duration before a cache entry is considered expired.
         public const int CacheExpiryBase = 60;
+        // Cache expiry jitter window in ticks. This value introduces randomness to the cache expiry interval.
         public const int CacheExpiryJitter = 24;
+        // Cache cleanup interval. This is the interval at which expired cache entries are cleaned up.
         public const int CacheCleanupInterval = 600;
+        // Minimum fast path ticks for cache. This is the minimum number of ticks considered for the fast path in cache operations.
         public const int DefaultCacheMinFastPathTicks = 10;
+        // Default workspace capacity. This defines the initial capacity of the workspace used in performance-critical operations.
         public const int DefaultWorkspaceCapacity = 64;
+        // Efficiency epsilon for performance calculations. This small value is used to avoid division by zero and to maintain numerical stability.
         public const float EfficiencyEpsilon = 0.005f;
 
+        // World load calibration delay in ticks. This is the delay before performing calibration after the world is loaded.
         public const int WorldLoadCalibrationDelayTicks = 120;
 
         #endregion

@@ -150,7 +150,7 @@ namespace OverHaulers
                 }
                 catch (Exception ex)
                 {
-                    OHLog.Topology.WarnCompilationFailed(ex);
+                    OHLog.Topology.Warn("EnsureInitialized", ex, "An error occurred during topology compilation.");
                 }
                 finally
                 {
@@ -199,7 +199,7 @@ namespace OverHaulers
             // Real-time mutation guard: if a mod altered bodyDef.AllParts at runtime, re-compile dynamically
             if (!VerifyTemplateReferenceIntegrity(template, bodyDef))
             {
-                OHLog.Topology.WarnReferenceDesync(bodyDef.defName);
+                OHLog.Topology.Warn("GetOrCreateTopologyTemplate", null, $"Recompiling topology template for {bodyDef.defName} due to reference desync.");
 
                 SpeciesTopologyTemplate freshTemplate = BuildSpeciesTopologyTemplate(bodyDef);
                 speciesTopologyCache[bodyDef] = new Lazy<SpeciesTopologyTemplate>(() => freshTemplate);

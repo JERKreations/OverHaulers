@@ -4,10 +4,20 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// Provides the user interface for accessibility settings, including color palette customization and icon scale adjustments.
+    /// </summary>
     public static partial class SettingsView
     {
         #region [SEC-10] ACCESSIBILITY & MEDICAL COLOR PALETTE DRAWER
 
+        /// <summary>
+        /// Draws the accessibility section of the settings view, including icon scale and color palette options.
+        /// </summary>
+        /// <param name="viewRect">The rectangle defining the area in which to draw the section.</param>
+        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
+        /// <param name="settings">The settings object containing accessibility options.</param>
+        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
         public static void DrawAccessibilitySection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
             Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Accessibility", ref currentY, fallbackEstimate: 360f);
@@ -81,6 +91,15 @@ namespace OverHaulers
 
         #region PRIVATE ACCESSIBILITY IMGUI HELPERS
 
+        /// <summary>
+        /// Draws a live gradient preview bar representing the transition from critical to healthy to boosted colors.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area in which to draw the gradient preview.</param>
+        /// <param name="critical">The color representing the critical state.</param>
+        /// <param name="healthy">The color representing the healthy state.</param>
+        /// <param name="boosted">The color representing the boosted state.</param>
+        /// <param name="currentY">The current vertical position within the container, updated as elements are drawn.</param>
+        /// <returns>The updated vertical position after drawing the gradient preview.</returns>
         private static float DrawGradientPreviewDirect(Rect containerRect, Color critical, Color healthy, Color boosted, float currentY)
         {
             Rect labelRect = new Rect(containerRect.x, currentY, containerRect.width, 20f);
@@ -123,6 +142,15 @@ namespace OverHaulers
             return currentY + 18f;
         }
 
+        /// <summary>
+        /// Draws a color slider row for adjusting the red, green, and blue components of a color.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area in which to draw the color slider row.</param>
+        /// <param name="labelText">The label text to display next to the color swatch.</param>
+        /// <param name="color">The color to be adjusted.</param>
+        /// <param name="currentY">The current vertical position within the container, updated as elements are drawn.</param>
+        /// <param name="onColorChanged">The action to invoke when the color is changed.</param>
+        /// <returns>The updated vertical position after drawing the color slider row.</returns>
         private static float DrawColorSliderRowDirect(Rect containerRect, string labelText, ref Color color, float currentY, Action onColorChanged)
         {
             Rect labelRect = new Rect(containerRect.x, currentY, containerRect.width - 26f, 20f);

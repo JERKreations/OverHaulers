@@ -150,6 +150,10 @@ namespace OverHaulers
         public Color colorCritical = SettingsDefaults.ColorCriticalDefault;
         public Color colorBoosted = SettingsDefaults.ColorBoostedDefault;
 
+        /// <summary>
+        /// Applies the specified color palette preset to the accessibility and color settings.
+        /// </summary>
+        /// <param name="preset">The color palette preset to apply.</param>
         public void ApplyPreset(PalettePreset preset)
         {
             activePalettePreset = preset;
@@ -183,6 +187,9 @@ namespace OverHaulers
             SettingsViewUtilities.OnSettingMutated();
         }
 
+        /// <summary>
+        /// Resets the accessibility settings to their default values, including the icon scale and color palette.
+        /// </summary>
         public void ResetAccessibility()
         {
             iconScalePercent = SettingsDefaults.IconScalePercent;
@@ -193,6 +200,11 @@ namespace OverHaulers
 
         #region 13. DYNAMIC READERS & HELPERS
 
+        /// <summary>
+        /// Retrieves the budget value for the specified body part type.
+        /// </summary>
+        /// <param name="type">The type of body part.</param>
+        /// <returns>The budget value associated with the specified body part type.</returns>
         public float GetBudget(PartType type)
         {
             switch (type)
@@ -208,6 +220,9 @@ namespace OverHaulers
 
         #region 14. TAGGED SECTION RESET ROUTINES
 
+        /// <summary>
+        /// Resets all global settings to their default values.
+        /// </summary>
         public void ResetGlobals()
         {
             prostheticScaling = SettingsDefaults.ProstheticScaling;
@@ -221,6 +236,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all body part-related settings to their default values.
+        /// </summary>
         public void ResetBodyParts()
         {
             anatomyWeightTorso = SettingsDefaults.AnatomyWeightTorso;
@@ -229,6 +247,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all positive torso-related settings to their default values.
+        /// </summary>
         public void ResetTorsoPositives()
         {
             torsoPositiveBreathing = SettingsDefaults.TorsoPositiveBreathing;
@@ -238,6 +259,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all positive arm-related settings to their default values.
+        /// </summary>
         public void ResetArmPositives()
         {
             armPositiveBreathing = SettingsDefaults.ArmPositiveBreathing;
@@ -247,6 +271,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all positive leg-related settings to their default values.
+        /// </summary>
         public void ResetLegPositives()
         {
             legPositiveBreathing = SettingsDefaults.LegPositiveBreathing;
@@ -256,6 +283,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all negative torso-related settings to their default values.
+        /// </summary>
         public void ResetTorsoDeficits()
         {
             torsoDeficitBreathing = SettingsDefaults.TorsoDeficitBreathing;
@@ -265,6 +295,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all negative arm-related settings to their default values.
+        /// </summary>
         public void ResetArmDeficits()
         {
             armDeficitBreathing = SettingsDefaults.ArmDeficitBreathing;
@@ -274,6 +307,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all negative leg-related settings to their default values.
+        /// </summary>
         public void ResetLegDeficits()
         {
             legDeficitBreathing = SettingsDefaults.LegDeficitBreathing;
@@ -283,24 +319,36 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all systemic torso-related settings to their default values.
+        /// </summary>
         public void ResetTorsoSystemic()
         {
             ResetTorsoPositives();
             ResetTorsoDeficits();
         }
 
+        /// <summary>
+        /// Resets all systemic arm-related settings to their default values.
+        /// </summary>
         public void ResetArmSystemic()
         {
             ResetArmPositives();
             ResetArmDeficits();
         }
 
+        /// <summary>
+        /// Resets all systemic leg-related settings to their default values.
+        /// </summary>
         public void ResetLegSystemic()
         {
             ResetLegPositives();
             ResetLegDeficits();
         }
 
+        /// <summary>
+        /// Resets all systemic weightings to their default values.
+        /// </summary>
         public void ResetSystemicWeightings()
         {
             linkSystemicWeights = SettingsDefaults.LinkSystemicWeights;
@@ -309,6 +357,9 @@ namespace OverHaulers
             ResetLegSystemic();
         }
 
+        /// <summary>
+        /// Resets all torso part-related settings to their default values.
+        /// </summary>
         public void ResetTorsoParts()
         {
             torsoAxialBias = SettingsDefaults.TorsoAxialBias;
@@ -316,12 +367,18 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all limb decay-related settings to their default values.
+        /// </summary>
         public void ResetLimbDecay()
         {
             limbDepthDecayFactor = SettingsDefaults.LimbDepthDecayFactor;
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all scaling constant-related settings to their default values.
+        /// </summary>
         public void ResetScalingConstants()
         {
             prostheticImpactConstant = SettingsDefaults.ProstheticImpactConstant;
@@ -329,6 +386,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all diagnostic-related settings to their default values.
+        /// </summary>
         public void ResetDiagnostics()
         {
             verboseBreakdown = SettingsDefaults.VerboseBreakdown;
@@ -343,6 +403,9 @@ namespace OverHaulers
             SettingsViewUtilities.ClearInputBuffers();
         }
 
+        /// <summary>
+        /// Resets all settings to their default values.
+        /// </summary>
         public void ResetAllToDefaults()
         {
             ResetGlobals();
@@ -362,6 +425,9 @@ namespace OverHaulers
 
         #region 15. DATA SERIALIZATION (SCRIBE)
 
+        /// <summary>
+        /// Exposes the settings data for serialization.
+        /// </summary>
         public override void ExposeData()
         {
             base.ExposeData();

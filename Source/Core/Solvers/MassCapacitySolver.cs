@@ -141,7 +141,7 @@ namespace OverHaulers
             {
                 // Log the exception and provide a fallback mass offset.
                 string sourceLabel = source?.EntityLabel ?? "Unknown";
-                OHLog.Solver.WarnException(sourceLabel, ex);
+                OHLog.Solver.Warn(sourceLabel, ex, "Failed to solve mass capacity offset for pawn.");
                 return FallbackMassOffsetKg;
             }
             finally

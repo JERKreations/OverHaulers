@@ -271,7 +271,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.TestBench.WarnException("GenerateTestExplanation", ex);
+                OHLog.TestBench.Warn("GenerateTestExplanation", ex, "An error occurred while generating the test explanation.");
                 return string.Empty;
             }
         }
