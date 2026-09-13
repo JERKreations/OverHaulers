@@ -8,7 +8,7 @@ This directory holds the proprietary RimWorld and Unity engine assemblies requir
 
 ### Required Files
 
-For each target version (`Libraries/1.5/` and `Libraries/1.6/`), you need the following assemblies:
+For each target version (`Libraries/<version#>/`), you need the following assemblies:
 
 * `Assembly-CSharp.dll`
 * `UnityEngine.dll`
@@ -39,4 +39,4 @@ If your game is currently on version 1.6, you can easily download 1.5's files us
 1. In Steam, right-click **RimWorld** in your Library and select **Properties...**
 2. Select the **Game Versions & Betas** tab on the left.
 3. Select **Default Public Version** for latest current release, or select an alternative version, ie. `version-1.5`.
-4. Let Steam download the files, then copy the required DLLs into the proper `Libraries/<version>/` directory.
+4. Let Steam download the files, then copy the required DLLs into the proper `Libraries/<version#>/` directory.

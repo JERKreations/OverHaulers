@@ -37,6 +37,4 @@ Thumbs.db
 # These binaries are proprietary to Ludeon Studios / Unity Technologies
 # ==========================================
 # Blanket ignore for all reference .dll
-Libraries/*
-# allow README.md explainer
-!Libraries/README.md
+Libraries/**/*.dll
