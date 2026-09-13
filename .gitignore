@@ -6,21 +6,7 @@ bin/
 *.user
 *.suo
 *.cache
-project.assets.json
-project.nuget.cache
-
-1.5/Assemblies/OverHaulers.dll
-1.6/Assemblies/OverHaulers.dll
-Libraries/
-
-# ==========================================
-# Temporary & Diagnostic Dumps
-# ==========================================
-DiagnosticDumps/
-TEMPDUMP/
-OverHaulers_*Dump_*.txt
-OverHaulers_*Dump_*.xml
-*.log
+*.pdb
 
 # ==========================================
 # VS Code / Visual Studio Local Workspace Files
@@ -37,10 +23,20 @@ OverHaulers_*Dump_*.xml
 # ==========================================
 .DS_Store
 Thumbs.db
-desktop.ini
+[Dd]esktop.ini
 
 # ==========================================
-# Note on Reference Libraries & Assemblies
+# Mod Assemblies - prevent binary bloat
 # ==========================================
-# Your reference DLLs in Libraries/ and output DLLs in 1.5/ & 1.6/ 
-# can be safely committed to a private GitHub repo for easy backup.
+# 1.5/Assemblies/OverHaulers.dll
+# 1.6/Assemblies/OverHaulers.dll etc.
+*/Assemblies/*.dll
+
+# ==========================================
+# Reference Libraries - Copyright sensitive
+# These binaries are proprietary to Ludeon Studios / Unity Technologies
+# ==========================================
+# Blanket ignore for all reference .dll
+Libraries/*
+# allow README.md explainer
+!Libraries/README.md

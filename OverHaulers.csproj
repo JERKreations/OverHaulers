@@ -15,6 +15,10 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Configurations>Release_1.6;Release_1.5</Configurations>
     <Configuration Condition="'$(Configuration)' == ''">Release_1.6</Configuration>
+
+    <!-- Target destination in your RimWorld installation -->
+    <!-- set locally via OverHaulers.csproj.user -->
+    <GameModDir></GameModDir>
   </PropertyGroup>
 
   <!-- ========================================== -->
@@ -71,5 +75,17 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <!-- ========================================== -->
+  <!-- AUTOMATIC COPY TO GAME MOD DIRECTORY       -->
+  <!-- ========================================== -->
+  <!-- Only runs if GameModDir is defined AND the folder actually exists -->
+  <Target Name="DeployToGameMods" AfterTargets="Build" Condition="'$(GameModDir)' != '' and Exists('$(GameModDir)')">
+    <Copy
+      SourceFiles="$(TargetPath)"
+      DestinationFolder="$(GameModDir)\$(VersionFolder)\Assemblies"
+      SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="[DEPLOY] Copied $(TargetFileName) -> $(GameModDir)\$(VersionFolder)\Assemblies\" />
+  </Target>
 
 </Project>
