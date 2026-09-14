@@ -30,6 +30,9 @@ namespace OverHaulers
         /// <summary>[VIEW-01] Calculated aggregate Caravan Mass Capacity offset in kilograms (kg).</summary>
         public float Offset { get; set; }
 
+        /// <summary>[VIEW-01] Fully clamped final Caravan Mass Capacity in kilograms (kg).</summary>
+        public float FinalCapacity { get; set; }
+
         /// <summary>[VIEW-03] Unified deduplicated list of active systemic medical ailment labels.</summary>
         public UniqueList<string> Ailments { get; } = new UniqueList<string>(16);
 
@@ -50,6 +53,7 @@ namespace OverHaulers
         {
             TotalMultiplier = 1.0f;
             Offset = 0.0f;
+            FinalCapacity = 0.0f;
             Explanation = "";
         }
 

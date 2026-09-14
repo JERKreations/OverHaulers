@@ -250,8 +250,16 @@ namespace OverHaulers
                 float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
                     dataSource, speciesBaseline, out speciesBaseline, settings, true, out AnatomicalWorkspace workspace);
 
+                float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
+                float totalMultiplier = speciesBaseline > 0f ? (finalCapacity / speciesBaseline) : 0f;
+
+                // Pre-seed domain state on the model before layout projection
+                cachedModel.Offset = solvedOffset;
+                cachedModel.FinalCapacity = finalCapacity;
+                cachedModel.TotalMultiplier = totalMultiplier;
+
                 lastCalculatedDelta = solvedOffset;
-                lastCalculatedFinalMass = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
+                lastCalculatedFinalMass = finalCapacity;
 
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {

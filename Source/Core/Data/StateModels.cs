@@ -62,11 +62,13 @@ namespace OverHaulers
     /// </summary>
     public class CachedMassData
     {
-        public float Offset;
+        public float Offset; // The last calculated offset applied to the biological baseline.
+        public float FinalCapacity; // Fully clamped final Caravan Mass Capacity in kilograms (kg).
+        public float TotalMultiplier; // Total multiplier applied to the biological baseline to obtain the final capacity.
         public int CalculatedTick;
         public int FullModelCalculatedTick;
-        public MassCapacityModel FullModel;
-        public float BaselineCapacity;
+        public MassCapacityModel FullModel; // The detailed mass capacity model for the pawn.
+        public float BaselineCapacity; // The biological baseline capacity for the pawn's mass.
         public bool IsStale;
     }
 

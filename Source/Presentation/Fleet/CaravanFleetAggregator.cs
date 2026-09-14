@@ -102,8 +102,7 @@ namespace OverHaulers
 
             if (speciesBaseline <= 0f) return;
 
-            float offset = PawnDataRegistry.GetOffset(pawn, speciesBaseline);
-            float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + offset, pawn.LabelShortCap);
+            float finalCapacity = PawnDataRegistry.GetCapacity(pawn, speciesBaseline);
 
             summary.TotalBaseline += speciesBaseline;
             summary.TotalCapacity += finalCapacity;

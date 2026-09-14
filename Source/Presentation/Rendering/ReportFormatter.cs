@@ -69,7 +69,7 @@ namespace OverHaulers
             // 4. Optional Test Bench Mock Footer
             if (forceFullCard)
             {
-                float finalValue = MassCapacitySolver.EnforceSafetyFloor(biologicalBaseline + massModel.Offset, null);
+                float finalValue = massModel.FinalCapacity;
 
                 pooledFinalReport.AppendLine();
                 pooledFinalReport.Append("StatsReport_FinalValue".Translate() + ": " + finalValue.ToStringMass());

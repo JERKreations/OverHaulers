@@ -212,10 +212,6 @@ namespace OverHaulers
                     ProcessAndAddGroupWrapper(pooledGroupSubModels[typeIndex], (PartType)typeIndex, context, massModel, template);
                 }
 
-                // Calculate the total multiplier for the mass model based on the biological baseline and any offsets.
-                massModel.TotalMultiplier = biologicalBaseline > 0f ? ((biologicalBaseline + massModel.Offset) / biologicalBaseline) : 0f;
-                if (massModel.TotalMultiplier < 0f) massModel.TotalMultiplier = 0f;
-
                 // Build a detailed explanation of the mass model, optionally including verbose breakdowns.
                 bool verbose = OverHaulers.settings?.verboseBreakdown ?? false;
                 massModel.Explanation = ReportFormatter.BuildExplanation(massModel, verbose, biologicalBaseline);
