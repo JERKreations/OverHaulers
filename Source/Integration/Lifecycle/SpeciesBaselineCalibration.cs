@@ -357,7 +357,7 @@ namespace OverHaulers
         /// against its cached, species-specific pristine scalar.
         /// Executes silently for individual on-demand lookups.
         /// </summary>
-        public static float ResolveBaseline(Pawn pawn)
+        public static float ResolveNativeBaseline(Pawn pawn)
         {
             if (pawn == null || pawn.def == null) return 0f;
 

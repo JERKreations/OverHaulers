@@ -199,6 +199,48 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Resolves species baseline capacity via the active pipeline driver or baseline calibration.
+        /// </summary>
+        /// <param name="pawn">The pawn whose baseline capacity is being resolved.</param>
+        /// <returns>The resolved baseline capacity for the pawn.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float ResolveBaseline(Pawn pawn)
+        {
+            if (pawn == null) return 0f;
+            return IntegrationPipeline.ActiveDriver != null 
+                ? IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn) 
+                : SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
+        }
+
+        /// <summary>
+        /// Retrieves pre-computed fleet breakdown metrics for a pawn without allocating UI models.
+        /// </summary>
+        /// <param name="pawn">The pawn whose fleet metrics are being retrieved.</param>
+        /// <param name="baselineCapacity">The species baseline capacity.</param>
+        /// <param name="prostheticBoost">Output parameter for the prosthetic boost.</param>
+        /// <param name="healthDeficit">Output parameter for the health deficit.</param>
+        /// <param name="athleticOffset">Output parameter for the athletic offset.</param>
+        /// <returns>True if the fleet metrics were successfully retrieved; otherwise, false.</returns>
+        public static bool TryGetFleetMetrics(Pawn pawn, float baselineCapacity, out float prostheticBoost, out float healthDeficit, out float athleticOffset)
+        {
+            prostheticBoost = 0f;
+            healthDeficit = 0f;
+            athleticOffset = 0f;
+
+            if (pawn == null || !CanCarryCaravanMass(pawn)) return false;
+            GetOffset(pawn, baselineCapacity);
+
+            if (capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData node))
+            {
+                prostheticBoost = node.ProstheticBoost;
+                healthDeficit = node.HealthDeficit;
+                athleticOffset = node.AthleticOffset;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Retrieves the detailed mass capacity model for the specified pawn.
         /// </summary>
         /// <param name="pawn">The pawn whose detailed mass capacity model is being requested.</param>
@@ -301,6 +343,22 @@ namespace OverHaulers
             node.FinalCapacity = finalCapacity;
             node.TotalMultiplier = calculatedMultiplier;
             node.CalculatedTick = currentTick;
+            // Extract summary metrics directly from contiguous solver workspace
+            float prostheticBoost = 0f;
+            float healthDeficit = 0f;
+            float athleticOffset = 0f;
+            if (workspace != null)
+            {
+                for (int i = 0; i < workspace.PartCount; i++)
+                {
+                    if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
+                    if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
+                    athleticOffset += workspace.CalculatedAthletics[i];
+                }
+            }
+            node.ProstheticBoost = prostheticBoost;
+            node.HealthDeficit = healthDeficit;
+            node.AthleticOffset = athleticOffset;
             node.BaselineCapacity = baselineCapacity;
             node.IsStale = false;
 

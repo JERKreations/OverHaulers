@@ -107,10 +107,10 @@ namespace OverHaulers
         /// </summary>
         /// <param name="pawn">The pawn for which to resolve the original baseline mass capacity.</param>
         /// <returns>The resolved original baseline mass capacity for the specified pawn.</returns>
-        public float ResolveOriginalBaseline(Pawn pawn)
+        public float ResolveDriverBaseline(Pawn pawn)
         {
             if (pawn == null) return 0f;
-            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
         }
 
         /// <summary>
@@ -127,7 +127,7 @@ namespace OverHaulers
             // INGRESS GATE: Completely skip non-caravan species during live play
             if (pawn == null || !PawnDataRegistry.CanCarryCaravanMass(pawn)) return;
 
-            float cleanBiologicalBaseline = ResolveOriginalBaseline(pawn);
+            float cleanBiologicalBaseline = ResolveDriverBaseline(pawn);
             float calculatedOffset = PawnDataRegistry.GetOffset(pawn, cleanBiologicalBaseline);
 
             result += calculatedOffset;

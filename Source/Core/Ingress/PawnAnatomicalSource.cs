@@ -98,10 +98,10 @@ namespace OverHaulers
 
             if (IntegrationPipeline.ActiveDriver != null)
             {
-                return IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+                return IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
             }
 
-            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
         }
 
         #endregion

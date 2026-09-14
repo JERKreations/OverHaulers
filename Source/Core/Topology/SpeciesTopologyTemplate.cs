@@ -152,6 +152,9 @@ namespace OverHaulers
         /// Instantiates and allocates flat contiguous arrays for a species topology template matching the given BodyDef.
         /// </summary>
         /// <param name="bodyDef">The target species BodyDef to blueprint.</param>
+        /// <remarks>
+        /// This constructor precomputes and allocates all necessary arrays for efficient topology queries.
+        /// </remarks>
         public SpeciesTopologyTemplate(BodyDef bodyDef)
         {
             int currentPartsCount = bodyDef.AllParts.Count;
@@ -233,6 +236,9 @@ namespace OverHaulers
         /// </summary>
         /// <param name="part">The body part record to resolve.</param>
         /// <returns>The precompiled slot index of the part, or -1 if not found.</returns>
+        /// <remarks>
+        /// This method performs the lookup in O(1) time using the precompiled PartToIndex dictionary.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetPartIndex(BodyPartRecord part)
         {
@@ -247,6 +253,9 @@ namespace OverHaulers
         /// <param name="partIndex">The target part's slot index.</param>
         /// <param name="targetType">The anatomical category to locate in the ancestral chain.</param>
         /// <returns>The slot index of the ancestor, or -1 if none exists.</returns>
+        /// <remarks>
+        /// This method performs the lookup in O(1) time using the precompiled NearestAncestorMatrix.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetNearestAncestor(int partIndex, PartType targetType)
         {
@@ -260,11 +269,69 @@ namespace OverHaulers
         /// <param name="parentIndex">The parent part's slot index.</param>
         /// <param name="childSlot">The child index offset (0 to ChildCounts[parentIndex] - 1).</param>
         /// <returns>The slot index of the child part.</returns>
+        /// <remarks>
+        /// This method performs the lookup in O(1) time using the precompiled ChildBuffer and ChildOffsets arrays.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetChildIndex(int parentIndex, int childSlot)
         {
             if (ChildBuffer == null || parentIndex < 0 || parentIndex >= PartCount) return -1;
             return ChildBuffer[ChildOffsets[parentIndex] + childSlot];
+        }
+
+        /// <summary>
+        /// Resolves the precompiled PartType category for a body part in O(1) time.
+        /// </summary>
+        /// <param name="part">The body part to query.</param>
+        /// <returns>The PartType of the body part, or PartType.None if not found.</returns>
+        /// <remarks>
+        /// This method performs the lookup in O(1) time using the precompiled PartTypes array.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PartType GetPartType(BodyPartRecord part)
+        {
+            int idx = GetPartIndex(part);
+            return idx >= 0 ? PartTypes[idx] : PartType.None;
+        }
+
+        /// <summary>
+        /// True if the part is a structural limb (Manipulation, Moving, or Dual).
+        /// Agnostic to modded alien races and untagged intermediate bones.
+        /// </summary>
+        /// <param name="part">The body part to check.</param>
+        /// <returns>True if the body part is a structural limb; otherwise, false.</returns>
+        /// <remarks>
+        /// This method relies on the precompiled PartType and RootPartIndex arrays for efficient lookup.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsLimb(BodyPartRecord part)
+        {
+            int idx = GetPartIndex(part);
+            if (idx < 0) return false;
+            PartType t = PartTypes[idx];
+            return t == PartType.ManipulationPart || t == PartType.MovingPart || t == PartType.DualLimb;
+        }
+
+        /// <summary>
+        /// Checks if a part belongs to a specific limb branch root in O(1) time.
+        /// </summary>
+        /// <param name="part">The body part to check.</param>
+        /// <param name="limbRoot">The root of the limb branch.</param>
+        /// <returns>True if the body part is a descendant of the specified limb root; otherwise, false.</returns>
+        /// <remarks>
+        /// This method performs the check in O(1) time using precompiled topology data.
+        /// </remarks>
+        /// </summary>
+        /// <remarks>
+        /// The RootPartIndex array is precomputed to allow this check to be done in constant time.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsDescendantOfLimbRoot(BodyPartRecord part, BodyPartRecord limbRoot)
+        {
+            int partIdx = GetPartIndex(part);
+            int rootIdx = GetPartIndex(limbRoot);
+            if (partIdx < 0 || rootIdx < 0) return false;
+            return RootPartIndex[partIdx] == rootIdx;
         }
 
         #endregion

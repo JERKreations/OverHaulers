@@ -120,7 +120,7 @@ namespace OverHaulers
         {
             if (pawn != null && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
-                float baseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+                float baseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
                 PawnDataRegistry.GetOffset(pawn, baseline);
             }
         }

@@ -101,7 +101,7 @@ namespace OverHaulers
         /// </summary>
         /// <param name="pawn">The pawn for which to resolve the original baseline mass capacity.</param>
         /// <returns>The resolved original baseline mass capacity for the specified pawn.</returns>
-        public float ResolveOriginalBaseline(Pawn pawn)
+        public float ResolveDriverBaseline(Pawn pawn)
         {
             if (pawn == null) return 0f;
 
@@ -110,7 +110,7 @@ namespace OverHaulers
                 return cachedBaseline;
             }
 
-            return SpeciesBaselineCalibration.ResolveBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
         }
 
         /// <summary>

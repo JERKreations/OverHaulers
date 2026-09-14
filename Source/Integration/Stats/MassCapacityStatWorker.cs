@@ -83,14 +83,11 @@ namespace OverHaulers
                     return 0f;
                 }
 
-                float baseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
-                float offset = PawnDataRegistry.GetOffset(pawn, baseline);
+                float baseline = PawnDataRegistry.ResolveBaseline(pawn);
 
-                // EGRESS CLAMP: Guarantee the actual game result obeys the safety floor
-                float finalVal = baseline + offset;
-                return MassCapacitySolver.EnforceSafetyFloor(finalVal, pawn.LabelShortCap);
+                return PawnDataRegistry.GetCapacity(pawn, baseline); // Return the calculated mass capacity for the pawn
             }
-            return base.GetValueUnfinalized(req, applyPostProcess);
+            return base.GetValueUnfinalized(req, applyPostProcess); // Fallback for non-pawn or non-caravan species
         }
 
         #endregion
@@ -116,7 +113,7 @@ namespace OverHaulers
                     return string.Empty;
                 }
 
-                float baselineCapacity = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+                float baselineCapacity = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
                 MassCapacityModel model = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
 
                 string baseLine = "StatsReport_BaseValue".Translate() + ": " + baselineCapacity.ToStringMass();

@@ -331,7 +331,7 @@ namespace OverHaulers
             if (entry.IsLivePawn)
             {
                 float safeBodySize = MedicalClassifier.GetSafeBodySize(entry.LivePawn);
-                float baseMassCapacity = SpeciesBaselineCalibration.ResolveBaseline(entry.LivePawn);
+                float baseMassCapacity = SpeciesBaselineCalibration.ResolveNativeBaseline(entry.LivePawn);
                 float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
                 float finalMass = Mathf.Max(0.01f, baseMassCapacity + currentOffset);
                 return $"BodySize {safeBodySize:F1}x • {finalMass.ToStringMass()}";

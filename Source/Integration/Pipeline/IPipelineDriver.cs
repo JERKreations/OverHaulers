@@ -17,7 +17,7 @@ namespace OverHaulers
 
         void Initialize(Harmony harmony);
         void Cleanup();
-        float ResolveOriginalBaseline(Pawn pawn);
+        float ResolveDriverBaseline(Pawn pawn);
         void OnMassUtilityCapacityPostfix(Pawn pawn, ref float result, StringBuilder explanation);
     }
 }

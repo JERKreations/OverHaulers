@@ -31,7 +31,7 @@ namespace OverHaulers
             // INGRESS GATE: Completely skip non-caravan species during live play
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
-                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
                 if (bioBaseline <= 0f) return;
 
                 float skeletalOffset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
@@ -51,7 +51,7 @@ namespace OverHaulers
         {
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn)
             {
-                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
                 MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, bioBaseline);
                 
                 return detailedMassModel?.Explanation ?? string.Empty;

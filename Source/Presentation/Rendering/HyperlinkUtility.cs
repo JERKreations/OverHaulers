@@ -33,7 +33,7 @@ namespace OverHaulers
                 return Array.Empty<Dialog_InfoCard.Hyperlink>();
             }
 
-            float baselineCapacity = IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn);
+            float baselineCapacity = PawnDataRegistry.ResolveBaseline(pawn);
             MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
             if (detailedMassModel == null)
             {

@@ -65,6 +65,9 @@ namespace OverHaulers
         public float Offset; // The last calculated offset applied to the biological baseline.
         public float FinalCapacity; // Fully clamped final Caravan Mass Capacity in kilograms (kg).
         public float TotalMultiplier; // Total multiplier applied to the biological baseline to obtain the final capacity.
+        public float ProstheticBoost; // The boost to mass capacity provided by prosthetics.
+        public float HealthDeficit; // The reduction in mass capacity due to health issues.
+        public float AthleticOffset; // The contribution to mass capacity from athletic implants.
         public int CalculatedTick;
         public int FullModelCalculatedTick;
         public MassCapacityModel FullModel; // The detailed mass capacity model for the pawn.

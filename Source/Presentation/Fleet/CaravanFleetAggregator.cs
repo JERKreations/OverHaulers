@@ -96,10 +96,10 @@ namespace OverHaulers
         {
             if (pawn == null) return;
 
-            float speciesBaseline = IntegrationPipeline.ActiveDriver != null 
-                ? IntegrationPipeline.ActiveDriver.ResolveOriginalBaseline(pawn) 
-                : SpeciesBaselineCalibration.ResolveBaseline(pawn);
+            // Resolve the species baseline capacity for the pawn
+            float speciesBaseline = PawnDataRegistry.ResolveBaseline(pawn);
 
+            // Skip pawns with non-positive baseline capacity
             if (speciesBaseline <= 0f) return;
 
             float finalCapacity = PawnDataRegistry.GetCapacity(pawn, speciesBaseline);
@@ -108,42 +108,32 @@ namespace OverHaulers
             summary.TotalCapacity += finalCapacity;
             summary.TotalPawnCount++;
 
+            // Update top contributor if necessary
             if (summary.TopContributor == null || finalCapacity > summary.TopContributorCapacity)
             {
                 summary.TopContributor = pawn;
                 summary.TopContributorCapacity = finalCapacity;
             }
 
-            MassCapacityModel model = PawnDataRegistry.GetDetailedModel(pawn, speciesBaseline);
-            if (model?.EvaluatedParts != null && model.EvaluatedParts.Count > 0)
+            // Pure O(1) domain read: No UI models or tree traversals allocated
+            if (PawnDataRegistry.TryGetFleetMetrics(pawn, speciesBaseline, out float pawnProsthetic, out float pawnDeficit, out float pawnAthletic))
             {
-                float pawnProsthetic = 0f;
-                float pawnDeficit = 0f;
-                float pawnAthletic = 0f;
-
-                for (int p = 0; p < model.EvaluatedParts.Count; p++)
-                {
-                    PartViewNode node = model.EvaluatedParts[p];
-                    if (node == null) continue;
-
-                    if (node.ProstheticOffset > 0f) pawnProsthetic += node.ProstheticOffset;
-                    if (node.HealthOffset < 0f) pawnDeficit += node.HealthOffset;
-                    pawnAthletic += node.AthleticOffset;
-                }
-
                 summary.TotalProstheticBoost += pawnProsthetic;
                 summary.TotalHealthDeficit += pawnDeficit;
                 summary.TotalAthleticOffset += pawnAthletic;
 
+                // Boost check
                 if (pawnProsthetic > SettingsDefaults.EfficiencyEpsilon)
                 {
                     summary.BoostedPawnCount++;
                 }
 
+                // Impairment check
                 if (pawnDeficit < -SettingsDefaults.EfficiencyEpsilon)
                 {
                     summary.ImpairedPawnCount++;
 
+                    // Update most impaired pawn if necessary
                     if (summary.MostImpaired == null || pawnDeficit < summary.MostImpairedDeficit)
                     {
                         summary.MostImpaired = pawn;
