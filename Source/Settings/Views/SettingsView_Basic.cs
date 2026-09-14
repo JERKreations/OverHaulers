@@ -68,11 +68,6 @@ namespace OverHaulers
                 );
 
                 // Safety Floor synchronizations
-                if (prevInjuryToggle && !settings.enablePartHealth)
-                {
-                    settings.compatibilitySafetyFloor = false;
-                }
-
                 if (!prevInjuryToggle && settings.enablePartHealth && floorIsAtMax)
                 {
                     settings.massCapacityFloor = 0.95f;
@@ -81,7 +76,6 @@ namespace OverHaulers
                 if (settings.massCapacityFloor >= 1.00f - SettingsDefaults.EfficiencyEpsilon && settings.enablePartHealth)
                 {
                     settings.enablePartHealth = false;
-                    settings.compatibilitySafetyFloor = false;
                 }
 
                 // Row 4: Global 0.01kg Safety Floor Checkbox

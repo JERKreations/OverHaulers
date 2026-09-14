@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using UnityEngine;
 
 namespace OverHaulers
 {
@@ -149,7 +150,7 @@ namespace OverHaulers
                 {
                     long packed = Volatile.Read(ref slotPackedData[slot]);
                     Unpack(packed, out _, out float multiplier);
-                    return multiplier <= 0f ? 1.0f : multiplier;
+                    return Mathf.Max(0f, multiplier);
                 }
 
                 if (candidateId == 0) break;

@@ -251,7 +251,7 @@ namespace OverHaulers
                     dataSource, speciesBaseline, out speciesBaseline, settings, true, out AnatomicalWorkspace workspace);
 
                 lastCalculatedDelta = solvedOffset;
-                lastCalculatedFinalMass = Mathf.Max(0.01f, speciesBaseline + solvedOffset);
+                lastCalculatedFinalMass = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
 
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {
