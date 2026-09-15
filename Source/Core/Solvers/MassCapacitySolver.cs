@@ -22,7 +22,30 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. REGIONAL DEFICITS DATA LAYOUT
+        #region 2. REGIONAL DEFICITS DATA LAYOUT & ADAPTERS
+
+        /// <summary>
+        /// Zero-allocation stack wrapper adapting an IAnatomicalDataSource reference into the struct solver pipeline.
+        /// </summary>
+        private readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource
+        {
+            private readonly IAnatomicalDataSource inner;
+
+            public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
+            {
+                this.inner = inner;
+            }
+
+            public int EntityId => inner != null ? inner.EntityId : 0;
+            public string EntityLabel => inner != null ? inner.EntityLabel : "Unknown";
+            public BodyDef BodyDef => inner != null ? inner.BodyDef : null;
+            public float BaseBodySize => inner != null ? inner.BaseBodySize : 1.0f;
+            public bool IsValidBiologicalState => inner != null && inner.IsValidBiologicalState;
+
+            public float GetCapacityLevel(PawnCapacityDef capacity) => inner != null ? inner.GetCapacityLevel(capacity) : 1.0f;
+            public void IngressPathology(AnatomicalWorkspace workspace, bool shouldCompileUIProperties) => inner?.IngressPathology(workspace, shouldCompileUIProperties);
+            public float ResolveBaselineCapacity() => inner != null ? inner.ResolveBaselineCapacity() : 0f;
+        }
 
         /// <summary>
         /// Represents the raw and clamped deficits for different anatomical regions of a pawn, used in the mass capacity calculations.
@@ -65,8 +88,10 @@ namespace OverHaulers
 
         /// <summary>
         /// [PASS-03 & PASS-04] Primary solver calculating the final Caravan Mass Capacity offset in kilograms (kg) for an abstract data source.
+        /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure C# 7.3/9.0 compatibility.
         /// Operates with complete thread isolation and encapsulated workspace lifecycle management.
         /// </summary>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing IAnatomicalDataSource.</typeparam>
         /// <param name="source">The anatomical data source representing the pawn.</param>
         /// <param name="baselineCapacity">The baseline mass capacity of the pawn.</param>
         /// <param name="biologicalBaseline">The biological baseline mass capacity of the pawn (output).</param>
@@ -74,19 +99,19 @@ namespace OverHaulers
         /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
         /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
         /// <returns>The calculated mass capacity offset for the pawn.</returns>
-        public static float SolveMassCapacityOffset(
-            IAnatomicalDataSource source, 
+        public static float SolveMassCapacityOffset<TSource>(
+            TSource source, 
             float baselineCapacity, 
             out float biologicalBaseline, 
             Settings settings,
             bool shouldCompileUIProperties,
-            out AnatomicalWorkspace workspace) 
+            out AnatomicalWorkspace workspace) where TSource : struct, IAnatomicalDataSource
         {
             workspace = null;
             biologicalBaseline = 0f;
 
-            // Early exit if the source is invalid, ensuring no further calculations are attempted.
-            if (source == null || !source.IsValidBiologicalState)
+            // Early exit if the source is invalid (struct is guaranteed non-null).
+            if (!source.IsValidBiologicalState)
             {
                 return FallbackMassOffsetKg;
             }
@@ -138,8 +163,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                // Log the exception and provide a fallback mass offset.
-                string sourceLabel = source?.EntityLabel ?? "Unknown";
+                string sourceLabel = source.EntityLabel ?? "Unknown";
                 OHLog.Solver.Warn(sourceLabel, ex, "Failed to solve mass capacity offset for pawn.");
                 return FallbackMassOffsetKg;
             }
@@ -155,15 +179,47 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Solves the mass capacity offset for the given pawn, taking into account the baseline capacity, biological baseline, and settings.
+        /// [PASS-03 & PASS-04] Interface forwarder adapting interface-typed callers into the unified struct solver.
+        /// Preserves DRY principles and prevents code duplication.
         /// </summary>
-        /// <param name="pawn">The pawn for which to solve the mass capacity offset.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity of the pawn.</param>
-        /// <param name="biologicalBaseline">The biological baseline mass capacity of the pawn (output).</param>
-        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
-        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
-        /// <returns>The calculated mass capacity offset for the pawn.</returns>
+        public static float SolveMassCapacityOffset(
+            IAnatomicalDataSource source, 
+            float baselineCapacity, 
+            out float biologicalBaseline, 
+            Settings settings,
+            bool shouldCompileUIProperties,
+            out AnatomicalWorkspace workspace)
+        {
+            if (source == null)
+            {
+                biologicalBaseline = 0f;
+                workspace = null;
+                return FallbackMassOffsetKg;
+            }
+
+            return SolveMassCapacityOffset(
+                new BoxedDataSourceWrapper(source), 
+                baselineCapacity, 
+                out biologicalBaseline, 
+                settings, 
+                shouldCompileUIProperties, 
+                out workspace
+            );
+        }
+
+        /// <summary>
+        /// Solves the mass capacity offset for the given pawn.
+        /// Binds directly to the generic value-type pipeline to achieve zero heap allocations.
+        /// </summary>
+        /// <param name="baselineCapacity">The baseline mass capacity of the pawn before any modifications.</param>
+        /// <param name="biologicalBaseline">Outputs the biological baseline mass capacity of the pawn.</param>
+        /// <param name="settings">The settings object containing solver configuration.</param>
+        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled during the calculation.</param>
+        /// <param name="workspace">Outputs the anatomical workspace used during the calculation.</param>
+        /// <remarks>
+        /// This method binds directly to the generic value-type pipeline to minimize heap allocations.
+        /// It is the preferred entry point when working with raw Pawn instances.
+        /// </remarks>
         public static float SolveMassCapacityOffset(
             Pawn pawn, 
             float baselineCapacity, 
@@ -195,16 +251,13 @@ namespace OverHaulers
 
         /// <summary>
         /// Compiles the pathology information for the given anatomical workspace based on the source data and template.
+        /// Dispatches directly without interface boxing.
         /// </summary>
-        /// <param name="source">The anatomical data source providing pathology information.</param>
-        /// <param name="template">The species topology template defining the anatomical structure.</param>
-        /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
-        private static void CompilePathology(
-            IAnatomicalDataSource source, 
+        private static void CompilePathology<TSource>(
+            TSource source, 
             SpeciesTopologyTemplate template, 
             AnatomicalWorkspace workspace, 
-            bool shouldCompileUIProperties) 
+            bool shouldCompileUIProperties) where TSource : struct, IAnatomicalDataSource
         {
             int partCount = template.PartCount;
             workspace.InitializeForPawn(template);
@@ -532,8 +585,7 @@ namespace OverHaulers
                 if (calcAthletics[i] < 0f) partNegative += Math.Abs(calcAthletics[i]);
                 if (calcHealths[i] < 0f) partNegative += Math.Abs(calcHealths[i]);
 
-                // At this point, partPositive and partNegative have been calculated for the current part, so we distribute the negative
-                //  contributions to the appropriate regional deficits based on part type.
+                // Distribute negative contributions to the appropriate regional deficits based on part type.
                 switch (type)
                 {
                     case PartType.CorePart:
@@ -621,7 +673,7 @@ namespace OverHaulers
             {
                 return finalCapacity;
             }
-            // If the safety floor enforcement is enabled, check against the minimum threshold and clamp if necessary.
+
             if (finalCapacity < 0.01f)
             {
                 float clampedValue = 0.01f;

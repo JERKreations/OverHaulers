@@ -13,7 +13,10 @@ namespace OverHaulers
     {
         #region 1. FIELDS & METADATA STORAGE
 
-        private static readonly Dictionary<int, CachedMassData> capacityCache = new Dictionary<int, CachedMassData>();
+        // pre-seed the dictionary with an initial capacity to reduce rehashing during early game ticks.
+        private static readonly Dictionary<int, CachedMassData> capacityCache = new Dictionary<int, CachedMassData>(512);
+
+        /// Scratch list for temporarily storing stale keys during cleanup operations.
         private static readonly List<int> staleKeysScratch = new List<int>(256);
 
         private static volatile int lastCapturedMainThreadTick = 0;

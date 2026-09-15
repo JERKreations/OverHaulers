@@ -26,7 +26,7 @@ namespace OverHaulers
         #region 2. PROPERTIES
 
         public int EntityId => pawn?.thingIDNumber ?? 0;
-        //public string EntityLabel => pawn?.LabelShortCap.ToString() ?? "Unknown";
+
         public string EntityLabel
         {
             get
@@ -57,8 +57,8 @@ namespace OverHaulers
         // Retrieves the safe base body size of the pawn, accounting for potential broken body size getters.
         public float BaseBodySize => MedicalClassifier.GetSafeBodySize(pawn);
 
-        // Determines whether the pawn is in a valid biological state.
-        public bool IsValidBiologicalState => pawn.HasValidBiologicalState();
+        // Determines whether the pawn is in a valid biological state. Defensively checks for null pawn reference.
+        public bool IsValidBiologicalState => pawn != null && pawn.HasValidBiologicalState();
 
         #endregion
 

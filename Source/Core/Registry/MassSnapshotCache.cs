@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
-using UnityEngine;
 
 namespace OverHaulers
 {
@@ -10,8 +9,8 @@ namespace OverHaulers
     /// [CACHE-03] CONCURRENT MASS SNAPSHOT REGISTRY
     /// High-performance atomic registry mapping active Pawn IDs to Caravan Mass Capacity (kg) primitive snapshots.
     /// Utilizes a 4096-slot fixed power-of-two table (~32 KB footprint, L1/L2 resident) with a zero-allocation struct union.
-    /// Implements Backward-Shift Deletion (Algorithm R) to preserve linear probe chain integrity without tombstones.
-    /// Guarantees atomic, lock-free, zero-allocation reads for RimWorld background pathfinding threads.
+    /// Implements Backward-Shift Deletion (Algorithm R) synchronized via a lock-free Sequence Counter (SeqLock).
+    /// Guarantees atomic, linearizable, zero-allocation reads for RimWorld background pathfinding threads.
     /// </summary>
     /// <remarks>
     // ARCHITECTURAL DESIGN RATIONALE (ZERO-LOCK ATOMIC CONCURRENCY):
@@ -21,10 +20,13 @@ namespace OverHaulers
     //
     // 1. Bit-Cast Struct Union: Packs two 32-bit floats into a single atomic 64-bit integer.
     //    Background threads read both metrics in a single atomic instruction without locks.
-    // 2. Backward-Shift Deletion (Algorithm R): Traditional open-addressing uses "tombstones" 
-    //    for deleted keys, which degrades search performance over time. Backward-shift deletion
-    //    physically slides displaced cluster keys backward to fill the vacuum, keeping probe chains 
-    //    compact without tombstones.
+    // 2. Backward-Shift Deletion (Algorithm R) & SeqLock: Traditional open-addressing uses
+    //    "tombstones" for deleted keys, which degrades search performance over time. Backward-shift
+    //    deletion physically slides displaced cluster keys backward to fill the vacuum, keeping
+    //    probe chains compact. To ensure background readers never observe intermediate shifted
+    //    states, mutations are bounded by a lightweight Sequence Counter (SeqLock).
+    // 3. Multiplicative Hashing: Knuth's golden-ratio multiplier uniformly diffuses sequential
+    //    RimWorld Thing IDs across power-of-two buckets, eliminating primary clustering.
     /// </remarks>
     public static class MassSnapshotCache
     {
@@ -51,6 +53,17 @@ namespace OverHaulers
         /// <summary>Maximum linear probe depth before replacing the root hash bucket.</summary>
         public const int MaxProbeSteps = 16;
 
+        /// <summary>Maximum reader retry attempts when encountering a concurrent writer mutation.</summary>
+        private const int MaxReaderRetries = 4;
+
+        /// <summary>Knuth's 32-bit golden ratio multiplicative hash constant.</summary>
+        private const uint HashMultiplier = 2654435761u;
+
+        // Sequence counter for optimistic concurrency:
+        // Even = stable table state; Odd = writer mutation in flight.
+        // Governed by Volatile.Read / Volatile.Write; declared without 'volatile' to prevent CS0420.
+        private static int tableVersion = 0;
+
         // Parallel contiguous arrays resident in L1/L2 CPU cache (~32 KB total footprint)
         private static readonly int[] slotPawnIds = new int[TableCapacity];
         private static readonly long[] slotPackedData = new long[TableCapacity];
@@ -58,6 +71,15 @@ namespace OverHaulers
         #endregion
 
         #region 3. [CACHE-03] PACKING & UNPACKING PRIMITIVES
+
+        /// <summary>
+        /// Applies multiplicative hashing to uniformly diffuse sequential Pawn IDs across the power-of-two table.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static uint GetNaturalSlot(int pawnId)
+        {
+            return ((uint)pawnId * HashMultiplier) & TableMask;
+        }
 
         /// <summary>
         /// Packs two 32-bit floating point metrics (Offset in kg and Multiplier) into a single atomic 64-bit integer with 0 GC overhead.
@@ -95,7 +117,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity offset (kg) off the main thread.
-        /// Fully lock-free and zero-allocation for background pathfinding and caravan tasks.
+        /// Fully lock-free, zero-allocation, and linearizable via optimistic SeqLock reads.
         /// </summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <returns>The physical offset in kg (defaults to 0.0f if not cached).</returns>
@@ -106,23 +128,44 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
             PerformanceTelemetry.IncrementBackgroundQueries();
 
-            uint baseSlot = (uint)pawnId & TableMask;
+            uint baseSlot = GetNaturalSlot(pawnId);
 
-            // BREAKPOINT ANCHOR: Bounded Linear Probe Search (Max 8 Steps)
-            for (uint i = 0; i < MaxProbeSteps; i++)
+            for (int retry = 0; retry < MaxReaderRetries; retry++)
             {
-                uint slot = (baseSlot + i) & TableMask;
-                int candidateId = Volatile.Read(ref slotPawnIds[slot]);
-
-                if (candidateId == pawnId)
+                int v1 = Volatile.Read(ref tableVersion);
+                if ((v1 & 1) != 0)
                 {
-                    long packed = Volatile.Read(ref slotPackedData[slot]);
-                    Unpack(packed, out float offset, out _);
-                    return offset;
+                    // Mutation in flight on the main thread; retry probe
+                    continue;
                 }
 
-                // If an empty slot is encountered, the key does not exist in the probe chain
-                if (candidateId == 0) break;
+                float offset = 0f;
+                bool found = false;
+
+                // BREAKPOINT ANCHOR: Bounded Linear Probe Search (Max 16 Steps)
+                for (uint i = 0; i < MaxProbeSteps; i++)
+                {
+                    uint slot = (baseSlot + i) & TableMask;
+                    int candidateId = Volatile.Read(ref slotPawnIds[slot]);
+
+                    if (candidateId == pawnId)
+                    {
+                        long packed = Volatile.Read(ref slotPackedData[slot]);
+                        Unpack(packed, out offset, out _);
+                        found = true;
+                        break;
+                    }
+
+                    // If an empty slot is encountered, the key does not exist in the probe chain
+                    if (candidateId == 0) break;
+                }
+
+                // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
+                int v2 = Volatile.Read(ref tableVersion);
+                if (v1 == v2)
+                {
+                    return found ? offset : 0f;
+                }
             }
 
             return 0f;
@@ -137,23 +180,46 @@ namespace OverHaulers
         {
             if (pawnId <= 0) return 1.0f;
 
+            // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
             PerformanceTelemetry.IncrementBackgroundQueries();
 
-            uint baseSlot = (uint)pawnId & TableMask;
+            uint baseSlot = GetNaturalSlot(pawnId);
 
-            for (uint i = 0; i < MaxProbeSteps; i++)
+            for (int retry = 0; retry < MaxReaderRetries; retry++)
             {
-                uint slot = (baseSlot + i) & TableMask;
-                int candidateId = Volatile.Read(ref slotPawnIds[slot]);
-
-                if (candidateId == pawnId)
+                int v1 = Volatile.Read(ref tableVersion);
+                if ((v1 & 1) != 0)
                 {
-                    long packed = Volatile.Read(ref slotPackedData[slot]);
-                    Unpack(packed, out _, out float multiplier);
-                    return Mathf.Max(0f, multiplier);
+                    continue;
                 }
 
-                if (candidateId == 0) break;
+                float multiplier = 1.0f;
+                bool found = false;
+
+                // BREAKPOINT ANCHOR: Bounded Linear Probe Search (Max 16 Steps)
+                for (uint i = 0; i < MaxProbeSteps; i++)
+                {
+                    uint slot = (baseSlot + i) & TableMask;
+                    int candidateId = Volatile.Read(ref slotPawnIds[slot]);
+
+                    if (candidateId == pawnId)
+                    {
+                        long packed = Volatile.Read(ref slotPackedData[slot]);
+                        Unpack(packed, out _, out multiplier);
+                        found = true;
+                        break;
+                    }
+
+                    if (candidateId == 0) break;
+                }
+
+                // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
+                int v2 = Volatile.Read(ref tableVersion);
+                if (v1 == v2)
+                {
+                    if (!found) return 1.0f;
+                    return multiplier <= 0f ? 1.0f : multiplier;
+                }
             }
 
             return 1.0f;
@@ -165,6 +231,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CACHE-03] Writes or updates calculated Caravan Mass Capacity parameters into the atomic registry.
+        /// Synchronized via SeqLock mutation boundary.
         /// </summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <param name="offset">The solved caravan mass capacity offset in kg.</param>
@@ -174,31 +241,47 @@ namespace OverHaulers
             if (pawnId <= 0) return;
 
             long packed = Pack(offset, multiplier);
-            uint baseSlot = (uint)pawnId & TableMask;
+            uint baseSlot = GetNaturalSlot(pawnId);
             int targetSlot = -1;
 
-            // 1. Probe for an existing key match or first open slot
-            for (uint i = 0; i < MaxProbeSteps; i++)
-            {
-                uint slot = (baseSlot + i) & TableMask;
-                int candidateId = slotPawnIds[slot];
+            // BREAKPOINT ANCHOR: SeqLock Mutation Window (Data payload before key publication)
+            int v = tableVersion;
+            Volatile.Write(ref tableVersion, v + 1);
 
-                if (candidateId == pawnId || candidateId == 0)
+            try
+            {
+                // 1. Probe for an existing key match or first open slot
+                for (uint i = 0; i < MaxProbeSteps; i++)
                 {
-                    targetSlot = (int)slot;
-                    break;
+                    uint slot = (baseSlot + i) & TableMask;
+                    int candidateId = slotPawnIds[slot];
+
+                    if (candidateId == pawnId || candidateId == 0)
+                    {
+                        targetSlot = (int)slot;
+                        break;
+                    }
                 }
-            }
 
-            // 2. Fallback to base slot if probe bound is saturated
-            if (targetSlot == -1)
+                // 2. Clean eviction fallback if probe bound is saturated
+                if (targetSlot == -1)
+                {
+                    int victimId = slotPawnIds[baseSlot];
+                    if (victimId != 0 && victimId != pawnId)
+                    {
+                        EvictInternal(victimId);
+                    }
+                    targetSlot = (int)baseSlot;
+                }
+
+                slotPackedData[targetSlot] = packed;
+                Volatile.Write(ref slotPawnIds[targetSlot], pawnId);
+            }
+            finally
             {
-                targetSlot = (int)baseSlot;
+                // Conclude mutation: version even signals published write
+                Volatile.Write(ref tableVersion, v + 2);
             }
-
-            // BREAKPOINT ANCHOR: Write Order Synchronization (Data payload before key publication)
-            Volatile.Write(ref slotPackedData[targetSlot], packed);
-            Volatile.Write(ref slotPawnIds[targetSlot], pawnId);
         }
 
         /// <summary>
@@ -211,7 +294,25 @@ namespace OverHaulers
         {
             if (pawnId <= 0) return false;
 
-            uint baseSlot = (uint)pawnId & TableMask;
+            int v = tableVersion;
+            Volatile.Write(ref tableVersion, v + 1);
+
+            try
+            {
+                return EvictInternal(pawnId);
+            }
+            finally
+            {
+                Volatile.Write(ref tableVersion, v + 2);
+            }
+        }
+
+        /// <summary>
+        /// Internal implementation of Algorithm R executed within a SeqLock mutation window.
+        /// </summary>
+        private static bool EvictInternal(int pawnId)
+        {
+            uint baseSlot = GetNaturalSlot(pawnId);
             int targetSlot = -1;
 
             // Step 1: Locate the target slot within the bounded probe chain
@@ -234,7 +335,8 @@ namespace OverHaulers
 
             if (targetSlot == -1) return false;
 
-            // Step 2: Backward-Shift Deletion across the collision cluster
+            // Step 2: Backward-Shift Deletion across the collision cluster (Algorithm R)
+            // BREAKPOINT ANCHOR: Backward-Shift Deletion across the collision cluster
             int emptySlot = targetSlot;
             int scanSlot = (emptySlot + 1) & TableMask;
 
@@ -243,7 +345,7 @@ namespace OverHaulers
                 int candidateId = slotPawnIds[scanSlot];
                 if (candidateId == 0) break; // Reached end of active cluster
 
-                uint naturalHash = (uint)candidateId & TableMask;
+                uint naturalHash = GetNaturalSlot(candidateId);
 
                 // Circular distance from natural hash to candidate's current position vs vacant slot
                 uint distToEmpty = ((uint)emptySlot - naturalHash) & TableMask;
@@ -252,9 +354,8 @@ namespace OverHaulers
                 // If the candidate was displaced past the empty slot, shift it backward to restore proximity
                 if (distToEmpty < distToCurrent)
                 {
-                    // Memory barrier write sequence: payload written before key publication
                     slotPackedData[emptySlot] = slotPackedData[scanSlot];
-                    Volatile.Write(ref slotPawnIds[emptySlot], candidateId);
+                    slotPawnIds[emptySlot] = candidateId;
 
                     emptySlot = scanSlot;
                 }
@@ -263,8 +364,8 @@ namespace OverHaulers
             }
 
             // Step 3: Zero out the terminal slot
-            Volatile.Write(ref slotPawnIds[emptySlot], 0);
-            Volatile.Write(ref slotPackedData[emptySlot], 0L);
+            slotPawnIds[emptySlot] = 0;
+            slotPackedData[emptySlot] = 0L;
 
             return true;
         }
@@ -274,8 +375,19 @@ namespace OverHaulers
         /// </summary>
         public static void Reset()
         {
-            Array.Clear(slotPawnIds, 0, TableCapacity);
-            Array.Clear(slotPackedData, 0, TableCapacity);
+            // BREAKPOINT ANCHOR: Snapshot Registry Flush
+            int v = tableVersion;
+            Volatile.Write(ref tableVersion, v + 1);
+
+            try
+            {
+                Array.Clear(slotPawnIds, 0, TableCapacity);
+                Array.Clear(slotPackedData, 0, TableCapacity);
+            }
+            finally
+            {
+                Volatile.Write(ref tableVersion, v + 2);
+            }
         }
 
         #endregion
