@@ -90,6 +90,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Resolves the clean baseline mass capacity in kg before physiological modifications.
+        /// Delegates directly to the active pipeline driver.
         /// </summary>
         /// <returns>The baseline mass capacity in kilograms before any physiological modifications are applied.</returns>
         public float ResolveBaselineCapacity()
@@ -101,7 +102,7 @@ namespace OverHaulers
                 return IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
             }
 
-            return SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
         }
 
         #endregion

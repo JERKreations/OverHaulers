@@ -1164,12 +1164,8 @@ namespace OverHaulers
             Rect baselineLabelRect = new Rect(bannerRect.x + 8f, bannerRect.y + 3f, baselineTextWidth, 20f);
             Widgets.Label(baselineLabelRect, baselineComparisonLine);
 
-            string methodTooltip = "OverHaulers_CalibrationMethod_Tooltip".Translate().ToString();
-            string lastErrorDetail = SpeciesBaselineCalibration.GetLastErrorDetail(TestBench.ActiveSubject?.RaceDef);
-            if (!string.IsNullOrEmpty(lastErrorDetail))
-            {
-                methodTooltip += "\n\n" + lastErrorDetail;
-            }
+            ThingDef subjectRace = TestBench.ActiveSubject?.RaceDef;
+            string methodTooltip = BuildCalibrationTooltip(subjectRace, method);
             TooltipHandler.TipRegion(baselineLabelRect, methodTooltip);
 
             GUI.color = deltaColor;
@@ -1187,6 +1183,55 @@ namespace OverHaulers
             InfoCardOverlay.DrawUnifiedExplanationLabel(previewBoxRect.ContractedBy(8f), liveExplanation);
 
             return rightY + previewBoxHeight;
+        }
+
+        /// <summary>
+        /// Builds the tooltip text for the calibration method of a given species.
+        /// </summary>
+        /// <param name="raceDef">The race definition of the species for which to build the tooltip.</param>
+        /// <param name="method">The calibration method of the species.</param>
+        /// <returns>A string containing the formatted tooltip text for the specified species and calibration method.</returns>
+        private static string BuildCalibrationTooltip(ThingDef raceDef, CalibrationMethod method)
+        {
+            string statusTitle;
+            string statusDesc;
+
+            if (method == CalibrationMethod.TestingFallback)
+            {
+                if (SpeciesBaselineCalibration.IsPendingLiveRescue(raceDef))
+                {
+                    statusTitle = "OverHaulers_Calibration_Status_PendingComps".Translate().ToString();
+                    statusDesc = "OverHaulers_Calibration_Desc_PendingComps".Translate().ToString();
+                }
+                else
+                {
+                    statusTitle = "OverHaulers_Calibration_Status_NonPack".Translate().ToString();
+                    statusDesc = "OverHaulers_Calibration_Desc_NonPack".Translate().ToString();
+                }
+            }
+            else if (method == CalibrationMethod.PristineDummy)
+            {
+                statusTitle = "OverHaulers_Calibration_Status_Pristine".Translate().ToString();
+                statusDesc = "OverHaulers_Calibration_Desc_Pristine".Translate().ToString();
+            }
+            else if (method == CalibrationMethod.LiveRescue)
+            {
+                statusTitle = "OverHaulers_Calibration_Status_LiveRescue".Translate().ToString();
+                statusDesc = "OverHaulers_Calibration_Desc_LiveRescue".Translate().ToString();
+            }
+            else
+            {
+                statusTitle = "OverHaulers_Calibration_Status_Emergency".Translate().ToString();
+                statusDesc = "OverHaulers_Calibration_Desc_Emergency".Translate().ToString();
+            }
+
+            string activeHeader = "OverHaulers_Calibration_ActiveHeader".Translate((int)method, statusTitle).ToString();
+            string lastErrorDetail = SpeciesBaselineCalibration.GetLastErrorDetail(raceDef);
+            string errorSection = !string.IsNullOrEmpty(lastErrorDetail) ? $"\n\nDiagnostic Detail: {lastErrorDetail}" : string.Empty;
+
+            string taxonomyLegend = "OverHaulers_Calibration_TaxonomyHeader".Translate().ToString();
+
+            return $"{activeHeader}\n{statusDesc}{errorSection}\n\n----------------------------------------\n{taxonomyLegend}";
         }
 
         #endregion

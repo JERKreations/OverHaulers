@@ -322,16 +322,19 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Generates the secondary tag text for a given test subject entry based on the current grouping dimension.
+        /// Retrieves the secondary tag text for a test subject entry, which provides additional context based on the current grouping
+        ///  dimension.
         /// </summary>
-        /// <param name="entry">The test subject entry for which to generate the secondary tag.</param>
+        /// <param name="entry">The test subject entry for which to retrieve the secondary tag.</param>
         /// <returns>A formatted string representing the secondary tag for the entry.</returns>
         private string GetSecondaryTag(TestSubjectEntry entry)
         {
             if (entry.IsLivePawn)
             {
                 float safeBodySize = MedicalClassifier.GetSafeBodySize(entry.LivePawn);
-                float baseMassCapacity = SpeciesBaselineCalibration.ResolveNativeBaseline(entry.LivePawn);
+                float baseMassCapacity = IntegrationPipeline.ActiveDriver != null
+                    ? IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(entry.LivePawn)
+                    : SpeciesBaselineCalibration.ResolveSpeciesBaseline(entry.LivePawn);
                 float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
                 float finalMass = Mathf.Max(0.01f, baseMassCapacity + currentOffset);
                 return $"BodySize {safeBodySize:F1}x • {finalMass.ToStringMass()}";

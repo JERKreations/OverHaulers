@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -212,7 +213,7 @@ namespace OverHaulers
             if (pawn == null) return 0f;
             return IntegrationPipeline.ActiveDriver != null 
                 ? IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn) 
-                : SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
+                : SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
         }
 
         /// <summary>
@@ -610,14 +611,21 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the cache expiry duration for the specified pawn ID, incorporating a base duration and optional jitter.
+        /// Retrieves the dynamic cache expiry duration for the specified pawn ID.
+        /// Scales sub-linearly with active cached population using a square-root curve (Floor + K * sqrt(N))
+        /// governed by SettingsDefaults invariants, providing sub-second early-game responsiveness
+        /// while preventing herd spikes during large raids.
         /// </summary>
         /// <param name="pawnId">The unique identifier of the pawn for which to retrieve the cache expiry duration.</param>
-        /// <returns>The calculated cache expiry duration for the specified pawn ID.</returns>
+        /// <returns>The calculated cache expiry duration in game ticks.</returns>
         private static int GetCacheExpiryDuration(int pawnId)
         {
-            int expiryBase = SettingsDefaults.CacheExpiryBase; 
-            int expiryJitter = SettingsDefaults.CacheExpiryJitter; 
+            int activeCount = capacityCache.Count;
+            int floor = SettingsDefaults.DefaultCacheMinFastPathTicks;
+
+            // Base TTL = Floor + K * sqrt(activeCount)
+            int expiryBase = floor + (int)(SettingsDefaults.DynamicCacheExpiryScaleK * Mathf.Sqrt(activeCount));
+            int expiryJitter = expiryBase / 4; // 25% staggered jitter window
 
             return expiryBase + (expiryJitter > 0 ? (pawnId % expiryJitter) : 0);
         }

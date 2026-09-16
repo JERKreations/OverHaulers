@@ -28,22 +28,25 @@ namespace OverHaulers
 
             isWorldInitialized = true;
 
-            // 1. Clear all cached pawn data for a clean slate
+            // 1. De-escalate main-menu fallback hooks immediately upon entering world state
+            HarmonySetup.DeescalateSafetyPatches();
+
+            // 2. Clear all cached pawn data for a clean slate
             PawnDataRegistry.ClearAllCaches();
 
-            // 2. Freshly compile all species skeletal topologies (un-locked across save loads)
+            // 3. Freshly compile all species skeletal topologies (un-locked across save loads)
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
 
-            // 3. Pre-index all medical recipes and stimulants
+            // 4. Pre-index all medical recipes and stimulants
             MedicalRecipeCatalog.InitializeCatalog();
 
-            // 4. Reset dynamic baseline calibrations (batch sweep itself is deferred - see MaybeRunDeferredCalibrationSweep)
+            // 5. Reset dynamic baseline calibrations (batch sweep itself is deferred - see MaybeRunDeferredCalibrationSweep)
             SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = Find.TickManager?.TicksGame ?? 0;
 
-            // 5. Reset the lifecycle log
+            // 6. Reset the lifecycle log
             OHLog.Lifecycle.WorldLoadedReset();
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using RimWorld;
 using Verse;
@@ -79,6 +80,99 @@ namespace OverHaulers
                     return (rManip + rMove) * 0.5f;
                 }
                 return 1.0f;
+            }
+        }
+
+        /// <summary>
+        /// Stack-allocated accumulator aggregating positive and negative systemic deltas across anatomical regions.
+        /// Consolidates capacity coupling math with 0 bytes GC allocation.
+        /// </summary>
+        private struct SystemicRegionalDeltas
+        {
+            public float TorsoPositive;
+            public float ArmPositive;
+            public float LegPositive;
+            public float DualPositive;
+
+            public float TorsoNegative;
+            public float ArmNegative;
+            public float LegNegative;
+            public float DualNegative;
+
+            /// <summary>
+            /// Accumulates positive and negative regional deltas for a single biological capacity.
+            /// </summary>
+            /// <param name="snappedCapacity">The snapped mass capacity value for the current calculation.</param>
+            /// <param name="posTorso">The positive contribution factor for the torso.</param>
+            /// <param name="posArm">The positive contribution factor for the arms.</param>
+            /// <param name="posLeg">The positive contribution factor for the legs.</param>
+            /// <param name="defTorso">The negative contribution factor for the torso.</param>
+            /// <param name="defArm">The negative contribution factor for the arms.</param>
+            /// <param name="defLeg">The negative contribution factor for the legs.</param>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void Accumulate(
+                float snappedCapacity,
+                float posTorso, float posArm, float posLeg,
+                float defTorso, float defArm, float defLeg)
+            {
+                float delta = snappedCapacity - 1.0f;
+                if (delta > 0f)
+                {
+                    TorsoPositive += delta * posTorso;
+                    ArmPositive += delta * posArm;
+                    LegPositive += delta * posLeg;
+                }
+                else if (delta < 0f)
+                {
+                    float neg = -delta;
+                    TorsoNegative += neg * defTorso;
+                    ArmNegative += neg * defArm;
+                    LegNegative += neg * defLeg;
+                }
+            }
+
+            /// <summary>
+            /// Averages manipulation and moving deltas to derive bilateral dual-limb contributions.
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void FinalizeDualLimbs()
+            {
+                DualPositive = (ArmPositive + LegPositive) * 0.5f;
+                DualNegative = (ArmNegative + LegNegative) * 0.5f;
+            }
+
+            /// <summary>
+            /// Retrieves the regional positive and negative deltas for a specific part type in constant time.
+            /// </summary>
+            /// <param name="type">The part type for which to retrieve the deltas.</param>
+            /// <param name="positiveDelta">The output positive delta for the specified part type.</param>
+            /// <param name="negativeDelta">The output negative delta for the specified part type.</param>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void GetDeltas(PartType type, out float positiveDelta, out float negativeDelta)
+            {
+                switch (type)
+                {
+                    case PartType.CorePart:
+                        positiveDelta = TorsoPositive;
+                        negativeDelta = TorsoNegative;
+                        break;
+                    case PartType.ManipulationPart:
+                        positiveDelta = ArmPositive;
+                        negativeDelta = ArmNegative;
+                        break;
+                    case PartType.MovingPart:
+                        positiveDelta = LegPositive;
+                        negativeDelta = LegNegative;
+                        break;
+                    case PartType.DualLimb:
+                        positiveDelta = DualPositive;
+                        negativeDelta = DualNegative;
+                        break;
+                    default:
+                        positiveDelta = 0f;
+                        negativeDelta = 0f;
+                        break;
+                }
             }
         }
 
@@ -182,6 +276,13 @@ namespace OverHaulers
         /// [PASS-03 & PASS-04] Interface forwarder adapting interface-typed callers into the unified struct solver.
         /// Preserves DRY principles and prevents code duplication.
         /// </summary>
+        /// <param name="source">The anatomical data source for which to solve the mass capacity offset.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity of the source.</param>
+        /// <param name="biologicalBaseline">The biological baseline mass capacity of the source (output).</param>
+        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
+        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
+        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
+        /// <returns>The calculated mass capacity offset for the source.</returns>
         public static float SolveMassCapacityOffset(
             IAnatomicalDataSource source, 
             float baselineCapacity, 
@@ -211,15 +312,13 @@ namespace OverHaulers
         /// Solves the mass capacity offset for the given pawn.
         /// Binds directly to the generic value-type pipeline to achieve zero heap allocations.
         /// </summary>
-        /// <param name="baselineCapacity">The baseline mass capacity of the pawn before any modifications.</param>
-        /// <param name="biologicalBaseline">Outputs the biological baseline mass capacity of the pawn.</param>
-        /// <param name="settings">The settings object containing solver configuration.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled during the calculation.</param>
-        /// <param name="workspace">Outputs the anatomical workspace used during the calculation.</param>
-        /// <remarks>
-        /// This method binds directly to the generic value-type pipeline to minimize heap allocations.
-        /// It is the preferred entry point when working with raw Pawn instances.
-        /// </remarks>
+        /// <param name="pawn">The pawn for which to solve the mass capacity offset.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity of the pawn.</param>
+        /// <param name="biologicalBaseline">The biological baseline mass capacity of the pawn (output).</param>
+        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
+        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
+        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
+        /// <returns>The calculated mass capacity offset for the pawn.</returns>
         public static float SolveMassCapacityOffset(
             Pawn pawn, 
             float baselineCapacity, 
@@ -253,6 +352,11 @@ namespace OverHaulers
         /// Compiles the pathology information for the given anatomical workspace based on the source data and template.
         /// Dispatches directly without interface boxing.
         /// </summary>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing IAnatomicalDataSource.</typeparam>
+        /// <param name="source">The anatomical data source providing pathology information.</param>
+        /// <param name="template">The species topology template defining the anatomical structure.</param>
+        /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
+        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
         private static void CompilePathology<TSource>(
             TSource source, 
             SpeciesTopologyTemplate template, 
@@ -328,13 +432,7 @@ namespace OverHaulers
             #endregion
 
             #region 5B. Branchless Direct Systemic Regional Deltas
-            float torsoPositiveDelta = 0f;
-            float armPositiveDelta = 0f;
-            float legPositiveDelta = 0f;
-
-            float torsoNegativeDelta = 0f;
-            float armNegativeDelta = 0f;
-            float legNegativeDelta = 0f;
+            SystemicRegionalDeltas regionalDeltas = default;
 
             // The positive and negative deltas represent the net contributions of various systemic factors
             // to the mass capacity of each anatomical region. Positive deltas enhance capacity, while
@@ -342,74 +440,32 @@ namespace OverHaulers
             if (context.EnableAthletics)
             {
                 // 1. Positive and Negative Breathing Delta
-                float deltaBreath = context.SnappedBreathing - 1.0f;
-                if (deltaBreath > 0f)
-                {
-                    torsoPositiveDelta += deltaBreath * context.TorsoPositiveBreathing;
-                    armPositiveDelta += deltaBreath * context.ArmPositiveBreathing;
-                    legPositiveDelta += deltaBreath * context.LegPositiveBreathing;
-                }
-                else if (deltaBreath < 0f)
-                {
-                    float neg = -deltaBreath;
-                    torsoNegativeDelta += neg * context.TorsoDeficitBreathing;
-                    armNegativeDelta += neg * context.ArmDeficitBreathing;
-                    legNegativeDelta += neg * context.LegDeficitBreathing;
-                }
+                regionalDeltas.Accumulate(
+                    context.SnappedBreathing,
+                    context.TorsoPositiveBreathing, context.ArmPositiveBreathing, context.LegPositiveBreathing,
+                    context.TorsoDeficitBreathing, context.ArmDeficitBreathing, context.LegDeficitBreathing);
 
                 // 2. Positive and Negative Blood Pumping Delta
-                float deltaBlood = context.SnappedBloodPumping - 1.0f;
-                if (deltaBlood > 0f)
-                {
-                    torsoPositiveDelta += deltaBlood * context.TorsoPositiveBlood;
-                    armPositiveDelta += deltaBlood * context.ArmPositiveBlood;
-                    legPositiveDelta += deltaBlood * context.LegPositiveBlood;
-                }
-                else if (deltaBlood < 0f)
-                {
-                    float neg = -deltaBlood;
-                    torsoNegativeDelta += neg * context.TorsoDeficitBlood;
-                    armNegativeDelta += neg * context.ArmDeficitBlood;
-                    legNegativeDelta += neg * context.LegDeficitBlood;
-                }
+                regionalDeltas.Accumulate(
+                    context.SnappedBloodPumping,
+                    context.TorsoPositiveBlood, context.ArmPositiveBlood, context.LegPositiveBlood,
+                    context.TorsoDeficitBlood, context.ArmDeficitBlood, context.LegDeficitBlood);
 
                 // 3. Positive and Negative Moving Delta (Kinetic Chain Cascade)
-                float deltaMove = context.SnappedMoving - 1.0f;
-                if (deltaMove > 0f)
-                {
-                    torsoPositiveDelta += deltaMove * context.TorsoPositiveMoving;
-                    armPositiveDelta += deltaMove * context.ArmPositiveMoving;
-                    legPositiveDelta += deltaMove * context.LegPositiveMoving;
-                }
-                else if (deltaMove < 0f)
-                {
-                    float neg = -deltaMove;
-                    torsoNegativeDelta += neg * context.TorsoDeficitMoving;
-                    armNegativeDelta += neg * context.ArmDeficitMoving;
-                    legNegativeDelta += neg * context.LegDeficitMoving;
-                }
+                regionalDeltas.Accumulate(
+                    context.SnappedMoving,
+                    context.TorsoPositiveMoving, context.ArmPositiveMoving, context.LegPositiveMoving,
+                    context.TorsoDeficitMoving, context.ArmDeficitMoving, context.LegDeficitMoving);
 
                 // 4. Positive and Negative Manipulation Delta (Bilateral Synergy)
-                float deltaManip = context.SnappedManipulation - 1.0f;
-                if (deltaManip > 0f)
-                {
-                    torsoPositiveDelta += deltaManip * context.TorsoPositiveManipulation;
-                    armPositiveDelta += deltaManip * context.ArmPositiveManipulation;
-                    legPositiveDelta += deltaManip * context.LegPositiveManipulation;
-                }
-                else if (deltaManip < 0f)
-                {
-                    float neg = -deltaManip;
-                    torsoNegativeDelta += neg * context.TorsoDeficitManipulation;
-                    armNegativeDelta += neg * context.ArmDeficitManipulation;
-                    legNegativeDelta += neg * context.LegDeficitManipulation;
-                }
+                regionalDeltas.Accumulate(
+                    context.SnappedManipulation,
+                    context.TorsoPositiveManipulation, context.ArmPositiveManipulation, context.LegPositiveManipulation,
+                    context.TorsoDeficitManipulation, context.ArmDeficitManipulation, context.LegDeficitManipulation);
+
+                // 5. Dual Limb Contributions (Averaged for Symmetry)
+                regionalDeltas.FinalizeDualLimbs();
             }
-
-            // 5. Dual Limb Contributions (Averaged for Symmetry)
-            float dualPositiveDelta = (armPositiveDelta + legPositiveDelta) * 0.5f;
-            float dualNegativeDelta = (armNegativeDelta + legNegativeDelta) * 0.5f;
-
             #endregion
 
             #region 5C. Contiguous Streaming Math (Smooth, Unclamped)
@@ -484,29 +540,8 @@ namespace OverHaulers
                 // 4. Granular Systemic Athletic Coupling (Kinetic Strain)
                 if (context.EnableAthletics && !isMissing)
                 {
-                    float regionalPositiveDelta = 0f;
-                    float regionalNegativeDelta = 0f;
+                    regionalDeltas.GetDeltas(type, out float regionalPositiveDelta, out float regionalNegativeDelta);
 
-                    // Determine regional positive and negative deltas based on part type
-                    switch (type)
-                    {
-                        case PartType.CorePart:
-                            regionalPositiveDelta = torsoPositiveDelta;
-                            regionalNegativeDelta = torsoNegativeDelta;
-                            break;
-                        case PartType.ManipulationPart:
-                            regionalPositiveDelta = armPositiveDelta;
-                            regionalNegativeDelta = armNegativeDelta;
-                            break;
-                        case PartType.MovingPart:
-                            regionalPositiveDelta = legPositiveDelta;
-                            regionalNegativeDelta = legNegativeDelta;
-                            break;
-                        case PartType.DualLimb:
-                            regionalPositiveDelta = dualPositiveDelta;
-                            regionalNegativeDelta = dualNegativeDelta;
-                            break;
-                    }
                     // Apply regional positive delta if applicable
                     if (regionalPositiveDelta > 0f && !hasAddedPart)
                     {
@@ -674,6 +709,7 @@ namespace OverHaulers
                 return finalCapacity;
             }
 
+            // If the safety floor enforcement is enabled, check against the minimum threshold and clamp if necessary.
             if (finalCapacity < 0.01f)
             {
                 float clampedValue = 0.01f;

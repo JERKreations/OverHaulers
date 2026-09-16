@@ -126,6 +126,11 @@ namespace OverHaulers
                                 {
                                     cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueAbstract(raceDef);
                                 }
+                                // If driver stat returns 0 for this species, fallback to vanilla MassUtility before giving up
+                                if (cleanCapacity <= 0f)
+                                {
+                                    cleanCapacity = MassUtility.Capacity(dummyPawn, null);
+                                }
                             }
                             // If the active mass capacity stat is not available, fall back to the generic mass utility method.
                             else
@@ -136,10 +141,14 @@ namespace OverHaulers
                         catch (Exception ex)
                         {
                             errorDetail = ex.Message;
-                            // Attempt to recover the clean capacity using the abstract value if an exception occurred.
+                            // Attempt to recover the clean capacity using abstract stat or vanilla MassUtility
                             if (IntegrationPipeline.ActiveDriver is GenericStatDriver statDriver && statDriver.ActiveMassCapacityStat != null)
                             {
                                 cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueAbstract(raceDef);
+                            }
+                            if (cleanCapacity <= 0f)
+                            {
+                                cleanCapacity = MassUtility.Capacity(dummyPawn, null);
                             }
                         }
                         finally
@@ -243,7 +252,13 @@ namespace OverHaulers
 
             if (dummyScalar <= 0f)
             {
-                return new CalibrationEntry { Scalar = PendingLiveRescueSentinel, Method = CalibrationMethod.LiveRescue, LastErrorDetail = errorDetail };
+                CountTestingFallback++;
+                string pendingDetail = !string.IsNullOrEmpty(errorDetail)
+                    ? $"Dummy evaluation failed: {errorDetail}. Operating on testing fallback pending live pawn rescue."
+                    : "Pristine dummy returned 0 capacity (comp-dependent mod?). Operating on testing fallback pending live pawn rescue.";
+
+                // Stored as TestingFallback [1] with Pending sentinel; only transitions to LiveRescue [2] once a real spawned pawn rescues it
+                return new CalibrationEntry { Scalar = PendingLiveRescueSentinel, Method = CalibrationMethod.TestingFallback, LastErrorDetail = pendingDetail };
             }
 
             CountDummySuccess++;
@@ -268,6 +283,11 @@ namespace OverHaulers
             {
                 if (speciesCache.TryGetValue(raceDef, out CalibrationEntry entry))
                 {
+                    // If still pending a live rescue, it is currently operating on TestingFallback [1]
+                    if (entry.Scalar == PendingLiveRescueSentinel)
+                    {
+                        return CalibrationMethod.TestingFallback;
+                    }
                     return entry.Method;
                 }
             }
@@ -275,6 +295,26 @@ namespace OverHaulers
             return PawnDataRegistry.IsCaravanCapable(raceDef) 
                 ? CalibrationMethod.PristineDummy 
                 : CalibrationMethod.TestingFallback;
+        }
+
+        /// <summary>
+        /// Returns true if the species is a caravan-capable archetype that failed dummy evaluation and is awaiting live pawn rescue.
+        /// </summary>
+        /// <param name="raceDef">The race definition to check.</param>
+        /// <returns>True if the species is pending a live pawn rescue; otherwise, false.</returns>
+        public static bool IsPendingLiveRescue(ThingDef raceDef)
+        {
+            if (raceDef == null) return false;
+
+            lock (calibrationLock)
+            {
+                if (speciesCache.TryGetValue(raceDef, out CalibrationEntry entry))
+                {
+                    return entry.Scalar == PendingLiveRescueSentinel;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -357,7 +397,15 @@ namespace OverHaulers
         /// against its cached, species-specific pristine scalar.
         /// Executes silently for individual on-demand lookups.
         /// </summary>
-        public static float ResolveNativeBaseline(Pawn pawn)
+        /// <param name="pawn">The pawn for which to resolve the species baseline.</param>
+        /// <returns>The calculated baseline mass capacity in kg.</returns>
+        /// <remarks>
+        /// This method first attempts to retrieve the species-specific scalar from the cache.
+        /// If the scalar indicates that a live calibration is required, it will attempt to perform
+        /// a live rescue for fully-spawned pawns on an active map. During this process, headless
+        /// sandbox pawns and unspawned pawns will fall back to the testing and dummy evaluation scalar.
+        /// </remarks>
+        public static float ResolveSpeciesBaseline(Pawn pawn)
         {
             if (pawn == null || pawn.def == null) return 0f;
 
@@ -383,18 +431,23 @@ namespace OverHaulers
             float currentBodySize = MedicalClassifier.GetSafeBodySize(pawn);
 
             // 2. Perform live rescue outside the lock to prevent stalling background threads.
-            // Only the first caller per species performs the rescue; concurrent callers for the same still-pending
-            // species use the safe testing/fallback value for this query only, without overwriting the shared cache.
+            // Only real, fully-spawned pawns on an active map can execute a live rescue.
+            // Headless sandbox dummy pawns and unspawned pawns must NEVER attempt live rescues or log false warnings.
             if (requiresLiveCalibration)
             {
+                if (pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId || !pawn.Spawned || pawn.Map == null)
+                {
+                    return massCapacityScalarTestingAndFallbackOnly * currentBodySize;
+                }
+
                 bool ownsRescue;
                 lock (calibrationLock)
                 {
                     ownsRescue = liveRescueInProgress.Add(pawn.def);
                 }
 
-                // If this thread owns the live rescue, it will proceed to evaluate the live pawn.
-                // Otherwise, it will return the testing/fallback value immediately.
+                // If another thread is currently performing a live rescue for this species, we must wait for it to complete.
+                // During this time, we fall back to the testing and dummy evaluation scalar.
                 if (!ownsRescue)
                 {
                     return massCapacityScalarTestingAndFallbackOnly * currentBodySize;
@@ -407,7 +460,7 @@ namespace OverHaulers
 
                     lock (calibrationLock)
                     {
-                        // Update the species cache with the result of the live rescue.
+                        // Retrieve the current calibration entry for this species, if it exists.
                         if (speciesCache.TryGetValue(pawn.def, out entry) && entry.Scalar == PendingLiveRescueSentinel)
                         {
                             if (liveScalar > 0f)
@@ -415,12 +468,18 @@ namespace OverHaulers
                                 entry = new CalibrationEntry { Scalar = liveScalar, Method = CalibrationMethod.LiveRescue, LastErrorDetail = liveError };
                                 CountLiveRescue++;
                             }
-                            // If the live evaluation failed, fall back to the emergency failsafe.
+                            // If the live scalar is not positive, we fall back to the emergency failsafe sentinel.
                             else
                             {
                                 entry = new CalibrationEntry { Scalar = EmergencyFailsafeSentinel, Method = CalibrationMethod.EmergencyFailsafe, LastErrorDetail = liveError };
                                 CountEmergencyFallback++;
-                                OHLog.Lifecycle.Warn(pawn.def.defName, null, liveError);
+
+                                // Explicit State 3 diagnostic logging
+                                string detail = !string.IsNullOrEmpty(liveError)
+                                    ? $"Pawn stat failed with exception: {liveError}"
+                                    : "Both pristine dummy and live evaluations returned 0 capacity. Applied Emergency Failsafe [3] baseline assumption (35 kg * BodySize).";
+
+                                OHLog.Lifecycle.Warn(pawn.def.defName, null, detail);
                             }
                             speciesCache[pawn.def] = entry;
                         }
@@ -430,7 +489,7 @@ namespace OverHaulers
                 {
                     lock (calibrationLock)
                     {
-                        // Release ownership of the live rescue for this species.
+                        // Mark the live rescue as no longer in progress for this species.
                         liveRescueInProgress.Remove(pawn.def);
                     }
                 }

@@ -103,14 +103,21 @@ namespace OverHaulers
         #region BASELINE & EGRESS DELIVERY
 
         /// <summary>
-        /// Resolves the original baseline mass capacity for the specified pawn, taking into account archetype calibration.
+        /// Resolves the standalone baseline mass capacity for the specified pawn, querying the cached baseline first
+        /// before delegating to the species calibration engine.
         /// </summary>
-        /// <param name="pawn">The pawn for which to resolve the original baseline mass capacity.</param>
-        /// <returns>The resolved original baseline mass capacity for the specified pawn.</returns>
+        /// <param name="pawn">The pawn for which to resolve the baseline mass capacity.</param>
+        /// <returns>The resolved baseline mass capacity in kg.</returns>
         public float ResolveDriverBaseline(Pawn pawn)
         {
             if (pawn == null) return 0f;
-            return SpeciesBaselineCalibration.ResolveNativeBaseline(pawn);
+
+            if (PawnDataRegistry.TryGetCachedBaseline(pawn.thingIDNumber, out float cachedBaseline))
+            {
+                return cachedBaseline;
+            }
+
+            return SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
         }
 
         /// <summary>

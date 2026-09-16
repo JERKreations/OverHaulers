@@ -152,6 +152,12 @@ namespace OverHaulers
                 return;
             }
 
+            // Ensure main-menu fallback hooks are active if constructing dummy on Main Menu
+            if (Current.ProgramState != ProgramState.Playing)
+            {
+                HarmonySetup.EnsureSafetyPatchesApplied();
+            }
+
             ThingDef raceDef = boundSubject.RaceDef ?? boundSubject.LivePawn?.def ?? ThingDefOf.Human;
             if (raceDef == null) return;
 
@@ -279,7 +285,7 @@ namespace OverHaulers
                         }
                     }
                     else if (sourcePawn?.genes != null)
-                    {
+                        {
                         // Clone custom animal/mechanoid genes if present from VEF Animal Genes
                         for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
                         {
@@ -540,8 +546,8 @@ namespace OverHaulers
             ImplantDeltas.Remove(part);
             ReplacementDeltas.Remove(part);
 
-            // 2. Clear socket cleanly without cascading into child limbs
-            SafeRestorePart(part);
+            // 2. Clear socket cleanly without premature state changes
+            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
 
             float maxHp = part.def.GetMaxHealth(sandboxPawn);
             float damageToApply = Math.Max(1f, maxHp - 1f);
@@ -632,6 +638,8 @@ namespace OverHaulers
         /// Removes a simulated localized implant from the sandbox pawn.
         /// --- Reserved for granular implant removal, maybe ---
         /// </summary>
+        /// <param name="part">The BodyPartRecord from which to remove the implant.</param>
+        /// <param name="hediff">The HediffDef representing the implant to remove.</param>
         public void SimulateRemoveImplant(BodyPartRecord part, HediffDef hediff)
         {
             if (sandboxPawn?.health == null || part == null || hediff == null) return;
@@ -654,6 +662,7 @@ namespace OverHaulers
         /// <summary>
         /// Toggles a simulated systemic drug, combat stimulant, or whole-body condition on the sandbox pawn.
         /// </summary>
+        /// <param name="drugDef">The HediffDef representing the drug or condition to toggle.</param>
         public void SimulateToggleDrug(HediffDef drugDef)
         {
             if (sandboxPawn?.health == null || drugDef == null) return;
@@ -694,21 +703,12 @@ namespace OverHaulers
         /// <summary>
         /// Reverts a specific body part and all its descendant branches back to the authentic live health state.
         /// </summary>
-        /// <param name="part">The body part to revert.</param>
-        /// <remarks>
-        /// This method reverts the specified body part and all its descendant branches back to the authentic live health state,
-        /// ensuring that only the targeted parts are affected without inadvertently modifying other limbs or cranial features.
-        /// </remarks>
+        /// <param name="part">The BodyPartRecord representing the root part to revert.</param>
         public void SimulateRevertPart(BodyPartRecord part)
         {
             if (sandboxPawn?.health == null || part == null) return;
 
-            SpeciesTopologyTemplate template = part.body != null 
-                ? TopologyLayoutCompiler.GetOrCreateTopologyTemplate(part.body) 
-                : null;
-
-            // Use bounded restore so RimWorld's recursive RestorePart doesn't cascade into limbs
-            SafeRestorePart(part, template);
+            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
 
             if (sourcePawn?.health?.hediffSet != null)
             {
@@ -718,7 +718,7 @@ namespace OverHaulers
                 for (int i = 0; i < sourceHediffs.Count; i++)
                 {
                     Hediff src = sourceHediffs[i];
-                    if (src?.def != null && src.Part != null && IsPartOrDescendantOf(src.Part, part, template))
+                    if (src?.def != null && src.Part != null && IsPartOrDescendantOf(src.Part, part))
                     {
                         relevantHediffs.Add(src);
                     }
@@ -747,129 +747,13 @@ namespace OverHaulers
                 }
             }
 
-            CleanDeltasRecursive(part, template);
+            CleanDeltasRecursive(part);
             DirtySandboxHealthCache();
         }
 
-        /// <summary>
-        /// Safely removes hediffs on a part and its bounded children without cascading across limb or cranial boundaries.
-        /// Prevents RimWorld's native RestorePartRecursiveInt from wiping arms, legs, or head features when operating on the torso.
-        /// </summary>
-        /// <param name="part">The body part to safely restore.</param>
-        /// <param name="template">The species topology template used to determine part boundaries. If null, the method will attempt to
-        ///  infer it from the body.</param>
-        /// <remarks>
-        /// This method ensures that only the specified body part and its bounded children are restored, without inadvertently affecting other
-        ///  limbs or cranial features.
-        /// </remarks>
-        public void SafeRestorePart(BodyPartRecord part, SpeciesTopologyTemplate template = null)
+        private static bool IsPartOrDescendantOf(BodyPartRecord candidate, BodyPartRecord root)
         {
-            if (sandboxPawn?.health?.hediffSet == null || part == null) return;
-
-            if (template == null && part.body != null)
-            {
-                template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(part.body);
-            }
-
-            SafeRestorePartInternal(part, template);
-            sandboxPawn.health.hediffSet.DirtyCache();
-        }
-
-        /// <summary>
-        /// Safely restores the specified body part and its bounded children without affecting unrelated limbs or cranial features.
-        /// </summary>
-        /// <param name="part">The body part to safely restore.</param>
-        /// <param name="template">The species topology template used to determine part boundaries. If null, the method will attempt to infer
-        ///  it from the body.</param>
-        /// <remarks>
-        /// This method ensures that only the specified body part and its bounded children are restored, without inadvertently affecting other
-        ///  limbs or cranial features.
-        /// </remarks>
-        private void SafeRestorePartInternal(BodyPartRecord part, SpeciesTopologyTemplate template)
-        {
-            List<Hediff> hediffs = sandboxPawn.health.hediffSet.hediffs;
-            for (int i = hediffs.Count - 1; i >= 0; i--)
-            {
-                if (hediffs[i].Part == part)
-                {
-                    Hediff h = hediffs[i];
-                    hediffs.RemoveAt(i);
-                    try { h.PostRemoved(); } catch { }
-                }
-            }
-
-            if (part.parts == null || part.parts.Count == 0) return;
-
-            PartType currentType = template != null ? template.GetPartType(part) : PartType.None;
-            bool isCoreOrOrgan = currentType == PartType.CorePart || currentType == PartType.None;
-
-            for (int i = 0; i < part.parts.Count; i++)
-            {
-                BodyPartRecord child = part.parts[i];
-
-                // Stop recursion at limb (Manipulation/Moving/Dual) and cranial (Head) boundaries
-                if (isCoreOrOrgan && template != null)
-                {
-                    PartType childType = template.GetPartType(child);
-                    if (childType != PartType.CorePart && childType != PartType.None)
-                    {
-                        continue;
-                    }
-                }
-
-                SafeRestorePartInternal(child, template);
-            }
-        }
-
-        /// <summary>
-        /// Determines whether the specified candidate body part is the same as or a descendant of the given root body part, considering the
-        ///  species topology template if provided.
-        /// </summary>
-        /// <param name="candidate">The body part to check.</param>
-        /// <param name="root">The root body part to compare against.</param>
-        /// <param name="template">The species topology template associated with the body parts, if available.</param>
-        /// <returns>True if the candidate is the same as or a descendant of the root; otherwise, false.</returns>
-        /// <remarks>
-        /// This method checks the hierarchical relationship between the candidate and root body parts, taking into account the species topology
-        ///  template if provided. It ensures that core parts do not incorrectly claim limb or head parts as descendants and that limb parts do
-        ///  not claim parts from different limb branches or the core.
-        /// </remarks>
-        private static bool IsPartOrDescendantOf(BodyPartRecord candidate, BodyPartRecord root, SpeciesTopologyTemplate template = null)
-        {
-            if (candidate == null || root == null) return false;
-            if (candidate == root) return true;
-
-            if (template == null && root.body != null)
-            {
-                template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(root.body);
-            }
-
-            if (template != null)
-            {
-                PartType rootType = template.GetPartType(root);
-                PartType candType = template.GetPartType(candidate);
-
-                // Core trunk parts can NEVER claim limb or head parts as descendants
-                if ((rootType == PartType.CorePart || rootType == PartType.None) &&
-                    (candType != PartType.CorePart && candType != PartType.None))
-                {
-                    return false;
-                }
-
-                // Limb parts can NEVER claim parts from a different limb branch or core
-                if (template.IsLimb(root))
-                {
-                    int rootIdx = template.GetPartIndex(root);
-                    int candIdx = template.GetPartIndex(candidate);
-
-                    if (candIdx < 0 || template.RootPartIndex[candIdx] != template.RootPartIndex[rootIdx])
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            BodyPartRecord curr = candidate.parent;
+            BodyPartRecord curr = candidate;
             while (curr != null)
             {
                 if (curr == root) return true;
@@ -878,45 +762,18 @@ namespace OverHaulers
             return false;
         }
 
-        /// <summary>
-        /// Recursively removes all replacement and implant deltas for the specified body part and its descendants.
-        /// </summary>
-        /// <param name="part">The root body part for which to clean deltas.</param>
-        /// <param name="template">The species topology template associated with the body part, if available.</param>
-        /// <remarks>
-        /// This method will traverse the body part hierarchy starting from the specified part and remove any replacement or implant deltas
-        ///  associated with each part. It ensures that modifications are cleaned up for the entire subtree of the body part.
-        /// </remarks>
-        private void CleanDeltasRecursive(BodyPartRecord part, SpeciesTopologyTemplate template = null)
+        private void CleanDeltasRecursive(BodyPartRecord part)
         {
             if (part == null) return;
             ReplacementDeltas.Remove(part);
             ImplantDeltas.Remove(part);
 
-            if (part.parts == null || part.parts.Count == 0) return;
-
-            if (template == null && part.body != null)
+            if (part.parts != null)
             {
-                template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(part.body);
-            }
-
-            PartType currentType = template != null ? template.GetPartType(part) : PartType.None;
-            bool isCoreOrOrgan = currentType == PartType.CorePart || currentType == PartType.None;
-
-            for (int i = 0; i < part.parts.Count; i++)
-            {
-                BodyPartRecord child = part.parts[i];
-
-                if (isCoreOrOrgan && template != null)
+                for (int i = 0; i < part.parts.Count; i++)
                 {
-                    PartType childType = template.GetPartType(child);
-                    if (childType != PartType.CorePart && childType != PartType.None)
-                    {
-                        continue;
-                    }
+                    CleanDeltasRecursive(part.parts[i]);
                 }
-
-                CleanDeltasRecursive(child, template);
             }
         }
 

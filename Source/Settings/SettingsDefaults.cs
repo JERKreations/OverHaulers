@@ -188,16 +188,18 @@ namespace OverHaulers
 
         #region 11. ENGINE & PERFORMANCE INVARIANTS
 
-        // Cache expiry base interval in ticks. This is the base duration before a cache entry is considered expired.
-        public const int CacheExpiryBase = 60;
-        // Cache expiry jitter window in ticks. This value introduces randomness to the cache expiry interval.
-        public const int CacheExpiryJitter = 24;
+        // Minimum fast path ticks and dynamic cache expiry floor (5 ticks = ~0.08s at 1x speed).
+        public const int DefaultCacheMinFastPathTicks = 5;
+
+        // Dynamic square-root scaling factor (K) for population-based cache expiry.
+        public const float DynamicCacheExpiryScaleK = 5.0f;
+
         // Cache cleanup interval. This is the interval at which expired cache entries are cleaned up.
         public const int CacheCleanupInterval = 600;
-        // Minimum fast path ticks for cache. This is the minimum number of ticks considered for the fast path in cache operations.
-        public const int DefaultCacheMinFastPathTicks = 10;
+
         // Default workspace capacity. This defines the initial capacity of the workspace used in performance-critical operations.
         public const int DefaultWorkspaceCapacity = 64;
+
         // Efficiency epsilon for performance calculations. This small value is used to avoid division by zero and to maintain numerical stability.
         public const float EfficiencyEpsilon = 0.005f;
 
