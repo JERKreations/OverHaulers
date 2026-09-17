@@ -161,6 +161,8 @@ namespace OverHaulers
                 }
 
                 // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
+                // Full memory barrier prevents payload reads from sinking past the second version sample
+                Thread.MemoryBarrier();
                 int v2 = Volatile.Read(ref tableVersion);
                 if (v1 == v2)
                 {
@@ -214,6 +216,8 @@ namespace OverHaulers
                 }
 
                 // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
+                // Full memory barrier prevents payload reads from sinking past the second version sample
+                Thread.MemoryBarrier();
                 int v2 = Volatile.Read(ref tableVersion);
                 if (v1 == v2)
                 {
@@ -245,8 +249,7 @@ namespace OverHaulers
             int targetSlot = -1;
 
             // BREAKPOINT ANCHOR: SeqLock Mutation Window (Data payload before key publication)
-            int v = tableVersion;
-            Volatile.Write(ref tableVersion, v + 1);
+            Interlocked.Increment(ref tableVersion);
 
             try
             {
@@ -266,12 +269,12 @@ namespace OverHaulers
                 // 2. Clean eviction fallback if probe bound is saturated
                 if (targetSlot == -1)
                 {
-                    int victimId = slotPawnIds[baseSlot];
-                    if (victimId != 0 && victimId != pawnId)
-                    {
-                        EvictInternal(victimId);
-                    }
+                    // Linear probe window is fully saturated (all MaxProbeSteps slots occupied).
+                    // Displace the root bucket occupant directly to seat this pawn at its natural hash.
+                    // Overwriting baseSlot maintains unbroken non-zero probe chains for downstream keys
+                    // without corrupting shifts via premature zeroing.
                     targetSlot = (int)baseSlot;
+                    PerformanceTelemetry.IncrementEvictions();
                 }
 
                 slotPackedData[targetSlot] = packed;
@@ -279,8 +282,8 @@ namespace OverHaulers
             }
             finally
             {
-                // Conclude mutation: version even signals published write
-                Volatile.Write(ref tableVersion, v + 2);
+                // Conclude mutation: even version signals published write
+                Interlocked.Increment(ref tableVersion);
             }
         }
 
@@ -294,8 +297,8 @@ namespace OverHaulers
         {
             if (pawnId <= 0) return false;
 
-            int v = tableVersion;
-            Volatile.Write(ref tableVersion, v + 1);
+            // BREAKPOINT ANCHOR: SeqLock Mutation Window (Data payload before key publication)
+            Interlocked.Increment(ref tableVersion);
 
             try
             {
@@ -303,13 +306,19 @@ namespace OverHaulers
             }
             finally
             {
-                Volatile.Write(ref tableVersion, v + 2);
+                Interlocked.Increment(ref tableVersion);
             }
         }
 
         /// <summary>
-        /// Internal implementation of Algorithm R executed within a SeqLock mutation window.
+        /// Internal implementation of the backward-shift deletion (Algorithm R) for evicting a pawn entry from the cache.
         /// </summary>
+        /// <param name="pawnId">The unique identifier of the pawn to evict from the cache.</param>
+        /// <returns>True if the pawn was successfully evicted; otherwise, false.</returns>
+        /// <remarks>
+        /// This method assumes that the caller has already incremented the table version to signal a mutation window.
+        /// It performs a backward-shift deletion to maintain the integrity of the linear probe chain.
+        /// </remarks>
         private static bool EvictInternal(int pawnId)
         {
             uint baseSlot = GetNaturalSlot(pawnId);
@@ -340,10 +349,15 @@ namespace OverHaulers
             int emptySlot = targetSlot;
             int scanSlot = (emptySlot + 1) & TableMask;
 
-            for (uint step = 1; step < MaxProbeSteps; step++)
+            while (true)
             {
                 int candidateId = slotPawnIds[scanSlot];
                 if (candidateId == 0) break; // Reached end of active cluster
+
+                // In bounded linear probing, if the scan slot has advanced MaxProbeSteps or more
+                // past the vacant slot, no subsequent candidate can have a natural hash <= emptySlot.
+                uint probeDistance = ((uint)scanSlot - (uint)emptySlot) & TableMask;
+                if (probeDistance >= MaxProbeSteps) break;
 
                 uint naturalHash = GetNaturalSlot(candidateId);
 
@@ -376,8 +390,7 @@ namespace OverHaulers
         public static void Reset()
         {
             // BREAKPOINT ANCHOR: Snapshot Registry Flush
-            int v = tableVersion;
-            Volatile.Write(ref tableVersion, v + 1);
+            Interlocked.Increment(ref tableVersion);
 
             try
             {
@@ -386,7 +399,7 @@ namespace OverHaulers
             }
             finally
             {
-                Volatile.Write(ref tableVersion, v + 2);
+                Interlocked.Increment(ref tableVersion);
             }
         }
 

@@ -25,7 +25,7 @@ namespace OverHaulers
         private static int activeCleanupSentinel = 0;
 
         [ThreadStatic]
-        private static bool isEvaluatingReentrant;
+        private static int currentEvaluatingPawnId;
 
         public static int CurrentTick => lastCapturedMainThreadTick;
 
@@ -135,9 +135,14 @@ namespace OverHaulers
                 return MassSnapshotCache.GetOffsetThreadSafe(pawn.thingIDNumber);
             }
 
-            if (isEvaluatingReentrant)
+            int pawnId = pawn.thingIDNumber;
+
+            // BREAKPOINT ANCHOR: Exact Pawn Reentrancy Shield
+            // If the exact same pawn is already being evaluated on this thread (e.g. recursive stat query),
+            // return its existing or baseline cache value to prevent infinite recursion.
+            if (currentEvaluatingPawnId == pawnId)
             {
-                if (capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData reentrantNode))
+                if (capacityCache.TryGetValue(pawnId, out CachedMassData reentrantNode))
                 {
                     return reentrantNode.Offset;
                 }
@@ -146,16 +151,16 @@ namespace OverHaulers
 
             if (pawn.Dead || pawn.Suspended)
             {
-                EvictCacheEntry(pawn.thingIDNumber);
+                EvictCacheEntry(pawnId);
                 return 0f;
             }
 
             int currentTick = GetSafeCurrentTick();
 
-            if (!capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData cachedNode))
+            if (!capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode))
             {
                 cachedNode = new CachedMassData();
-                capacityCache.Add(pawn.thingIDNumber, cachedNode);
+                capacityCache.Add(pawnId, cachedNode);
                 cachedNode.IsStale = true;
             }
 
@@ -166,19 +171,20 @@ namespace OverHaulers
                 return cachedNode.Offset;
             }
 
-            int jitteredExpiryDuration = GetCacheExpiryDuration(pawn.thingIDNumber);
+            int jitteredExpiryDuration = GetCacheExpiryDuration(pawnId);
             int elapsedTicks = currentTick - cachedNode.CalculatedTick;
 
             if (elapsedTicks >= jitteredExpiryDuration || cachedNode.IsStale)
             {
+                int prevEvaluatingPawnId = currentEvaluatingPawnId;
                 try
                 {
-                    isEvaluatingReentrant = true;
+                    currentEvaluatingPawnId = pawnId;
                     SolveAndCacheEntry(pawn, cachedNode, baselineCapacity, currentTick, shouldCompileUIProperties: false, out _);
                 }
                 finally
                 {
-                    isEvaluatingReentrant = false;
+                    currentEvaluatingPawnId = prevEvaluatingPawnId;
                 }
                 return cachedNode.Offset;
             }
@@ -252,12 +258,14 @@ namespace OverHaulers
         /// <returns>The detailed mass capacity model for the pawn.</returns>
         public static MassCapacityModel GetDetailedModel(Pawn pawn, float baselineCapacity)
         {
+            // Early exit if the pawn is null or cannot carry caravan mass
             if (pawn == null || !CanCarryCaravanMass(pawn)) return null;
 
             int pawnId = pawn.thingIDNumber;
-            int currentTick = Find.TickManager?.TicksGame ?? 0;
+            int currentTick = GetSafeCurrentTick();
 
-            if (isEvaluatingReentrant)
+            // Attempt to retrieve the cached mass data for the pawn
+            if (currentEvaluatingPawnId == pawnId)
             {
                 if (capacityCache.TryGetValue(pawnId, out CachedMassData reentrantNode) && reentrantNode.FullModel != null)
                 {
@@ -266,10 +274,13 @@ namespace OverHaulers
                 return null;
             }
 
+            // Store the previous evaluating pawn ID to restore it after processing
+            int prevEvaluatingPawnId = currentEvaluatingPawnId;
             try
             {
-                isEvaluatingReentrant = true;
+                currentEvaluatingPawnId = pawnId;
 
+                // Attempt to retrieve the cached mass data for the pawn after setting the current evaluating pawn ID
                 if (!capacityCache.TryGetValue(pawnId, out CachedMassData cachedNodeRef))
                 {
                     cachedNodeRef = new CachedMassData();
@@ -280,26 +291,38 @@ namespace OverHaulers
                 bool isOffsetStale = cachedNodeRef.IsStale || (currentTick - cachedNodeRef.CalculatedTick) > expiry;
                 bool isModelStale = cachedNodeRef.FullModel == null || (currentTick - cachedNodeRef.FullModelCalculatedTick) > expiry;
 
+                // Recompute the detailed model if either the offset or the model is stale.
                 if (isOffsetStale || isModelStale)
                 {
-                    SolveAndCacheEntry(pawn, cachedNodeRef, baselineCapacity, currentTick, true, out AnatomicalWorkspace workspace);
-
-                    if (cachedNodeRef.FullModel == null)
+                    AnatomicalWorkspace workspace = null;
+                    try
                     {
-                        cachedNodeRef.FullModel = new MassCapacityModel();
+                        SolveAndCacheEntry(pawn, cachedNodeRef, baselineCapacity, currentTick, true, out workspace);
+
+                        if (cachedNodeRef.FullModel == null)
+                        {
+                            cachedNodeRef.FullModel = new MassCapacityModel();
+                        }
+
+                        cachedNodeRef.FullModel.ResetPool();
+
+                        // Seed presentation model with domain values already solved in Core
+                        cachedNodeRef.FullModel.Offset = cachedNodeRef.Offset;
+                        cachedNodeRef.FullModel.FinalCapacity = cachedNodeRef.FinalCapacity;
+                        cachedNodeRef.FullModel.TotalMultiplier = cachedNodeRef.TotalMultiplier;
+
+                        ViewProjection.RebuildDetailedModel_Internal(pawn, cachedNodeRef.FullModel, cachedNodeRef.Offset, cachedNodeRef.BaselineCapacity, workspace);
+                        cachedNodeRef.FullModelCalculatedTick = currentTick;
+
+                        return cachedNodeRef.FullModel;
                     }
-
-                    cachedNodeRef.FullModel.ResetPool();
-
-                    // Seed presentation model with domain values already solved in Core
-                    cachedNodeRef.FullModel.Offset = cachedNodeRef.Offset;
-                    cachedNodeRef.FullModel.FinalCapacity = cachedNodeRef.FinalCapacity;
-                    cachedNodeRef.FullModel.TotalMultiplier = cachedNodeRef.TotalMultiplier;
-
-                    ViewProjection.RebuildDetailedModel_Internal(pawn, cachedNodeRef.FullModel, cachedNodeRef.Offset, cachedNodeRef.BaselineCapacity, workspace);
-                    cachedNodeRef.FullModelCalculatedTick = currentTick;
-
-                    return cachedNodeRef.FullModel;
+                    finally
+                    {
+                        if (workspace != null)
+                        {
+                            WorkspacePool.ReleaseWorkspace(workspace);
+                        }
+                    }
                 }
 
                 PerformanceTelemetry.IncrementCacheHits();
@@ -307,7 +330,7 @@ namespace OverHaulers
             }
             finally
             {
-                isEvaluatingReentrant = false;
+                currentEvaluatingPawnId = prevEvaluatingPawnId;
             }
         }
 
@@ -324,6 +347,12 @@ namespace OverHaulers
         /// <param name="currentTick">The current game tick used to timestamp the calculation.</param>
         /// <param name="shouldCompileUIProperties">Indicates whether UI properties should be compiled during the calculation.</param>
         /// <param name="workspace">The anatomical workspace used for the calculation.</param>
+        /// <returns>The anatomical workspace used during the calculation.</returns>
+        /// <remarks>
+        /// This method calculates the mass capacity offset for the specified pawn, enforces safety rules,
+        /// and caches the results in the provided node. The anatomical workspace is used to store intermediate
+        /// calculation details and is returned to the caller for further inspection if needed.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void SolveAndCacheEntry(
             Pawn pawn, 
@@ -373,8 +402,11 @@ namespace OverHaulers
 
             if (!shouldCompileUIProperties)
             {
-                workspace?.Clear();
-                workspace = null;
+                if (workspace != null)
+                {
+                    WorkspacePool.ReleaseWorkspace(workspace);
+                    workspace = null;
+                }
             }
         }
 
@@ -498,6 +530,7 @@ namespace OverHaulers
             staleKeysScratch.Clear();
             lastCapturedMainThreadTick = 0;
             lastCleanupTick = 0;
+            currentEvaluatingPawnId = 0;
             System.Threading.Interlocked.Exchange(ref activeCleanupSentinel, 0);
 
             MassSnapshotCache.Reset();

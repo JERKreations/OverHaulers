@@ -10,54 +10,88 @@ namespace OverHaulers
     /// </summary>
     public static class WorkspacePool
     {
-        #region 1. FIELDS & STORAGE
+        #region 1. FIELDS & THREAD LOCAL INSTANCES
 
-        /// <summary>
-        /// The thread-local anatomical workspace instance for the current thread.
-        /// </summary>
+        /// Maximum recursion/nesting depth for thread-local workspaces (e.g. cross-pawn evaluations).
+        private const int MaxWorkspacePoolDepth = 4;
+
+        /// Thread-local pool array for isolated workspaces per thread.
         [ThreadStatic]
-        private static AnatomicalWorkspace activeWorkspace;
+        private static AnatomicalWorkspace[] threadWorkspaces;
 
-        // Fully qualified System namespace to resolve RimWorld's legacy Verse collision
+        /// Thread-local lease stack index.
+        [ThreadStatic]
+        private static int poolIndex;
+
+        /// Synchronization root for cross-thread tracking and mass invalidation.
+        private static readonly object syncRoot = new object();
+
+        /// Registry tracking all instantiated workspaces via weak references for lifecycle sweeps.
         private static readonly List<System.WeakReference<AnatomicalWorkspace>> allWorkspaces = 
             new List<System.WeakReference<AnatomicalWorkspace>>();
-
-        /// <summary>
-        /// Synchronization root for thread-safe access to the static workspace reference collection.
-        /// </summary>
-        private static readonly object syncRoot = new object();
 
         #endregion
 
         #region 2. THREAD-LOCAL WORKSPACE RECYCLER
 
         /// <summary>
-        /// Retrieves and automatically clears the thread-local anatomical evaluation workspace.
-        /// Presets the workspace array structures to accommodate the game's compiled maximum species layouts.
+        /// Retrieves or instantiates a clean thread-local <see cref="AnatomicalWorkspace"/> instance.
+        /// Supports re-entrant leases (up to 4 levels) during nested cross-pawn evaluations.
         /// </summary>
-        /// <returns>The thread-isolated, cleared anatomical workspace instance.</returns>
+        /// <returns>A cleared and ready-to-use <see cref="AnatomicalWorkspace"/>.</returns>
         public static AnatomicalWorkspace GetWorkspace()
         {
-            // BREAKPOINT ANCHOR: ThreadStatic Workspace Allocation Gate
-            if (activeWorkspace == null || activeWorkspace.IsNullified)
+            if (threadWorkspaces == null)
+            {
+                threadWorkspaces = new AnatomicalWorkspace[MaxWorkspacePoolDepth];
+            }
+
+            int index = poolIndex;
+            if (index < MaxWorkspacePoolDepth)
+            {
+                poolIndex++;
+            }
+            else
+            {
+                // Safety fallback if depth is exceeded: reuse topmost slot
+                index = MaxWorkspacePoolDepth - 1;
+            }
+
+            AnatomicalWorkspace ws = threadWorkspaces[index];
+            if (ws == null || ws.IsNullified)
             {
                 int settingsCapacity = SettingsDefaults.DefaultWorkspaceCapacity; 
                 int globalMaxLayout = TopologyLayoutCompiler.globalMaxPartCount;
-                
-                // Establish initial size directly from the pre-compiled global maximum of all species
                 int initialCapacity = Math.Max(settingsCapacity, globalMaxLayout);
-                activeWorkspace = new AnatomicalWorkspace(initialCapacity);
-                
-                // BREAKPOINT ANCHOR: Sync Lock for WeakReference Tracking
+
+                ws = new AnatomicalWorkspace(initialCapacity);
+                threadWorkspaces[index] = ws;
+
                 lock (syncRoot)
                 {
-                    allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(activeWorkspace));
+                    allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
                 }
             }
 
-            // BREAKPOINT ANCHOR: Thread-Local Workspace Clearance
-            activeWorkspace.Clear();
-            return activeWorkspace;
+            ws.Clear();
+            return ws;
+        }
+
+        /// <summary>
+        /// Releases and clears a previously acquired <see cref="AnatomicalWorkspace"/>,
+        /// restoring the thread-local pool lease index.
+        /// </summary>
+        /// <param name="workspace">The workspace instance to release.</param>
+        public static void ReleaseWorkspace(AnatomicalWorkspace workspace)
+        {
+            if (workspace == null) return;
+
+            workspace.Clear();
+
+            if (poolIndex > 0)
+            {
+                poolIndex--;
+            }
         }
 
         #endregion
@@ -85,29 +119,25 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clears all thread-local workspace references and resets the backing arrays to their baseline state.
-        /// This is a main-thread operation and should be invoked during application shutdown or when a full reset is required.
+        /// Flushes and nullifies all instantiated workspaces across all threads.
+        /// Typically invoked on game initialization, def reloading, or save transitions.
         /// </summary>
         public static void ClearPools()
         {
-            // On the main thread, simply unbind references
-            activeWorkspace?.Clear();
-
             lock (syncRoot)
             {
                 for (int i = allWorkspaces.Count - 1; i >= 0; i--)
                 {
-                    if (allWorkspaces[i].TryGetTarget(out var workspace))
+                    if (allWorkspaces[i].TryGetTarget(out AnatomicalWorkspace ws))
                     {
-                        // Clears references without destroying backing arrays
-                        workspace.ResetBuffersToBaseline(); 
-                    }
-                    else
-                    {
-                        allWorkspaces.RemoveAt(i);
+                        ws.ResetBuffersToBaseline();
                     }
                 }
+                allWorkspaces.Clear();
             }
+
+            poolIndex = 0;
+            threadWorkspaces = null;
         }
 
         /// <summary>

@@ -263,10 +263,10 @@ namespace OverHaulers
             }
             finally
             {
-                // Ensure the workspace is cleared if the calculation was not successful.
-                if (!isSuccessful)
+                // Ensure the workspace is cleared and released if the calculation was not successful.
+                if (!isSuccessful && workspace != null)
                 {
-                    workspace?.Clear();
+                    WorkspacePool.ReleaseWorkspace(workspace);
                     workspace = null;
                 }
             }
@@ -616,9 +616,9 @@ namespace OverHaulers
                 totalPositiveBoosts += partPositive;
 
                 float partNegative = 0f;
-                if (calcProsthetics[i] < 0f) partNegative += Math.Abs(calcProsthetics[i]);
-                if (calcAthletics[i] < 0f) partNegative += Math.Abs(calcAthletics[i]);
-                if (calcHealths[i] < 0f) partNegative += Math.Abs(calcHealths[i]);
+                if (calcProsthetics[i] < 0f) partNegative -= calcProsthetics[i];
+                if (calcAthletics[i] < 0f) partNegative -= calcAthletics[i];
+                if (calcHealths[i] < 0f) partNegative -= calcHealths[i];
 
                 // Distribute negative contributions to the appropriate regional deficits based on part type.
                 switch (type)

@@ -264,7 +264,7 @@ namespace OverHaulers
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {
                     SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(subject.BodyDef);
-                    workspace?.Clear();
+                    WorkspacePool.ReleaseWorkspace(workspace);
                     return GenerateTopologyXRayReport(template, settings, subject);
                 }
 
@@ -274,7 +274,7 @@ namespace OverHaulers
                 bool verbose = settings?.verboseBreakdown ?? false;
                 string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
 
-                workspace?.Clear();
+                WorkspacePool.ReleaseWorkspace(workspace);
                 return explanation ?? string.Empty;
             }
             catch (Exception ex)
