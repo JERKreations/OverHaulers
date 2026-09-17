@@ -78,6 +78,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Direct main-thread processing gate filtering out duplicate invalidation signals in O(1) time.
+        /// Ignores mock sandbox surgeries and non-caravan wildlife before collection lookups.
         /// </summary>
         private static void ProcessInvalidationGate(Pawn pawn)
         {
@@ -86,6 +87,12 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Sandbox Pawn Fast Bypass
             // Immediately ignore mock surgeries performed inside the Test Bench
             if (pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
+            {
+                return;
+            }
+
+            // Fast Pre-Filter: Ignore non-caravan wildlife and creatures OverHaulers does not track
+            if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 return;
             }

@@ -58,7 +58,8 @@ namespace OverHaulers
     #region 3. CACHED MASS METRICS CONTAINER
 
     /// <summary>
-    /// Stores cached mass capacity metrics for a pawn, including the last calculated offsets and the detailed UI model.
+    /// Stores cached mass capacity metrics for a pawn, including the last calculated offsets,
+    /// detailed UI models, and combat debounce timestamps.
     /// </summary>
     public class CachedMassData
     {
@@ -70,6 +71,7 @@ namespace OverHaulers
         public float AthleticOffset; // The contribution to mass capacity from athletic implants.
         public int CalculatedTick;
         public int FullModelCalculatedTick;
+        public int LastInvalidatedTick; // Timestamp of the last reactive invalidation pass (used for combat burst debounce).
         public MassCapacityModel FullModel; // The detailed mass capacity model for the pawn.
         public float BaselineCapacity; // The biological baseline capacity for the pawn's mass.
         public bool IsStale;

@@ -194,6 +194,9 @@ namespace OverHaulers
         // Dynamic square-root scaling factor (K) for population-based cache expiry.
         public const float DynamicCacheExpiryScaleK = 5.0f;
 
+        // Minimum tick interval between reactive cache invalidations for a single pawn during combat damage bursts (15 ticks = ~0.25s).
+        public const int InvalidationDebounceTicks = 15;
+
         // Cache cleanup interval. This is the interval at which expired cache entries are cleaned up.
         public const int CacheCleanupInterval = 600;
 

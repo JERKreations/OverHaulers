@@ -406,6 +406,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Determines whether the cache entry for the specified pawn should be culled due to invalidation.
+        /// Prevents redundant eviction searches for uncached combatants and enforces a 15-tick debounce on damage bursts.
         /// </summary>
         /// <param name="thingID">The unique identifier of the pawn whose cache entry is being checked for invalidation.</param>
         /// <returns>True if the cache entry should be culled due to invalidation; otherwise, false.</returns>
@@ -414,9 +415,28 @@ namespace OverHaulers
         {
             if (!UnityData.IsInMainThread) return false;
 
-            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
+            // 1. Uncached Short-Circuit:
+            // If the pawn is not in capacityCache, it is guaranteed not to exist in MassSnapshotCache either.
+            // Culling immediately eliminates 100% of redundant eviction probe searches during combat bursts.
+            if (!capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
-                return cachedNode.IsStale;
+                return true;
+            }
+
+            // 2. Already Stale Check:
+            // If the node is already flagged dirty, downstream queries will re-solve on demand.
+            if (cachedNode.IsStale)
+            {
+                return true;
+            }
+
+            // 3. Combat Burst Debounce Window:
+            // If invalidated very recently (within 15 ticks), skip re-evicting the snapshot table.
+            int currentTick = GetSafeCurrentTick();
+            int elapsed = currentTick - cachedNode.LastInvalidatedTick;
+            if (elapsed >= 0 && elapsed < SettingsDefaults.InvalidationDebounceTicks)
+            {
+                return true;
             }
 
             return false;
@@ -424,7 +444,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Reactive cache invalidator. Marks the pawn's main-thread cache entry as stale,
-        /// evicts the entry from the background snapshot cache, and increments the invalidation telemetry.
+        /// evicts the entry from the background snapshot cache, and records the invalidation timestamp.
         /// </summary>
         /// <param name="thingID">The unique identifier of the pawn to invalidate.</param>
         public static void Invalidate(int thingID)
@@ -434,6 +454,7 @@ namespace OverHaulers
             bool invalidatedMain = false;
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
+                cachedNode.LastInvalidatedTick = GetSafeCurrentTick();
                 if (!cachedNode.IsStale)
                 {
                     cachedNode.IsStale = true;

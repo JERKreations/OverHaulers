@@ -1227,7 +1227,9 @@ namespace OverHaulers
 
             string activeHeader = "OverHaulers_Calibration_ActiveHeader".Translate((int)method, statusTitle).ToString();
             string lastErrorDetail = SpeciesBaselineCalibration.GetLastErrorDetail(raceDef);
-            string errorSection = !string.IsNullOrEmpty(lastErrorDetail) ? $"\n\nDiagnostic Detail: {lastErrorDetail}" : string.Empty;
+            string errorSection = !string.IsNullOrEmpty(lastErrorDetail)
+                ? "\n\n" + "OverHaulers_Calibration_DiagnosticDetail".Translate(lastErrorDetail).ToString()
+                : string.Empty;
 
             string taxonomyLegend = "OverHaulers_Calibration_TaxonomyHeader".Translate().ToString();
 

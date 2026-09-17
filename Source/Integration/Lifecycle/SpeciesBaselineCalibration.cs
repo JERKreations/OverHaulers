@@ -10,7 +10,7 @@ namespace OverHaulers
     public enum CalibrationMethod : byte
     {
         PristineDummy = 0,     // [0] Real stat worker clean resolution on pristine dummy
-        TestingFallback = 1,   // [1] Non-pack species assigned testing scalar (35 kg/size)
+        TestingFallback = 1,   // [1] Non-pack species or uninitialized modded archetypes assigned testing scalar (35 kg/size)
         LiveRescue = 2,        // [2] Caravan-capable species rescued by a live spawned pawn
         EmergencyFailsafe = 3  // [3] Complete stat failure; clamped to emergency assumption
     }
@@ -37,12 +37,13 @@ namespace OverHaulers
         {
             public float Scalar;
             public CalibrationMethod Method;
-            // Populated only when a fallback tier was hit; surfaced via the Test Bench tooltip, never logged (avoids per-species log spam).
+            // Populated when a fallback tier was hit; surfaced via the Test Bench tooltip, never spammed per species to the log.
             public string LastErrorDetail;
         }
 
         private static readonly Dictionary<ThingDef, CalibrationEntry> speciesCache = new Dictionary<ThingDef, CalibrationEntry>(128);
         private static readonly HashSet<ThingDef> liveRescueInProgress = new HashSet<ThingDef>();
+        private static readonly List<string> pendingSweepNoticeSpecies = new List<string>(64);
         private static readonly object calibrationLock = new object();
 
         // Named sentinels for the CalibrationEntry.Scalar 3-tier fallback protocol.
@@ -63,7 +64,8 @@ namespace OverHaulers
         public static int CountEmergencyFallback { get; private set; }
 
         /// <summary>
-        /// Logs a summary of the calibration sweep batch, including diagnostic counters and timing information.
+        /// Logs a summary of the calibration sweep batch, including diagnostic counters, timing information,
+        /// and a single consolidated "Don't Panic" notice for any species operating on testing benchmarks due to Main Menu limitations.
         /// </summary>
         /// <param name="context">The context or label for the batch sweep.</param>
         /// <param name="ms">The duration of the batch sweep in milliseconds.</param>
@@ -79,6 +81,18 @@ namespace OverHaulers
                 CountEmergencyFallback,
                 totalSpecies
             ).ToString());
+
+            // "Don't Panic" Coalesced Notice: Single consolidated informational log for Main Menu comp limitations
+            if (pendingSweepNoticeSpecies.Count > 0)
+            {
+                string speciesList = string.Join(", ", pendingSweepNoticeSpecies);
+                Log.Message("OverHaulers_Log_CalibrationPendingNotice".Translate(
+                    pendingSweepNoticeSpecies.Count,
+                    speciesList
+                ).ToString());
+
+                pendingSweepNoticeSpecies.Clear();
+            }
         }
 
         #endregion
@@ -88,6 +102,7 @@ namespace OverHaulers
         /// <summary>
         /// Attempts to evaluate the species baseline using an unspawned dummy pawn.
         /// Instantiates the extended LiveSandboxPawnHarness mid-game to satisfy comp-dependent mods.
+        /// Falls back to vanilla MassUtility before failing over to the live-rescue queue.
         /// </summary>
         private static float EvaluateDummyPawn(ThingDef raceDef, out string errorDetail)
         {
@@ -118,7 +133,7 @@ namespace OverHaulers
                         IsResolvingBaseline = true;
                         try
                         {
-                            // Evaluate the clean mass capacity of the dummy pawn based on the active mass capacity stat or fallback methods.
+                            // Evaluate clean mass capacity based on active driver stat or fallbacks
                             if (IntegrationPipeline.ActiveDriver is GenericStatDriver statDriver && statDriver.ActiveMassCapacityStat != null)
                             {
                                 cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueUnfinalized(StatRequest.For(dummyPawn), applyPostProcess: false);
@@ -132,7 +147,7 @@ namespace OverHaulers
                                     cleanCapacity = MassUtility.Capacity(dummyPawn, null);
                                 }
                             }
-                            // If the active mass capacity stat is not available, fall back to the generic mass utility method.
+                            // If the active mass capacity stat is not available, fall back to the generic mass utility method
                             else
                             {
                                 cleanCapacity = MassUtility.Capacity(dummyPawn, null);
@@ -168,6 +183,11 @@ namespace OverHaulers
                         if (!PawnDataRegistry.IsCaravanCapable(raceDef))
                         {
                             return LegitimatelyNonCaravanSentinel;
+                        }
+
+                        if (errorDetail == null)
+                        {
+                            errorDetail = "Pristine dummy stat worker returned 0 capacity.";
                         }
                     }
                 }
@@ -237,12 +257,13 @@ namespace OverHaulers
 
         /// <summary>
         /// Classifies a dummy-pawn evaluation result into a cache entry, applying the shared 3-tier sentinel rules.
-        /// Single source of truth for this mapping - used by both PrecalibrateDef and ResolveBaseline.
+        /// Single source of truth for this mapping - used by both PrecalibrateDef and ResolveSpeciesBaseline.
         /// </summary>
+        /// <param name="raceDef">The ThingDef of the species being classified.</param>
         /// <param name="dummyScalar">The evaluated mass capacity scalar for the dummy pawn.</param>
         /// <param name="errorDetail">Any error detail encountered during the evaluation.</param>
         /// <returns>A CalibrationEntry representing the classification of the dummy result.</returns>
-        private static CalibrationEntry ClassifyDummyResult(float dummyScalar, string errorDetail)
+        private static CalibrationEntry ClassifyDummyResult(ThingDef raceDef, float dummyScalar, string errorDetail)
         {
             if (dummyScalar == LegitimatelyNonCaravanSentinel)
             {
@@ -256,6 +277,13 @@ namespace OverHaulers
                 string pendingDetail = !string.IsNullOrEmpty(errorDetail)
                     ? $"Dummy evaluation failed: {errorDetail}. Operating on testing fallback pending live pawn rescue."
                     : "Pristine dummy returned 0 capacity (comp-dependent mod?). Operating on testing fallback pending live pawn rescue.";
+
+                // Track for consolidated "Don't Panic" sweep notice
+                string label = raceDef.label ?? raceDef.defName;
+                if (!pendingSweepNoticeSpecies.Contains(label))
+                {
+                    pendingSweepNoticeSpecies.Add(label);
+                }
 
                 // Stored as TestingFallback [1] with Pending sentinel; only transitions to LiveRescue [2] once a real spawned pawn rescues it
                 return new CalibrationEntry { Scalar = PendingLiveRescueSentinel, Method = CalibrationMethod.TestingFallback, LastErrorDetail = pendingDetail };
@@ -272,6 +300,7 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves the calibration resolution method used for a specific race definition.
         /// Used by the Test Bench comparison banner to stamp [0/1/2/3] badges.
+        /// Reflects TestingFallback [1] if the species is pending a live rescue.
         /// </summary>
         /// <param name="raceDef">The race definition for which to retrieve the calibration resolution method.</param>
         /// <returns>The calibration method used for the specified race definition.</returns>
@@ -319,7 +348,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Retrieves the exception detail (if any) from the fallback tier that resolved a species' calibration.
-        /// Surfaced only via the Test Bench tooltip, never logged.
+        /// Surfaced only via the Test Bench tooltip, never spammed to the console.
         /// </summary>
         /// <param name="raceDef">The race definition for which to retrieve the last error detail.</param>
         /// <returns>The last error detail associated with the specified race definition, or null if none exists.</returns>
@@ -339,16 +368,26 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Runs a timed batch sweep across species ThingDefs and prints a single consolidated checkpoint report.
+        /// Runs a timed batch sweep across species ThingDefs and prints a single consolidated checkpoint report
+        /// and coalesced notice.
         /// </summary>
         /// <param name="onlyCaravanCapable">If true, only caravan-capable species will be included in the batch sweep.</param>
         /// <param name="context">A string providing context for the batch sweep, used in logging the summary report.</param>
-        /// <returns>None. The method performs the batch sweep and logs the summary report.</returns>
+        /// <remarks>
+        /// This method iterates over all species ThingDefs, optionally filtering for only caravan-capable species.
+        /// Each species is pre-calibrated, and a consolidated performance report is logged at the end of the sweep.
+        /// </remarks>
         public static void RunBatchSweep(bool onlyCaravanCapable, string context)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             int totalSweep = 0;
             List<ThingDef> allDefs = DefDatabase<ThingDef>.AllDefsListForReading;
+
+            // Clear the pending sweep notice species list before starting the batch sweep to ensure accurate reporting.
+            lock (calibrationLock)
+            {
+                pendingSweepNoticeSpecies.Clear();
+            }
 
             if (allDefs != null)
             {
@@ -384,7 +423,7 @@ namespace OverHaulers
                 if (!speciesCache.TryGetValue(raceDef, out CalibrationEntry entry))
                 {
                     float scalar = EvaluateDummyPawn(raceDef, out string errorDetail);
-                    entry = ClassifyDummyResult(scalar, errorDetail);
+                    entry = ClassifyDummyResult(raceDef, scalar, errorDetail);
                     speciesCache[raceDef] = entry;
                 }
 
@@ -418,7 +457,7 @@ namespace OverHaulers
                 if (!speciesCache.TryGetValue(pawn.def, out entry))
                 {
                     float dummyScalar = EvaluateDummyPawn(pawn.def, out string dummyError);
-                    entry = ClassifyDummyResult(dummyScalar, dummyError);
+                    entry = ClassifyDummyResult(pawn.def, dummyScalar, dummyError);
                     speciesCache[pawn.def] = entry;
                 }
 
@@ -446,8 +485,8 @@ namespace OverHaulers
                     ownsRescue = liveRescueInProgress.Add(pawn.def);
                 }
 
-                // If another thread is currently performing a live rescue for this species, we must wait for it to complete.
-                // During this time, we fall back to the testing and dummy evaluation scalar.
+                // If this thread owns the live rescue, it will proceed to evaluate the live pawn.
+                // Otherwise, it will return the testing/fallback value immediately.
                 if (!ownsRescue)
                 {
                     return massCapacityScalarTestingAndFallbackOnly * currentBodySize;
@@ -460,7 +499,7 @@ namespace OverHaulers
 
                     lock (calibrationLock)
                     {
-                        // Retrieve the current calibration entry for this species, if it exists.
+                        // Update the species cache with the result of the live rescue.
                         if (speciesCache.TryGetValue(pawn.def, out entry) && entry.Scalar == PendingLiveRescueSentinel)
                         {
                             if (liveScalar > 0f)
@@ -468,15 +507,15 @@ namespace OverHaulers
                                 entry = new CalibrationEntry { Scalar = liveScalar, Method = CalibrationMethod.LiveRescue, LastErrorDetail = liveError };
                                 CountLiveRescue++;
                             }
-                            // If the live scalar is not positive, we fall back to the emergency failsafe sentinel.
+                            // If the live evaluation failed, fall back to the emergency failsafe with explicit logging
                             else
                             {
                                 entry = new CalibrationEntry { Scalar = EmergencyFailsafeSentinel, Method = CalibrationMethod.EmergencyFailsafe, LastErrorDetail = liveError };
                                 CountEmergencyFallback++;
 
-                                // Explicit State 3 diagnostic logging
+                                // Log the reason for falling back to the emergency failsafe.
                                 string detail = !string.IsNullOrEmpty(liveError)
-                                    ? $"Pawn stat failed with exception: {liveError}"
+                                    ? $"Live pawn evaluation failed with exception: {liveError}"
                                     : "Both pristine dummy and live evaluations returned 0 capacity. Applied Emergency Failsafe [3] baseline assumption (35 kg * BodySize).";
 
                                 OHLog.Lifecycle.Warn(pawn.def.defName, null, detail);
@@ -489,7 +528,7 @@ namespace OverHaulers
                 {
                     lock (calibrationLock)
                     {
-                        // Mark the live rescue as no longer in progress for this species.
+                        // Release ownership of the live rescue for this species.
                         liveRescueInProgress.Remove(pawn.def);
                     }
                 }
@@ -505,7 +544,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resets the calibration state, clearing the species cache and resetting all counters.
+        /// Resets the calibration state, clearing the species cache and resetting all counters and notices.
         /// </summary>
         public static void Reset()
         {
@@ -513,6 +552,7 @@ namespace OverHaulers
             {
                 speciesCache.Clear();
                 liveRescueInProgress.Clear();
+                pendingSweepNoticeSpecies.Clear();
                 CountDummySuccess = 0;
                 CountTestingFallback = 0;
                 CountLiveRescue = 0;

@@ -17,6 +17,7 @@
   <OverHaulers_Log_TopologyCompilationCompleted>[Over Haulers] Topology layout compilation complete ({0}ms): Pre-compiled {1} species skeletal layouts. Max parts: {2} ({3}), Max depth: {4}.</OverHaulers_Log_TopologyCompilationCompleted>
   <OverHaulers_Log_TopologyInvalidated>[Over Haulers] Species topology template for '{0}' was dynamically invalidated and purged from cache.</OverHaulers_Log_TopologyInvalidated>
   <OverHaulers_Log_CalibrationSweepComplete>[Over Haulers] Species baseline calibration sweep complete ({0}ms - {1}): {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency Failsafe across {6} species.</OverHaulers_Log_CalibrationSweepComplete>
+  <OverHaulers_Log_CalibrationPendingNotice>[Over Haulers] Notice: {0} caravan-capable species assigned temporary testing benchmarks due to Main Menu component limitations. They will calibrate automatically via live pawns in gameplay: {1}</OverHaulers_Log_CalibrationPendingNotice>
   <OverHaulers_Log_FullRecompilationCompleted>[Over Haulers] Live recompilation complete: All skeletal topologies, medical catalogs, and test subjects refreshed in {0}ms.</OverHaulers_Log_FullRecompilationCompleted>
 
   <!-- ========================================================================= -->
