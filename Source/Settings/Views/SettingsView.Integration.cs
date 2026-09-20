@@ -40,7 +40,8 @@ namespace OverHaulers
                 // ---------------------------------------------------------------------
                 // 1. ACTIVE DRIVER STATUS READOUT BANNER
                 // ---------------------------------------------------------------------
-                string currentKey = settings.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
+                // string currentKey = settings.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
+                string currentKey = settings.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
                 string activeDriverName = IntegrationPipeline.ActiveDriver?.DriverIdentifier ?? "Standalone";
                 string activeDriverType = ResolveDriverTypeBadge(IntegrationPipeline.ActiveDriver);
 
@@ -223,7 +224,8 @@ namespace OverHaulers
                 ? stat.category.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackCategory".Translate().ToString();
 
-            string key = settings?.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
+            // string key = settings?.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
+            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
             bool isForcedStandalone = key == IntegrationPipeline.DriverKeyStandalone;
             bool isCilLocked = key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix);
             bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;

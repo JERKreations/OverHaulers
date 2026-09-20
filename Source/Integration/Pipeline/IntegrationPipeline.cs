@@ -90,7 +90,8 @@ namespace OverHaulers
 
             string localizedSuffix = " " + "kg".Translate();
             Settings settings = OverHaulers.settings;
-            string key = settings?.selectedDriverKey ?? DriverKeyAuto;
+            // string key = settings?.selectedDriverKey ?? DriverKeyAuto;
+            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
 
             // -------------------------------------------------------------------------
             // PATH A: EXPLICIT PLAYER OVERRIDES (Highest Authority)
@@ -213,7 +214,8 @@ namespace OverHaulers
             Log.Message($"[Over Haulers] Saved driver selection '{staleKey}' is no longer active (mod uninstalled?). Reverting to Automatic selection.");
             if (settings != null)
             {
-                settings.selectedDriverKey = DriverKeyAuto;
+                // settings.selectedDriverKey = DriverKeyAuto;
+                settings.selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
             }
         }
 

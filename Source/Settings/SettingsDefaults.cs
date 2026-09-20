@@ -126,7 +126,8 @@ namespace OverHaulers
 
         #region 8. [SEC-08] COMPATIBILITY & PIPELINE DRIVER DEFAULTS
 
-        public const string DefaultSelectedDriverKey = "AUTO";
+        //public const string DefaultSelectedDriverKey = "AUTO";
+        public const string DefaultSelectedDriverKey = IntegrationPipeline.DriverKeyStandalone; // TEMP PATCH
 
         #endregion
 

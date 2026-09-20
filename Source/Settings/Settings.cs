@@ -114,11 +114,13 @@ namespace OverHaulers
 
         #region 10. [SEC-08] COMPATIBILITY & PIPELINE DRIVER FIELDS
 
-        public string selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
+        // public string selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
+        public string selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
 
         public void ResetCompatibility()
         {
-            selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
+            // selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
+            selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey;
             SettingsViewUtilities.ClearInputBuffers();
         }
 
@@ -487,7 +489,8 @@ namespace OverHaulers
             Scribe_Values.Look(ref prostheticImpactConstant, "prostheticImpactConstant", SettingsDefaults.ProstheticImpactConstant);
             Scribe_Values.Look(ref athleticImpactConstant, "athleticImpactConstant", SettingsDefaults.AthleticImpactConstant);
 
-            Scribe_Values.Look(ref selectedDriverKey, "selectedDriverKey", IntegrationPipeline.DriverKeyAuto);
+            // Scribe_Values.Look(ref selectedDriverKey, "selectedDriverKey", IntegrationPipeline.DriverKeyAuto);
+            Scribe_Values.Look(ref selectedDriverKey, "selectedDriverKey", SettingsDefaults.DefaultSelectedDriverKey); // TEMP PATCH
 
             Scribe_Values.Look(ref verboseBreakdown, "verboseBreakdown", SettingsDefaults.VerboseBreakdown);
             Scribe_Values.Look(ref reportMetricsIntervalHours, "reportMetricsIntervalHours", SettingsDefaults.ReportMetricsIntervalHours);

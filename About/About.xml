@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>Over Haulers</name>
+  <name>Over Haulers - Weight Capacity Redefined</name>
   <author>Jay "iClustaFlux" Rogers</author>
   <packageId>iClustaFlux.OverHaulers</packageId>
   <supportedVersions>
@@ -15,17 +15,14 @@
       <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
     </li>
   </modDependencies>
-  <description>Dynamically overhauls Caravan Mass Capacity based on authentic pawn anatomy, bionic upgrades, physical injuries, and systemic physical stamina.
+  <description>Dynamically overhauls Caravan Mass Capacity (max total inventory weight)
 
-Ever wonder why an Archotech-augmented supersoldier carries the exact same 35kg caravan weight as a 90-year-old pawn with asthma and peg legs?
+No more arbitrary caravan weight limits. Weight capacity scales dynamically depending on:
+- Pawn anatomy and physical condition
+- Prosthetic replacements and implants
+- Systemic health and stamina
 
-KEY FEATURES:
-- Bionics &amp; Prosthetics: High-tier artificial limbs boost carrying potential, while crude prosthetics or lost limbs penalize it.
-- Bilateral Symmetry &amp; Axial Spine Loading: Spinal columns bear structural compression; losing an arm reduces the lifting power of the remaining arm.
-- Systemic Health: Breathing, blood pumping, movement, and consciousness dynamically scale caravan capacity.
-- Interactive Test Bench: Simulate surgeries, injuries, and drug regimens on any species in Mod Settings.
-- Performance Engineered: Structure-of-Arrays (SoA) solver with zero garbage collection allocations on tick hot paths.
-- Universal Compatibility: Dynamically adapts to modded races, bionics mods (EPOE/RBSE), and Vanilla Expanded without hardcoded patches.
+No hard dependencies beyond Harmony.
 
 Safe to add or remove mid-save.</description>
 </ModMetaData>
