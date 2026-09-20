@@ -4,7 +4,7 @@
   <!-- ========================================================================= -->
   <!-- [SEC-08] COMPATIBILITY & EXTERNAL INTEGRATION PIPELINE                    -->
   <!-- ========================================================================= -->
-  <OverHaulers_CompatibilityHeader>Compatibility &amp; External Mod Integration</OverHaulers_CompatibilityHeader>
+  <OverHaulers_CompatibilityHeader>DISABLED !! Compatibility &amp; External Mod Integration</OverHaulers_CompatibilityHeader>
   <OverHaulers_Compatibility_Desc>Control how OverHaulers interacts with other caravan mass capacity stats, drivers, and external Harmony patches.</OverHaulers_Compatibility_Desc>
 
   <!-- Active Pipeline Banner -->
