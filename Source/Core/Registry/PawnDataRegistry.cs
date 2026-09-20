@@ -209,7 +209,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves species baseline capacity via the active pipeline driver or baseline calibration.
+        /// Resolves species baseline capacity via baseline calibration.
         /// </summary>
         /// <param name="pawn">The pawn whose baseline capacity is being resolved.</param>
         /// <returns>The resolved baseline capacity for the pawn.</returns>
@@ -217,9 +217,7 @@ namespace OverHaulers
         public static float ResolveBaseline(Pawn pawn)
         {
             if (pawn == null) return 0f;
-            return IntegrationPipeline.ActiveDriver != null 
-                ? IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn) 
-                : SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+            return SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
         }
 
         /// <summary>

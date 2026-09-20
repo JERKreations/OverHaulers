@@ -8,10 +8,13 @@ namespace OverHaulers
 {
     public static partial class SettingsView
     {
-        #region [SEC-08] COMPATIBILITY & HARMONY OVERRIDES DRAWER
+        #region 1. [SEC-08] COMPATIBILITY & STAT ADOPTION DRAWER
+
+        #region 1. COMPATIBILITY DRAWER ENTRY POINT
 
         /// <summary>
         /// Renders the complete Compatibility and External Mod Integration settings panel.
+        /// Controls InfoCard stat adoption, deduplication against third-party mods, and bytecode patch discovery.
         /// Executes a deterministic order-of-operations pass to ensure zero IMGUI font leaks,
         /// dynamic height adaptation, and real-time in-game verification guidance.
         /// </summary>
@@ -38,17 +41,16 @@ namespace OverHaulers
                 localY = SettingsViewUtilities.DrawSectionDescriptionDirect(inner, sectionDesc, localY);
 
                 // ---------------------------------------------------------------------
-                // 1. ACTIVE DRIVER STATUS READOUT BANNER
+                // 1. ACTIVE STAT STATUS READOUT BANNER
                 // ---------------------------------------------------------------------
-                // string currentKey = settings.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
-                string currentKey = settings.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
-                string activeDriverName = IntegrationPipeline.ActiveDriver?.DriverIdentifier ?? "Standalone";
-                string activeDriverType = ResolveDriverTypeBadge(IntegrationPipeline.ActiveDriver);
+                string currentKey = settings.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
+                string activeStatName = IntegrationPipeline.ActiveStatOwner;
+                string activeBadgeType = ResolveStatPresentationBadge();
 
                 Rect activeBannerRect = new Rect(inner.x, localY, inner.width, 24f);
                 Widgets.DrawBoxSolid(activeBannerRect, SettingsViewUtilities.DarkTargetHighlightColor);
 
-                string activeLabel = "OverHaulers_ActiveDriverBanner".Translate(activeDriverName, activeDriverType).ToString();
+                string activeLabel = "OverHaulers_ActiveDriverBanner".Translate(activeStatName, activeBadgeType).ToString();
                 
                 Text.Font = GameFont.Tiny;
                 GUI.color = settings.colorBoosted;
@@ -60,7 +62,7 @@ namespace OverHaulers
                 // ---------------------------------------------------------------------
                 // 1B. DYNAMIC IN-GAME VERIFICATION & WHAT-TO-EXPECT CARD
                 // ---------------------------------------------------------------------
-                VerificationGuide guide = BuildVerificationGuide(settings, IntegrationPipeline.ActiveDriver);
+                VerificationGuide guide = BuildVerificationGuide(settings);
                 DrawVerificationGuideCard(inner, guide, ref localY);
 
                 // ---------------------------------------------------------------------
@@ -190,7 +192,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region IN-GAME VERIFICATION & WHAT-TO-EXPECT ENGINE
+        #region 2. IN-GAME VERIFICATION & WHAT-TO-EXPECT ENGINE
 
         /// <summary>
         /// Represents the verification guide containing status and guidance lines for in-game verification.
@@ -206,15 +208,13 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Builds a verification guide based on the current settings and active pipeline driver, providing status and guidance for in-game verification.
+        /// Builds a verification guide based on the current settings and active presentation state, providing status and guidance for in-game verification.
         /// </summary>
-        /// <param name="settings">The current settings object containing user preferences and selected driver key.</param>
-        /// <param name="activeDriver">The active pipeline driver providing context for the verification guide.</param>
+        /// <param name="settings">The current settings object containing user preferences and selected presentation key.</param>
         /// <returns>A VerificationGuide struct populated with status and guidance lines for in-game verification.</returns>
-        private static VerificationGuide BuildVerificationGuide(Settings settings, IPipelineDriver activeDriver)
+        private static VerificationGuide BuildVerificationGuide(Settings settings)
         {
-            // Dynamically resolve stat label and category header, falling back to agnostic terminology
-            StatDef stat = activeDriver?.ActiveMassCapacityStat;
+            StatDef stat = IntegrationPipeline.ActiveMassCapacityStat;
 
             string statLabel = (stat != null && !string.IsNullOrEmpty(stat.label))
                 ? stat.LabelCap.ToString()
@@ -224,8 +224,7 @@ namespace OverHaulers
                 ? stat.category.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackCategory".Translate().ToString();
 
-            // string key = settings?.selectedDriverKey ?? IntegrationPipeline.DriverKeyAuto;
-            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
+            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
             bool isForcedStandalone = key == IntegrationPipeline.DriverKeyStandalone;
             bool isCilLocked = key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix);
             bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;
@@ -244,7 +243,7 @@ namespace OverHaulers
             }
 
             // Scenario D: Custom Dynamic CIL Hook
-            if (isCilLocked || (activeDriver is GenericStatDriver && key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix)))
+            if (isCilLocked)
             {
                 return new VerificationGuide
                 {
@@ -256,8 +255,8 @@ namespace OverHaulers
                 };
             }
 
-            // Scenario A: Optimal Unified Integration (XML or C# Driver)
-            if (activeDriver is GenericStatDriver || (activeDriver != null && !(activeDriver is VanillaStatDriver)))
+            // Scenario A: Optimal Unified Integration (Adopted Foreign Stat Card)
+            if (IntegrationPipeline.IsForeignStatAdopted)
             {
                 return new VerificationGuide
                 {
@@ -325,7 +324,7 @@ namespace OverHaulers
             Rect titleRect = new Rect(cardRect.x + padding, curY, textWidth, 20f);
             Text.Font = GameFont.Tiny;
             GUI.color = guide.StatusColor;
-            Widgets.Label(titleRect, $"● {guide.StatusTitle.ToUpperInvariant()}");
+            Widgets.Label(titleRect, $"\u25CF {guide.StatusTitle.ToUpperInvariant()}");
             GUI.color = Color.white;
             curY += 22f;
 
@@ -361,7 +360,7 @@ namespace OverHaulers
             Rect textRect = new Rect(startX + prefixWidth, curY, valueWidth, lineHeight);
 
             GUI.color = SettingsViewUtilities.DescriptionTextColor;
-            Widgets.Label(prefixRect, $"• {prefix}");
+            Widgets.Label(prefixRect, $"\u2022 {prefix}");
             GUI.color = Color.white;
             Widgets.Label(textRect, text);
 
@@ -370,7 +369,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region PRIVATE UI DRAW HELPERS
+        #region 3. PRIVATE UI DRAW HELPERS
 
         /// <summary>
         /// Draws a sub-header for a group within the settings view.
@@ -400,18 +399,18 @@ namespace OverHaulers
             Rect rect = new Rect(inner.x + 12f, localY, inner.width - 12f, 20f);
             Text.Font = GameFont.Tiny;
             GUI.color = SettingsViewUtilities.DescriptionTextColor;
-            Widgets.Label(rect, $"— {note}");
+            Widgets.Label(rect, $"\u2014 {note}");
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             localY += 22f;
         }
 
         /// <summary>
-        /// Draws the UI elements for an XML driver entry within the settings view.
+        /// Draws the UI elements for an XML profile entry within the settings view.
         /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the driver entry UI elements.</param>
+        /// <param name="inner">The inner rectangle defining the drawing area for the profile entry UI elements.</param>
         /// <param name="def">The XML driver definition to be displayed.</param>
-        /// <param name="currentKey">The currently selected driver key for comparison.</param>
+        /// <param name="currentKey">The currently selected presentation key for comparison.</param>
         /// <param name="settings">The current settings object containing user preferences and selections.</param>
         /// <param name="localY">The local Y-coordinate for positioning the UI elements, passed by reference to allow vertical stacking.</param>
         private static void DrawXmlDriverEntry(Rect inner, MassCapacityDriverDef def, string currentKey, Settings settings, ref float localY)
@@ -469,7 +468,7 @@ namespace OverHaulers
         /// </summary>
         /// <param name="inner">The inner rectangle defining the drawing area for the patch UI elements.</param>
         /// <param name="patch">The discovered CIL patch information to be displayed.</param>
-        /// <param name="currentKey">The currently selected driver key for comparison.</param>
+        /// <param name="currentKey">The currently selected presentation key for comparison.</param>
         /// <param name="settings">The current settings object containing user preferences and selections.</param>
         /// <param name="localY">The local Y-coordinate for positioning the UI elements, passed by reference to allow vertical stacking.</param>
         private static void DrawCilDiscoveredPatch(Rect inner, DiscoveredPatchInfo patch, string currentKey, Settings settings, ref float localY)
@@ -518,34 +517,37 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the appropriate badge label for a given pipeline driver based on its type and context.
+        /// Resolves the appropriate badge label based on the current stat presentation binding.
         /// </summary>
-        /// <param name="driver">The pipeline driver for which to resolve the badge label.</param>
-        /// <returns>The localized badge label string corresponding to the driver's type and context.</returns>
-        private static string ResolveDriverTypeBadge(IPipelineDriver driver)
+        /// <returns>The localized badge label string corresponding to the presentation type.</returns>
+        private static string ResolveStatPresentationBadge()
         {
-            if (driver is VanillaStatDriver) return "OverHaulers_Badge_StandalonePostfix".Translate().ToString();
-            if (driver is GenericStatDriver g)
+            if (!IntegrationPipeline.IsForeignStatAdopted)
             {
-                // Dynamic resolution: check if active driver matches any loaded XML definition
-                List<MassCapacityDriverDef> xmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
-                if (xmlDrivers != null)
+                return "OverHaulers_Badge_StandalonePostfix".Translate().ToString();
+            }
+
+            string key = OverHaulers.settings?.selectedDriverKey ?? "";
+            if (key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix))
+            {
+                return "OverHaulers_Badge_DynamicBytecode".Translate().ToString();
+            }
+
+            // Check if active stat matches any loaded XML definition
+            List<MassCapacityDriverDef> xmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
+            if (xmlDrivers != null)
+            {
+                for (int i = 0; i < xmlDrivers.Count; i++)
                 {
-                    for (int i = 0; i < xmlDrivers.Count; i++)
+                    string id = xmlDrivers[i].label ?? xmlDrivers[i].defName;
+                    if (string.Equals(IntegrationPipeline.ActiveStatOwner, id, StringComparison.OrdinalIgnoreCase))
                     {
-                        string id = xmlDrivers[i].label ?? xmlDrivers[i].defName;
-                        if (string.Equals(g.DriverIdentifier, id, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return "OverHaulers_Badge_DeclarativeXml".Translate().ToString();
-                        }
+                        return "OverHaulers_Badge_DeclarativeXml".Translate().ToString();
                     }
                 }
-
-                string key = OverHaulers.settings?.selectedDriverKey ?? "";
-                if (key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix)) return "OverHaulers_Badge_DynamicBytecode".Translate().ToString();
-                return "OverHaulers_Badge_StatPartDriver".Translate().ToString();
             }
-            return "OverHaulers_Badge_CSharpDriver".Translate().ToString();
+
+            return "OverHaulers_Badge_StatPartDriver".Translate().ToString();
         }
 
         /// <summary>
@@ -564,6 +566,8 @@ namespace OverHaulers
 
             return clicked;
         }
+
+        #endregion
 
         #endregion
     }

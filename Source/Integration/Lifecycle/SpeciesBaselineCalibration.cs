@@ -133,38 +133,12 @@ namespace OverHaulers
                         IsResolvingBaseline = true;
                         try
                         {
-                            // Evaluate clean mass capacity based on active driver stat or fallbacks
-                            if (IntegrationPipeline.ActiveDriver is GenericStatDriver statDriver && statDriver.ActiveMassCapacityStat != null)
-                            {
-                                cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueUnfinalized(StatRequest.For(dummyPawn), applyPostProcess: false);
-                                if (cleanCapacity <= 0f)
-                                {
-                                    cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueAbstract(raceDef);
-                                }
-                                // If driver stat returns 0 for this species, fallback to vanilla MassUtility before giving up
-                                if (cleanCapacity <= 0f)
-                                {
-                                    cleanCapacity = MassUtility.Capacity(dummyPawn, null);
-                                }
-                            }
-                            // If the active mass capacity stat is not available, fall back to the generic mass utility method
-                            else
-                            {
-                                cleanCapacity = MassUtility.Capacity(dummyPawn, null);
-                            }
+                            cleanCapacity = MassUtility.Capacity(dummyPawn, null);
                         }
                         catch (Exception ex)
                         {
                             errorDetail = ex.Message;
-                            // Attempt to recover the clean capacity using abstract stat or vanilla MassUtility
-                            if (IntegrationPipeline.ActiveDriver is GenericStatDriver statDriver && statDriver.ActiveMassCapacityStat != null)
-                            {
-                                cleanCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueAbstract(raceDef);
-                            }
-                            if (cleanCapacity <= 0f)
-                            {
-                                cleanCapacity = MassUtility.Capacity(dummyPawn, null);
-                            }
+                            cleanCapacity = 0f;
                         }
                         finally
                         {
@@ -222,14 +196,7 @@ namespace OverHaulers
             try
             {
                 // Begin evaluation of the live pawn's mass capacity.
-                if (IntegrationPipeline.ActiveDriver is GenericStatDriver statDriver && statDriver.ActiveMassCapacityStat != null)
-                {
-                    liveCapacity = statDriver.ActiveMassCapacityStat.Worker.GetValueUnfinalized(StatRequest.For(pawn), applyPostProcess: false);
-                }
-                else
-                {
-                    liveCapacity = MassUtility.Capacity(pawn, null);
-                }
+                liveCapacity = MassUtility.Capacity(pawn, null);
             }
             catch (Exception ex)
             {

@@ -4,60 +4,50 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-04] VEF / EXTERNAL STATPART INTEGRATION DRIVER
+    #region 1. [INT-04] FOREIGN STAT ADOPTION HOOK (STATPART)
 
     /// <summary>
-    /// [INT-04] Integrated-mode StatPart attached dynamically to third-party caravan mass capacity StatDefs 
-    /// (such as Vanilla Expanded Framework's 'VEF_MassCarryCapacity' or custom mod stats registered via MassCapacityDriverDef).
+    /// StatPart injected into foreign mass capacity StatDefs (e.g., VEF_MassCarryCapacity).
+    /// Purely responsible for injecting the OverHaulers anatomical breakdown and bionic hyperlinks
+    /// into the foreign mod's InfoCard dialog without modifying numerical values.
+    /// Direct game-engine carrying capacity is decoupled and universally delivered via MassUtility.Capacity.
     /// </summary>
-    /// <remarks>
-    /// ARCHITECTURAL DUAL-PIPELINE CONTEXT:
-    /// This class is the Integrated Mode counterpart to MassCapacityStatWorker.
-    /// - MassCapacityStatWorker: Used in Standalone Mode when no external mod defines a caravan mass StatDef.
-    /// - MassCapacityStatPart: Used in Integrated Mode when a foreign mod already owns the StatDef.
-    ///   Instead of replacing the foreign StatWorker, OverHaulers dynamically injects this StatPart into 
-    ///   the external stat's 'parts' list, smoothly appending our skeletal offsets and InfoCard explanations
-    ///   without overriding third-party logic (e.g. backpack gear bonuses).
-    /// </remarks>
     public class MassCapacityStatPart : StatPart
     {
-        #region STATPART TRANSFORM & EXPLANATION
-
-        public override void TransformValue(StatRequest statRequest, ref float val)
-        {
-            // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
-            if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
-
-            // STANDALONE GUARD: Defer to VanillaStatDriver postfix to prevent duplicate addition
-            if (IntegrationPipeline.ActiveDriver is VanillaStatDriver) return;
-
-            // INGRESS GATE: Completely skip non-caravan species during live play
-            if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
-            {
-                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
-                if (bioBaseline <= 0f) return;
-
-                float skeletalOffset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
-                val += skeletalOffset;
-
-                // EGRESS CLAMP: Prevent external stat debuffs + our offset from driving capacity negative
-                val = MassCapacitySolver.EnforceSafetyFloor(val, pawn.LabelShortCap);
-            }
-        }
+        #region 1. PASSIVE VALUE TRANSFORM (ZERO-MATH GUARD)
 
         /// <summary>
-        /// Appends the detailed OverHaulers anatomical breakdown into the parent stat's InfoCard explanation.
+        /// Pure presentation adoption: Numerical mass delivery is universally handled via Harmony on MassUtility.Capacity.
+        /// Transforming foreign stat values directly is intentionally a no-op to prevent clashing with gear mass,
+        /// apparel movement debuffs, or foreign additive offsets (e.g. backpacks).
+        /// </summary>
+        /// <param name="statRequest">The stat request containing the pawn being evaluated.</param>
+        /// <param name="val">The running value of the stat, left strictly unmodified.</param>
+        public override void TransformValue(StatRequest statRequest, ref float val)
+        {
+            // UNIVERSAL EGRESS ARCHITECTURE:
+            // Direct numerical offset delivery is handled exclusively via Harmony postfix on MassUtility.Capacity.
+            // Leaving foreign stat values unmodified prevents order-of-operation inversion and apparel weight clamping.
+        }
+
+        #endregion
+
+        #region 2. INFOCARD EXPLANATION BREAKDOWN
+
+        /// <summary>
+        /// Appends the detailed OverHaulers anatomical breakdown into the parent foreign stat's InfoCard explanation.
+        /// Preceding third-party explanation lines (such as backpack offsets) are preserved.
         /// </summary>
         /// <param name="statRequest">The stat request containing the pawn for which the explanation is being generated.</param>
-        /// <returns>A formatted string detailing the mass capacity calculation and anatomical breakdown.</returns>
+        /// <returns>A formatted string detailing the mass capacity calculation and anatomical breakdown, or null if inactive.</returns>
         public override string ExplanationPart(StatRequest statRequest)
         {
-            // STANDALONE GUARD: Defer to VanillaStatDriver postfix to prevent duplicate addition
-            if (IntegrationPipeline.ActiveDriver is VanillaStatDriver) return null;
+            // Only deliver explanation when actively adopting a foreign stat card
+            if (!IntegrationPipeline.IsForeignStatAdopted) return null;
 
-            if (statRequest.HasThing && statRequest.Thing is Pawn pawn)
+            if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
-                float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
+                float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, bioBaseline);
                 
                 return detailedMassModel?.Explanation ?? string.Empty;
@@ -65,8 +55,12 @@ namespace OverHaulers
             return null;
         }
 
+        #endregion
+
+        #region 3. INFOCARD HYPERLINK DISPATCH
+
         /// <summary>
-        /// Appends clickable InfoCard hyperlinks for installed augmentations into the parent foreign stat.
+        /// Appends clickable InfoCard hyperlinks for installed augmentations into the parent foreign stat dialog.
         /// </summary>
         /// <param name="statRequest">The stat request containing the pawn for which hyperlinks are being retrieved.</param>
         /// <returns>An enumerable of Dialog_InfoCard.Hyperlink objects representing installed augmentations.</returns>

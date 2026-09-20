@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Text;
 using HarmonyLib;
 using RimWorld;
@@ -6,54 +7,41 @@ using Verse;
 
 namespace OverHaulers
 {
+    #region 1. [INT-01] UNIVERSAL CAPACITY HARMONY BRIDGE
+
     /// <summary>
-    /// Provides patches and bridges for handling direct capacity calculations in the MassUtility class, allowing for custom integration
-    ///  logic to be executed after the original method.
+    /// Universal Harmony bridge hooking into RimWorld's MassUtility.Capacity.
+    /// Serves as the single, universal egress point delivering anatomical mass capacity offsets
+    /// to the game engine across all play modes and external mod configurations.
     /// </summary>
     public static partial class HarmonySetup
     {
         #region 1. DIRECT CAPACITY PATCH BINDING & POSTFIX BRIDGE
 
-        private static bool isCapacityPatched = false;
-
         [ThreadStatic]
         private static int capacityCallDepth;
 
         /// <summary>
-        /// Applies the direct capacity patch to the MassUtility.Capacity method, allowing for custom postfix logic to be executed.
-        /// Enforces strict idempotency to prevent duplicate postfix chaining.
+        /// Applies the universal capacity postfix patch to MassUtility.Capacity.
         /// </summary>
-        /// <param name="harmony">The active Harmony instance used to apply the patch.</param>
-        private static void ApplyDirectCapacityPatch(Harmony harmony)
+        /// <param name="harmony">The Harmony instance used to apply the patch.</param>
+        internal static void ApplyDirectCapacityPatch(Harmony harmony)
         {
-            if (isCapacityPatched) return;
-
-            var originalMethod = AccessTools.Method(typeof(MassUtility), nameof(MassUtility.Capacity));
-            var prefixMethod = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Prefix));
-            var postfixMethod = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Postfix));
-
-            if (originalMethod != null && prefixMethod != null && postfixMethod != null)
+            MethodInfo targetMethod = AccessTools.Method(typeof(MassUtility), nameof(MassUtility.Capacity));
+            if (targetMethod == null)
             {
-                var patchInfo = Harmony.GetPatchInfo(originalMethod);
-                if (patchInfo != null && patchInfo.Postfixes != null)
-                {
-                    for (int i = 0; i < patchInfo.Postfixes.Count; i++)
-                    {
-                        if (patchInfo.Postfixes[i].PatchMethod == postfixMethod)
-                        {
-                            isCapacityPatched = true;
-                            return;
-                        }
-                    }
-                }
-
-                harmony.Patch(originalMethod, prefix: new HarmonyMethod(prefixMethod), postfix: new HarmonyMethod(postfixMethod));
-                isCapacityPatched = true;
+                OHLog.Error(LogDomain.Integration, "Failed to resolve MassUtility.Capacity method target.");
+                return;
             }
+
+            MethodInfo prefix = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Prefix));
+            MethodInfo postfix = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Postfix));
+
+            harmony.Patch(targetMethod, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
         }
 
         /// <summary>
-        /// Prefix tracking re-entrancy depth per thread.
+        /// Prefix patch tracking call depth to prevent recursive postfix double-dipping.
         /// </summary>
         private static void MassUtility_Capacity_Prefix()
         {
@@ -61,26 +49,40 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Postfix patch for mass utility capacity calculations.
-        /// Dispatches directly to the active integration pipeline driver on root calls only.
+        /// Universal postfix patch delivering the biological mass offset directly to MassUtility.Capacity on root calls only.
+        /// Immune to third-party apparel debuffs, order-of-operation anomalies, and recursive queries.
         /// </summary>
-        /// <param name="p">The pawn whose mass utility capacity is being evaluated.</param>
-        /// <param name="__result">The result of the mass utility capacity calculation, which may be modified by the integration pipeline.</param>
-        /// <param name="explanation">A StringBuilder containing the explanation for the mass utility capacity calculation.</param>
+        /// <param name="p">The pawn whose carrying capacity is being evaluated.</param>
+        /// <param name="__result">The running capacity calculation result, modified by our anatomical offset.</param>
+        /// <param name="explanation">A StringBuilder containing the explanation for the calculation, if requested.</param>
         private static void MassUtility_Capacity_Postfix(Pawn p, ref float __result, StringBuilder explanation)
         {
             try
             {
                 if (p == null) return;
 
-                // RE-ENTRANCY SHIELD: If an external mod's StatWorker (e.g. VEF) is querying MassUtility.Capacity
+                // RE-ENTRANCY SHIELD: If an external mod's StatWorker (e.g. VEF) queries MassUtility.Capacity
                 // from within a capacity calculation to read the species baseline, return the clean unmodified baseline!
                 if (capacityCallDepth > 1)
                 {
                     return;
                 }
 
-                IntegrationPipeline.ActiveDriver?.OnMassUtilityCapacityPostfix(p, ref __result, explanation);
+                // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
+                if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
+
+                // INGRESS GATE: Completely skip non-caravan species during live play
+                if (!PawnDataRegistry.CanCarryCaravanMass(p)) return;
+
+                float cleanBiologicalBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(p);
+                if (cleanBiologicalBaseline <= 0f) return;
+
+                float calculatedOffset = PawnDataRegistry.GetOffset(p, cleanBiologicalBaseline);
+
+                __result += calculatedOffset;
+
+                // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
+                __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
             }
             finally
             {
@@ -93,4 +95,6 @@ namespace OverHaulers
 
         #endregion
     }
+
+    #endregion
 }

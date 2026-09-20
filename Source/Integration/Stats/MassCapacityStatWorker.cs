@@ -1,56 +1,29 @@
-using System;
 using System.Collections.Generic;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-03] STANDALONE STAT WORKER ENGINE
+    #region 1. [INT-03] NATIVE CARAVAN STAT WORKER
 
     /// <summary>
-    /// [INT-03] Evaluates and renders Caravan Mass Capacity stats on pawns when operating in standalone mode.
-    /// Delivers the OverHaulers breakdown via GetExplanationUnfinalized using native ToStringMass formatting.
+    /// StatWorker for the native OverHaulers_CaravanMassCapacity stat.
+    /// Handles stat evaluation, InfoCard explanation rendering, and hyperlinking when operating
+    /// in native standalone presentation mode.
     /// </summary>
-    /// <remarks>
-    /// ARCHITECTURAL DESIGN RATIONALE (WHY THIS CLASS EXISTS &amp; WHY IDE SHOWS "0 REFERENCES"):
-    /// 
-    /// 1. The Dual-Pipeline Architecture:
-    ///    - Integrated Mode (Third-Party / VEF): When external mods like Vanilla Expanded Framework are active,
-    ///      OverHaulers attaches MassCapacityStatPart to the foreign mod's existing StatDef (e.g. VEF_MassCarryCapacity).
-    ///    - Standalone Mode (Pure Vanilla / Forced): Vanilla RimWorld does NOT have a Caravan Mass Capacity StatDef.
-    ///      Vanilla calculates mass purely through a static math helper: MassUtility.Capacity(Pawn). Because it isn't
-    ///      a StatDef, vanilla pawns have no inspectable Caravan Mass stat on their InfoCard ('i').
-    ///      VanillaStatDriver creates a dynamic StatDef ('OverHaulers_CaravanMassCapacity') at runtime and binds its
-    ///      workerClass directly to this MassCapacityStatWorker.
-    /// 
-    /// 2. The IDE "0 References" Optical Illusion:
-    ///    Roslyn / IDE code analysis will report 0 callers for the overridden methods in this file. 
-    ///    This is because this class is instantiated via reflection by RimWorld's StatDef.Worker getter
-    ///    (Activator.CreateInstance), and its virtual methods (ShouldShowFor, GetValueUnfinalized, 
-    ///    GetExplanationUnfinalized, GetInfoCardHyperlinks) are invoked polymorphically by the base game's
-    ///    UI engine (StatsReportUtility, Dialog_InfoCard, CharacterCardUtility).
-    /// 
-    /// 3. Consequences of Removal:
-    ///    If this file is deleted or pruned as "unused":
-    ///    - Standalone / vanilla games fall back to base StatWorker.
-    ///    - The multi-tiered InfoCard breakdown (Total Body Rating, [P]/[A]/[I] icons, and structural groups) ceases to render.
-    ///    - Clickable bionic/implant hyperlinks inside the InfoCard disappear.
-    ///    - Non-caravan animals will erroneously display mass capacity stats due to losing ShouldShowFor gating.
-    /// </remarks>
     public class MassCapacityStatWorker : StatWorker
     {
-        #region STAT VISIBILITY GATE
+        #region 1. STAT VISIBILITY & DEDUPLICATION GATE
 
         /// <summary>
-        /// Determines whether the standalone mass capacity stat should be shown on the target's InfoCard.
-        /// Filters out non-caravan-capable wildlife during standard gameplay.
-        /// Invoked by RimWorld's StatsReportUtility via polymorphic dispatch.
+        /// Determines whether the native mass capacity stat should be displayed on the target's InfoCard.
+        /// When an external mod's stat is adopted, this is suppressed to eliminate duplicate rows on pawns.
         /// </summary>
-        /// <param name="req">The stat request containing the context for which visibility is being determined.</param>
-        /// <returns>True if the mass capacity stat should be shown; otherwise, false.</returns>
+        /// <param name="req">The stat request containing the target thing to evaluate.</param>
+        /// <returns>True if the stat should be displayed; otherwise, false.</returns>
         public override bool ShouldShowFor(StatRequest req)
         {
-            if (!(IntegrationPipeline.ActiveDriver is VanillaStatDriver))
+            if (IntegrationPipeline.IsForeignStatAdopted)
             {
                 return false;
             }
@@ -64,82 +37,55 @@ namespace OverHaulers
 
         #endregion
 
-        #region STAT VALUE EVALUATION
+        #region 2. NATIVE VALUE CALCULATION
 
         /// <summary>
-        /// Calculates the unfinalized total mass capacity value (Baseline + Biological Offset) for the given pawn.
-        /// Invoked by RimWorld's StatWorker.GetValue pipeline.
+        /// Calculates the unfinalized capacity value directly from the species baseline and PawnDataRegistry.
         /// </summary>
-        /// <param name="req">The stat request containing the pawn for which the value is being calculated.</param>
-        /// <param name="applyPostProcess">Indicates whether post-processing should be applied to the calculated value.</param>
-        /// <returns>The unfinalized mass capacity value for the specified pawn in kg.</returns>
+        /// <param name="req">The stat request containing the pawn being evaluated.</param>
+        /// <param name="applyPostProcess">Whether post-processing should be applied.</param>
+        /// <returns>The calculated unfinalized mass capacity in kilograms.</returns>
         public override float GetValueUnfinalized(StatRequest req, bool applyPostProcess = true)
         {
             if (req.HasThing && req.Thing is Pawn pawn)
             {
-                // INGRESS GATE: Completely skip non-caravan species during live play
-                if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
-                {
-                    return 0f;
-                }
-
-                float baseline = PawnDataRegistry.ResolveBaseline(pawn);
-
-                return PawnDataRegistry.GetCapacity(pawn, baseline); // Return the calculated mass capacity for the pawn
+                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+                return PawnDataRegistry.GetCapacity(pawn, baseline);
             }
-            return base.GetValueUnfinalized(req, applyPostProcess); // Fallback for non-pawn or non-caravan species
+            return base.GetValueUnfinalized(req, applyPostProcess);
         }
 
         #endregion
 
-        #region INFOCARD EXPLANATION BREAKDOWN
+        #region 3. INFOCARD EXPLANATION BREAKDOWN
 
         /// <summary>
-        /// Compiles and delivers the formatted OverHaulers breakdown (Total Body Rating, Capacities, Athletic Impacts,
-        /// and Regional Structural Groups) for rendering inside the pawn's InfoCard dialog.
-        /// Prepend TagSentinel so InfoCardOverlay intercepts and stamps inline bionic/athletic/injury icons.
-        /// Invoked by RimWorld's StatWorker.GetExplanationFull pipeline.
+        /// Generates the complete anatomical report breakdown for the pawn's native InfoCard dialog.
         /// </summary>
-        /// <param name="req">The stat request containing the pawn.</param>
-        /// <param name="numberSense">The number sense for formatting the stat value.</param>
-        /// <returns>A formatted string detailing the mass capacity calculation and anatomical breakdown.</returns>
+        /// <param name="req">The stat request containing the pawn for which the explanation is being generated.</param>
+        /// <param name="numberSense">The number sense format requested by the game engine.</param>
+        /// <returns>A formatted explanation breakdown detailing all biological systems and modifications.</returns>
         public override string GetExplanationUnfinalized(StatRequest req, ToStringNumberSense numberSense)
         {
             if (req.HasThing && req.Thing is Pawn pawn)
             {
-                // Ingress Gate: Completely skip non-caravan species during live play
-                if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
-                {
-                    return string.Empty;
-                }
-
-                float baselineCapacity = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
-                MassCapacityModel model = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
-
-                string baseLine = "StatsReport_BaseValue".Translate() + ": " + baselineCapacity.ToStringMass();
-                string explanation = model?.Explanation ?? string.Empty;
-
-                // Strip TagSentinel from the sub-model if present so we can place it cleanly at Index 0
-                if (explanation.StartsWith(InfoCardOverlay.TagSentinel, StringComparison.Ordinal))
-                {
-                    explanation = explanation.Substring(InfoCardOverlay.TagSentinel.Length);
-                }
-
-                return InfoCardOverlay.TagSentinel + baseLine + "\n\n" + explanation;
+                float baselineCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+                MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
+                return detailedMassModel?.Explanation ?? string.Empty;
             }
+
             return base.GetExplanationUnfinalized(req, numberSense);
         }
 
         #endregion
 
-        #region INFOCARD HYPERLINKS
+        #region 4. INFOCARD HYPERLINK DISPATCH
 
         /// <summary>
-        /// Resolves clickable hyperlinks for installed prosthetics, bionics, and implants inside the InfoCard.
-        /// Invoked by RimWorld's Dialog_InfoCard via polymorphic dispatch.
+        /// Retrieves clickable InfoCard hyperlinks for installed augmentations on the pawn.
         /// </summary>
-        /// <param name="req">The stat request containing the pawn for which hyperlinks are being retrieved.</param>
-        /// <returns>An enumerable of Dialog_InfoCard.Hyperlink objects representing installed augmentations.</returns>
+        /// <param name="req">The stat request containing the target pawn.</param>
+        /// <returns>An enumerable of Dialog_InfoCard.Hyperlink objects for installed augmentations.</returns>
         public override IEnumerable<Dialog_InfoCard.Hyperlink> GetInfoCardHyperlinks(StatRequest req)
         {
             return HyperlinkUtility.ResolveHyperlinks(req);

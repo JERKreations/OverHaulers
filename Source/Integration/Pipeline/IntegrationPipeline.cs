@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-02] CENTRAL PIPELINE ORCHESTRATOR
+    #region 1. [INT-02] STAT PRESENTATION ORCHESTRATOR & CIL SCANNER
 
     /// <summary>
-    /// Represents information about a discovered patch within the integration pipeline.
+    /// Represents information about an external patch discovered by the CIL bytecode scanner.
     /// </summary>
     public struct DiscoveredPatchInfo
     {
@@ -23,11 +24,13 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// Orchestrates the integration pipeline, managing driver registration, initialization, and patch discovery.
+    /// Orchestrates stat card presentation, deduplication, and external mod adoption.
+    /// Manages InfoCard deduplication, declarative XML profiles, and dynamic CIL patch discovery.
+    /// Numerical capacity delivery is decoupled and universally handled by HarmonySetup.CapacityBridge.
     /// </summary>
     public static class IntegrationPipeline
     {
-        #region 1. CONSTANTS & ACTIVE DRIVER BINDING
+        #region 1. CONSTANTS & ACTIVE PRESENTATION BINDING
 
         public const string DriverKeyAuto = "AUTO";
         public const string DriverKeyStandalone = "STANDALONE";
@@ -35,10 +38,12 @@ namespace OverHaulers
         public const string DriverKeyCSharpPrefix = "CSHARP:";
         public const string DriverKeyCilPrefix = "CIL:";
 
-        public static IPipelineDriver ActiveDriver { get; private set; }
+        public static StatDef ActiveMassCapacityStat { get; private set; }
+        public static bool IsForeignStatAdopted { get; private set; }
+        public static string ActiveStatOwner { get; private set; } = "Native";
+        public static bool IsInitialized => isInitialized;
         public static bool HasScannedThisSession { get; private set; } = false;
 
-        private static readonly List<IPipelineDriver> customDrivers = new List<IPipelineDriver>();
         public static List<DiscoveredPatchInfo> DiscoveredPatches { get; } = new List<DiscoveredPatchInfo>();
 
         private static bool isInitialized = false;
@@ -46,32 +51,18 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. DRIVER REGISTRATION & RE-BINDING
+        #region 2. PRESENTATION BINDING & RE-BINDING
 
         /// <summary>
-        /// Registers a custom pipeline driver with the integration pipeline. If the driver is already registered, it will not be added again.
-        /// </summary>
-        /// <param name="driver">The custom pipeline driver to register.</param>
-        public static void RegisterDriver(IPipelineDriver driver)
-        {
-            if (driver == null) return;
-
-            if (!customDrivers.Contains(driver))
-            {
-                customDrivers.Add(driver);
-                OHLog.Integration.CustomDriverRegistered(driver.DriverIdentifier);
-            }
-        }
-
-        /// <summary>
-        /// Rebinds the active pipeline driver, cleaning up the current driver and initializing the appropriate one based on the current settings.
+        /// Rebinds the active presentation stat, detaching from any previously adopted foreign stats
+        /// and re-evaluating preferences and detected mods.
         /// </summary>
         public static void RebindDriver()
         {
             if (HarmonySetup.HarmonyInstance == null) return;
 
-            ActiveDriver?.Cleanup();
-            ActiveDriver = null;
+            CleanupAdoptedForeignStat();
+            ActiveMassCapacityStat = null;
             isInitialized = false;
 
             Initialize(HarmonySetup.HarmonyInstance);
@@ -80,104 +71,142 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Initializes the integration pipeline with the specified Harmony instance. This sets up the active driver based on the current settings
-        ///  and prepares the pipeline for operation.
+        /// Initializes stat presentation and deduplication based on user preferences and detected external mods.
         /// </summary>
-        /// <param name="harmony">The Harmony instance to use for patching.</param>
+        /// <param name="harmony">The Harmony instance used if additional inspection or patching is needed.</param>
         public static void Initialize(Harmony harmony)
         {
             if (isInitialized) return;
 
             string localizedSuffix = " " + "kg".Translate();
             Settings settings = OverHaulers.settings;
-            // string key = settings?.selectedDriverKey ?? DriverKeyAuto;
-            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
+            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
 
             // -------------------------------------------------------------------------
             // PATH A: EXPLICIT PLAYER OVERRIDES (Highest Authority)
             // -------------------------------------------------------------------------
 
-            // Case 1: Player Forced Standalone
+            // Case 1: Player Forced Native Standalone Card
             if (key == DriverKeyStandalone)
             {
-                ActiveDriver = new VanillaStatDriver(localizedSuffix);
+                BindNativePresentation(localizedSuffix);
             }
-            // Case 2: Player Locked an XML Driver
+            // Case 2: Player Locked an XML Declared Stat
             else if (key.StartsWith(DriverKeyXmlPrefix))
             {
                 string defName = key.Substring(DriverKeyXmlPrefix.Length);
-                if (TryResolveXmlDriverByDefName(defName, localizedSuffix, out IPipelineDriver xmlDriver))
+                if (TryResolveXmlStatByDefName(defName, out string owner, out StatDef targetStat))
                 {
-                    ActiveDriver = xmlDriver;
+                    AdoptForeignStatPresentation(owner, targetStat, localizedSuffix);
                 }
                 else
                 {
                     RecoverStaleDriverPreference(settings, key);
-                    ActiveDriver = ResolveAutoDriver(settings, localizedSuffix);
+                    ResolveAutoPresentation(settings, localizedSuffix);
                 }
             }
-            // Case 3: Player Locked a C# Custom Driver
-            else if (key.StartsWith(DriverKeyCSharpPrefix))
-            {
-                string identifier = key.Substring(DriverKeyCSharpPrefix.Length);
-                IPipelineDriver custom = customDrivers.Find(d => d.DriverIdentifier == identifier);
-                if (custom != null)
-                {
-                    ActiveDriver = custom;
-                }
-                else
-                {
-                    RecoverStaleDriverPreference(settings, key);
-                    ActiveDriver = ResolveAutoDriver(settings, localizedSuffix);
-                }
-            }
-            // Case 4: Player Locked a CIL Discovered Stat
+            // Case 3: Player Locked a CIL Discovered Stat
             else if (key.StartsWith(DriverKeyCilPrefix))
             {
-                if (TryResolveCilLockedDriver(key, localizedSuffix, out IPipelineDriver cilDriver))
+                if (TryResolveCilLockedStat(key, out string owner, out StatDef targetStat))
                 {
-                    ActiveDriver = cilDriver;
+                    AdoptForeignStatPresentation(owner, targetStat, localizedSuffix);
                 }
                 else
                 {
                     RecoverStaleDriverPreference(settings, key);
-                    ActiveDriver = ResolveAutoDriver(settings, localizedSuffix);
+                    ResolveAutoPresentation(settings, localizedSuffix);
                 }
             }
             // -------------------------------------------------------------------------
-            // PATH B: AUTOMATIC RESOLUTION (Recommended Default)
+            // PATH B: AUTOMATIC STAT ADOPTION (Recommended Default)
             // -------------------------------------------------------------------------
             else
             {
-                ActiveDriver = ResolveAutoDriver(settings, localizedSuffix);
+                ResolveAutoPresentation(settings, localizedSuffix);
             }
 
-            ActiveDriver.Initialize(harmony);
             isInitialized = true;
         }
 
         /// <summary>
-        /// Resolves the appropriate pipeline driver automatically based on the available custom drivers, XML driver definitions, discovered
-        ///  CIL patches, and vanilla defaults.
+        /// Activates native OverHaulers_CaravanMassCapacity as the active inspectable stat on pawns.
+        /// </summary>
+        /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
+        private static void BindNativePresentation(string localizedSuffix)
+        {
+            CleanupAdoptedForeignStat();
+
+            StatDef nativeStat = EnsureNativeStatRegistered(localizedSuffix);
+            nativeStat.showOnPawns = true;
+
+            ActiveMassCapacityStat = nativeStat;
+            ActiveStatOwner = "Native";
+            IsForeignStatAdopted = false;
+
+            OHLog.Integration.StatDrivenBound("Native", nativeStat.defName, localizedSuffix);
+        }
+
+        /// <summary>
+        /// Adopts an external mod's StatDef for presentation, attaching our explanation/hyperlinks
+        /// and hiding OverHaulers_CaravanMassCapacity to eliminate duplicate inspect rows.
+        /// </summary>
+        /// <param name="owner">The owner identifier or mod name associated with the foreign stat.</param>
+        /// <param name="foreignStat">The foreign StatDef being adopted.</param>
+        /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
+        private static void AdoptForeignStatPresentation(string owner, StatDef foreignStat, string localizedSuffix)
+        {
+            if (foreignStat == null)
+            {
+                BindNativePresentation(localizedSuffix);
+                return;
+            }
+
+            CleanupAdoptedForeignStat();
+
+            // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
+            StatDef nativeStat = DefDatabase<StatDef>.GetNamedSilentFail("OverHaulers_CaravanMassCapacity");
+            if (nativeStat != null)
+            {
+                nativeStat.showOnPawns = false;
+            }
+
+            // Rescue labels if the foreign stat is missing them
+            if (string.IsNullOrEmpty(foreignStat.label))
+            {
+                foreignStat.label = "OverHaulers_StatLabel".Translate().ToString();
+            }
+            if (string.IsNullOrEmpty(foreignStat.description))
+            {
+                foreignStat.description = "OverHaulers_StatDesc".Translate().ToString();
+            }
+
+            // Inject MassCapacityStatPart for InfoCard explanation and hyperlinks
+            AttachStatPart(foreignStat);
+
+            ActiveMassCapacityStat = foreignStat;
+            ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
+            IsForeignStatAdopted = true;
+
+            OHLog.Integration.StatDrivenBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
+        }
+
+        /// <summary>
+        /// Automatically resolves the most appropriate presentation card.
+        /// Prioritizes declarative XML profiles, then CIL transpiler patches, falling back to Native.
         /// </summary>
         /// <param name="settings">The current settings object containing user preferences and configuration.</param>
-        /// <param name="localizedSuffix">The localized suffix used for driver resolution.</param>
-        /// <returns>The resolved pipeline driver instance based on the automatic resolution logic.</returns>
-        private static IPipelineDriver ResolveAutoDriver(Settings settings, string localizedSuffix)
+        /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
+        private static void ResolveAutoPresentation(Settings settings, string localizedSuffix)
         {
-            // Tier 1: Explicit C# Registration
-            if (customDrivers.Count > 0)
+            // Tier 1: Declarative XML Driver Defs (High-Speed O(1) Matching)
+            if (TryResolveHighestPriorityXmlStat(out string xmlOwner, out StatDef xmlStat))
             {
-                return customDrivers[0];
+                AdoptForeignStatPresentation(xmlOwner, xmlStat, localizedSuffix);
+                return;
             }
 
-            // Tier 2: Declarative XML Driver Defs (High-Speed O(1) Matching)
-            if (TryResolveHighestPriorityXmlDriver(localizedSuffix, out IPipelineDriver xmlDriver))
-            {
-                return xmlDriver;
-            }
-
-            // Tier 3: Dynamic Heuristic CIL Discovery (Fallback for unlisted mods)
+            // Tier 2: Dynamic Heuristic CIL Discovery (Fallback for unlisted mods)
             EnsurePatchesInspected();
 
             if (DiscoveredPatches.Count > 0)
@@ -192,62 +221,122 @@ namespace OverHaulers
                 DiscoveredPatchInfo selectedPatch = SelectTargetPatch();
                 StatDef chosenStat = selectedPatch.TargetStat;
 
-                // Tier 3a: If a valid target stat is found within the discovered patch, create a generic stat driver for it.
+                // Tier 2a: If a valid target stat is found within the discovered patch, adopt it for presentation.
                 if (chosenStat != null)
                 {
                     string owner = !string.IsNullOrEmpty(selectedPatch.Owner) ? selectedPatch.Owner : chosenStat.defName;
-                    return new GenericStatDriver(owner, chosenStat, localizedSuffix);
+                    AdoptForeignStatPresentation(owner, chosenStat, localizedSuffix);
+                    return;
                 }
             }
 
-            // Tier 4: Pure Vanilla Standalone Default
-            return new VanillaStatDriver(localizedSuffix);
+            // Tier 3: Pure Vanilla Standalone Default
+            BindNativePresentation(localizedSuffix);
         }
 
         /// <summary>
-        /// Recovers from a stale driver preference by reverting to the automatic driver selection if the previously selected driver is no longer active.
+        /// Ensures OverHaulers_CaravanMassCapacity exists in DefDatabase.
+        /// </summary>
+        /// <param name="unitSuffix">The localized unit suffix to attach to the StatDef.</param>
+        /// <returns>The resolved or registered native StatDef.</returns>
+        private static StatDef EnsureNativeStatRegistered(string unitSuffix)
+        {
+            StatDef existing = DefDatabase<StatDef>.GetNamedSilentFail("OverHaulers_CaravanMassCapacity");
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            StatDef statDef = new StatDef
+            {
+                defName = "OverHaulers_CaravanMassCapacity",
+                label = "OverHaulers_StatLabel".Translate().ToString(),
+                description = "OverHaulers_StatDesc".Translate().ToString(),
+                category = DefDatabase<StatCategoryDef>.GetNamedSilentFail("BasicsPawn"),
+                displayPriorityInCategory = 80,
+                toStringStyle = ToStringStyle.FloatTwo,
+                formatString = "{0}" + unitSuffix,
+                showOnPawns = true,
+                workerClass = typeof(MassCapacityStatWorker)
+            };
+
+            DefDatabase<StatDef>.Add(statDef);
+            return statDef;
+        }
+
+        /// <summary>
+        /// Injects MassCapacityStatPart into a foreign stat's parts list if not already present.
+        /// </summary>
+        /// <param name="stat">The StatDef to attach the StatPart to.</param>
+        private static void AttachStatPart(StatDef stat)
+        {
+            if (stat == null) return;
+            if (stat.parts == null)
+            {
+                stat.parts = new List<StatPart>();
+            }
+            for (int i = 0; i < stat.parts.Count; i++)
+            {
+                if (stat.parts[i] is MassCapacityStatPart) return;
+            }
+            stat.parts.Add(new MassCapacityStatPart { parentStat = stat });
+        }
+
+        /// <summary>
+        /// Detaches MassCapacityStatPart from the currently adopted foreign stat.
+        /// </summary>
+        private static void CleanupAdoptedForeignStat()
+        {
+            if (ActiveMassCapacityStat != null && IsForeignStatAdopted)
+            {
+                if (ActiveMassCapacityStat.parts != null)
+                {
+                    ActiveMassCapacityStat.parts.RemoveAll(p => p is MassCapacityStatPart);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recovers from a stale presentation preference by reverting to automatic selection if a previously selected mod is removed.
         /// </summary>
         /// <param name="settings">The current settings object containing user preferences and configuration.</param>
-        /// <param name="staleKey">The key representing the previously selected driver that is now considered stale.</param>
+        /// <param name="staleKey">The key representing the previously selected preference that is now considered stale.</param>
         private static void RecoverStaleDriverPreference(Settings settings, string staleKey)
         {
-            Log.Message($"[Over Haulers] Saved driver selection '{staleKey}' is no longer active (mod uninstalled?). Reverting to Automatic selection.");
+            Log.Message($"[Over Haulers] Saved presentation selection '{staleKey}' is no longer active (mod uninstalled?). Reverting to Automatic selection.");
             if (settings != null)
             {
-                // settings.selectedDriverKey = DriverKeyAuto;
-                settings.selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
+                settings.selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey;
             }
         }
 
         #endregion
 
-        #region 3. XML DRIVER RESOLVER HELPERS
+        #region 3. DECLARATIVE XML PROFILE RESOLUTION
 
         /// <summary>
-        /// Attempts to resolve the highest priority XML driver based on the available XML driver definitions.
+        /// Attempts to resolve the highest priority XML profile based on available MassCapacityDriverDef definitions.
         /// </summary>
-        /// <param name="localizedSuffix">The localized suffix used for driver resolution.</param>
-        /// <param name="driver">The resolved pipeline driver if successful; otherwise, null.</param>
-        /// <returns>True if a valid XML driver is found and resolved; otherwise, false.</returns>
-        /// <remarks>
-        /// This method iterates through all available XML driver definitions, sorts them by priority, and attempts to instantiate the highest
-        ///  priority valid driver.
-        /// </remarks>
-        public static bool TryResolveHighestPriorityXmlDriver(string localizedSuffix, out IPipelineDriver driver)
+        /// <param name="owner">The resolved owner name of the driver definition.</param>
+        /// <param name="stat">The resolved StatDef associated with the profile.</param>
+        /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
+        public static bool TryResolveHighestPriorityXmlStat(out string owner, out StatDef stat)
         {
-            driver = null;
+            owner = null;
+            stat = null;
             List<MassCapacityDriverDef> allXmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
             if (allXmlDrivers == null || allXmlDrivers.Count == 0) return false;
 
             List<MassCapacityDriverDef> sortedDrivers = new List<MassCapacityDriverDef>(allXmlDrivers);
             sortedDrivers.Sort((a, b) => b.priority.CompareTo(a.priority));
 
-            // Iterate through the sorted drivers and attempt to resolve the highest priority valid driver.
+            // Iterate through the sorted drivers and attempt to resolve the highest priority valid profile.
             for (int i = 0; i < sortedDrivers.Count; i++)
             {
-                if (sortedDrivers[i].IsValidAndActive(out StatDef stat))
+                if (sortedDrivers[i].IsValidAndActive(out StatDef resolved))
                 {
-                    driver = InstantiateXmlDriver(sortedDrivers[i], stat, localizedSuffix);
+                    owner = sortedDrivers[i].label ?? sortedDrivers[i].defName;
+                    stat = resolved;
                     return true;
                 }
             }
@@ -256,70 +345,52 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Attempts to resolve an XML driver based on the specified driver definition name.
+        /// Attempts to resolve an XML profile by defName.
         /// </summary>
         /// <param name="defName">The name of the driver definition to resolve.</param>
-        /// <param name="localizedSuffix">The localized suffix used for driver resolution.</param>
-        /// <param name="driver">The resolved pipeline driver if successful; otherwise, null.</param>
-        /// <returns>True if a valid XML driver is found and resolved; otherwise, false.</returns>
-        public static bool TryResolveXmlDriverByDefName(string defName, string localizedSuffix, out IPipelineDriver driver)
+        /// <param name="owner">The resolved owner name of the driver definition.</param>
+        /// <param name="stat">The resolved StatDef associated with the profile.</param>
+        /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
+        public static bool TryResolveXmlStatByDefName(string defName, out string owner, out StatDef stat)
         {
-            driver = null;
+            owner = null;
+            stat = null;
             MassCapacityDriverDef def = DefDatabase<MassCapacityDriverDef>.GetNamedSilentFail(defName);
-            if (def != null && def.IsValidAndActive(out StatDef stat))
+            if (def != null && def.IsValidAndActive(out StatDef resolved))
             {
-                driver = InstantiateXmlDriver(def, stat, localizedSuffix);
+                owner = def.label ?? def.defName;
+                stat = resolved;
                 return true;
             }
             return false;
         }
 
         /// <summary>
-        /// Instantiates an XML driver based on the specified driver definition, stat, and localized suffix.
+        /// Attempts to resolve a CIL-locked stat key ("CIL:Owner:StatDefName").
         /// </summary>
-        /// <param name="def">The driver definition used for instantiation.</param>
-        /// <param name="stat">The stat associated with the driver.</param>
-        /// <param name="localizedSuffix">The localized suffix used for driver resolution.</param>
-        /// <returns>The instantiated pipeline driver.</returns>
-        private static IPipelineDriver InstantiateXmlDriver(MassCapacityDriverDef def, StatDef stat, string localizedSuffix)
+        /// <param name="key">The key used to identify the CIL-locked stat. Format: "CIL:Owner:StatDefName".</param>
+        /// <param name="owner">The parsed owner name from the key.</param>
+        /// <param name="stat">The resolved StatDef instance.</param>
+        /// <returns>True if a valid CIL-locked stat is found and resolved; otherwise, false.</returns>
+        private static bool TryResolveCilLockedStat(string key, out string owner, out StatDef stat)
         {
-            string identifier = def.label ?? def.defName;
-            if (def.driverClass != null && typeof(IPipelineDriver).IsAssignableFrom(def.driverClass))
-            {
-                return (IPipelineDriver)Activator.CreateInstance(def.driverClass, identifier, stat, localizedSuffix);
-            }
-            return new GenericStatDriver(identifier, stat, localizedSuffix);
-        }
-
-        /// <summary>
-        /// Attempts to resolve a CIL-locked driver based on the specified key and localized suffix.
-        /// </summary>
-        /// <param name="key">The key used to identify the CIL-locked driver. Format: "CIL:Owner:StatDefName".</param>
-        /// <param name="localizedSuffix">The localized suffix used for driver resolution.</param>
-        /// <param name="driver">The resolved pipeline driver if successful; otherwise, null.</param>
-        /// <returns>True if a valid CIL-locked driver is found and resolved; otherwise, false.</returns>
-        private static bool TryResolveCilLockedDriver(string key, string localizedSuffix, out IPipelineDriver driver)
-        {
-            driver = null;
+            owner = null;
+            stat = null;
             // Format: "CIL:Owner:StatDefName"
             string[] parts = key.Split(':');
             if (parts.Length == 3)
             {
-                string owner = parts[1];
+                owner = parts[1];
                 string statDefName = parts[2];
-                StatDef stat = DefDatabase<StatDef>.GetNamedSilentFail(statDefName);
-                if (stat != null)
-                {
-                    driver = new GenericStatDriver(owner, stat, localizedSuffix);
-                    return true;
-                }
+                stat = DefDatabase<StatDef>.GetNamedSilentFail(statDefName);
+                return stat != null;
             }
             return false;
         }
 
         #endregion
 
-        #region 4. ON-DEMAND / LAZY CIL DISCOVERY ENGINE
+        #region 4. DYNAMIC CIL BYTECODE DISCOVERY ENGINE
 
         /// <summary>
         /// Triggers a manual scan for external patches if it hasn't been done in the current session.
@@ -342,7 +413,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Inspects and processes external patches for the current session.
+        /// Inspects and processes external Harmony patches applied to MassUtility.Capacity.
         /// </summary>
         public static void InspectExternalPatches()
         {
@@ -420,11 +491,11 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the candidate StatDef instances for a given patch by inspecting its method and assembly.
+        /// Resolves candidate StatDef instances for a given patch by inspecting its method CIL and assembly.
         /// </summary>
         /// <param name="patch">The patch for which to resolve candidate stats.</param>
         /// <param name="targetMethod">The method that the patch is applied to.</param>
-        /// <param name="allAssemblyStats">The list of all StatDef instances found in the patch's assembly.</param>
+        /// <param name="allAssemblyStats">Outputs the list of all StatDef instances found in the patch's assembly.</param>
         /// <returns>The list of candidate StatDef instances relevant to the patch.</returns>
         private static List<StatDef> ResolveCandidateStatsForPatch(Patch patch, MethodInfo targetMethod, out List<StatDef> allAssemblyStats)
         {
@@ -486,7 +557,8 @@ namespace OverHaulers
                         // Strategy B falls back to direct field access if DefDatabase lookup fails. This may trigger the static constructor.
                         if (resolvedStat == null)
                         {
-                            try {
+                            try
+                            {
                                 resolvedStat = fieldInfo.GetValue(null) as StatDef;
                             }
                             catch (Exception ex)
@@ -584,8 +656,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Calculates a relevance score for the given StatDef based on its characteristics. Higher scores indicate greater relevance to mass or
-        ///  carrying capacity.
+        /// Calculates a relevance score for the given StatDef based on its characteristics.
+        /// Higher scores indicate greater relevance to caravan mass or carrying capacity.
         /// </summary>
         /// <param name="stat">The StatDef for which to calculate the relevance score.</param>
         /// <returns>An integer representing the relevance score of the StatDef.</returns>

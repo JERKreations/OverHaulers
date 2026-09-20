@@ -555,7 +555,7 @@ namespace OverHaulers
 
             return physicalStatCache.GetOrAdd(stat, s =>
             {
-                StatDef activeStat = IntegrationPipeline.ActiveDriver?.ActiveMassCapacityStat;
+                StatDef activeStat = IntegrationPipeline.ActiveMassCapacityStat;
 
                 if (s == StatDefOf.MoveSpeed || 
                     s == StatDefOf.CarryingCapacity || 

@@ -32,7 +32,7 @@ namespace OverHaulers
         {
             if (isCompatibilityInitialized)
             {
-                Log.Warning($"[Over Haulers] InitializeCompatibilityLayer called more than once! Duplicate call intercepted from:\n{new System.Diagnostics.StackTrace(1, true)}");
+                OHLog.Integration.Warn("HarmonySetup", null, $"InitializeCompatibilityLayer called more than once! Duplicate call intercepted from:\n{new System.Diagnostics.StackTrace(1, true)}");
                 return;
             }
             isCompatibilityInitialized = true;

@@ -79,7 +79,8 @@ namespace OverHaulers
         /// </summary>
         private void WarmupActivePawns()
         {
-            if (IntegrationPipeline.ActiveDriver == null) return;
+            // Early exit if the integration pipeline is not initialized
+            if (!IntegrationPipeline.IsInitialized) return;
 
             // Sweep Map Pawns
             if (Find.Maps != null)
@@ -123,7 +124,7 @@ namespace OverHaulers
         {
             if (pawn != null && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
-                float baseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
+                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 PawnDataRegistry.GetOffset(pawn, baseline);
             }
         }
