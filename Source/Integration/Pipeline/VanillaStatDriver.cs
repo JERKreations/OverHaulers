@@ -120,6 +120,8 @@ namespace OverHaulers
             return SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
         }
 
+        private static int debugLogCount = 0; // temp
+
         /// <summary>
         /// Handles the postfix logic for the mass utility capacity calculation, directly offsetting MassUtility.Capacity.
         /// </summary>
@@ -136,6 +138,13 @@ namespace OverHaulers
 
             float cleanBiologicalBaseline = ResolveDriverBaseline(pawn);
             float calculatedOffset = PawnDataRegistry.GetOffset(pawn, cleanBiologicalBaseline);
+
+            // TEMP LOGGING: Limit to first two invocations for debugging purposes
+            if (debugLogCount < 2)
+            {
+                debugLogCount++;
+                Log.Message($"[OH_DEBUG #{debugLogCount}] {pawn.LabelShort} | InResult: {result} | Offset: {calculatedOffset}\n{new System.Diagnostics.StackTrace(1, true)}");
+            }
 
             result += calculatedOffset;
 

@@ -15,7 +15,19 @@
       <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
     </li>
   </modDependencies>
+  <loadAfter>
+		<li>Ludeon.RimWorld</li>
+		<li>Ludeon.RimWorld.Royalty</li>
+		<li>Ludeon.RimWorld.Ideology</li>
+		<li>Ludeon.RimWorld.Odyssey</li>
+		<li>Ludeon.RimWorld.Biotech</li>
+		<li>Ludeon.RimWorld.Anomaly</li>
+		<li>brrainz.harmony</li>
+	</loadAfter>
   <description>Dynamically overhauls Caravan Mass Capacity (max total inventory weight)
+
+!! NOTICE !! COMPATIBILITY &amp; EXTERNAL MOD INTEGRATION:
+- If you have issues, please enforce standalone operation in the settings. The compatibility layer is under review.
 
 No more arbitrary caravan weight limits. Weight capacity scales dynamically depending on:
 - Pawn anatomy and physical condition

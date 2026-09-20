@@ -16,6 +16,8 @@ namespace OverHaulers
         /// <summary>Active Harmony instance handle used for dynamic driver rebinding.</summary>
         public static Harmony HarmonyInstance { get; private set; }
 
+        private static bool isCompatibilityInitialized = false;
+
         static HarmonySetup()
         {
             InitializeCompatibilityLayer();
@@ -28,6 +30,13 @@ namespace OverHaulers
         /// </summary>
         private static void InitializeCompatibilityLayer()
         {
+            if (isCompatibilityInitialized)
+            {
+                Log.Warning($"[Over Haulers] InitializeCompatibilityLayer called more than once! Duplicate call intercepted from:\n{new System.Diagnostics.StackTrace(1, true)}");
+                return;
+            }
+            isCompatibilityInitialized = true;
+
             HarmonyInstance = new Harmony("com.overhaulers.mod");
 
             // 1. Permanent sandbox entity shields (nanosecond guards for dummy pawns)

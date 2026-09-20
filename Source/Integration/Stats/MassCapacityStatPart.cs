@@ -28,6 +28,9 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
 
+            // STANDALONE GUARD: Defer to VanillaStatDriver postfix to prevent duplicate addition
+            if (IntegrationPipeline.ActiveDriver is VanillaStatDriver) return;
+
             // INGRESS GATE: Completely skip non-caravan species during live play
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
@@ -49,6 +52,9 @@ namespace OverHaulers
         /// <returns>A formatted string detailing the mass capacity calculation and anatomical breakdown.</returns>
         public override string ExplanationPart(StatRequest statRequest)
         {
+            // STANDALONE GUARD: Defer to VanillaStatDriver postfix to prevent duplicate addition
+            if (IntegrationPipeline.ActiveDriver is VanillaStatDriver) return null;
+
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn)
             {
                 float bioBaseline = IntegrationPipeline.ActiveDriver.ResolveDriverBaseline(pawn);
