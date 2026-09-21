@@ -25,6 +25,7 @@ namespace OverHaulers
         {
             ContentPack = content;
             settings = GetSettings<Settings>();
+            PerformanceTelemetry.SyncSettingsState();
         }
 
         #endregion
@@ -40,6 +41,7 @@ namespace OverHaulers
             
             PawnDataRegistry.ClearAllCaches();
             MedicalClassifier.ClearStaticCaches();
+            PerformanceTelemetry.SyncSettingsState();
         }
 
         /// <summary>

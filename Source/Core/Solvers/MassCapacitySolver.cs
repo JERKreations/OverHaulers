@@ -10,6 +10,7 @@ namespace OverHaulers
     /// [PASS-03 & PASS-04] CORE MATHEMATICAL MASS CAPACITY SOLVER ENGINE
     /// Stateless computational engine executing vector mathematics across parallel contiguous SoA arrays.
     /// Operates on contiguous memory streams off the main thread to calculate biological Caravan Mass Capacity offsets (kg).
+    /// Resides under Source/Core/Solvers/.
     /// </summary>
     public static class MassCapacitySolver
     {
@@ -233,7 +234,9 @@ namespace OverHaulers
                 snapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
                 snapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
                 snapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
-                snapshot.Consciousness = source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
+                snapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
+                    ? workspace.CachedConsciousness
+                    : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
 
                 SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
                     biologicalBaseline, partCounts, settings, snapshot);

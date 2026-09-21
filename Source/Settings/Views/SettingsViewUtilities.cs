@@ -108,6 +108,7 @@ namespace OverHaulers
             TestBench.MarkDirty();
             TopologyLayoutCompiler.InvalidateAllTopologies();
             PawnDataRegistry.ClearAllCaches();
+            PerformanceTelemetry.SyncSettingsState();
         }
 
         #endregion

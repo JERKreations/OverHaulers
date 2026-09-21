@@ -11,6 +11,7 @@ namespace OverHaulers
     /// Utilizes a 4096-slot fixed power-of-two table (~32 KB footprint, L1/L2 resident) with a zero-allocation struct union.
     /// Implements Backward-Shift Deletion (Algorithm R) synchronized via a lock-free Sequence Counter (SeqLock).
     /// Guarantees atomic, linearizable, zero-allocation reads for RimWorld background pathfinding threads.
+    /// Resides under Source/Core/Registry/.
     /// </summary>
     /// <remarks>
     // ARCHITECTURAL DESIGN RATIONALE (ZERO-LOCK ATOMIC CONCURRENCY):

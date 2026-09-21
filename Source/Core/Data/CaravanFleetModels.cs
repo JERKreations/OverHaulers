@@ -7,6 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [VIEW-05] Lightweight stack-allocated value structure containing aggregate Caravan Mass Capacity metrics
     /// across all pawns selected for a caravan or transport pod launch.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     public struct CaravanFleetSummary
     {

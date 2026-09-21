@@ -9,6 +9,7 @@ namespace OverHaulers
     /// [PASS-02] Thread-isolated, recyclable Structure of Arrays (SoA) container storing parallel
     /// contiguous memory streams for a pawn's active anatomical structure.
     /// Enables sequential cache-line prefetching and hardware-accelerated streaming math.
+    /// Resides under Source/Core/Workspaces/.
     /// </summary>
     public class AnatomicalWorkspace
     {
@@ -43,7 +44,11 @@ namespace OverHaulers
 
         private int partCount = 0;
 
+        /// <summary>List of systemic ailments affecting the pawn, maintained as a unique collection.</summary>
         private readonly UniqueList<string> systemicAilments = new UniqueList<string>(16);
+
+        /// <summary>Cached consciousness capacity level evaluated during ingress to prevent duplicate pawn hediff scans.</summary>
+        public float CachedConsciousness { get; set; } = -1f;
 
         #endregion
 
@@ -187,6 +192,9 @@ namespace OverHaulers
             {
                 partStatesColdArray[i].Reset();
             }
+
+            // Reset systemic ailments collection
+            CachedConsciousness = -1f;
         }
 
         #endregion
@@ -256,6 +264,7 @@ namespace OverHaulers
         public void Clear()
         {
             systemicAilments.Clear();
+            CachedConsciousness = -1f;
             partCount = 0;
             partTypes = null;
             staticWeightFactors = null;

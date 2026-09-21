@@ -6,6 +6,7 @@ namespace OverHaulers
     /// <summary>
     /// [VIEW-01 to VIEW-04] Representation model containing all calculated presentation factors of a pawn's Caravan Mass Capacity.
     /// Manages an internal object pool of <see cref="PartViewNode"/> instances to guarantee 0 GC allocations during UI updates.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     public class MassCapacityModel
     {

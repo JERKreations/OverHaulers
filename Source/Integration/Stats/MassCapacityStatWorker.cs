@@ -49,6 +49,12 @@ namespace OverHaulers
         {
             if (req.HasThing && req.Thing is Pawn pawn)
             {
+                // FAST-PATH: Bypass baseline resolution, locks, and BodySize if cache entry is fresh
+                if (PawnDataRegistry.TryGetFreshCapacity(pawn.thingIDNumber, out float fastCapacity))
+                {
+                    return fastCapacity;
+                }
+
                 float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 return PawnDataRegistry.GetCapacity(pawn, baseline);
             }

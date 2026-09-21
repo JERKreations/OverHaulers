@@ -9,6 +9,7 @@ namespace OverHaulers
 {
     /// <summary>
     /// [CACHE-01] Centralized registry for caching and retrieving calculated Caravan Mass Capacity data for pawns.
+    /// Resides under Source/Core/Registry/.
     /// </summary>
     public static class PawnDataRegistry
     {
@@ -23,6 +24,10 @@ namespace OverHaulers
         private static volatile int lastCapturedMainThreadTick = 0;
         private static volatile int lastCleanupTick = 0;
         private static int activeCleanupSentinel = 0;
+
+        // CACHED EXPIRY ARITHMETIC: Eliminates Mathf.Sqrt calls when active population is stable
+        private static int cachedActiveCount = -1;
+        private static int cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
 
         [ThreadStatic]
         private static int currentEvaluatingPawnId;
@@ -119,6 +124,84 @@ namespace OverHaulers
         #endregion
 
         #region 3. [CACHE-01] PRIMARY CACHE ENTRY POINTS
+
+        /// <summary>
+        /// Attempts to retrieve a fresh, non-stale cached mass capacity offset for the specified pawn ID.
+        /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
+        /// </summary>
+        /// <param name="pawnId">The unique thingIDNumber of the pawn.</param>
+        /// <param name="offset">The cached capacity offset if valid.</param>
+        /// <returns>True if a valid, unexpired cached offset was found; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGetFreshOffset(int pawnId, out float offset)
+        {
+            if (!UnityData.IsInMainThread || currentEvaluatingPawnId == pawnId)
+            {
+                offset = 0f;
+                return false;
+            }
+
+            // Attempt to retrieve a fresh cached offset first
+            if (capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode) && !cachedNode.IsStale)
+            {
+                int currentTick = GetSafeCurrentTick();
+                int elapsedTicks = currentTick - cachedNode.CalculatedTick;
+
+                if (elapsedTicks >= 0)
+                {
+                    // Ultra-fast path: within minimum fast-path ticks (bypasses dynamic expiry math)
+                    if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
+                        elapsedTicks < GetCacheExpiryDuration(pawnId))
+                    {
+                        PerformanceTelemetry.IncrementCacheHits();
+                        offset = cachedNode.Offset;
+                        return true;
+                    }
+                }
+            }
+
+            offset = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// Attempts to retrieve the fresh, non-stale final clamped mass capacity (kg) for the specified pawn ID.
+        /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
+        /// </summary>
+        /// <param name="pawnId">The unique thingIDNumber of the pawn.</param>
+        /// <param name="finalCapacity">The cached final clamped capacity in kilograms if valid.</param>
+        /// <returns>True if a valid, unexpired cached entry was found; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGetFreshCapacity(int pawnId, out float finalCapacity)
+        {
+            if (!UnityData.IsInMainThread || currentEvaluatingPawnId == pawnId)
+            {
+                finalCapacity = 0f;
+                return false;
+            }
+
+            // Attempt to retrieve a fresh cached offset first
+            if (capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode) && !cachedNode.IsStale)
+            {
+                int currentTick = GetSafeCurrentTick();
+                int elapsedTicks = currentTick - cachedNode.CalculatedTick;
+
+                // Ultra-fast path: within minimum fast-path ticks (bypasses dynamic expiry math)
+                if (elapsedTicks >= 0)
+                {
+                    if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
+                        elapsedTicks < GetCacheExpiryDuration(pawnId))
+                    {
+                        PerformanceTelemetry.IncrementCacheHits();
+                        finalCapacity = cachedNode.FinalCapacity;
+                        return true;
+                    }
+                }
+            }
+
+            finalCapacity = 0f;
+            return false;
+        }
 
         /// <summary>
         /// Retrieves the offset of the pawn's mass capacity relative to the baseline capacity.
@@ -519,13 +602,14 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Flushes all main-thread and thread-safe snapshot capacity caches, scratch buffers,
-        /// and resets tick counters. Invoked on save loads, world resets, and setting mutations.
+        /// Clears all cached pawn data, including main-thread and snapshot caches, scratch buffers, and resets relevant tick counters.
         /// </summary>
         public static void ClearAllCaches()
         {
             capacityCache.Clear();
             staleKeysScratch.Clear();
+            cachedActiveCount = -1;
+            cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
             lastCapturedMainThreadTick = 0;
             lastCleanupTick = 0;
             currentEvaluatingPawnId = 0;
@@ -674,12 +758,18 @@ namespace OverHaulers
         {
             int activeCount = capacityCache.Count;
             int floor = SettingsDefaults.DefaultCacheMinFastPathTicks;
+            int scaleK = SettingsDefaults.DynamicCacheExpiryScaleK;
 
-            // Base TTL = Floor + K * sqrt(activeCount)
-            int expiryBase = floor + (int)(SettingsDefaults.DynamicCacheExpiryScaleK * Mathf.Sqrt(activeCount));
-            int expiryJitter = expiryBase / 4; // 25% staggered jitter window
+            if (activeCount != cachedActiveCount)
+            {
+                cachedActiveCount = activeCount;
+                // Base TTL = Floor + K * sqrt(activeCount)
+                cachedExpiryBase = floor + (int)(scaleK * Mathf.Sqrt(activeCount));
+            }
 
-            return expiryBase + (expiryJitter > 0 ? (pawnId % expiryJitter) : 0);
+            int expiryJitter = cachedExpiryBase / 4; // 25% staggered jitter window
+
+            return cachedExpiryBase + (expiryJitter > 0 ? (pawnId % expiryJitter) : 0);
         }
 
         /// <summary>

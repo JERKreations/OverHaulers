@@ -1,14 +1,17 @@
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace OverHaulers
 {
     /// <summary>
     /// Central registry tracking performance queries, cache hits, invalidation events, 
-    /// and workspace counts. Utilizes atomic structures to prevent thread contention.
+    /// and workspace counts. Utilizes gated plain increments on the main thread to eliminate
+    /// atomic probe-overhead, and atomic structures exclusively for off-thread background workers.
+    /// Resides under Source/Core/Registry/.
     /// </summary>
     public static class PerformanceTelemetry
     {
-        #region 1. ATOMIC COUNTERS & INCREMENTORS
+        #region 1. TELEMETRY STATE & HIGH-FREQUENCY COUNTERS
 
         private static int cacheHits = 0;
         private static int cacheMisses = 0;
@@ -16,37 +19,105 @@ namespace OverHaulers
         private static int invalidations = 0;
         private static int evictions = 0;
 
-        /// <summary>Atomically increments the main-thread cache hit counter.</summary>
-        public static void IncrementCacheHits() => Interlocked.Increment(ref cacheHits);
+        private static bool isTelemetryActive = false;
+        private static bool isCacheMetricsActive = false;
 
-        /// <summary>Atomically increments the main-thread cache miss (solver recalculation) counter.</summary>
-        public static void IncrementCacheMisses() => Interlocked.Increment(ref cacheMisses);
+        /// <summary>Indicates whether any performance telemetry logging is active.</summary>
+        public static bool IsActive => isTelemetryActive;
 
-        /// <summary>Atomically increments the off-thread background worker query counter.</summary>
-        public static void IncrementBackgroundQueries() => Interlocked.Increment(ref backgroundQueries);
+        /// <summary>Indicates whether high-frequency cache hit/miss tracking is active.</summary>
+        public static bool IsCacheMetricsActive => isCacheMetricsActive;
 
-        /// <summary>Atomically increments the reactive cache invalidation counter.</summary>
-        public static void IncrementInvalidations() => Interlocked.Increment(ref invalidations);
+        /// <summary>
+        /// Synchronizes telemetry active flags against current ModSettings to ensure zero-cost branching.
+        /// Invoked on mod startup, save load, and setting mutations.
+        /// </summary>
+        public static void SyncSettingsState()
+        {
+            var settings = OverHaulers.settings;
+            if (settings == null || settings.reportMetricsIntervalHours <= 0)
+            {
+                isTelemetryActive = false;
+                isCacheMetricsActive = false;
+                return;
+            }
 
-        /// <summary>Atomically increments the pawn cache eviction counter.</summary>
-        public static void IncrementEvictions() => Interlocked.Increment(ref evictions);
+            isTelemetryActive = true;
+            isCacheMetricsActive = settings.logCacheMetrics || settings.logQueryMetrics;
+        }
+
+        /// <summary>
+        /// Increments the main-thread cache hit counter without atomic bus locks when telemetry is active.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementCacheHits()
+        {
+            if (isCacheMetricsActive) cacheHits++;
+        }
+
+        /// <summary>
+        /// Increments the main-thread cache miss (solver recalculation) counter without atomic bus locks when telemetry is active.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementCacheMisses()
+        {
+            if (isCacheMetricsActive) cacheMisses++;
+        }
+
+        /// <summary>
+        /// Atomically increments the off-thread background worker query counter.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementBackgroundQueries()
+        {
+            if (isTelemetryActive) Interlocked.Increment(ref backgroundQueries);
+        }
+
+        /// <summary>
+        /// Increments the reactive cache invalidation counter on the main thread when telemetry is active.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementInvalidations()
+        {
+            if (isTelemetryActive) invalidations++;
+        }
+
+        /// <summary>
+        /// Increments the pawn cache eviction counter on the main thread when telemetry is active.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementEvictions()
+        {
+            if (isTelemetryActive) evictions++;
+        }
 
         #endregion
 
         #region 2. REPORT GENERATION & DISPATCH
 
         /// <summary>
-        /// Flushes current atomic counters, compiles performance hit ratios, and dispatches the localized report.
+        /// Flushes current counters, compiles performance hit ratios, and dispatches the localized report.
         /// </summary>
         /// <param name="elapsedHours">The game-hour duration elapsed since the last performance report.</param>
         public static void GenerateAndDispatchReport(int elapsedHours)
         {
-            // BREAKPOINT ANCHOR: Performance Counters Atomic Exchange
-            int hits = Interlocked.Exchange(ref cacheHits, 0);
-            int misses = Interlocked.Exchange(ref cacheMisses, 0);
+            if (!isTelemetryActive) return;
+
+            // Main-thread single-threaded counter reset (zero atomic bus stalls)
+            int hits = cacheHits;
+            cacheHits = 0;
+
+            int misses = cacheMisses;
+            cacheMisses = 0;
+
+            // Background worker queries require atomic exchange due to off-thread pathfinders
             int bgQueries = Interlocked.Exchange(ref backgroundQueries, 0);
-            int invs = Interlocked.Exchange(ref invalidations, 0);
-            int evicts = Interlocked.Exchange(ref evictions, 0);
+
+            int invs = invalidations;
+            invalidations = 0;
+
+            int evicts = evictions;
+            evictions = 0;
 
             int totalQueries = hits + misses + bgQueries;
             int mainQueries = hits + misses;

@@ -74,6 +74,14 @@ namespace OverHaulers
                 // INGRESS GATE: Completely skip non-caravan species during live play
                 if (!PawnDataRegistry.CanCarryCaravanMass(p)) return;
 
+                // FAST-PATH: If cache node is fresh and valid, bypass baseline resolution and BodySize getters
+                if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
+                {
+                    __result += fastOffset;
+                    __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+                    return;
+                }
+
                 float cleanBiologicalBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(p);
                 if (cleanBiologicalBaseline <= 0f) return;
 

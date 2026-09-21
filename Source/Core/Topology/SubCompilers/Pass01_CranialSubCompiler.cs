@@ -8,6 +8,7 @@ namespace OverHaulers
     /// Stateless sub-compiler identifying head roots and cranial descendant subtrees across all species.
     /// Pre-sorts topological depth indices in Pass 1 for downstream limb and axial compilers.
     /// 100% agnostic with ZERO string matching.
+    /// Resides under Source/Core/Topology/SubCompilers/.
     /// </summary>
     public static class Pass01_CranialSubCompiler
     {

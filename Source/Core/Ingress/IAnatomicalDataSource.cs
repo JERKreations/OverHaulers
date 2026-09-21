@@ -7,6 +7,7 @@ namespace OverHaulers
     /// [PASS-01] Ingress contract isolating mathematical solvers and topology compilers
     /// from live RimWorld Pawn entity reference mutations.
     /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource).
+    /// Resides under Source/Core/Ingress/.
     /// </summary>
     public interface IAnatomicalDataSource
     {

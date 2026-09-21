@@ -61,6 +61,7 @@ namespace OverHaulers
     /// Centralized single source of truth for biological state validation, medical taxonomy classification,
     /// hediff pathology bitmask evaluation, and metabolic organ identification.
     /// 100% framework-agnostic with ZERO hardcoded string matching.
+    /// Resides under Source/Core/Classification/.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class MedicalClassifier
@@ -75,18 +76,34 @@ namespace OverHaulers
             PawnCapacityDefOf.Manipulation
         };
 
-        private static readonly ConcurrentDictionary<BodyPartDef, BodyPartModExtension> extensionCache = new ConcurrentDictionary<BodyPartDef, BodyPartModExtension>();
+        /// <summary>Cache for body part mod extensions to avoid repeated lookups.</summary>
+        private static readonly ConcurrentDictionary<BodyPartDef, BodyPartModExtension> extensionCache =
+            new ConcurrentDictionary<BodyPartDef, BodyPartModExtension>();
+        /// <summary>Cache for vehicle type checks to avoid repeated reflection lookups.</summary>
         private static readonly ConcurrentDictionary<Type, bool> vehicleCache = new ConcurrentDictionary<Type, bool>();
-        private static readonly ConcurrentDictionary<HediffDef, HediffFlags> packedClassificationCache = new ConcurrentDictionary<HediffDef, HediffFlags>();
-        private static readonly ConcurrentDictionary<HediffDef, ImplantCharacteristics> implantCache = new ConcurrentDictionary<HediffDef, ImplantCharacteristics>();
+        /// <summary>Cache for packed hediff classification flags to avoid repeated evaluations.</summary>
+        private static readonly ConcurrentDictionary<HediffDef, HediffFlags> packedClassificationCache =
+            new ConcurrentDictionary<HediffDef, HediffFlags>();
+        /// <summary>Cache for implant characteristics to avoid repeated lookups.</summary>
+        private static readonly ConcurrentDictionary<HediffDef, ImplantCharacteristics> implantCache =
+            new ConcurrentDictionary<HediffDef, ImplantCharacteristics>();
+        /// <summary>Cache for physical stat checks to avoid repeated evaluations.</summary>
         private static readonly ConcurrentDictionary<StatDef, bool> physicalStatCache = new ConcurrentDictionary<StatDef, bool>();
+        /// <summary>Cache for hediff stage impact evaluations to avoid repeated computations.</summary>
+        private static readonly ConcurrentDictionary<HediffStage, bool> stageImpactCache = new ConcurrentDictionary<HediffStage, bool>();
 
-        // Harmony postfixes on Pawn.BodySize (e.g. broken gene mods) tend to fail deterministically for a
-        // given pawn every time, not intermittently - cache the failure so we pay the exception cost once.
+        /// <summary>Cache for known broken BodySize pawn IDs to avoid repeated exception handling.</summary>
+        /// <remarks>
+        /// Harmony postfixes on Pawn.BodySize (e.g. broken gene mods) tend to fail deterministically for a
+        /// given pawn every time, not intermittently - cache the failure so we pay the exception cost once.
+        /// </remarks>
         private static readonly ConcurrentDictionary<int, byte> knownBrokenBodySizePawnIds = new ConcurrentDictionary<int, byte>();
 
+        /// <summary>Cache for metabolic organs to avoid repeated lookups.</summary>
         private static HashSet<BodyPartDef> metabolicOrgans = new HashSet<BodyPartDef>();
+        /// <summary>Cache for vital organ source tags to avoid repeated lookups.</summary>
         private static HashSet<BodyPartTagDef> vitalOrganSourceTags = new HashSet<BodyPartTagDef>();
+        /// <summary>Indicates whether the metabolic organ cache has been initialized.</summary>
         private static bool metabolicInitialized = false;
 
         private static readonly Func<HediffDef, Type, HediffFlags> flagFactory = (d, type) =>
@@ -174,6 +191,38 @@ namespace OverHaulers
                 EfficiencyModifier = 1.0f + dominantOffset,
                 AffectsAthletics = affectsAthletic
             };
+        };
+
+        /// <summary>
+        /// Factory function to determine if a given hediff stage has a significant impact on the pawn's physical capabilities.
+        /// </summary>
+        /// <param name="stage">The hediff stage to evaluate.</param>
+        /// <returns><c>true</c> if the stage has a significant impact; otherwise, <c>false</c>.</returns>
+        private static readonly Func<HediffStage, bool> stageImpactFactory = (stage) =>
+        {
+            if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+            {
+                return true;
+            }
+
+            if (stage.capMods != null)
+            {
+                for (int i = 0; i < stage.capMods.Count; i++)
+                {
+                    PawnCapacityModifier capMod = stage.capMods[i];
+                    if (capMod != null && IsAthleticCapacity(capMod.capacity))
+                    {
+                        if (Math.Abs(capMod.offset) >= SettingsDefaults.EfficiencyEpsilon ||
+                            Math.Abs(capMod.postFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon ||
+                            Math.Abs(capMod.setMax - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return StageModifiesPhysicalStats(stage);
         };
 
         /// <summary>
@@ -444,24 +493,7 @@ namespace OverHaulers
                 HediffStage stage = d.stages[s];
                 if (stage == null) continue;
 
-                if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
-                {
-                    return true;
-                }
-
-                if (stage.capMods != null)
-                {
-                    for (int c = 0; c < stage.capMods.Count; c++)
-                    {
-                        PawnCapacityModifier capMod = stage.capMods[c];
-                        if (capMod != null && IsAthleticCapacity(capMod.capacity))
-                        {
-                            return true;
-                        }
-                    }
-                }
-
-                if (StageModifiesPhysicalStats(stage))
+                if (stageImpactCache.GetOrAdd(stage, stageImpactFactory))
                 {
                     return true;
                 }
@@ -484,34 +516,7 @@ namespace OverHaulers
                 return hediff.def != null && hediff.def.isBad;
             }
 
-            if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
-            {
-                return true;
-            }
-
-            if (stage.capMods != null)
-            {
-                for (int i = 0; i < stage.capMods.Count; i++)
-                {
-                    PawnCapacityModifier capMod = stage.capMods[i];
-                    if (capMod != null && IsAthleticCapacity(capMod.capacity))
-                    {
-                        if (Math.Abs(capMod.offset) >= SettingsDefaults.EfficiencyEpsilon ||
-                            Math.Abs(capMod.postFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon ||
-                            Math.Abs(capMod.setMax - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            if (StageModifiesPhysicalStats(stage))
-            {
-                return true;
-            }
-
-            return false;
+            return stageImpactCache.GetOrAdd(stage, stageImpactFactory);
         }
 
         /// <summary>
@@ -649,6 +654,7 @@ namespace OverHaulers
             packedClassificationCache.Clear();
             implantCache.Clear();
             physicalStatCache.Clear();
+            stageImpactCache.Clear();
             knownBrokenBodySizePawnIds.Clear();
             
             metabolicInitialized = false;

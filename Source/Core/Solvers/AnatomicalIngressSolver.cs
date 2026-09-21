@@ -76,6 +76,7 @@ namespace OverHaulers
             var coldStates = workspace.PartStatesColdArray;
 
             float consciousness = MedicalClassifier.GetCapacityLevel(pawn, PawnCapacityDefOf.Consciousness);
+            workspace.CachedConsciousness = consciousness;
             bool consciousnessIsDropped = consciousness < 1.0f - SettingsDefaults.EfficiencyEpsilon;
 
             // Ingress Native Consciousness Impactors at the translation boundary

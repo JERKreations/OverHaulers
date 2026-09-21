@@ -8,6 +8,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-02] Byte bitmask flags representing anatomical and pathological states in the SoA Flags buffer.
     /// Packed into single-byte memory lanes for SIMD compatibility and zero-stride cache streaming.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     public static class PartFlags
     {
@@ -60,6 +61,7 @@ namespace OverHaulers
     /// <summary>
     /// Stores cached mass capacity metrics for a pawn, including the last calculated offsets,
     /// detailed UI models, and combat debounce timestamps.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     public class CachedMassData
     {

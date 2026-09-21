@@ -7,6 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-01] Live pawn anatomical source translating live Pawn health trackers into the solver workspace.
     /// Stack-allocated struct wrapper with 0 bytes GC allocation overhead.
+    /// Resides under Source/Core/Ingress/.
     /// </summary>
     public readonly struct PawnAnatomicalSource : IAnatomicalDataSource
     {

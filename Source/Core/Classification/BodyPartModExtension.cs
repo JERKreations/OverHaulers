@@ -5,6 +5,7 @@ namespace OverHaulers
     /// <summary>
     /// XML DefModExtension allowing modders to explicitly override body part classifications,
     /// axial load roles, relative weight budgets, or limb depth decay for custom alien races and creatures.
+    /// Resides under Source/Core/Classification/.
     /// </summary>
     public class BodyPartModExtension : DefModExtension
     {
