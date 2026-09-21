@@ -319,11 +319,7 @@ namespace OverHaulers
         /// <param name="limbRoot">The root of the limb branch.</param>
         /// <returns>True if the body part is a descendant of the specified limb root; otherwise, false.</returns>
         /// <remarks>
-        /// This method performs the check in O(1) time using precompiled topology data.
-        /// </remarks>
-        /// </summary>
-        /// <remarks>
-        /// The RootPartIndex array is precomputed to allow this check to be done in constant time.
+        /// The RootPartIndex array is precomputed to allow this check to be done in constant time using precompiled topology data.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDescendantOfLimbRoot(BodyPartRecord part, BodyPartRecord limbRoot)

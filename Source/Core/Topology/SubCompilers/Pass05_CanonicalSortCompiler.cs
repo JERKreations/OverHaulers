@@ -4,14 +4,14 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [TOPO-SUB-04] CANONICAL SORT & FLAT JUMP-TABLE COMPILER
+    /// [TOPO-SUB-05] CANONICAL SORT & FLAT JUMP-TABLE COMPILER
     /// Stateless sub-compiler building execution sweep indices, 1D stride ancestral jump matrices,
     /// flat child buffer spans, and the natural top-down CanonicalDisplayIndices permutation array.
     /// Resides under Source/Core/Topology/SubCompilers/.
     /// </summary>
     public static class Pass05_CanonicalSortCompiler
     {
-        #region 1. [TOPO-SUB-04] PASS 5: JUMP MATRICES & CANONICAL DISPLAY PERMUTATION
+        #region 1. [TOPO-SUB-05] PASS 5: JUMP MATRICES & CANONICAL DISPLAY PERMUTATION
 
         /// <summary>
         /// Compiles 1D stride ancestor jump matrices, flat child buffers, depth-sorted execution arrays,

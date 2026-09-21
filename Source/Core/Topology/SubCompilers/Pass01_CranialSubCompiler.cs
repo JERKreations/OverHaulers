@@ -1,5 +1,4 @@
 using System;
-using RimWorld;
 using Verse;
 
 namespace OverHaulers
@@ -12,7 +11,7 @@ namespace OverHaulers
     /// </summary>
     public static class Pass01_CranialSubCompiler
     {
-        #region 1. PASS 1: SKELETAL DEPTH & CRANIAL INGRESS
+        #region 1. [TOPO-SUB-01] PASS 1: SKELETAL DEPTH & CRANIAL INGRESS
 
         /// <summary>
         /// Compiles the cranial ancestry for the given body definition, populating parent indices, head ancestry flags, and maximum skeletal depth.

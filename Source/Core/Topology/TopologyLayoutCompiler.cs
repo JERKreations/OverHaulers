@@ -19,7 +19,13 @@ namespace OverHaulers
     /// <summary>
     /// [TOPO-01 to TOPO-03] TOPOLOGY LAYOUT COMPILER ORCHESTRATOR
     /// Thread-safe layout compiler orchestrating modular sub-compilers to pre-compute species <see cref="BodyDef"/> trees
-    /// into flat, immutable Array-of-Structs (AoS) parallel vectors.
+    /// into flat, immutable Structure-of-Arrays (SoA) parallel vectors.
+    /// Orchestrates the 5-pass compilation pipeline:
+    ///   - Pass01_CranialSubCompiler: Skeletal Depth Traversal & Cranial Ancestry [TOPO-SUB-01]
+    ///   - Pass02_AppendageSubCompiler: Bidirectional Limb Classification & Root Discovery [TOPO-SUB-02]
+    ///   - Pass03_AxialTrunkSubCompiler: Axial Torso Roles & HitPoint Density Power Curves [TOPO-SUB-03]
+    ///   - Pass04_AppendageWeightSubCompiler: Geometric Limb Depth Decay & 3-Channel Weight Normalization [TOPO-SUB-04]
+    ///   - Pass05_CanonicalSortCompiler: Two-Pass Canonical Topological Sort & 1D Jump Stride Matrices [TOPO-SUB-05]
     /// Resides under Source/Core/Topology/.
     /// </summary>
     [StaticConstructorOnStartup]
@@ -413,7 +419,7 @@ namespace OverHaulers
                 bodyDef, template, resolvedTypes, tempPartTopologies, out float[] torsoRawWeights, out float torsoWeightSum);
 
             // PASS 4: Geometric Limb Depth Decay & 3-Channel Weight Normalization
-            Pass02_AppendageSubCompiler.CompileLimbAndFinalWeights(
+            Pass04_AppendageWeightSubCompiler.CompileLimbAndFinalWeights(
                 bodyDef, template, counts, tempPartTopologies, torsoRawWeights, torsoWeightSum);
 
             // PASS 5: Two-Pass Canonical Topological Sort & 1D Jump Stride Matrices
