@@ -7,10 +7,10 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-06] CARAVAN UI HARMONY INTERCEPT
+    #region 1. [INT-07] CARAVAN UI HARMONY INTERCEPT
 
     /// <summary>
-    /// [INT-06] High-performance Harmony hooks intercepting Caravan Mass Capacity tooltips across:
+    /// [INT-07] High-performance Harmony hooks intercepting Caravan Mass Capacity tooltips across:
     /// 1. Active World Caravans (Caravan.MassCapacityExplanation)
     /// 2. Universal Caravan UI Bars (CaravanUIUtility.DrawCaravanInfo for Form Caravan, Pods, Shuttles &amp; Split dialogs)
     /// Employs compiled dynamic IL field accessors to achieve zero reflection overhead during IMGUI rendering passes.

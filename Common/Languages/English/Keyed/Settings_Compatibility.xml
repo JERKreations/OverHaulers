@@ -2,46 +2,43 @@
 <LanguageData>
 
   <!-- ========================================================================= -->
-  <!-- [SEC-08] COMPATIBILITY & EXTERNAL INTEGRATION PIPELINE                    -->
+  <!-- [SEC-08] COMPATIBILITY & STAT CARD ADOPTION PIPELINE                      -->
   <!-- ========================================================================= -->
-  <OverHaulers_CompatibilityHeader>(BETA) Compatibility &amp; External Mod Integration</OverHaulers_CompatibilityHeader>
-  <OverHaulers_Compatibility_Desc>Control how OverHaulers interacts with other caravan mass capacity stats, drivers, and external Harmony patches.</OverHaulers_Compatibility_Desc>
+  <OverHaulers_CompatibilityHeader>Compatibility &amp; Stat Card Adoption</OverHaulers_CompatibilityHeader>
+  <OverHaulers_Compatibility_Desc>Configure how caravan mass capacity is presented on pawn InfoCards when playing alongside other mods. Anatomical and biological calculations are always delivered universally to the game engine.</OverHaulers_Compatibility_Desc>
 
   <!-- Active Pipeline Banner -->
-  <OverHaulers_ActiveDriverBanner>Active Pipeline Driver: {0} [{1}]</OverHaulers_ActiveDriverBanner>
+  <OverHaulers_ActiveStatBanner>Active InfoCard Stat: {0} [{1}]</OverHaulers_ActiveStatBanner>
 
-  <!-- Top-Level Driver Modes -->
-  <OverHaulers_DriverMode_Auto>Automatic Selection (Recommended)</OverHaulers_DriverMode_Auto>
-  <OverHaulers_DriverMode_Auto_Tooltip>Allows OverHaulers to dynamically select the optimal driver, prioritizing verified XML profiles, then explicit C# mod drivers, and falling back to bytecode inspection or Standalone mode as needed.</OverHaulers_DriverMode_Auto_Tooltip>
-  <OverHaulers_DriverMode_Standalone>Force Standalone Direct Mode</OverHaulers_DriverMode_Standalone>
-  <OverHaulers_DriverMode_Standalone_Tooltip>Ignores all external mod stat drivers and runs purely as a direct postfix on MassUtility.Capacity.</OverHaulers_DriverMode_Standalone_Tooltip>
+  <!-- Top-Level Display Modes -->
+  <OverHaulers_PresentationMode_Auto>Automatic Stat Adoption (Recommended)</OverHaulers_PresentationMode_Auto>
+  <OverHaulers_PresentationMode_Auto_Tooltip>Allows OverHaulers to adopt external caravan stats (such as VEF_MassCarryCapacity), injecting our detailed breakdown directly into their InfoCard. This prevents duplicate stat rows on pawns. If no external stats are detected, it cleanly falls back to the native OverHaulers card.</OverHaulers_PresentationMode_Auto_Tooltip>
+  <OverHaulers_PresentationMode_Native>Force Native Card Display</OverHaulers_PresentationMode_Native>
+  <OverHaulers_PresentationMode_Native_Tooltip>Forces OverHaulers to always display its own dedicated 'Caravan mass capacity' card on pawns, leaving any third-party mod cards untouched. (Carrying capacity calculations remain fully active).</OverHaulers_PresentationMode_Native_Tooltip>
 
-  <!-- Driver Group Headers -->
-  <OverHaulers_DriverGroup_BuiltIn>Verified Built-In Profiles</OverHaulers_DriverGroup_BuiltIn>
-  <OverHaulers_DriverGroup_ThirdParty>Third-Party Declarative Profiles</OverHaulers_DriverGroup_ThirdParty>
-  <OverHaulers_DriverGroup_CSharp>Explicit C# Registrations (Mod API)</OverHaulers_DriverGroup_CSharp>
-  <OverHaulers_DriverGroup_CSharp_None>None registered by loaded mods.</OverHaulers_DriverGroup_CSharp_None>
-  <OverHaulers_DriverGroup_None>None discovered.</OverHaulers_DriverGroup_None>
-  <OverHaulers_DriverGroup_Cil>Dynamic Bytecode Discoveries (Unlisted Fallbacks)</OverHaulers_DriverGroup_Cil>
+  <!-- Profile Group Headers -->
+  <OverHaulers_ProfileGroup_BuiltIn>Verified Compatible Profiles</OverHaulers_ProfileGroup_BuiltIn>
+  <OverHaulers_ProfileGroup_ThirdParty>Third-Party XML Profiles</OverHaulers_ProfileGroup_ThirdParty>
+  <OverHaulers_ProfileGroup_None>None discovered.</OverHaulers_ProfileGroup_None>
+  <OverHaulers_ProfileGroup_Cil>Discovered External Patches (Bytecode Scanner)</OverHaulers_ProfileGroup_Cil>
 
-  <!-- Dynamic CIL Scanning -->
-  <OverHaulers_CilScanIdleDesc>Dynamic bytecode inspection is idle. An active driver is already configured. Bytecode scanning disassembles external patch instructions and is only needed if an unlisted mod is not functioning properly.</OverHaulers_CilScanIdleDesc>
-  <OverHaulers_ScanPatchesBtn>🔍 Scan for Unlisted Mod Patches</OverHaulers_ScanPatchesBtn>
-  <OverHaulers_ScanPatchesDone>✓ Scan Complete ({0} Patches Found)</OverHaulers_ScanPatchesDone>
+  <!-- Dynamic CIL Bytecode Scanning -->
+  <OverHaulers_CilScanIdleDesc>Dynamic bytecode inspection is idle. An active stat card is already configured. Scanning disassembles external Harmony patches on MassUtility.Capacity to discover candidate caravan stats from unlisted or new mods.</OverHaulers_CilScanIdleDesc>
+  <OverHaulers_ScanPatchesBtn>Scan for Unlisted Mod Patches</OverHaulers_ScanPatchesBtn>
+  <OverHaulers_ScanPatchesDone>Scan Complete ({0} Patches Found)</OverHaulers_ScanPatchesDone>
   <OverHaulers_ModActive>Active &amp; Available</OverHaulers_ModActive>
   <OverHaulers_ModNotLoaded>Mod Not Loaded</OverHaulers_ModNotLoaded>
-  <OverHaulers_NoCandidateStatsInPatch>— No caravan-related stats detected in this patch.</OverHaulers_NoCandidateStatsInPatch>
+  <OverHaulers_NoCandidateStatsInPatch>- No caravan-related stats detected in this patch.</OverHaulers_NoCandidateStatsInPatch>
   <OverHaulers_SuggestedStat>Suggested</OverHaulers_SuggestedStat>
-  <OverHaulers_NoExternalPatchesDiscovered>No external C# mod patches detected on MassUtility.Capacity.</OverHaulers_NoExternalPatchesDiscovered>
+  <OverHaulers_NoExternalPatchesDiscovered>No external mod patches detected on MassUtility.Capacity.</OverHaulers_NoExternalPatchesDiscovered>
 
   <!-- Badges & Format Strings -->
-  <OverHaulers_DriverLabel_StatFormat>{0}  [Stat: {1}]</OverHaulers_DriverLabel_StatFormat>
+  <OverHaulers_ProfileLabel_StatFormat>{0}  [Stat: {1}]</OverHaulers_ProfileLabel_StatFormat>
   <OverHaulers_PatchHeader_OwnerFormat>Patch Owner: {0} [{1}]</OverHaulers_PatchHeader_OwnerFormat>
-  <OverHaulers_Badge_StandalonePostfix>Standalone Postfix</OverHaulers_Badge_StandalonePostfix>
-  <OverHaulers_Badge_DeclarativeXml>Declarative XML</OverHaulers_Badge_DeclarativeXml>
-  <OverHaulers_Badge_DynamicBytecode>Dynamic Bytecode</OverHaulers_Badge_DynamicBytecode>
-  <OverHaulers_Badge_StatPartDriver>StatPart Driver</OverHaulers_Badge_StatPartDriver>
-  <OverHaulers_Badge_CSharpDriver>C# Driver</OverHaulers_Badge_CSharpDriver>
+  <OverHaulers_Badge_NativeCard>Native Card</OverHaulers_Badge_NativeCard>
+  <OverHaulers_Badge_AdoptedXml>Adopted (XML Profile)</OverHaulers_Badge_AdoptedXml>
+  <OverHaulers_Badge_AdoptedBytecode>Adopted (Discovered)</OverHaulers_Badge_AdoptedBytecode>
+  <OverHaulers_Badge_AdoptedStat>Adopted Stat</OverHaulers_Badge_AdoptedStat>
 
   <!-- Dynamic Verification & What to Expect Sub-Card -->
   <OverHaulers_Verify_Field_Display>Info Card:</OverHaulers_Verify_Field_Display>
@@ -51,24 +48,28 @@
   <OverHaulers_Verify_FallbackStat>Caravan mass capacity</OverHaulers_Verify_FallbackStat>
   <OverHaulers_Verify_FallbackCategory>Basics</OverHaulers_Verify_FallbackCategory>
 
-  <OverHaulers_Verify_Unified_Title>Optimal Unified Integration</OverHaulers_Verify_Unified_Title>
-  <OverHaulers_Verify_Unified_Display>1 single unified entry: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Unified_Display>
-  <OverHaulers_Verify_Unified_Gear>External mod gear (backpacks) and body ratings are merged cleanly into one calculation.</OverHaulers_Verify_Unified_Gear>
-  <OverHaulers_Verify_Unified_Confirm>Inspect '{0}' on any colonist to see the combined OverHaulers breakdown.</OverHaulers_Verify_Unified_Confirm>
+  <!-- Scenario A: Optimal Unified Integration -->
+  <OverHaulers_Verify_Unified_Title>Unified InfoCard Integration</OverHaulers_Verify_Unified_Title>
+  <OverHaulers_Verify_Unified_Display>1 single card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Unified_Display>
+  <OverHaulers_Verify_Unified_Gear>External gear (backpacks) and OverHaulers biological ratings are merged cleanly into this card.</OverHaulers_Verify_Unified_Gear>
+  <OverHaulers_Verify_Unified_Confirm>Inspect '{0}' on any colonist to view the combined OverHaulers anatomical breakdown.</OverHaulers_Verify_Unified_Confirm>
 
-  <OverHaulers_Verify_Standalone_Title>Native Standalone Mode</OverHaulers_Verify_Standalone_Title>
-  <OverHaulers_Verify_Standalone_Display>1 native entry: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Standalone_Display>
+  <!-- Scenario B: Native Standalone Mode -->
+  <OverHaulers_Verify_Standalone_Title>Native Standalone Card</OverHaulers_Verify_Standalone_Title>
+  <OverHaulers_Verify_Standalone_Display>1 native card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Standalone_Display>
   <OverHaulers_Verify_Standalone_Gear>Standard vanilla gear calculations without external stat redirects.</OverHaulers_Verify_Standalone_Gear>
-  <OverHaulers_Verify_Standalone_Confirm>Inspect '{0}' on any colonist to view the biological body rating, bionics, and injury breakdowns.</OverHaulers_Verify_Standalone_Confirm>
+  <OverHaulers_Verify_Standalone_Confirm>Inspect '{0}' on any colonist to view biological ratings, bionics, and injury breakdowns.</OverHaulers_Verify_Standalone_Confirm>
 
-  <OverHaulers_Verify_SideBySide_Title>Side-by-Side Execution</OverHaulers_Verify_SideBySide_Title>
+  <!-- Scenario C: Side-by-Side Execution -->
+  <OverHaulers_Verify_SideBySide_Title>Side-by-Side Stat Cards</OverHaulers_Verify_SideBySide_Title>
   <OverHaulers_Verify_SideBySide_Display>May show 2 separate listings: '{0}' alongside the external mod's stat under pawn 'i' ➔ Stats tab.</OverHaulers_Verify_SideBySide_Display>
-  <OverHaulers_Verify_SideBySide_Gear>Both calculations safely sum when caravans form. No carrying capacity is lost.</OverHaulers_Verify_SideBySide_Gear>
-  <OverHaulers_Verify_SideBySide_Confirm>If you prefer a single unified entry, select 'Automatic Selection' above or choose a matching profile below.</OverHaulers_Verify_SideBySide_Confirm>
+  <OverHaulers_Verify_SideBySide_Gear>Both stats remain visible on pawns. All caravan capacity and gear bonuses calculate safely without loss.</OverHaulers_Verify_SideBySide_Gear>
+  <OverHaulers_Verify_SideBySide_Confirm>If you prefer a single clean entry, select 'Automatic Selection' above or choose a matching profile below.</OverHaulers_Verify_SideBySide_Confirm>
 
-  <OverHaulers_Verify_Cil_Title>Custom Dynamic Hook: [{0}]</OverHaulers_Verify_Cil_Title>
-  <OverHaulers_Verify_Cil_Display>Hooked into '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Cil_Display>
-  <OverHaulers_Verify_Cil_Gear>Caravan mass capacity relies on this external stat hook.</OverHaulers_Verify_Cil_Gear>
+  <!-- Scenario D: Custom Dynamic CIL Hook -->
+  <OverHaulers_Verify_Cil_Title>Adopted Discovered Stat: [{0}]</OverHaulers_Verify_Cil_Title>
+  <OverHaulers_Verify_Cil_Display>Breakdown attached to '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Cil_Display>
+  <OverHaulers_Verify_Cil_Gear>Caravan InfoCard explanation is injected directly into this external stat.</OverHaulers_Verify_Cil_Gear>
   <OverHaulers_Verify_Cil_Confirm>Inspect '{0}' on a colonist. If no OverHaulers breakdown appears or numbers do not update, select another candidate or revert to Automatic.</OverHaulers_Verify_Cil_Confirm>
 
 </LanguageData>

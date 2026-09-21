@@ -32,7 +32,7 @@ namespace OverHaulers
                 Action customResetAction = () =>
                 {
                     resetAction?.Invoke();
-                    IntegrationPipeline.RebindDriver();
+                    IntegrationPipeline.RebindPresentation();
                 };
 
                 SettingsViewUtilities.DrawHeaderWithResetDirect(inner, "OverHaulers_CompatibilityHeader", customResetAction, localY, out localY);
@@ -43,14 +43,14 @@ namespace OverHaulers
                 // ---------------------------------------------------------------------
                 // 1. ACTIVE STAT STATUS READOUT BANNER
                 // ---------------------------------------------------------------------
-                string currentKey = settings.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
+                string currentKey = settings.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
                 string activeStatName = IntegrationPipeline.ActiveStatOwner;
                 string activeBadgeType = ResolveStatPresentationBadge();
 
                 Rect activeBannerRect = new Rect(inner.x, localY, inner.width, 24f);
                 Widgets.DrawBoxSolid(activeBannerRect, SettingsViewUtilities.DarkTargetHighlightColor);
 
-                string activeLabel = "OverHaulers_ActiveDriverBanner".Translate(activeStatName, activeBadgeType).ToString();
+                string activeLabel = "OverHaulers_ActiveStatBanner".Translate(activeStatName, activeBadgeType).ToString();
                 
                 Text.Font = GameFont.Tiny;
                 GUI.color = settings.colorBoosted;
@@ -68,84 +68,77 @@ namespace OverHaulers
                 // ---------------------------------------------------------------------
                 // 2. TOP-LEVEL MODE SELECTION (AUTO VS STANDALONE)
                 // ---------------------------------------------------------------------
-                bool isAutoSelected = currentKey == IntegrationPipeline.DriverKeyAuto;
-                bool isStandaloneSelected = currentKey == IntegrationPipeline.DriverKeyStandalone;
+                bool isAutoSelected = currentKey == IntegrationPipeline.PresentationKeyAuto;
+                bool isStandaloneSelected = currentKey == IntegrationPipeline.PresentationKeyNative;
 
                 // Option A: Automatic Selection (Recommended)
                 Rect autoRowRect = new Rect(inner.x, localY, inner.width, 24f);
-                if (DrawCustomRadioRow(autoRowRect, "OverHaulers_DriverMode_Auto".Translate().ToString(), isAutoSelected))
+                if (DrawCustomRadioRow(autoRowRect, "OverHaulers_PresentationMode_Auto".Translate().ToString(), isAutoSelected))
                 {
-                    settings.selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
-                    IntegrationPipeline.RebindDriver();
+                    settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
+                    IntegrationPipeline.RebindPresentation();
                 }
-                TooltipHandler.TipRegion(autoRowRect, "OverHaulers_DriverMode_Auto_Tooltip".Translate().ToString());
+                TooltipHandler.TipRegion(autoRowRect, "OverHaulers_PresentationMode_Auto_Tooltip".Translate().ToString());
                 localY += 26f;
 
                 // Option B: Force Standalone Direct Mode
                 Rect standaloneRowRect = new Rect(inner.x, localY, inner.width, 24f);
-                if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_DriverMode_Standalone".Translate().ToString(), isStandaloneSelected))
+                if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_PresentationMode_Native".Translate().ToString(), isStandaloneSelected))
                 {
-                    settings.selectedDriverKey = IntegrationPipeline.DriverKeyStandalone;
-                    IntegrationPipeline.RebindDriver();
+                    settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
+                    IntegrationPipeline.RebindPresentation();
                 }
-                TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_DriverMode_Standalone_Tooltip".Translate().ToString());
+                TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_PresentationMode_Native_Tooltip".Translate().ToString());
                 localY += 32f;
 
                 // ---------------------------------------------------------------------
                 // 3. DECLARATIVE XML PROFILES (BUILT-IN & THIRD-PARTY)
                 // ---------------------------------------------------------------------
-                List<MassCapacityDriverDef> allXmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
+                List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
 
-                List<MassCapacityDriverDef> builtInDrivers = new List<MassCapacityDriverDef>();
-                List<MassCapacityDriverDef> thirdPartyDrivers = new List<MassCapacityDriverDef>();
+                List<MassCapacityStatProfileDef> builtInProfiles = new List<MassCapacityStatProfileDef>();
+                List<MassCapacityStatProfileDef> thirdPartyProfiles = new List<MassCapacityStatProfileDef>();
 
-                if (allXmlDrivers != null)
+                if (allXmlProfiles != null)
                 {
-                    for (int i = 0; i < allXmlDrivers.Count; i++)
+                    for (int i = 0; i < allXmlProfiles.Count; i++)
                     {
-                        var def = allXmlDrivers[i];
-                        if (def.modContentPack == OverHaulers.ContentPack) builtInDrivers.Add(def);
-                        else thirdPartyDrivers.Add(def);
+                        var def = allXmlProfiles[i];
+                        if (def.modContentPack == OverHaulers.ContentPack) builtInProfiles.Add(def);
+                        else thirdPartyProfiles.Add(def);
                     }
                 }
 
-                DrawGroupSubHeader(inner, "OverHaulers_DriverGroup_BuiltIn".Translate().ToString(), ref localY);
+                DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_BuiltIn".Translate().ToString(), ref localY);
 
-                if (builtInDrivers.Count == 0)
+                if (builtInProfiles.Count == 0)
                 {
-                    DrawEmptyGroupNote(inner, "OverHaulers_DriverGroup_None".Translate().ToString(), ref localY);
+                    DrawEmptyGroupNote(inner, "OverHaulers_ProfileGroup_None".Translate().ToString(), ref localY);
                 }
                 else
                 {
-                    for (int i = 0; i < builtInDrivers.Count; i++)
+                    for (int i = 0; i < builtInProfiles.Count; i++)
                     {
-                        DrawXmlDriverEntry(inner, builtInDrivers[i], currentKey, settings, ref localY);
+                        DrawXmlProfileEntry(inner, builtInProfiles[i], currentKey, settings, ref localY);
                     }
                 }
 
-                if (thirdPartyDrivers.Count > 0)
+                if (thirdPartyProfiles.Count > 0)
                 {
                     localY += 6f;
-                    DrawGroupSubHeader(inner, "OverHaulers_DriverGroup_ThirdParty".Translate().ToString(), ref localY);
-                    for (int i = 0; i < thirdPartyDrivers.Count; i++)
+                    DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_ThirdParty".Translate().ToString(), ref localY);
+                    for (int i = 0; i < thirdPartyProfiles.Count; i++)
                     {
-                        DrawXmlDriverEntry(inner, thirdPartyDrivers[i], currentKey, settings, ref localY);
+                        DrawXmlProfileEntry(inner, thirdPartyProfiles[i], currentKey, settings, ref localY);
                     }
                 }
 
                 localY += 10f;
 
                 // ---------------------------------------------------------------------
-                // 4. EXPLICIT C# REGISTRATIONS (MOD API)
+                // 4. DYNAMIC BYTECODE DISCOVERIES (LAZY CIL SCANNING)
                 // ---------------------------------------------------------------------
-                DrawGroupSubHeader(inner, "OverHaulers_DriverGroup_CSharp".Translate().ToString(), ref localY);
-                DrawEmptyGroupNote(inner, "OverHaulers_DriverGroup_CSharp_None".Translate().ToString(), ref localY);
-                localY += 10f;
-
-                // ---------------------------------------------------------------------
-                // 5. DYNAMIC BYTECODE DISCOVERIES (LAZY CIL SCANNING)
-                // ---------------------------------------------------------------------
-                DrawGroupSubHeader(inner, "OverHaulers_DriverGroup_Cil".Translate().ToString(), ref localY);
+                DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_Cil".Translate().ToString(), ref localY);
 
                 if (!IntegrationPipeline.HasScannedThisSession)
                 {
@@ -196,8 +189,11 @@ namespace OverHaulers
 
         /// <summary>
         /// Represents the verification guide containing status and guidance lines for in-game verification.
-        /// This struct encapsulates the status title, status color, and the various guidance lines to be displayed in the settings view.
         /// </summary>
+        /// <remarks>
+        /// This struct encapsulates the information needed to display the verification status and guidance
+        /// for the current in-game settings, including the status title, color, and various instructional lines.
+        /// </remarks>
         private struct VerificationGuide
         {
             public string StatusTitle;
@@ -208,10 +204,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Builds a verification guide based on the current settings and active presentation state, providing status and guidance for in-game verification.
+        /// Builds a verification guide based on the current settings and active presentation state.
         /// </summary>
-        /// <param name="settings">The current settings object containing user preferences and selected presentation key.</param>
-        /// <returns>A VerificationGuide struct populated with status and guidance lines for in-game verification.</returns>
+        /// <param name="settings">The current settings object used to determine the verification guide.</param>
+        /// <returns>A VerificationGuide struct containing the status and guidance lines for in-game verification.</returns>
         private static VerificationGuide BuildVerificationGuide(Settings settings)
         {
             StatDef stat = IntegrationPipeline.ActiveMassCapacityStat;
@@ -224,9 +220,9 @@ namespace OverHaulers
                 ? stat.category.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackCategory".Translate().ToString();
 
-            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
-            bool isForcedStandalone = key == IntegrationPipeline.DriverKeyStandalone;
-            bool isCilLocked = key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix);
+            string key = settings?.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
+            bool isForcedStandalone = key == IntegrationPipeline.PresentationKeyNative;
+            bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
             bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;
 
             // Scenario C: Side-by-Side (Forced Standalone with external patches active)
@@ -280,10 +276,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Draws the verification guide card within the settings view, displaying the status, display line, gear line, and confirmation line.
+        /// Draws the verification guide card within the settings view.
         /// </summary>
         /// <param name="inner">The inner rectangle defining the drawing area for the verification guide card.</param>
-        /// <param name="guide">The verification guide containing the lines and status to be displayed.</param>
+        /// <param name="guide">The verification guide data to be displayed.</param>
         /// <param name="localY">The local Y-coordinate for positioning the card, passed by reference to allow vertical stacking.</param>
         private static void DrawVerificationGuideCard(Rect inner, in VerificationGuide guide, ref float localY)
         {
@@ -345,15 +341,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Draws a single verification line within the settings view, consisting of a prefix and corresponding text value.
+        /// Draws a single verification line within the settings view.
         /// </summary>
-        /// <param name="startX">The starting X-coordinate for the line.</param>
-        /// <param name="curY">The current Y-coordinate for the line, passed by reference to allow vertical stacking.</param>
-        /// <param name="prefixWidth">The width allocated for the prefix label.</param>
-        /// <param name="valueWidth">The width allocated for the text value.</param>
+        /// <param name="startX">The starting X-coordinate for the verification line.</param>
+        /// <param name="curY">The current Y-coordinate for positioning the line, passed by reference to allow vertical stacking.</param>
+        /// <param name="prefixWidth">The width allocated for the prefix text.</param>
+        /// <param name="valueWidth">The width allocated for the value text.</param>
         /// <param name="lineHeight">The height of the line.</param>
-        /// <param name="prefix">The prefix text to be displayed before the value.</param>
-        /// <param name="text">The text value corresponding to the prefix.</param>
+        /// <param name="prefix">The prefix text to be displayed (usually a label or bullet point).</param>
+        /// <param name="text">The main text content of the verification line.</param>
         private static void DrawVerificationLine(float startX, ref float curY, float prefixWidth, float valueWidth, float lineHeight, string prefix, string text)
         {
             Rect prefixRect = new Rect(startX, curY, prefixWidth, lineHeight);
@@ -406,17 +402,12 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Draws the UI elements for an XML profile entry within the settings view.
+        /// Draws the UI elements for an XML stat profile entry within the settings view.
         /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the profile entry UI elements.</param>
-        /// <param name="def">The XML driver definition to be displayed.</param>
-        /// <param name="currentKey">The currently selected presentation key for comparison.</param>
-        /// <param name="settings">The current settings object containing user preferences and selections.</param>
-        /// <param name="localY">The local Y-coordinate for positioning the UI elements, passed by reference to allow vertical stacking.</param>
-        private static void DrawXmlDriverEntry(Rect inner, MassCapacityDriverDef def, string currentKey, Settings settings, ref float localY)
+        private static void DrawXmlProfileEntry(Rect inner, MassCapacityStatProfileDef def, string currentKey, Settings settings, ref float localY)
         {
             bool isActive = def.IsValidAndActive(out _);
-            string expectedKey = IntegrationPipeline.DriverKeyXmlPrefix + def.defName;
+            string expectedKey = IntegrationPipeline.PresentationKeyXmlPrefix + def.defName;
             bool isSelected = currentKey == expectedKey;
 
             Rect rowRect = new Rect(inner.x + 8f, localY, inner.width - 8f, 24f);
@@ -430,15 +421,15 @@ namespace OverHaulers
             Rect radioRect = new Rect(rowRect.x, rowRect.y, rowRect.width - badgeWidth - 4f, rowRect.height);
             Rect badgeRect = new Rect(rowRect.x + rowRect.width - badgeWidth, rowRect.y + 2f, badgeWidth, rowRect.height);
 
-            string driverName = def.label ?? def.defName;
-            string driverLabel = "OverHaulers_DriverLabel_StatFormat".Translate(driverName, def.statDefName).ToString();
+            string profileName = def.label ?? def.defName;
+            string profileLabel = "OverHaulers_ProfileLabel_StatFormat".Translate(profileName, def.statDefName).ToString();
 
             if (isActive)
             {
-                if (DrawCustomRadioRow(radioRect, driverLabel, isSelected))
+                if (DrawCustomRadioRow(radioRect, profileLabel, isSelected))
                 {
-                    settings.selectedDriverKey = expectedKey;
-                    IntegrationPipeline.RebindDriver();
+                    settings.selectedPresentationKey = expectedKey;
+                    IntegrationPipeline.RebindPresentation();
                 }
 
                 Text.Font = GameFont.Tiny;
@@ -450,7 +441,7 @@ namespace OverHaulers
             else
             {
                 GUI.enabled = false;
-                DrawCustomRadioRow(radioRect, driverLabel, false);
+                DrawCustomRadioRow(radioRect, profileLabel, false);
 
                 Text.Font = GameFont.Tiny;
                 GUI.color = SettingsViewUtilities.DescriptionTextColor;
@@ -486,7 +477,7 @@ namespace OverHaulers
                 for (int s = 0; s < patch.CandidateStats.Count; s++)
                 {
                     StatDef stat = patch.CandidateStats[s];
-                    string targetKey = $"{IntegrationPipeline.DriverKeyCilPrefix}{patch.Owner}:{stat.defName}";
+                    string targetKey = $"{IntegrationPipeline.PresentationKeyCilPrefix}{patch.Owner}:{stat.defName}";
                     bool isSelected = currentKey == targetKey;
 
                     string suggested = (s == 0) ? (" - " + "OverHaulers_SuggestedStat".Translate().ToString()).Colorize(settings.colorBoosted) : "";
@@ -495,8 +486,8 @@ namespace OverHaulers
                     Rect statRadioRect = new Rect(inner.x + 24f, localY, inner.width - 24f, 24f);
                     if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
                     {
-                        settings.selectedDriverKey = targetKey;
-                        IntegrationPipeline.RebindDriver();
+                        settings.selectedPresentationKey = targetKey;
+                        IntegrationPipeline.RebindPresentation();
                     }
                     localY += 24f;
                 }
@@ -513,41 +504,40 @@ namespace OverHaulers
                 localY += 20f;
             }
 
-            localY += 6f; // Inter-patch separation gap
+            localY += 6f;
         }
 
         /// <summary>
         /// Resolves the appropriate badge label based on the current stat presentation binding.
         /// </summary>
-        /// <returns>The localized badge label string corresponding to the presentation type.</returns>
         private static string ResolveStatPresentationBadge()
         {
             if (!IntegrationPipeline.IsForeignStatAdopted)
             {
-                return "OverHaulers_Badge_StandalonePostfix".Translate().ToString();
+                return "OverHaulers_Badge_NativeCard".Translate().ToString();
             }
 
-            string key = OverHaulers.settings?.selectedDriverKey ?? "";
-            if (key.StartsWith(IntegrationPipeline.DriverKeyCilPrefix))
+            string key = OverHaulers.settings?.selectedPresentationKey ?? "";
+            if (key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix))
             {
-                return "OverHaulers_Badge_DynamicBytecode".Translate().ToString();
+                return "OverHaulers_Badge_AdoptedBytecode".Translate().ToString();
             }
 
             // Check if active stat matches any loaded XML definition
-            List<MassCapacityDriverDef> xmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
-            if (xmlDrivers != null)
+            List<MassCapacityStatProfileDef> xmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
+            if (xmlProfiles != null)
             {
-                for (int i = 0; i < xmlDrivers.Count; i++)
+                for (int i = 0; i < xmlProfiles.Count; i++)
                 {
-                    string id = xmlDrivers[i].label ?? xmlDrivers[i].defName;
+                    string id = xmlProfiles[i].label ?? xmlProfiles[i].defName;
                     if (string.Equals(IntegrationPipeline.ActiveStatOwner, id, StringComparison.OrdinalIgnoreCase))
                     {
-                        return "OverHaulers_Badge_DeclarativeXml".Translate().ToString();
+                        return "OverHaulers_Badge_AdoptedXml".Translate().ToString();
                     }
                 }
             }
 
-            return "OverHaulers_Badge_StatPartDriver".Translate().ToString();
+            return "OverHaulers_Badge_AdoptedStat".Translate().ToString();
         }
 
         /// <summary>

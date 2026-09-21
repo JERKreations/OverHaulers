@@ -112,15 +112,13 @@ namespace OverHaulers
 
         #endregion
 
-        #region 10. [SEC-08] COMPATIBILITY & PIPELINE DRIVER FIELDS
+        #region 10. [SEC-08] COMPATIBILITY & STAT ADOPTION FIELDS
 
-        // public string selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
-        public string selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey; // TEMP PATCH
+        public string selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
 
         public void ResetCompatibility()
         {
-            // selectedDriverKey = IntegrationPipeline.DriverKeyAuto;
-            selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey;
+            selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
             SettingsViewUtilities.ClearInputBuffers();
         }
 
@@ -489,8 +487,17 @@ namespace OverHaulers
             Scribe_Values.Look(ref prostheticImpactConstant, "prostheticImpactConstant", SettingsDefaults.ProstheticImpactConstant);
             Scribe_Values.Look(ref athleticImpactConstant, "athleticImpactConstant", SettingsDefaults.AthleticImpactConstant);
 
-            // Scribe_Values.Look(ref selectedDriverKey, "selectedDriverKey", IntegrationPipeline.DriverKeyAuto);
-            Scribe_Values.Look(ref selectedDriverKey, "selectedDriverKey", SettingsDefaults.DefaultSelectedDriverKey); // TEMP PATCH
+            Scribe_Values.Look(ref selectedPresentationKey, "selectedPresentationKey", SettingsDefaults.DefaultSelectedPresentationKey);
+            // Backward-compatibility migration: check for legacy 'selectedDriverKey'
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                string legacyKey = null;
+                Scribe_Values.Look(ref legacyKey, "selectedDriverKey");
+                if (!string.IsNullOrEmpty(legacyKey) && selectedPresentationKey == SettingsDefaults.DefaultSelectedPresentationKey)
+                {
+                    selectedPresentationKey = (legacyKey == "STANDALONE") ? IntegrationPipeline.PresentationKeyNative : legacyKey;
+                }
+            }
 
             Scribe_Values.Look(ref verboseBreakdown, "verboseBreakdown", SettingsDefaults.VerboseBreakdown);
             Scribe_Values.Look(ref reportMetricsIntervalHours, "reportMetricsIntervalHours", SettingsDefaults.ReportMetricsIntervalHours);

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -32,11 +31,10 @@ namespace OverHaulers
     {
         #region 1. CONSTANTS & ACTIVE PRESENTATION BINDING
 
-        public const string DriverKeyAuto = "AUTO";
-        public const string DriverKeyStandalone = "STANDALONE";
-        public const string DriverKeyXmlPrefix = "XML:";
-        public const string DriverKeyCSharpPrefix = "CSHARP:";
-        public const string DriverKeyCilPrefix = "CIL:";
+        public const string PresentationKeyAuto = "AUTO";
+        public const string PresentationKeyNative = "STANDALONE";
+        public const string PresentationKeyXmlPrefix = "XML:";
+        public const string PresentationKeyCilPrefix = "CIL:";
 
         public static StatDef ActiveMassCapacityStat { get; private set; }
         public static bool IsForeignStatAdopted { get; private set; }
@@ -57,7 +55,7 @@ namespace OverHaulers
         /// Rebinds the active presentation stat, detaching from any previously adopted foreign stats
         /// and re-evaluating preferences and detected mods.
         /// </summary>
-        public static void RebindDriver()
+        public static void RebindPresentation()
         {
             if (HarmonySetup.HarmonyInstance == null) return;
 
@@ -80,33 +78,33 @@ namespace OverHaulers
 
             string localizedSuffix = " " + "kg".Translate();
             Settings settings = OverHaulers.settings;
-            string key = settings?.selectedDriverKey ?? SettingsDefaults.DefaultSelectedDriverKey;
+            string key = settings?.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
 
             // -------------------------------------------------------------------------
             // PATH A: EXPLICIT PLAYER OVERRIDES (Highest Authority)
             // -------------------------------------------------------------------------
 
             // Case 1: Player Forced Native Standalone Card
-            if (key == DriverKeyStandalone)
+            if (key == PresentationKeyNative)
             {
                 BindNativePresentation(localizedSuffix);
             }
-            // Case 2: Player Locked an XML Declared Stat
-            else if (key.StartsWith(DriverKeyXmlPrefix))
+            // Case 2: Player Locked an XML Declared Stat Profile
+            else if (key.StartsWith(PresentationKeyXmlPrefix))
             {
-                string defName = key.Substring(DriverKeyXmlPrefix.Length);
+                string defName = key.Substring(PresentationKeyXmlPrefix.Length);
                 if (TryResolveXmlStatByDefName(defName, out string owner, out StatDef targetStat))
                 {
                     AdoptForeignStatPresentation(owner, targetStat, localizedSuffix);
                 }
                 else
                 {
-                    RecoverStaleDriverPreference(settings, key);
+                    RecoverStalePreference(settings, key);
                     ResolveAutoPresentation(settings, localizedSuffix);
                 }
             }
             // Case 3: Player Locked a CIL Discovered Stat
-            else if (key.StartsWith(DriverKeyCilPrefix))
+            else if (key.StartsWith(PresentationKeyCilPrefix))
             {
                 if (TryResolveCilLockedStat(key, out string owner, out StatDef targetStat))
                 {
@@ -114,7 +112,7 @@ namespace OverHaulers
                 }
                 else
                 {
-                    RecoverStaleDriverPreference(settings, key);
+                    RecoverStalePreference(settings, key);
                     ResolveAutoPresentation(settings, localizedSuffix);
                 }
             }
@@ -144,7 +142,7 @@ namespace OverHaulers
             ActiveStatOwner = "Native";
             IsForeignStatAdopted = false;
 
-            OHLog.Integration.StatDrivenBound("Native", nativeStat.defName, localizedSuffix);
+            OHLog.Integration.StatPresentationBound("Native", nativeStat.defName, localizedSuffix);
         }
 
         /// <summary>
@@ -188,7 +186,7 @@ namespace OverHaulers
             ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
             IsForeignStatAdopted = true;
 
-            OHLog.Integration.StatDrivenBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
+            OHLog.Integration.StatPresentationBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
         }
 
         /// <summary>
@@ -199,7 +197,7 @@ namespace OverHaulers
         /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
         private static void ResolveAutoPresentation(Settings settings, string localizedSuffix)
         {
-            // Tier 1: Declarative XML Driver Defs (High-Speed O(1) Matching)
+            // Tier 1: Declarative XML Profiles (High-Speed O(1) Matching)
             if (TryResolveHighestPriorityXmlStat(out string xmlOwner, out StatDef xmlStat))
             {
                 AdoptForeignStatPresentation(xmlOwner, xmlStat, localizedSuffix);
@@ -301,12 +299,12 @@ namespace OverHaulers
         /// </summary>
         /// <param name="settings">The current settings object containing user preferences and configuration.</param>
         /// <param name="staleKey">The key representing the previously selected preference that is now considered stale.</param>
-        private static void RecoverStaleDriverPreference(Settings settings, string staleKey)
+        private static void RecoverStalePreference(Settings settings, string staleKey)
         {
             Log.Message($"[Over Haulers] Saved presentation selection '{staleKey}' is no longer active (mod uninstalled?). Reverting to Automatic selection.");
             if (settings != null)
             {
-                settings.selectedDriverKey = SettingsDefaults.DefaultSelectedDriverKey;
+                settings.selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
             }
         }
 
@@ -315,27 +313,27 @@ namespace OverHaulers
         #region 3. DECLARATIVE XML PROFILE RESOLUTION
 
         /// <summary>
-        /// Attempts to resolve the highest priority XML profile based on available MassCapacityDriverDef definitions.
+        /// Attempts to resolve the highest priority XML profile based on available MassCapacityStatProfileDef definitions.
         /// </summary>
-        /// <param name="owner">The resolved owner name of the driver definition.</param>
+        /// <param name="owner">The resolved owner name of the profile definition.</param>
         /// <param name="stat">The resolved StatDef associated with the profile.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
         public static bool TryResolveHighestPriorityXmlStat(out string owner, out StatDef stat)
         {
             owner = null;
             stat = null;
-            List<MassCapacityDriverDef> allXmlDrivers = DefDatabase<MassCapacityDriverDef>.AllDefsListForReading;
-            if (allXmlDrivers == null || allXmlDrivers.Count == 0) return false;
+            List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
+            if (allXmlProfiles == null || allXmlProfiles.Count == 0) return false;
 
-            List<MassCapacityDriverDef> sortedDrivers = new List<MassCapacityDriverDef>(allXmlDrivers);
-            sortedDrivers.Sort((a, b) => b.priority.CompareTo(a.priority));
+            List<MassCapacityStatProfileDef> sortedProfiles = new List<MassCapacityStatProfileDef>(allXmlProfiles);
+            sortedProfiles.Sort((a, b) => b.priority.CompareTo(a.priority));
 
-            // Iterate through the sorted drivers and attempt to resolve the highest priority valid profile.
-            for (int i = 0; i < sortedDrivers.Count; i++)
+            // Iterate through the sorted profiles and attempt to resolve the highest priority valid profile.
+            for (int i = 0; i < sortedProfiles.Count; i++)
             {
-                if (sortedDrivers[i].IsValidAndActive(out StatDef resolved))
+                if (sortedProfiles[i].IsValidAndActive(out StatDef resolved))
                 {
-                    owner = sortedDrivers[i].label ?? sortedDrivers[i].defName;
+                    owner = sortedProfiles[i].label ?? sortedProfiles[i].defName;
                     stat = resolved;
                     return true;
                 }
@@ -347,15 +345,15 @@ namespace OverHaulers
         /// <summary>
         /// Attempts to resolve an XML profile by defName.
         /// </summary>
-        /// <param name="defName">The name of the driver definition to resolve.</param>
-        /// <param name="owner">The resolved owner name of the driver definition.</param>
+        /// <param name="defName">The name of the profile definition to resolve.</param>
+        /// <param name="owner">The resolved owner name of the profile definition.</param>
         /// <param name="stat">The resolved StatDef associated with the profile.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
         public static bool TryResolveXmlStatByDefName(string defName, out string owner, out StatDef stat)
         {
             owner = null;
             stat = null;
-            MassCapacityDriverDef def = DefDatabase<MassCapacityDriverDef>.GetNamedSilentFail(defName);
+            MassCapacityStatProfileDef def = DefDatabase<MassCapacityStatProfileDef>.GetNamedSilentFail(defName);
             if (def != null && def.IsValidAndActive(out StatDef resolved))
             {
                 owner = def.label ?? def.defName;

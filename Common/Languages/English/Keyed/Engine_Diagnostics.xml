@@ -6,7 +6,7 @@
   <!-- ========================================================================= -->
   <OverHaulers_Log_ExternalMassPatchesDetected>[Over Haulers] Detected external C# mod patch(es) targeting MassUtility.Capacity from owner(s): {0}.</OverHaulers_Log_ExternalMassPatchesDetected>
   <OverHaulers_Log_CustomDriverRegistered>[Over Haulers] Successfully registered custom third-party caravan mass capacity driver '{0}'.</OverHaulers_Log_CustomDriverRegistered>
-  <OverHaulers_Log_StatDriven>[Over Haulers] Active Caravan Mass Capacity stat '{0}' bound for owner '{1}'. Registered StatPart driver with suffix '{2}'.</OverHaulers_Log_StatDriven>
+  <OverHaulers_Log_StatPresentationBound>[Over Haulers] Adopted caravan mass capacity stat '{0}' (Owner: {1}, Suffix: '{2}').</OverHaulers_Log_StatPresentationBound>
   <OverHaulers_Log_DirectFallback>[Over Haulers] Operating in Standalone Direct Postfix mode on MassUtility.Capacity with suffix '{0}'.</OverHaulers_Log_DirectFallback>
   <OverHaulers_Log_StandaloneBypassEngaged>[Over Haulers] Standalone Direct Mode active alongside external patch(es) ({0}). Mass capacity calculations will function normally, but pawns may show 2 separate stat card listings.</OverHaulers_Log_StandaloneBypassEngaged>
   <OverHaulers_Log_MedicalCatalogInitialized>[Over Haulers] Medical catalog pre-indexing complete ({0}ms): {1} replacement surgeries, {2} implant procedures, {3} stimulants/drugs indexed.</OverHaulers_Log_MedicalCatalogInitialized>

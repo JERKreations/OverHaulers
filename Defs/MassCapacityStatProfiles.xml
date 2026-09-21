@@ -4,36 +4,32 @@
   <!-- ========================================================================= -->
   <!-- VANILLA EXPANDED FRAMEWORK (VEF) DRIVER BINDING                           -->
   <!-- ========================================================================= -->
-  <OverHaulers.MassCapacityDriverDef>
-    <defName>Driver_VanillaExpandedFramework</defName>
+
+  <OverHaulers.MassCapacityStatProfileDef>
+    <defName>Profile_VanillaExpandedFramework</defName>
     <label>Vanilla Expanded Framework</label>
-    <description>Integrates OverHaulers directly into VEF's Mass Carry Capacity stat part pipeline.</description>
-    
-    <!-- Canonical VEF PackageId -->
-    <modPackageId>OskarPotocki.VanillaFactionsExpanded.Core</modPackageId>
-    
-    <!-- Real StatDef discovered from player.log -->
+    <modPackageId>vanillaexpanded.framework</modPackageId>
     <statDefName>VEF_MassCarryCapacity</statDefName>
-    
     <priority>100</priority>
-  </OverHaulers.MassCapacityDriverDef>
+  </OverHaulers.MassCapacityStatProfileDef>
+
 
   <!-- ========================================================================= -->
   <!-- SAMPLE TEMPLATE FOR OTHER MODDERS                                         -->
   <!-- ========================================================================= -->
   <!--
-    Third-party modders can include a Def like this inside their OWN mod!
+    Third-party modders can include a Def like this inside their own mod
     
-    Using MayRequire="iclustaflux.overhaulers" ensures RimWorld only loads this block 
+    Using MayRequire="iClustaFlux.OverHaulers" ensures RimWorld only loads this block 
     if OverHaulers is active:
 
-    <OverHaulers.MassCapacityDriverDef MayRequire="iclustaflux.overhaulers">
-      <defName>Driver_MyAwesomeMod</defName>
+    <OverHaulers.MassCapacityStatProfileDef MayRequire="iClustaFlux.OverHaulers">
+      <defName>Profile_MyAwesomeMod</defName>
       <label>My Awesome Caravan Mod</label>
       <modPackageId>MyName.MyModId</modPackageId>
       <statDefName>MyCustomCaravanCapacityStat</statDefName>
       <priority>50</priority>
-    </OverHaulers.MassCapacityDriverDef>
+    </OverHaulers.MassCapacityStatProfileDef>
   -->
 
 </Defs>

@@ -77,14 +77,8 @@ namespace OverHaulers
             public static void ExternalPatchesDetected(string modOwners) => 
                 Log.Message("OverHaulers_Log_ExternalMassPatchesDetected".Translate(modOwners).ToString());
 
-            public static void CustomDriverRegistered(string driverId) => 
-                Log.Message("OverHaulers_Log_CustomDriverRegistered".Translate(driverId).ToString());
-
-            public static void StatDrivenBound(string owner, string statName, string suffix) => 
-                Log.Message("OverHaulers_Log_StatDriven".Translate(statName, owner, suffix).ToString());
-
-            public static void DirectFallbackActive(string suffix) => 
-                Log.Message("OverHaulers_Log_DirectFallback".Translate(suffix).ToString());
+            public static void StatPresentationBound(string owner, string statName, string suffix) => 
+                Log.Message("OverHaulers_Log_StatPresentationBound".Translate(statName, owner, suffix).ToString());
 
             public static void MedicalCatalogInitialized(float ms, int replacements, int implants, int drugs) => 
                 Log.Message("OverHaulers_Log_MedicalCatalogInitialized".Translate(ms.ToString("F2"), replacements, implants, drugs).ToString());

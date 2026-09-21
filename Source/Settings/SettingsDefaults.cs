@@ -37,7 +37,7 @@ namespace OverHaulers
         public const float MassCapacityFloorMax = 1.00f;
 
         public const bool CompatibilitySafetyFloor = true;
-        public const bool DevAllowNonPackSpeciesInLivePlay = true;
+        public const bool DevAllowNonPackSpeciesInLivePlay = false;
 
         #endregion
 
@@ -126,8 +126,7 @@ namespace OverHaulers
 
         #region 8. [SEC-08] COMPATIBILITY & PIPELINE DRIVER DEFAULTS
 
-        //public const string DefaultSelectedDriverKey = "AUTO";
-        public const string DefaultSelectedDriverKey = IntegrationPipeline.DriverKeyStandalone; // TEMP PATCH
+        public const string DefaultSelectedPresentationKey = "AUTO";
 
         #endregion
 
