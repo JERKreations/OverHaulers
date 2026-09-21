@@ -2,13 +2,13 @@
 <Defs>
 
   <!-- ========================================================================= -->
-  <!-- VANILLA EXPANDED FRAMEWORK (VEF) DRIVER BINDING                           -->
+  <!-- VANILLA EXPANDED FRAMEWORK (VEF) ADOPTION                                 -->
   <!-- ========================================================================= -->
 
   <OverHaulers.MassCapacityStatProfileDef>
     <defName>Profile_VanillaExpandedFramework</defName>
     <label>Vanilla Expanded Framework</label>
-    <modPackageId>vanillaexpanded.framework</modPackageId>
+    <modPackageId>OskarPotocki.VanillaFactionsExpanded.Core</modPackageId>
     <statDefName>VEF_MassCarryCapacity</statDefName>
     <priority>100</priority>
   </OverHaulers.MassCapacityStatProfileDef>
