@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -241,7 +240,7 @@ namespace OverHaulers
                 SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
                     biologicalBaseline, partCounts, settings, snapshot);
 
-                float totalPlayableBudget = Mathf.Max(0f, biologicalBaseline - context.CapacityFloor);
+                float totalPlayableBudget = Math.Max(0f, biologicalBaseline - context.CapacityFloor);
 
                 // PASS 03: Parallel vector calculations across contiguous SoA arrays (Smooth, unclamped)
                 SolveRawPartOffsets(workspace, context, totalPlayableBudget);
@@ -429,8 +428,8 @@ namespace OverHaulers
                 }
             }
 
-            float armRootSymmetry = totalRootArms > 0 ? Mathf.Clamp01((float)intactRootArms / totalRootArms) : 1.0f;
-            float legRootSymmetry = totalRootLegs > 0 ? Mathf.Clamp01((float)intactRootLegs / totalRootLegs) : 1.0f;
+            float armRootSymmetry = totalRootArms > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootArms / totalRootArms)) : 1.0f;
+            float legRootSymmetry = totalRootLegs > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootLegs / totalRootLegs)) : 1.0f;
             float dualRootSymmetry = (armRootSymmetry + legRootSymmetry) * 0.5f;
             #endregion
 
@@ -642,9 +641,9 @@ namespace OverHaulers
                 }
             }
 
-            deficits.ClampedCoreDeficit = Mathf.Min(deficits.RawCoreNegative, maxTorsoNegative);
-            deficits.ClampedManipulationDeficit = Mathf.Min(deficits.RawManipulationNegative, maxArmNegative);
-            deficits.ClampedMovingDeficit = Mathf.Min(deficits.RawMovingNegative, maxLegNegative);
+            deficits.ClampedCoreDeficit = Math.Min(deficits.RawCoreNegative, maxTorsoNegative);
+            deficits.ClampedManipulationDeficit = Math.Min(deficits.RawManipulationNegative, maxArmNegative);
+            deficits.ClampedMovingDeficit = Math.Min(deficits.RawMovingNegative, maxLegNegative);
 
             return deficits;
         }

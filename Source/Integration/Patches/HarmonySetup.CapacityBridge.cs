@@ -36,8 +36,9 @@ namespace OverHaulers
 
             MethodInfo prefix = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Prefix));
             MethodInfo postfix = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Postfix));
+            MethodInfo finalizer = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Finalizer));
 
-            harmony.Patch(targetMethod, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
+            harmony.Patch(targetMethod, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix), finalizer: new HarmonyMethod(finalizer));
         }
 
         /// <summary>
@@ -57,47 +58,48 @@ namespace OverHaulers
         /// <param name="explanation">A StringBuilder containing the explanation for the calculation, if requested.</param>
         private static void MassUtility_Capacity_Postfix(Pawn p, ref float __result, StringBuilder explanation)
         {
-            try
+            if (p == null) return;
+
+            // RE-ENTRANCY SHIELD: If an external mod's StatWorker (e.g. VEF) queries MassUtility.Capacity
+            // from within a capacity calculation to read the species baseline, return the clean unmodified baseline!
+            if (capacityCallDepth > 1)
             {
-                if (p == null) return;
-
-                // RE-ENTRANCY SHIELD: If an external mod's StatWorker (e.g. VEF) queries MassUtility.Capacity
-                // from within a capacity calculation to read the species baseline, return the clean unmodified baseline!
-                if (capacityCallDepth > 1)
-                {
-                    return;
-                }
-
-                // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
-                if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
-
-                // INGRESS GATE: Completely skip non-caravan species during live play
-                if (!PawnDataRegistry.CanCarryCaravanMass(p)) return;
-
-                // FAST-PATH: If cache node is fresh and valid, bypass baseline resolution and BodySize getters
-                if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
-                {
-                    __result += fastOffset;
-                    __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
-                    return;
-                }
-
-                float cleanBiologicalBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(p);
-                if (cleanBiologicalBaseline <= 0f) return;
-
-                float calculatedOffset = PawnDataRegistry.GetOffset(p, cleanBiologicalBaseline);
-
-                __result += calculatedOffset;
-
-                // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
-                __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+                return;
             }
-            finally
+
+            // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
+            if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
+
+            // INGRESS GATE: Completely skip non-caravan species during live play
+            if (!PawnDataRegistry.CanCarryCaravanMass(p)) return;
+
+            // FAST-PATH: If cache node is fresh and valid, bypass baseline resolution and BodySize getters
+            if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
             {
-                if (capacityCallDepth > 0)
-                {
-                    capacityCallDepth--;
-                }
+                __result += fastOffset;
+                __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+                return;
+            }
+
+            float cleanBiologicalBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(p);
+            if (cleanBiologicalBaseline <= 0f) return;
+
+            float calculatedOffset = PawnDataRegistry.GetOffset(p, cleanBiologicalBaseline);
+
+            __result += calculatedOffset;
+
+            // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
+            __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+        }
+
+        /// <summary>
+        /// Finalizer guaranteeing the call depth shield is decremented even if the original method or third-party patches throw an exception.
+        /// </summary>
+        private static void MassUtility_Capacity_Finalizer()
+        {
+            if (capacityCallDepth > 0)
+            {
+                capacityCallDepth--;
             }
         }
 

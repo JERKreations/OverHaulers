@@ -168,8 +168,9 @@ namespace OverHaulers
                 skeletalDepths[i] = parentIdx != -1 ? skeletalDepths[parentIdx] + 1 : 0;
             }
 
-            // Sort the depth-sorted indices based on skeletal depth.
-            Array.Sort(template.DepthSortedIndices, (a, b) => skeletalDepths[a].CompareTo(skeletalDepths[b]));
+            // Sort the depth-sorted indices based on skeletal depth without allocating a lambda closure.
+            int[] depthKeys = (int[])skeletalDepths.Clone();
+            Array.Sort(depthKeys, template.DepthSortedIndices);
 
             // Depth-sorted indices populated.
             #endregion

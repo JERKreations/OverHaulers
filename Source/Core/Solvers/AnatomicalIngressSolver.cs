@@ -252,7 +252,7 @@ namespace OverHaulers
                             {
                                 float lostHp = injuryScratchBuffer[i];
                                 float currentHp = Math.Max(0f, maxHp - lostHp);
-                                healths[i] = Mathf.Clamp01(currentHp / maxHp);
+                                healths[i] = Math.Min(1f, Math.Max(0f, currentHp / maxHp));
                             }
                             // Fallback for parts with no defined max health
                             else

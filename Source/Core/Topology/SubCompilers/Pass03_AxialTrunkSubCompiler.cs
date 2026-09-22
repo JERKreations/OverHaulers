@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 using Verse;
 
 namespace OverHaulers
@@ -203,8 +202,8 @@ namespace OverHaulers
             if (exp == 1.0f) return baseVal;
             if (exp == 0.0f) return 1.0f;
             if (exp == 2.0f) return baseVal * baseVal;
-            if (exp == 0.5f) return Mathf.Sqrt(baseVal);
-            return Mathf.Pow(baseVal, exp);
+            if (exp == 0.5f) return (float)Math.Sqrt(baseVal);
+            return (float)Math.Pow(baseVal, exp);
         }
 
         #endregion

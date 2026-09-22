@@ -62,7 +62,8 @@ namespace OverHaulers
                 template.DepthSortedIndices[i] = i;
             }
 
-            Array.Sort(template.DepthSortedIndices, (a, b) => skeletalDepths[a].CompareTo(skeletalDepths[b]));
+            // Zero-allocation dual array sort, eliminating the delegate/closure allocation.
+            Array.Sort(skeletalDepths, template.DepthSortedIndices);
         }
 
         #endregion

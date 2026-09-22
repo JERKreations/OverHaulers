@@ -519,7 +519,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Determines whether the cache entry for the specified pawn should be culled due to invalidation.
-        /// Prevents redundant eviction searches for uncached combatants and enforces a 15-tick debounce on damage bursts.
+        /// Prevents redundant eviction searches for uncached combatants and utilizes a state-based debounce on damage bursts.
         /// </summary>
         /// <param name="thingID">The unique identifier of the pawn whose cache entry is being checked for invalidation.</param>
         /// <returns>True if the cache entry should be culled due to invalidation; otherwise, false.</returns>
@@ -536,18 +536,10 @@ namespace OverHaulers
                 return true;
             }
 
-            // 2. Already Stale Check:
+            // 2. Already Stale Check (State-Based Debounce):
             // If the node is already flagged dirty, downstream queries will re-solve on demand.
+            // This safely catches overlapping burst damage without desynchronizing lazy evaluations.
             if (cachedNode.IsStale)
-            {
-                return true;
-            }
-
-            // 3. Combat Burst Debounce Window:
-            // If invalidated very recently (within 15 ticks), skip re-evicting the snapshot table.
-            int currentTick = GetSafeCurrentTick();
-            int elapsed = currentTick - cachedNode.LastInvalidatedTick;
-            if (elapsed >= 0 && elapsed < SettingsDefaults.InvalidationDebounceTicks)
             {
                 return true;
             }
