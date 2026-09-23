@@ -4,10 +4,10 @@
   <!-- ========================================================================= -->
   <!-- [VIEW-01 to VIEW-04] LIVE PAWN INFOCARD STAT DEFINITIONS & BREAKDOWNS     -->
   <!-- ========================================================================= -->
-  <OverHaulers_StatLabel>Caravan mass capacity</OverHaulers_StatLabel>
-  <OverHaulers_StatDesc>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc>
+  <OverHaulers_StatLabel_Fallback>Caravan mass capacity</OverHaulers_StatLabel_Fallback>
+  <OverHaulers_StatDesc_Fallback>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc_Fallback>
 
-  <OverHaulers_TotalBodyRating><![CDATA[<b>Over Haulers - Total Body Rating ({0}x) {1}</b>]]></OverHaulers_TotalBodyRating>
+  <OverHaulers_TotalBodyRating><![CDATA[<b>Total Body Rating ({0}x) {1}</b>]]></OverHaulers_TotalBodyRating>
 
   <!-- Modifiers, Prefixes & Suffixes -->
   <OverHaulers_AilmentPrefix> [ailment: {0}]</OverHaulers_AilmentPrefix>
@@ -25,9 +25,9 @@
   <OverHaulers_AthleticImpactsHeader>Athletic Impacts:</OverHaulers_AthleticImpactsHeader>
   <OverHaulers_GroupDefName>{0} Group</OverHaulers_GroupDefName>
 
-  <!-- Fallback Anatomical Groups -->
-  <OverHaulers_GroupFallbackHead>Head FB</OverHaulers_GroupFallbackHead>
-  <OverHaulers_GroupFallbackTorso>Torso FB</OverHaulers_GroupFallbackTorso>
-  <OverHaulers_GroupDualLimbs>Dual-Purpose Limb</OverHaulers_GroupDualLimbs>
+  <!-- Fallback Anatomical Groups, <bracketed> for clarity when used -->
+  <OverHaulers_GroupFallbackHead>&lt;Head&gt;</OverHaulers_GroupFallbackHead>
+  <OverHaulers_GroupFallbackTorso>&lt;Torso&gt;</OverHaulers_GroupFallbackTorso>
+  <OverHaulers_GroupDualLimbs>&lt;Dual-Limb&gt;</OverHaulers_GroupDualLimbs>
 
 </LanguageData>

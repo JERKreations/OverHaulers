@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <StatDef>
+    <defName>OverHaulers_CaravanMassCapacity</defName>
+    <label>Caravan mass capacity</label>
+    <description>Total mass carrying capacity of the pawn in caravans and hauling tasks.</description>
+    <category>BasicsPawn</category>
+    <displayPriorityInCategory>80</displayPriorityInCategory>
+    <toStringStyle>FloatTwo</toStringStyle>
+    <formatString>{0} kg</formatString>
+    <showOnPawns>true</showOnPawns>
+    <workerClass>OverHaulers.MassCapacityStatWorker</workerClass>
+  </StatDef>
+
+</Defs>

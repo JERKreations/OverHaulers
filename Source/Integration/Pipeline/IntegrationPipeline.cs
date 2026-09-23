@@ -135,14 +135,17 @@ namespace OverHaulers
         {
             CleanupAdoptedForeignStat();
 
-            StatDef nativeStat = EnsureNativeStatRegistered(localizedSuffix);
-            nativeStat.showOnPawns = true;
+            StatDef nativeStat = OverHaulersStatDefOf.OverHaulers_CaravanMassCapacity;
+            if (nativeStat != null)
+            {
+                nativeStat.showOnPawns = true;
+            }
 
             ActiveMassCapacityStat = nativeStat;
             ActiveStatOwner = "Native";
             IsForeignStatAdopted = false;
 
-            OHLog.Integration.StatPresentationBound("Native", nativeStat.defName, localizedSuffix);
+            OHLog.Integration.StatPresentationBound("Native", nativeStat?.defName ?? "OverHaulers_CaravanMassCapacity", localizedSuffix);
         }
 
         /// <summary>
@@ -163,20 +166,24 @@ namespace OverHaulers
             CleanupAdoptedForeignStat();
 
             // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
-            StatDef nativeStat = DefDatabase<StatDef>.GetNamedSilentFail("OverHaulers_CaravanMassCapacity");
+            StatDef nativeStat = OverHaulersStatDefOf.OverHaulers_CaravanMassCapacity;
             if (nativeStat != null)
             {
                 nativeStat.showOnPawns = false;
             }
 
-            // Rescue labels if the foreign stat is missing them
+            // Rescue labels if the foreign stat is missing them (Primary: Native Def SSOT -> Secondary: Keyed Fallback)
             if (string.IsNullOrEmpty(foreignStat.label))
             {
-                foreignStat.label = "OverHaulers_StatLabel".Translate().ToString();
+                foreignStat.label = !string.IsNullOrEmpty(nativeStat?.label) 
+                    ? nativeStat.label 
+                    : "OverHaulers_StatLabel_Fallback".Translate().ToString();
             }
             if (string.IsNullOrEmpty(foreignStat.description))
             {
-                foreignStat.description = "OverHaulers_StatDesc".Translate().ToString();
+                foreignStat.description = !string.IsNullOrEmpty(nativeStat?.description) 
+                    ? nativeStat.description 
+                    : "OverHaulers_StatDesc_Fallback".Translate().ToString();
             }
 
             // Inject MassCapacityStatPart for InfoCard explanation and hyperlinks
@@ -230,36 +237,6 @@ namespace OverHaulers
 
             // Tier 3: Pure Vanilla Standalone Default
             BindNativePresentation(localizedSuffix);
-        }
-
-        /// <summary>
-        /// Ensures OverHaulers_CaravanMassCapacity exists in DefDatabase.
-        /// </summary>
-        /// <param name="unitSuffix">The localized unit suffix to attach to the StatDef.</param>
-        /// <returns>The resolved or registered native StatDef.</returns>
-        private static StatDef EnsureNativeStatRegistered(string unitSuffix)
-        {
-            StatDef existing = DefDatabase<StatDef>.GetNamedSilentFail("OverHaulers_CaravanMassCapacity");
-            if (existing != null)
-            {
-                return existing;
-            }
-
-            StatDef statDef = new StatDef
-            {
-                defName = "OverHaulers_CaravanMassCapacity",
-                label = "OverHaulers_StatLabel".Translate().ToString(),
-                description = "OverHaulers_StatDesc".Translate().ToString(),
-                category = DefDatabase<StatCategoryDef>.GetNamedSilentFail("BasicsPawn"),
-                displayPriorityInCategory = 80,
-                toStringStyle = ToStringStyle.FloatTwo,
-                formatString = "{0}" + unitSuffix,
-                showOnPawns = true,
-                workerClass = typeof(MassCapacityStatWorker)
-            };
-
-            DefDatabase<StatDef>.Add(statDef);
-            return statDef;
         }
 
         /// <summary>

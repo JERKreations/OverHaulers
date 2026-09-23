@@ -52,7 +52,7 @@
   <OverHaulers_ViewMode_InfoCard>InfoCard Preview</OverHaulers_ViewMode_InfoCard>
   <OverHaulers_ViewMode_TopologyXRay>Topology X-Ray</OverHaulers_ViewMode_TopologyXRay>
 
-  <OverHaulers_Delta_Baseline>Baseline</OverHaulers_Delta_Baseline>
+  <OverHaulers_Delta_Baseline>ⓘ Baseline</OverHaulers_Delta_Baseline>
   <OverHaulers_Delta_Simulated>Simulated</OverHaulers_Delta_Simulated>
   <OverHaulers_Delta_ComparisonLine><![CDATA[{0}: {1}  ➔  {2}: {3}  ]]></OverHaulers_Delta_ComparisonLine>
   
