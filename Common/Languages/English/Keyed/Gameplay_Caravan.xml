@@ -4,15 +4,17 @@
   <!-- ========================================================================= -->
   <!-- [VIEW-05] CARAVAN FLEET BIOMECHANICAL SUMMARY (WORLD & DIALOG TOOLTIPS)   -->
   <!-- ========================================================================= -->
-  <OverHaulers_Fleet_Header><![CDATA[<b>Caravan Fleet Rating: {0}x ({1})</b>]]></OverHaulers_Fleet_Header>
-  <OverHaulers_Fleet_BaselineProgression>• Baseline: {0} ➔ Total: {1}</OverHaulers_Fleet_BaselineProgression>
+  <OverHaulers_Fleet_Header><![CDATA[<b>Caravan Physical: {0}x ({1})</b>]]></OverHaulers_Fleet_Header>
+  <OverHaulers_Fleet_Total>• Total: {0}</OverHaulers_Fleet_Total>
 
-  <!-- Key Contributor Lines -->
-  <OverHaulers_Fleet_TopContributor>• Top Asset: {0} ({1})</OverHaulers_Fleet_TopContributor>
-  <OverHaulers_Fleet_MostImpaired>• Most Impaired: {0} ({1})</OverHaulers_Fleet_MostImpaired>
+  <!-- Standout Performer Headers (Net vs Gross + Collapsed) -->
+  <OverHaulers_Fleet_TopContributorNet>• Top Asset (Net): {0}</OverHaulers_Fleet_TopContributorNet>
+  <OverHaulers_Fleet_TopContributorGross>• Top Asset (Gross): {0}</OverHaulers_Fleet_TopContributorGross>
+  <OverHaulers_Fleet_TopContributor>• Top Asset: {0}</OverHaulers_Fleet_TopContributor>
+  <OverHaulers_Fleet_MostImpaired>• Most Impaired: {0}</OverHaulers_Fleet_MostImpaired>
 
-  <!-- Grammatical Helpers -->
-  <OverHaulers_Fleet_PawnSingle>pawn</OverHaulers_Fleet_PawnSingle>
-  <OverHaulers_Fleet_PawnPlural>pawns</OverHaulers_Fleet_PawnPlural>
+  <!-- Unified Symmetrical Performer Details -->
+  <OverHaulers_Fleet_PerformerDetail_Gear>  {0}, {1} gear</OverHaulers_Fleet_PerformerDetail_Gear>
+  <OverHaulers_Fleet_PerformerDetail>  {0}</OverHaulers_Fleet_PerformerDetail>
 
 </LanguageData>

@@ -78,6 +78,10 @@ namespace OverHaulers
             {
                 __result += fastOffset;
                 __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+                if (explanation != null)
+                {
+                    SyncExplanationCapacity(explanation, p, __result);
+                }
                 return;
             }
 
@@ -90,6 +94,31 @@ namespace OverHaulers
 
             // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
             __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+
+            // EXPLANATION SYNC: If caller provided an explanation StringBuilder (e.g. CollectionsMassCalculator),
+            // replace vanilla's pre-postfix baseline entry with the true final capacity.
+            if (explanation != null)
+            {
+                SyncExplanationCapacity(explanation, p, __result);
+            }
+        }
+
+        /// <summary>
+        /// Synchronizes vanilla's explanation StringBuilder entry for the pawn with the true post-offset capacity.
+        /// Zero allocation when explanation is null.
+        /// </summary>
+        private static void SyncExplanationCapacity(StringBuilder explanation, Pawn p, float finalCapacity)
+        {
+            if (explanation == null || p == null) return;
+
+            string str = explanation.ToString();
+            string targetPrefix = "  - " + p.LabelShortCap + ": ";
+            int lastIdx = str.LastIndexOf(targetPrefix, StringComparison.Ordinal);
+            if (lastIdx >= 0)
+            {
+                explanation.Length = lastIdx;
+                explanation.Append(targetPrefix).Append(finalCapacity.ToStringMassOffset());
+            }
         }
 
         /// <summary>

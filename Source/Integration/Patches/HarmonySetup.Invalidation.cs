@@ -56,14 +56,44 @@ namespace OverHaulers
                 if (caravanExplanationGetter != null && caravanExplanationPostfix != null) harmony.Patch(caravanExplanationGetter, postfix: new HarmonyMethod(caravanExplanationPostfix));
 
                 var drawCaravanInfoPrefix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.DrawCaravanInfo_Prefix));
+                System.Reflection.MethodInfo drawCaravanInfo = null;
                 var drawMethods = typeof(RimWorld.Planet.CaravanUIUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 for (int i = 0; i < drawMethods.Length; i++)
                 {
                     var m = drawMethods[i];
                     if (m.Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
                     {
-                        harmony.Patch(m, prefix: new HarmonyMethod(drawCaravanInfoPrefix));
+                        var pars = m.GetParameters();
+                        for (int p = 0; p < pars.Length; p++)
+                        {
+                            Type pType = pars[p].ParameterType;
+                            if (pars[p].Name == "info" &&
+                                (pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo) ||
+                                 pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo).MakeByRefType()))
+                            {
+                                drawCaravanInfo = m;
+                                break;
+                            }
+                        }
+                        if (drawCaravanInfo != null) break;
                     }
+                }
+
+                if (drawCaravanInfo != null && drawCaravanInfoPrefix != null)
+                {
+                    harmony.Patch(drawCaravanInfo, prefix: new HarmonyMethod(drawCaravanInfoPrefix));
+                }
+                else
+                {
+                    string candidates = string.Empty;
+                    for (int i = 0; i < drawMethods.Length; i++)
+                    {
+                        if (drawMethods[i].Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
+                        {
+                            candidates += drawMethods[i].ToString() + "; ";
+                        }
+                    }
+                    OHLog.Integration.Warn("HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
                 }
             }
             catch (Exception ex)

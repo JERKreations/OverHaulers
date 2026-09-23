@@ -89,6 +89,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Aggregates the mass capacity information of a single pawn into the provided caravan fleet summary.
+        /// Evaluates gross capacity alongside net delta offsets for true standout performer tracking.
         /// </summary>
         /// <param name="pawn">The pawn whose mass capacity information is to be aggregated.</param>
         /// <param name="summary">The caravan fleet summary to which the pawn's mass capacity information will be added.</param>
@@ -103,42 +104,38 @@ namespace OverHaulers
             if (speciesBaseline <= 0f) return;
 
             float finalCapacity = PawnDataRegistry.GetCapacity(pawn, speciesBaseline);
+            float netOffset = finalCapacity - speciesBaseline;
 
             summary.TotalBaseline += speciesBaseline;
             summary.TotalCapacity += finalCapacity;
             summary.TotalPawnCount++;
 
-            // Update top contributor if necessary
-            if (summary.TopContributor == null || finalCapacity > summary.TopContributorCapacity)
+            // 1. Gross Evaluation: Highest absolute physical capacity (The Heavy Lifter)
+            if (summary.TopGrossContributor == null || finalCapacity > summary.TopGrossCapacity)
             {
-                summary.TopContributor = pawn;
-                summary.TopContributorCapacity = finalCapacity;
+                summary.TopGrossContributor = pawn;
+                summary.TopGrossCapacity = finalCapacity;
             }
 
-            // Pure O(1) domain read: No UI models or tree traversals allocated
-            if (PawnDataRegistry.TryGetFleetMetrics(pawn, speciesBaseline, out float pawnProsthetic, out float pawnDeficit, out float pawnAthletic))
+            // 2. Net Evaluation: Highest positive physiological offset above baseline (The Biomechanical Champion)
+            if (netOffset > SettingsDefaults.EfficiencyEpsilon)
             {
-                summary.TotalProstheticBoost += pawnProsthetic;
-                summary.TotalHealthDeficit += pawnDeficit;
-                summary.TotalAthleticOffset += pawnAthletic;
-
-                // Boost check
-                if (pawnProsthetic > SettingsDefaults.EfficiencyEpsilon)
+                if (summary.TopNetContributor == null || netOffset > summary.TopNetOffset)
                 {
-                    summary.BoostedPawnCount++;
+                    summary.TopNetContributor = pawn;
+                    summary.TopNetOffset = netOffset;
+                    summary.TopNetCapacity = finalCapacity;
                 }
+            }
 
-                // Impairment check
-                if (pawnDeficit < -SettingsDefaults.EfficiencyEpsilon)
+            // 3. Impairment Evaluation: Greatest net physiological deficit below baseline
+            if (netOffset < -SettingsDefaults.EfficiencyEpsilon)
+            {
+                if (summary.MostImpaired == null || netOffset < summary.MostImpairedNetOffset)
                 {
-                    summary.ImpairedPawnCount++;
-
-                    // Update most impaired pawn if necessary
-                    if (summary.MostImpaired == null || pawnDeficit < summary.MostImpairedDeficit)
-                    {
-                        summary.MostImpaired = pawn;
-                        summary.MostImpairedDeficit = pawnDeficit;
-                    }
+                    summary.MostImpaired = pawn;
+                    summary.MostImpairedNetOffset = netOffset;
+                    summary.MostImpairedCapacity = finalCapacity;
                 }
             }
         }
@@ -149,6 +146,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Builds a textual explanation of the caravan fleet's mass capacity summary for display in the InfoCard overlay.
+        /// Formats into a vertically stacked presentation with smart Net/Gross performer collapse and symmetrical gear callouts.
         /// </summary>
         /// <param name="summary">The caravan fleet summary to be explained.</param>
         /// <returns>A string containing the formatted explanation of the caravan fleet's mass capacity summary.</returns>
@@ -158,73 +156,77 @@ namespace OverHaulers
 
             pooledFleetReportBuilder.Clear();
             pooledFleetReportBuilder.Append(InfoCardOverlay.TagSentinel);
+            pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's section header
 
             Settings settings = OverHaulers.settings;
             Color boostColor = settings?.colorBoosted ?? SettingsDefaults.ColorBoostedDefault;
             Color critColor = settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
 
-            // 1. Compact Header Banner
+            // 1. Header Banner
             string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
             string multStr = summary.CollectiveMultiplier.ToString("F2");
             pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString().Colorize(Color.cyan));
 
-            // 2. Compact Baseline to Total Progression
-            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_BaselineProgression".Translate(
-                summary.TotalBaseline.ToStringMass(), 
-                summary.TotalCapacity.ToStringMass()
-            ).ToString());
+            // 2. Physical Total
+            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
 
-            // 3. Compact Prosthetic, Deficit & Athletic Rows (Inline Icon Stamped)
-            if (summary.HasSignificantModifications)
+            // 3. Standout Performers: Net vs Gross with Smart Collapse
+            bool hasNet = summary.TopNetContributor != null;
+            bool hasGross = summary.TopGrossContributor != null;
+
+            // Case A: Split — Top net gainer is different from top gross carrier (e.g. Cyborg Colonist vs Pack Elephant)
+            if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
             {
-                string pawnLabelBoosted = summary.BoostedPawnCount == 1 
-                    ? "OverHaulers_Fleet_PawnSingle".Translate().ToString() 
-                    : "OverHaulers_Fleet_PawnPlural".Translate().ToString();
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity, boostColor);
 
-                string pawnLabelImpaired = summary.ImpairedPawnCount == 1 
-                    ? "OverHaulers_Fleet_PawnSingle".Translate().ToString() 
-                    : "OverHaulers_Fleet_PawnPlural".Translate().ToString();
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity, boostColor);
+            }
+            // Case B: Collapsed — Single standout asset (same pawn won both, or nobody has net augmentations)
+            else if (hasGross)
+            {
+                Pawn topPawn = hasNet ? summary.TopNetContributor : summary.TopGrossContributor;
+                float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
 
-                if (summary.TotalProstheticBoost > SettingsDefaults.EfficiencyEpsilon)
-                {
-                    string boostStr = summary.TotalProstheticBoost.ToStringMassOffset().Colorize(boostColor);
-                    pooledFleetReportBuilder.AppendLine($"  {InfoCardOverlay.TagProsthetic} {boostStr} [{summary.BoostedPawnCount} {pawnLabelBoosted}]");
-                }
-
-                if (summary.TotalHealthDeficit < -SettingsDefaults.EfficiencyEpsilon)
-                {
-                    string deficitStr = summary.TotalHealthDeficit.ToStringMassOffset().Colorize(critColor);
-                    pooledFleetReportBuilder.AppendLine($"  {InfoCardOverlay.TagInjury} {deficitStr} [{summary.ImpairedPawnCount} {pawnLabelImpaired}]");
-                }
-
-                if (Math.Abs(summary.TotalAthleticOffset) > SettingsDefaults.EfficiencyEpsilon)
-                {
-                    Color athColor = summary.TotalAthleticOffset > 0f ? boostColor : critColor;
-                    string athleticStr = summary.TotalAthleticOffset.ToStringMassOffset().Colorize(athColor);
-                    pooledFleetReportBuilder.AppendLine($"  {InfoCardOverlay.TagAthletic} {athleticStr}");
-                }
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
+                AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity, boostColor);
             }
 
-            // 4. Standout Performers
-            if (summary.TopContributor != null)
-            {
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(
-                    summary.TopContributor.LabelShortCap, 
-                    summary.TopContributorCapacity.ToStringMass()
-                ).ToString());
-            }
-
+            // 4. Most Impaired (Greatest Net Deficit)
             if (summary.MostImpaired != null)
             {
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(
-                    summary.MostImpaired.LabelShortCap, 
-                    summary.MostImpairedDeficit.ToStringMassOffset()
-                ).ToString().Colorize(critColor));
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity, critColor);
             }
 
             string result = pooledFleetReportBuilder.ToString();
             pooledFleetReportBuilder.Clear();
             return result;
+        }
+
+        /// <summary>
+        /// Appends the indented detail line for a standout performer, calculating gear capacity dynamically.
+        /// Symmetrically formats both boosted and impaired performers.
+        /// </summary>
+        private static void AppendPerformerDetail(StringBuilder sb, Pawn pawn, float physicalValue, Color color)
+        {
+            float totalWithGear = MassUtility.Capacity(pawn, null);
+            float gearOffset = totalWithGear - physicalValue;
+
+            if (gearOffset > SettingsDefaults.EfficiencyEpsilon)
+            {
+                sb.AppendLine("OverHaulers_Fleet_PerformerDetail_Gear".Translate(
+                    physicalValue.ToStringMassOffset().Colorize(color),
+                    gearOffset.ToStringMassOffset()
+                ).ToString());
+            }
+            else
+            {
+                sb.AppendLine("OverHaulers_Fleet_PerformerDetail".Translate(
+                    physicalValue.ToStringMassOffset().Colorize(color)
+                ).ToString());
+            }
         }
 
         #endregion

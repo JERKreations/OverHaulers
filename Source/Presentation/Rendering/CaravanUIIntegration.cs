@@ -174,8 +174,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Merges the OverHaulers fleet summary with the vanilla mass capacity breakdown,
-        /// cleanly stripping out vanilla's duplicate "Mass capacity:" header line if present.
+        /// Merges the OverHaulers fleet summary with the vanilla mass capacity breakdown.
+        /// Preserves the vanilla breakdown and all third-party mod entries intact.
         /// </summary>
         private static string MergeFleetExplanation(string fleetExplanation, string vanillaExplanation)
         {
@@ -184,10 +184,9 @@ namespace OverHaulers
                 return fleetExplanation;
             }
 
-            // Trim only newlines to preserve the pawn list's 2-space indentation
             string cleanVanilla = vanillaExplanation.Trim('\r', '\n');
 
-            return fleetExplanation + "\n\n" + cleanVanilla;
+            return fleetExplanation + "\n" + cleanVanilla;
         }
 
         #endregion

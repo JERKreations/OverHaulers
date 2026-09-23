@@ -13,23 +13,22 @@ namespace OverHaulers
     {
         public float TotalBaseline;
         public float TotalCapacity;
-        public float TotalProstheticBoost;
-        public float TotalHealthDeficit;
-        public float TotalAthleticOffset;
-
         public int TotalPawnCount;
-        public int BoostedPawnCount;
-        public int ImpairedPawnCount;
 
-        public Pawn TopContributor;
-        public float TopContributorCapacity;
+        // Standout Performers: Gross (Tonnage) vs Net (Biomechanical Augmentation)
+        public Pawn TopGrossContributor;
+        public float TopGrossCapacity;
+
+        public Pawn TopNetContributor;
+        public float TopNetOffset;
+        public float TopNetCapacity;
 
         public Pawn MostImpaired;
-        public float MostImpairedDeficit;
+        public float MostImpairedNetOffset;
+        public float MostImpairedCapacity;
 
         public float TotalNetOffset => TotalCapacity - TotalBaseline;
         public float CollectiveMultiplier => TotalBaseline > 0f ? (TotalCapacity / TotalBaseline) : 1.0f;
-        public bool HasSignificantModifications => (BoostedPawnCount > 0 || ImpairedPawnCount > 0);
     }
 
     #endregion
