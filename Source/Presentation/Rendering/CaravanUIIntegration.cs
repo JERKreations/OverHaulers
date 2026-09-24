@@ -98,8 +98,8 @@ namespace OverHaulers
         {
             if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
 
-            // BREAKPOINT ANCHOR: Fast O(1) Sentinel Deduplication Gate
-            if (info.massCapacityExplanation.IndexOf(InfoCardOverlay.TagSentinel, StringComparison.Ordinal) >= 0)
+            // BREAKPOINT ANCHOR: Fast O(1) Header Deduplication Gate
+            if (info.massCapacityExplanation.IndexOf("OverHaulers_Fleet_Header".Translate(), StringComparison.Ordinal) >= 0)
             {
                 return;
             }

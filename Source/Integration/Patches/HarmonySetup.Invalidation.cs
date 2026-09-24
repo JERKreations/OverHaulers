@@ -51,6 +51,18 @@ namespace OverHaulers
                 var labelPrefix = AccessTools.Method(typeof(InfoCardOverlay), nameof(InfoCardOverlay.Prefix));
                 if (widgetsLabel != null && labelPrefix != null) harmony.Patch(widgetsLabel, prefix: new HarmonyMethod(labelPrefix));
 
+                // Gated InfoCard Intercept: Sets IsRenderingInfoCard = true only while StatsReportUtility is actively rendering
+                var statsReportPrefix = AccessTools.Method(typeof(HarmonySetup), nameof(StatsReport_Prefix));
+                var statsReportFinalizer = AccessTools.Method(typeof(HarmonySetup), nameof(StatsReport_Finalizer));
+                var statsReportMethods = typeof(StatsReportUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                for (int i = 0; i < statsReportMethods.Length; i++)
+                {
+                    if (statsReportMethods[i].Name == nameof(StatsReportUtility.DrawStatsReport))
+                    {
+                        harmony.Patch(statsReportMethods[i], prefix: new HarmonyMethod(statsReportPrefix), finalizer: new HarmonyMethod(statsReportFinalizer));
+                    }
+                }
+
                 var caravanExplanationGetter = AccessTools.PropertyGetter(typeof(RimWorld.Planet.Caravan), "MassCapacityExplanation");
                 var caravanExplanationPostfix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.Caravan_MassCapacityExplanation_Postfix));
                 if (caravanExplanationGetter != null && caravanExplanationPostfix != null) harmony.Patch(caravanExplanationGetter, postfix: new HarmonyMethod(caravanExplanationPostfix));
@@ -206,6 +218,12 @@ namespace OverHaulers
             {
             }
         }
+
+        /// <summary>[INT-06] Sets the active InfoCard rendering context gate when an in-game stat report begins drawing.</summary>
+        private static void StatsReport_Prefix() => InfoCardOverlay.PushInfoCardContext();
+
+        /// <summary>[INT-06] Resets the active InfoCard rendering context gate when an in-game stat report finishes drawing.</summary>
+        private static void StatsReport_Finalizer() => InfoCardOverlay.PopInfoCardContext();
 
         #endregion
     }

@@ -155,17 +155,12 @@ namespace OverHaulers
             if (!UnityData.IsInMainThread || summary.TotalPawnCount == 0) return string.Empty;
 
             pooledFleetReportBuilder.Clear();
-            pooledFleetReportBuilder.Append(InfoCardOverlay.TagSentinel);
-            pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's section header
-
-            Settings settings = OverHaulers.settings;
-            Color boostColor = settings?.colorBoosted ?? SettingsDefaults.ColorBoostedDefault;
-            Color critColor = settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
+            pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's secondary "Mass capacity:" section header
 
             // 1. Header Banner
             string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
             string multStr = summary.CollectiveMultiplier.ToString("F2");
-            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString().Colorize(Color.cyan));
+            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
 
             // 2. Physical Total
             pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
@@ -174,14 +169,14 @@ namespace OverHaulers
             bool hasNet = summary.TopNetContributor != null;
             bool hasGross = summary.TopGrossContributor != null;
 
-            // Case A: Split — Top net gainer is different from top gross carrier (e.g. Cyborg Colonist vs Pack Elephant)
+            // Case A: Split — Top net gainer is different from top gross carrier (e.g. Augmented Colonist vs Pack Elephant)
             if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
             {
                 pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity, boostColor);
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
 
                 pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity, boostColor);
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
             }
             // Case B: Collapsed — Single standout asset (same pawn won both, or nobody has net augmentations)
             else if (hasGross)
@@ -190,14 +185,14 @@ namespace OverHaulers
                 float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
 
                 pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity, boostColor);
+                AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity);
             }
 
             // 4. Most Impaired (Greatest Net Deficit)
             if (summary.MostImpaired != null)
             {
                 pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity, critColor);
+                AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
             }
 
             string result = pooledFleetReportBuilder.ToString();
@@ -209,7 +204,7 @@ namespace OverHaulers
         /// Appends the indented detail line for a standout performer, calculating gear capacity dynamically.
         /// Symmetrically formats both boosted and impaired performers.
         /// </summary>
-        private static void AppendPerformerDetail(StringBuilder sb, Pawn pawn, float physicalValue, Color color)
+        private static void AppendPerformerDetail(StringBuilder sb, Pawn pawn, float physicalValue)
         {
             float totalWithGear = MassUtility.Capacity(pawn, null);
             float gearOffset = totalWithGear - physicalValue;
@@ -217,14 +212,14 @@ namespace OverHaulers
             if (gearOffset > SettingsDefaults.EfficiencyEpsilon)
             {
                 sb.AppendLine("OverHaulers_Fleet_PerformerDetail_Gear".Translate(
-                    physicalValue.ToStringMassOffset().Colorize(color),
+                    physicalValue.ToStringMassOffset(),
                     gearOffset.ToStringMassOffset()
                 ).ToString());
             }
             else
             {
                 sb.AppendLine("OverHaulers_Fleet_PerformerDetail".Translate(
-                    physicalValue.ToStringMassOffset().Colorize(color)
+                    physicalValue.ToStringMassOffset()
                 ).ToString());
             }
         }

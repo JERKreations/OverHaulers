@@ -14,7 +14,7 @@ namespace OverHaulers
     /// </summary>
     public static class InfoCardOverlay
     {
-        #region 1. CONSTANTS & CACHE DATA STRUCTURES
+        #region 1. CONSTANTS, CONTEXT GATE & CACHE DATA STRUCTURES
 
         /// <summary>The sentinel tag used to identify OverHaulers stat report labels within the game's UI.</summary>
         public const string TagSentinel = "[OVERHAULERS_STATDEFCARD]";
@@ -23,6 +23,24 @@ namespace OverHaulers
         public const string TagProsthetic = "[P]";
         public const string TagAthletic = "[A]";
         public const string TagInjury = "[I]";
+
+        [ThreadStatic]
+        private static int infoCardDepth;
+
+        /// <summary>
+        /// High-speed execution context gate.
+        /// True only while an in-game InfoCard (StatsReportUtility) is actively drawing.
+        /// </summary>
+        public static bool IsRenderingInfoCard => infoCardDepth > 0;
+
+        /// <summary>Pushes an active InfoCard rendering context.</summary>
+        public static void PushInfoCardContext() => infoCardDepth++;
+
+        /// <summary>Pops an active InfoCard rendering context.</summary>
+        public static void PopInfoCardContext()
+        {
+            if (infoCardDepth > 0) infoCardDepth--;
+        }
 
         /// <summary>
         /// The key used to cache overlay layout data based on the full text, rectangle width, and scale percent.
@@ -92,13 +110,19 @@ namespace OverHaulers
         #region 2. HARMONY PREFIX ON WIDGETS.LABEL
 
         /// <summary>
-        /// [VIEW-04] Harmony Prefix intercepting Widgets.Label to redirect OverHaulers stat reports containing TagSentinel string to the unified
-        ///  label drawer.
-        /// This allows OverHaulers to maintain a consistent and visually unified presentation of stat explanations within the game's UI.
+        /// [VIEW-04] Scoped Harmony Prefix intercepting Widgets.Label.
+        /// Bails out in 1 CPU cycle during all normal gameplay.
+        /// Activates only when an in-game InfoCard stat report is actively drawing.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Prefix(Rect rect, string label)
         {
+            // EXECUTION CONTEXT GATE: Instant bailout during normal gameplay
+            if (!IsRenderingInfoCard)
+            {
+                return true;
+            }
+
             // Fast length filter (TagSentinel.Length is 25)
             if (label == null || label.Length < TagSentinel.Length)
             {
