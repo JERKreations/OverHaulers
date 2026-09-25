@@ -6,10 +6,15 @@
     <TargetFramework>net472</TargetFramework>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <OutputType>Library</OutputType>
+
     <!-- Embedded PDBs: Line numbers in error logs without extra .pdb files -->
     <DebugType>embedded</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <Deterministic>true</Deterministic>
+
+    <!-- Sanitize local dev machine paths in stack traces -->
+    <PathMap>$(MSBuildProjectDirectory)=OverHaulers</PathMap>
+
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
