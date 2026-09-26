@@ -144,6 +144,7 @@ namespace OverHaulers
         // Flags to enable or disable logging of various diagnostic metrics.
         public const bool LogQueryMetrics = true;
         public const bool LogCacheMetrics = true;
+        public const bool LogSnapshotTableMetrics = true;
         public const bool LogLifecycleMetrics = true;
         public const bool LogWorkspaceMetrics = true;
         public const bool LogSafetyFloorClamps = false;

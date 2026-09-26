@@ -5,24 +5,13 @@ using Verse;
 
 namespace OverHaulers
 {
-    /// <summary>
-    /// Provides the diagnostics and telemetry settings view for the OverHaulers mod, including verbose breakdowns,
-    /// report intervals, cache eviction settings, and sub-section toggles for report content.
-    /// </summary>
     public static partial class SettingsView
     {
         #region [SEC-09] DIAGNOSTICS & TELEMETRY DRAWER
 
-        /// <summary>
-        /// Draws the diagnostics and telemetry settings section, including verbose breakdown toggles, report intervals, and cache eviction settings.
-        /// </summary>
-        /// <param name="viewRect">The rectangle defining the area in which to draw the diagnostics section.</param>
-        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
-        /// <param name="settings">The settings object containing the diagnostics and telemetry configuration.</param>
-        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
         public static void DrawDiagnosticsSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
-            Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Diagnostics", ref currentY, fallbackEstimate: 260f);
+            Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Diagnostics", ref currentY, fallbackEstimate: 600f);
             float startY = inner.y;
             float localY = inner.y;
 
@@ -31,13 +20,13 @@ namespace OverHaulers
                 bool isResetHovered = SettingsViewUtilities.DrawHeaderWithResetDirect(inner, "OverHaulers_DiagnosticsHeader", resetAction, localY, out localY);
 
                 // Row 1: Verbose Breakdown
-                localY = SettingsViewUtilities.DrawCheckboxRowDirect(
+                localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                     inner,
                     "OverHaulers_VerboseBreakdown".Translate().ToString(),
                     ref settings.verboseBreakdown,
+                    "OverHaulers_VerboseBreakdown_Desc".Translate().ToString(),
                     localY,
-                    "OverHaulers_VerboseBreakdown_Tooltip".Translate().ToString(),
-                    isResetHovered
+                    highlight: isResetHovered
                 );
 
                 // Row 2: Sliders
@@ -72,44 +61,97 @@ namespace OverHaulers
                     SettingsDefaults.PawnEvictionTimeframeHoursMin, SettingsDefaults.PawnEvictionTimeframeHoursMax,
                     evictionTooltip
                 );
-                localY += 28f;
+                localY += 34f;
 
-                // Sub-Section Toggles
+                // =========================================================================
+                // SUB-SECTION HEADER & DESCRIPTION
+                // =========================================================================
                 bool metricsEnabled = settings.reportMetricsIntervalHours > 0;
+
+                Rect subHeaderRect = new Rect(inner.x, localY, inner.width, 22f);
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
+                Widgets.Label(subHeaderRect, "OverHaulers_ReportContentHeader".Translate().ToString());
+                localY += 24f;
+
+                // Explanatory in-line description explaining the gating behavior
+                localY = SettingsViewUtilities.DrawSectionDescriptionDirect(
+                    inner,
+                    "OverHaulers_ReportContent_Desc".Translate().ToString(),
+                    localY
+                );
+                localY += 4f;
+
+                // =========================================================================
+                // GATED CONTENT TOGGLES (Greyed out when Interval is 0, active when > 0)
+                // =========================================================================
                 bool originalEnabledState = GUI.enabled;
 
                 try
                 {
                     GUI.enabled = originalEnabledState && metricsEnabled;
 
-                    Rect subHeaderRect = new Rect(inner.x, localY, inner.width, 20f);
-                    Text.Font = GameFont.Tiny;
-                    GUI.color = metricsEnabled ? SettingsViewUtilities.DescriptionTextColor : SettingsViewUtilities.DescriptionTextColor * 0.5f;
-                    Widgets.Label(subHeaderRect, "OverHaulers_ReportContentHeader".Translate().ToString());
-                    GUI.color = Color.white;
-                    Text.Font = GameFont.Small;
-                    localY += 24f;
-
-                    // 2-Column Checkbox Grid
-                    localY = SettingsViewUtilities.Draw2x2CheckboxGridRowDirect(
+                    // 1. Total Registry Queries
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
-                        "OverHaulers_LogQueryMetrics".Translate().ToString(), ref settings.logQueryMetrics, "OverHaulers_LogQueryMetrics_Tooltip".Translate().ToString(),
-                        "OverHaulers_LogCacheMetrics".Translate().ToString(), ref settings.logCacheMetrics, "OverHaulers_LogCacheMetrics_Tooltip".Translate().ToString(),
-                        localY, isResetHovered
+                        "OverHaulers_LogQueryMetrics".Translate().ToString(),
+                        ref settings.logQueryMetrics,
+                        "OverHaulers_LogQueryMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
                     );
 
-                    localY = SettingsViewUtilities.Draw2x2CheckboxGridRowDirect(
+                    // 2. Cache Hit Efficiency
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
-                        "OverHaulers_LogLifecycleMetrics".Translate().ToString(), ref settings.logLifecycleMetrics, "OverHaulers_LogLifecycleMetrics_Tooltip".Translate().ToString(),
-                        "OverHaulers_LogWorkspaceMetrics".Translate().ToString(), ref settings.logWorkspaceMetrics, "OverHaulers_LogWorkspaceMetrics_Tooltip".Translate().ToString(),
-                        localY, isResetHovered
+                        "OverHaulers_LogCacheMetrics".Translate().ToString(),
+                        ref settings.logCacheMetrics,
+                        "OverHaulers_LogCacheMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
                     );
 
-                    localY = SettingsViewUtilities.Draw2x2CheckboxGridRowDirect(
+                    // 3. Snapshot Table & Probing Health
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
-                        "OverHaulers_LogSafetyFloorClamps".Translate().ToString(), ref settings.logSafetyFloorClamps, "OverHaulers_LogSafetyFloorClamps_Tooltip".Translate().ToString(),
-                        "OverHaulers_LogPawnEvictions".Translate().ToString(), ref settings.logPawnEvictions, "OverHaulers_LogPawnEvictions_Tooltip".Translate().ToString(),
-                        localY, isResetHovered
+                        "OverHaulers_LogSnapshotTableMetrics".Translate().ToString(),
+                        ref settings.logSnapshotTableMetrics,
+                        "OverHaulers_LogSnapshotTableMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
+                    );
+
+                    // 4. Lifecycle & Debounce Events
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                        inner,
+                        "OverHaulers_LogLifecycleMetrics".Translate().ToString(),
+                        ref settings.logLifecycleMetrics,
+                        "OverHaulers_LogLifecycleMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
+                    );
+
+                    // 5. Pooled Workspaces
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                        inner,
+                        "OverHaulers_LogWorkspaceMetrics".Translate().ToString(),
+                        ref settings.logWorkspaceMetrics,
+                        "OverHaulers_LogWorkspaceMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
+                    );
+
+                    // 6. Safety Floor Clamps
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                        inner,
+                        "OverHaulers_LogSafetyFloorClamps".Translate().ToString(),
+                        ref settings.logSafetyFloorClamps,
+                        "OverHaulers_LogSafetyFloorClamps_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
+                    );
+
+                    // 7. Evicted Pawn IDs
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                        inner,
+                        "OverHaulers_LogPawnEvictions".Translate().ToString(),
+                        ref settings.logPawnEvictions,
+                        "OverHaulers_LogPawnEvictions_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
                     );
                 }
                 finally

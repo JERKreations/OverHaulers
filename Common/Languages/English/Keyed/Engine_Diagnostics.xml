@@ -31,7 +31,16 @@
   <OverHaulers_Log_PerformanceReportHeader><![CDATA[[Over Haulers] ==== PERFORMANCE & CACHE METRICS REPORT (Last {0} Hours) ====]]></OverHaulers_Log_PerformanceReportHeader>
   <OverHaulers_Log_PerformanceReport_Queries>  • Total Registry Queries: {0} (Main Thread: {1} | Background Worker Threads: {2})</OverHaulers_Log_PerformanceReport_Queries>
   <OverHaulers_Log_PerformanceReport_Cache>  • Cache Hit Efficiency: {0}% (Hits: {1} | Recalculations: {2})</OverHaulers_Log_PerformanceReport_Cache>
+  <OverHaulers_Log_PerformanceReport_CacheDetailed>  • Cache Hit Efficiency: Total {0}% | Main {1}% (Hits: {2} | Recalcs: {3}) | Background {4}% (Hits: {5} | Misses: {6})</OverHaulers_Log_PerformanceReport_CacheDetailed>
+  
+  <!-- Snapshot Table & Probing Health -->
+  <OverHaulers_Log_PerformanceReport_SnapshotHealth>  • Snapshot Table Health: Main {0} | Snapshot {1}/{2} ({3}% load) | Avg Probe: {4} | Peak Depth: {5}/{6} | Displacements: {7}</OverHaulers_Log_PerformanceReport_SnapshotHealth>
+  <OverHaulers_Log_PerformanceReport_SnapshotContention>    - SeqLock Concurrency: {0} reader retries | {1} timeouts</OverHaulers_Log_PerformanceReport_SnapshotContention>
+
+  <!-- Lifecycle & Debounce -->
   <OverHaulers_Log_PerformanceReport_LifeCycle>  • Registry Lifecycle Events: {0} Invalidations | {1} Active Pawn Evictions</OverHaulers_Log_PerformanceReport_LifeCycle>
+  <OverHaulers_Log_PerformanceReport_LifeCycleDetailed>  • Registry Lifecycle Events: {0} Invalidations ({1} burst events culled, {2}% debounce) | {3} Active Pawn Evictions</OverHaulers_Log_PerformanceReport_LifeCycleDetailed>
+
   <OverHaulers_Log_PerformanceReport_Workspaces>  • Workspace Pooled Instances: {0} Active Thread-Static Workspaces</OverHaulers_Log_PerformanceReport_Workspaces>
 
   <OverHaulers_Log_SafetyFloorClampsHeader>  • Pawns Clamped to Safety Floor:</OverHaulers_Log_SafetyFloorClampsHeader>

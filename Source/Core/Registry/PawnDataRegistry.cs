@@ -21,8 +21,16 @@ namespace OverHaulers
         /// Scratch list for temporarily storing stale keys during cleanup operations.
         private static readonly List<int> staleKeysScratch = new List<int>(256);
 
+        /// <summary>Tracks the last main-thread tick when the registry captured pawn data.</summary>
         private static volatile int lastCapturedMainThreadTick = 0;
+
+        /// <summary>Retrieves the count of active cached pawns in the main-thread registry.</summary>
+        public static int CachedPawnCount => capacityCache.Count;
+
+        /// <summary>Tracks the last main-thread tick when the registry performed a cleanup operation.</summary>
         private static volatile int lastCleanupTick = 0;
+
+        /// <summary>Sentinel value indicating whether an active cleanup is in progress.</summary>
         private static int activeCleanupSentinel = 0;
 
         // CACHED EXPIRY ARITHMETIC: Eliminates Mathf.Sqrt calls when active population is stable
@@ -533,6 +541,7 @@ namespace OverHaulers
             // Culling immediately eliminates 100% of redundant eviction probe searches during combat bursts.
             if (!capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
+                PerformanceTelemetry.IncrementCulledInvalidations();
                 return true;
             }
 
@@ -541,6 +550,7 @@ namespace OverHaulers
             // This safely catches overlapping burst damage without desynchronizing lazy evaluations.
             if (cachedNode.IsStale)
             {
+                PerformanceTelemetry.IncrementCulledInvalidations();
                 return true;
             }
 
@@ -631,6 +641,7 @@ namespace OverHaulers
             // Prevents returning outdated baseline values when gear, hediffs, or drivers mutate
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
             {
+                PerformanceTelemetry.IncrementCacheHits();
                 baseline = cachedNode.BaselineCapacity;
                 return true;
             }
@@ -651,6 +662,7 @@ namespace OverHaulers
 
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
             {
+                PerformanceTelemetry.IncrementCacheHits();
                 offset = cachedNode.Offset;
                 return true;
             }

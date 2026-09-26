@@ -70,11 +70,25 @@ namespace OverHaulers
                 }
             }
 
+            /// <summary>
+            /// Compiles and dispatches the localized cumulative performance report to the RimWorld console log.
+            /// Synchronized via bufferLock to ensure thread-safe StringBuilder assembly and trace buffer clearing.
+            /// </summary>
             public static void DispatchCumulativeReport(
                 int elapsedHours,
+                // Query Metrics
                 int totalQueries, int mainQueries, int bgQueries,
-                float hitRatio, int hits, int misses,
-                int invalidations, int evictions,
+                // Hit Ratios
+                float mainHitRatio, int hits, int misses,
+                float bgHitRatio, int bgHits, int bgMisses,
+                float totalHitRatio,
+                // Lifecycle & Debounce
+                int invalidations, int culledInvalidations, float debounceEfficiency, int evictions,
+                // Snapshot Table Health & Parity
+                int mainCacheCount, int snapshotOccupied, int tableCapacity,
+                float avgProbeDepth, int peakProbe, int maxProbeSteps, int displacements,
+                int retries, int timeouts,
+                // Pooled Workspaces
                 int activeWorkspaces)
             {
                 var settings = OverHaulers.settings;
@@ -86,30 +100,87 @@ namespace OverHaulers
 
                     pooledReportBuilder.Append("OverHaulers_Log_PerformanceReportHeader".Translate(elapsedHours).ToString());
 
+                    // 1. Query Metrics
                     if (settings.logQueryMetrics)
                     {
                         pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Queries".Translate(totalQueries, mainQueries, bgQueries).ToString());
+                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Queries".Translate(
+                            totalQueries, 
+                            mainQueries, 
+                            bgQueries
+                        ).ToString());
                     }
 
+                    // 2. Cache Hit Efficiency
                     if (settings.logCacheMetrics)
                     {
                         pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Cache".Translate(hitRatio.ToString("F1"), hits, misses).ToString());
+                        if (bgQueries > 0)
+                        {
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_CacheDetailed".Translate(
+                                totalHitRatio.ToString("F1"),
+                                mainHitRatio.ToString("F1"), hits, misses,
+                                bgHitRatio.ToString("F1"), bgHits, bgMisses
+                            ).ToString());
+                        }
+                        else
+                        {
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Cache".Translate(
+                                mainHitRatio.ToString("F1"), 
+                                hits, 
+                                misses
+                            ).ToString());
+                        }
                     }
 
+                    // 3. Snapshot Table & Probing Health (NEW)
+                    if (settings.logSnapshotTableMetrics)
+                    {
+                        float loadPercent = tableCapacity > 0 ? ((float)snapshotOccupied / tableCapacity) * 100f : 0f;
+
+                        pooledReportBuilder.AppendLine();
+                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotHealth".Translate(
+                            mainCacheCount,
+                            snapshotOccupied,
+                            tableCapacity,
+                            loadPercent.ToString("F1"),
+                            avgProbeDepth.ToString("F2"),
+                            peakProbe,
+                            maxProbeSteps,
+                            displacements
+                        ).ToString());
+
+                        // If reader contention occurred during this interval, append secondary diagnostic line
+                        if (retries > 0 || timeouts > 0)
+                        {
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotContention".Translate(
+                                retries,
+                                timeouts
+                            ).ToString());
+                        }
+                    }
+
+                    // 4. Lifecycle Events & Combat Debounce Efficacy
                     if (settings.logLifecycleMetrics)
                     {
                         pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_LifeCycle".Translate(invalidations, evictions).ToString());
+                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_LifeCycleDetailed".Translate(
+                            invalidations,
+                            culledInvalidations,
+                            debounceEfficiency.ToString("F1"),
+                            evictions
+                        ).ToString());
                     }
 
+                    // 5. Pooled Workspaces
                     if (settings.logWorkspaceMetrics)
                     {
                         pooledReportBuilder.AppendLine();
                         pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Workspaces".Translate(activeWorkspaces).ToString());
                     }
 
+                    // 6. Safety Floor Clamps
                     if (settings.logSafetyFloorClamps && pendingClampedPawns.Count > 0)
                     {
                         pooledReportBuilder.AppendLine();
@@ -125,6 +196,7 @@ namespace OverHaulers
                         }
                     }
 
+                    // 7. Evicted Pawn IDs
                     if (settings.logPawnEvictions && pendingEvictedPawnIds.Count > 0)
                     {
                         string idsFormatted = string.Join(", ", pendingEvictedPawnIds);

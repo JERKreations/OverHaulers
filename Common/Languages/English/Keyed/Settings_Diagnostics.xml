@@ -6,6 +6,7 @@
   <!-- ========================================================================= -->
   <OverHaulers_DiagnosticsHeader>Diagnostic Logging &amp; Advanced Settings</OverHaulers_DiagnosticsHeader>
   <OverHaulers_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_VerboseBreakdown>
+  <OverHaulers_VerboseBreakdown_Desc>Forces pawn info cards to display every single body part and organ, even if completely healthy and normal.</OverHaulers_VerboseBreakdown_Desc>
   <OverHaulers_VerboseBreakdown_Tooltip>If checked, shows every single body part on a pawn's info page, even if they are perfectly healthy and normal.</OverHaulers_VerboseBreakdown_Tooltip>
 
   <OverHaulers_ReportMetricsInterval>Report Interval ({0}h)</OverHaulers_ReportMetricsInterval>
@@ -13,25 +14,29 @@
   <OverHaulers_ReportMetricsInterval_Tooltip>Configure how often (in game-hours) the cumulative performance and cache efficiency report is printed to the log. Set to 0 to completely disable automatic reports.</OverHaulers_ReportMetricsInterval_Tooltip>
 
   <!-- Report Content Checkbox Options -->
-  <OverHaulers_ReportContentHeader>Report Content Options:</OverHaulers_ReportContentHeader>
+  <OverHaulers_ReportContentHeader>Report Content Options (Report interval &gt; 0)</OverHaulers_ReportContentHeader>
+  <OverHaulers_ReportContent_Desc>Configure which telemetry sections are compiled and dispatched to the console log during periodic reports.</OverHaulers_ReportContent_Desc>
 
   <OverHaulers_LogQueryMetrics>Total Registry Queries</OverHaulers_LogQueryMetrics>
-  <OverHaulers_LogQueryMetrics_Tooltip>Includes total registry query counts and main thread vs off-thread background worker breakdowns in reports.</OverHaulers_LogQueryMetrics_Tooltip>
+  <OverHaulers_LogQueryMetrics_Desc>Tracks overall capacity query volume and compares main-thread game queries against off-thread background worker pathfinding requests.</OverHaulers_LogQueryMetrics_Desc>
 
   <OverHaulers_LogCacheMetrics>Cache Hit Efficiency</OverHaulers_LogCacheMetrics>
-  <OverHaulers_LogCacheMetrics_Tooltip>Includes cache hit ratios, hits, and recalculation counts in reports.</OverHaulers_LogCacheMetrics_Tooltip>
+  <OverHaulers_LogCacheMetrics_Desc>Tracks cache hit ratios, hits, and solver recalculations across both main-thread evaluations and background thread queries.</OverHaulers_LogCacheMetrics_Desc>
 
-  <OverHaulers_LogLifecycleMetrics>Lifecycle Events</OverHaulers_LogLifecycleMetrics>
-  <OverHaulers_LogLifecycleMetrics_Tooltip>Includes counts of reactive cache invalidation events and active pawn evictions in reports.</OverHaulers_LogLifecycleMetrics_Tooltip>
+  <OverHaulers_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_LogSnapshotTableMetrics>
+  <OverHaulers_LogSnapshotTableMetrics_Desc>Reports 4096-slot atomic hash table load factor, dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_LogSnapshotTableMetrics_Desc>
+
+  <OverHaulers_LogLifecycleMetrics>Lifecycle &amp; Invalidation Events</OverHaulers_LogLifecycleMetrics>
+  <OverHaulers_LogLifecycleMetrics_Desc>Reports reactive cache invalidations, combat burst damage debouncer efficiency, and active pawn lifecycle purges.</OverHaulers_LogLifecycleMetrics_Desc>
 
   <OverHaulers_LogWorkspaceMetrics>Pooled Workspaces</OverHaulers_LogWorkspaceMetrics>
-  <OverHaulers_LogWorkspaceMetrics_Tooltip>Includes active ThreadStatic workspace instance counts in reports.</OverHaulers_LogWorkspaceMetrics_Tooltip>
+  <OverHaulers_LogWorkspaceMetrics_Desc>Reports active thread-static workspace memory scratchpads allocated across main and worker threads.</OverHaulers_LogWorkspaceMetrics_Desc>
 
   <OverHaulers_LogSafetyFloorClamps>Safety Floor Clamps</OverHaulers_LogSafetyFloorClamps>
-  <OverHaulers_LogSafetyFloorClamps_Tooltip>Buffers and includes detailed breakdowns of pawns clamped to the mass capacity safety floor in reports.</OverHaulers_LogSafetyFloorClamps_Tooltip>
+  <OverHaulers_LogSafetyFloorClamps_Desc>Buffers and lists pawns whose calculated mass capacity dropped below the safety floor and was clamped.</OverHaulers_LogSafetyFloorClamps_Desc>
 
   <OverHaulers_LogPawnEvictions>Evicted Pawn IDs</OverHaulers_LogPawnEvictions>
-  <OverHaulers_LogPawnEvictions_Tooltip>Buffers and includes lists of pawn IDs evicted from capacity registries in reports.</OverHaulers_LogPawnEvictions_Tooltip>
+  <OverHaulers_LogPawnEvictions_Desc>Buffers and lists the unique Thing IDs of pawns evicted from memory due to death, despawn, or long-term inactivity.</OverHaulers_LogPawnEvictions_Desc>
 
   <OverHaulers_CacheInactivityEvictionHours>Pawn Eviction Timeframe ({0}h)</OverHaulers_CacheInactivityEvictionHours>
   <OverHaulers_CacheInactivityEvictionHours_Tooltip>Configures how many game-hours a pawn's capacity cache entry can remain unqueried before being evicted from memory. (1 game-hour = {0} ticks, {1} hours = 1 game day).</OverHaulers_CacheInactivityEvictionHours_Tooltip>

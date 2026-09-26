@@ -28,6 +28,8 @@ namespace OverHaulers
     //    states, mutations are bounded by a lightweight Sequence Counter (SeqLock).
     // 3. Multiplicative Hashing: Knuth's golden-ratio multiplier uniformly diffuses sequential
     //    RimWorld Thing IDs across power-of-two buckets, eliminating primary clustering.
+    // 4. Zero-Contention Telemetry: Reader conflict retries, probe step depths, and slot displacements
+    //    are tracked via gated atomic accumulators, providing visibility without cache line ping-pong.
     /// </remarks>
     public static class MassSnapshotCache
     {
@@ -64,6 +66,15 @@ namespace OverHaulers
         // Even = stable table state; Odd = writer mutation in flight.
         // Governed by Volatile.Read / Volatile.Write; declared without 'volatile' to prevent CS0420.
         private static int tableVersion = 0;
+
+        // Active non-zero slot counter tracking resident entries in the 4096-slot table.
+        // Modified exclusively during main-thread mutation windows; read safely via Volatile.Read.
+        private static int occupiedSlots = 0;
+
+        /// <summary>
+        /// Retrieves the exact count of occupied, non-zero slots currently residing in the atomic table.
+        /// </summary>
+        public static int OccupiedSlotsCount => Volatile.Read(ref occupiedSlots);
 
         // Parallel contiguous arrays resident in L1/L2 CPU cache (~32 KB total footprint)
         private static readonly int[] slotPawnIds = new int[TableCapacity];
@@ -126,13 +137,16 @@ namespace OverHaulers
         {
             if (pawnId <= 0) return 0f;
 
-            // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
-            PerformanceTelemetry.IncrementBackgroundQueries();
-
             uint baseSlot = GetNaturalSlot(pawnId);
 
             for (int retry = 0; retry < MaxReaderRetries; retry++)
             {
+                // BREAKPOINT ANCHOR: Reader Contention Retry Tracking
+                if (retry > 0)
+                {
+                    PerformanceTelemetry.IncrementReaderRetry();
+                }
+
                 int v1 = Volatile.Read(ref tableVersion);
                 if ((v1 & 1) != 0)
                 {
@@ -167,10 +181,23 @@ namespace OverHaulers
                 int v2 = Volatile.Read(ref tableVersion);
                 if (v1 == v2)
                 {
-                    return found ? offset : 0f;
+                    // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
+                    if (found)
+                    {
+                        PerformanceTelemetry.IncrementBackgroundHit();
+                        return offset;
+                    }
+                    else
+                    {
+                        PerformanceTelemetry.IncrementBackgroundMiss();
+                        return 0f;
+                    }
                 }
             }
 
+            // BREAKPOINT ANCHOR: Reader Contention Timeout Fallback
+            PerformanceTelemetry.IncrementReaderTimeout();
+            PerformanceTelemetry.IncrementBackgroundMiss();
             return 0f;
         }
 
@@ -183,13 +210,16 @@ namespace OverHaulers
         {
             if (pawnId <= 0) return 1.0f;
 
-            // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
-            PerformanceTelemetry.IncrementBackgroundQueries();
-
             uint baseSlot = GetNaturalSlot(pawnId);
 
             for (int retry = 0; retry < MaxReaderRetries; retry++)
             {
+                // BREAKPOINT ANCHOR: Reader Contention Retry Tracking
+                if (retry > 0)
+                {
+                    PerformanceTelemetry.IncrementReaderRetry();
+                }
+
                 int v1 = Volatile.Read(ref tableVersion);
                 if ((v1 & 1) != 0)
                 {
@@ -222,11 +252,23 @@ namespace OverHaulers
                 int v2 = Volatile.Read(ref tableVersion);
                 if (v1 == v2)
                 {
-                    if (!found) return 1.0f;
-                    return multiplier <= 0f ? 1.0f : multiplier;
+                    // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
+                    if (found)
+                    {
+                        PerformanceTelemetry.IncrementBackgroundHit();
+                        return multiplier <= 0f ? 1.0f : multiplier;
+                    }
+                    else
+                    {
+                        PerformanceTelemetry.IncrementBackgroundMiss();
+                        return 1.0f;
+                    }
                 }
             }
 
+            // BREAKPOINT ANCHOR: Reader Contention Timeout Fallback
+            PerformanceTelemetry.IncrementReaderTimeout();
+            PerformanceTelemetry.IncrementBackgroundMiss();
             return 1.0f;
         }
 
@@ -236,7 +278,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CACHE-03] Writes or updates calculated Caravan Mass Capacity parameters into the atomic registry.
-        /// Synchronized via SeqLock mutation boundary.
+        /// Synchronized via SeqLock mutation boundary. Measures linear probe depth and slot displacements for diagnostics.
         /// </summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <param name="offset">The solved caravan mass capacity offset in kg.</param>
@@ -248,21 +290,32 @@ namespace OverHaulers
             long packed = Pack(offset, multiplier);
             uint baseSlot = GetNaturalSlot(pawnId);
             int targetSlot = -1;
+            int probeStepsTaken = 0;
+            bool isNewInsertion = false;
 
             // BREAKPOINT ANCHOR: SeqLock Mutation Window (Data payload before key publication)
             Interlocked.Increment(ref tableVersion);
 
             try
             {
-                // 1. Probe for an existing key match or first open slot
+                // 1. Probe for an existing key match or first open slot, tracking probe distance for telemetry
                 for (uint i = 0; i < MaxProbeSteps; i++)
                 {
                     uint slot = (baseSlot + i) & TableMask;
                     int candidateId = slotPawnIds[slot];
 
-                    if (candidateId == pawnId || candidateId == 0)
+                    if (candidateId == pawnId)
                     {
                         targetSlot = (int)slot;
+                        probeStepsTaken = (int)(i + 1);
+                        break;
+                    }
+
+                    if (candidateId == 0)
+                    {
+                        targetSlot = (int)slot;
+                        probeStepsTaken = (int)(i + 1);
+                        isNewInsertion = true;
                         break;
                     }
                 }
@@ -270,12 +323,31 @@ namespace OverHaulers
                 // 2. Clean eviction fallback if probe bound is saturated
                 if (targetSlot == -1)
                 {
+                    // BREAKPOINT ANCHOR: Saturated Probe Displacement Fallback
                     // Linear probe window is fully saturated (all MaxProbeSteps slots occupied).
                     // Displace the root bucket occupant directly to seat this pawn at its natural hash.
                     // Overwriting baseSlot maintains unbroken non-zero probe chains for downstream keys
                     // without corrupting shifts via premature zeroing.
                     targetSlot = (int)baseSlot;
-                    PerformanceTelemetry.IncrementEvictions();
+                    probeStepsTaken = MaxProbeSteps;
+
+                    // If replacing an existing non-zero occupant, net table occupancy remains unchanged;
+                    // if baseSlot was somehow zero, it counts as a new insertion.
+                    if (slotPawnIds[targetSlot] == 0)
+                    {
+                        isNewInsertion = true;
+                    }
+
+                    PerformanceTelemetry.RecordWriteProbe(MaxProbeSteps, displaced: true);
+                }
+                else
+                {
+                    PerformanceTelemetry.RecordWriteProbe(probeStepsTaken, displaced: false);
+                }
+
+                if (isNewInsertion)
+                {
+                    occupiedSlots++;
                 }
 
                 slotPackedData[targetSlot] = packed;
@@ -313,6 +385,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Internal implementation of the backward-shift deletion (Algorithm R) for evicting a pawn entry from the cache.
+        /// Decrements the active table occupancy counter when a slot is cleared.
         /// </summary>
         /// <param name="pawnId">The unique identifier of the pawn to evict from the cache.</param>
         /// <returns>True if the pawn was successfully evicted; otherwise, false.</returns>
@@ -378,15 +451,21 @@ namespace OverHaulers
                 scanSlot = (scanSlot + 1) & TableMask;
             }
 
-            // Step 3: Zero out the terminal slot
+            // Step 3: Zero out the terminal vacant slot and decrement active occupancy
             slotPawnIds[emptySlot] = 0;
             slotPackedData[emptySlot] = 0L;
+
+            if (occupiedSlots > 0)
+            {
+                occupiedSlots--;
+            }
 
             return true;
         }
 
         /// <summary>
         /// [CACHE-03] Completely flushes the atomic snapshot registry on save load or world reset.
+        /// Resets active occupied slot metrics to baseline zero.
         /// </summary>
         public static void Reset()
         {
@@ -397,6 +476,7 @@ namespace OverHaulers
             {
                 Array.Clear(slotPawnIds, 0, TableCapacity);
                 Array.Clear(slotPackedData, 0, TableCapacity);
+                occupiedSlots = 0;
             }
             finally
             {

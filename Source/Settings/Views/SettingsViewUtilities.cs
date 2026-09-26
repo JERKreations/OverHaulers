@@ -332,6 +332,49 @@ namespace OverHaulers
             return currentY + 28f;
         }
 
+        /// <summary>
+        /// Draws a single row containing a checkbox with an in-line description below it and optional highlighting.
+        /// </summary>
+        /// <param name="containerRect">The rectangle defining the area of the container.</param>
+        /// <param name="label">The label for the checkbox.</param>
+        /// <param name="value">The current value of the checkbox.</param>
+        /// <param name="description">The in-line description text rendered beneath the checkbox.</param>
+        /// <param name="currentY">The current Y position within the container.</param>
+        /// <param name="tooltip">An optional tooltip for the checkbox row.</param>
+        /// <param name="highlight">Indicates whether the row should be highlighted.</param>
+        /// <returns>The updated Y position after drawing the row and description.</returns>
+        public static float DrawCheckboxRowWithDescriptionDirect(
+            Rect containerRect,
+            string label,
+            ref bool value,
+            string description,
+            float currentY,
+            string tooltip = null,
+            bool highlight = false)
+        {
+            currentY = DrawCheckboxRowDirect(containerRect, label, ref value, currentY, tooltip, highlight);
+
+            if (string.IsNullOrEmpty(description)) return currentY;
+
+            float descH = CalcTextHeight(description, containerRect.width, GameFont.Tiny);
+            Rect descRect = new Rect(containerRect.x, currentY, containerRect.width, descH);
+
+            Text.Font = GameFont.Tiny;
+            Color originalColor = GUI.color;
+            try
+            {
+                GUI.color = DescriptionTextColor;
+                Widgets.Label(descRect, description);
+            }
+            finally
+            {
+                GUI.color = originalColor;
+                Text.Font = GameFont.Small;
+            }
+
+            return currentY + descH + 8f;
+        }
+
         #endregion
 
         #region 6. ROW LAYOUT ENGINE
