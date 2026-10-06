@@ -8,6 +8,8 @@
   <OverHaulers_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_VerboseBreakdown>
   <OverHaulers_VerboseBreakdown_Desc>Forces pawn info cards to display every single body part and organ, even if completely healthy and normal.</OverHaulers_VerboseBreakdown_Desc>
   <OverHaulers_VerboseBreakdown_Tooltip>If checked, shows every single body part on a pawn's info page, even if they are perfectly healthy and normal.</OverHaulers_VerboseBreakdown_Tooltip>
+  <OverHaulers_DevStressTestAllFauna_Label>DOD Stress-Test: Evaluate All Fauna</OverHaulers_DevStressTestAllFauna_Label>
+  <OverHaulers_DevStressTestAllFauna_Desc>High-load population benchmarking override. When enabled, 100% of biological fauna (livestock, wild animals, vermin, predators) are forced through the OverHaulers solver, SoA workspaces, and dynamic cache pipeline regardless of pack animal status. Designed to stress-test cache capacity, TTL scaling, and zero-allocation throughput across large populations.</OverHaulers_DevStressTestAllFauna_Desc>
 
   <OverHaulers_ReportMetricsInterval>Report Interval ({0}h)</OverHaulers_ReportMetricsInterval>
   <OverHaulers_ReportMetricsIntervalDisabled>Report Interval (Off)</OverHaulers_ReportMetricsIntervalDisabled>

@@ -29,7 +29,22 @@ namespace OverHaulers
                     highlight: isResetHovered
                 );
 
-                // Row 2: Sliders
+                // Row 2: High-Load Population Stress Test
+                bool prevStressTest = settings.devStressTestAllFauna;
+                localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                    inner,
+                    "OverHaulers_DevStressTestAllFauna_Label".Translate().ToString(),
+                    ref settings.devStressTestAllFauna,
+                    "OverHaulers_DevStressTestAllFauna_Desc".Translate().ToString(),
+                    localY,
+                    highlight: isResetHovered
+                );
+                if (settings.devStressTestAllFauna != prevStressTest)
+                {
+                    SettingsViewUtilities.OnSettingMutated();
+                }
+
+                // Row 3: Sliders
                 Rect row2Rect = new Rect(inner.x, localY, inner.width, 24f);
                 if (isResetHovered) Widgets.DrawBoxSolid(row2Rect.ExpandedBy(2f, 1f), SettingsViewUtilities.DarkTargetHighlightColor);
 

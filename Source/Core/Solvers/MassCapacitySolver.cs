@@ -695,12 +695,13 @@ namespace OverHaulers
 
         /// <summary>
         /// Ensures that the final capacity does not fall below the defined safety floor.
+        /// Serves as the single canonical implementation for floor enforcement and telemetry recording.
         /// </summary>
         /// <param name="finalCapacity">The calculated final capacity to be clamped.</param>
         /// <param name="targetLabel">The label of the target entity for logging purposes.</param>
         /// <returns>The clamped final capacity, ensuring it meets the safety floor requirement.</returns>
         /// <remarks>
-        /// This method will check the final capacity against a predefined safety floor (0.01f) and clamp it if necessary.
+        /// This method checks the final capacity against a predefined safety floor (0.01f) and clamps it if necessary.
         /// It also logs the clamping action for performance tracking purposes.
         /// </remarks>
         public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
@@ -717,6 +718,30 @@ namespace OverHaulers
                 float clampedValue = 0.01f;
                 OHLog.Performance.RecordSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
                 return clampedValue;
+            }
+
+            return finalCapacity;
+        }
+
+        /// <summary>
+        /// Evaluates and clamps the final capacity for a pawn against the safety floor.
+        /// Acts as a zero-allocation pass-through hand-off to <see cref="EnforceSafetyFloor"/>,
+        /// lazily resolving the pawn label only when safety floor clamping is actively triggered.
+        /// </summary>
+        /// <param name="finalCapacity">The calculated final caravan mass capacity to be clamped.</param>
+        /// <param name="pawn">The pawn being evaluated.</param>
+        /// <returns>The clamped final capacity.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
+        {
+            // Fast path: bypass string allocation and delegate to canonical implementation only if clamped
+            if (finalCapacity < 0.01f)
+            {
+                string targetLabel = pawn != null
+                    ? (UnityData.IsInMainThread ? pawn.LabelShortCap : pawn.def?.label ?? "Pawn")
+                    : "Pawn";
+
+                return EnforceSafetyFloor(finalCapacity, targetLabel);
             }
 
             return finalCapacity;

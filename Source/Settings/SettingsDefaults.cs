@@ -37,7 +37,6 @@ namespace OverHaulers
         public const float MassCapacityFloorMax = 1.00f;
 
         public const bool CompatibilitySafetyFloor = true;
-        public const bool DevAllowNonPackSpeciesInLivePlay = false;
 
         #endregion
 
@@ -135,7 +134,16 @@ namespace OverHaulers
         // Verbose breakdown flag for diagnostics. When true, instances of InfoCard are forced to display all groupings details regardless of
         // part states and health conditions.
         public const bool VerboseBreakdown = false;
-        
+
+        /// <summary>
+        /// High-load population stress-test benchmark toggle forcing 100% of biological fauna
+        /// (livestock, wild animals, vermin, predators) through the solver and dynamic cache.
+        /// </summary>
+        public const bool DevStressTestAllFauna = false;
+
+        [System.Obsolete("Use DevStressTestAllFauna instead.")]
+        public const bool DevAllowNonPackSpeciesInLivePlay = DevStressTestAllFauna;
+
         // Report metrics interval in hours. This defines how frequently diagnostic metrics are reported.
         public const int ReportMetricsIntervalHours = 0;
         public const int ReportMetricsIntervalHoursMin = 0;

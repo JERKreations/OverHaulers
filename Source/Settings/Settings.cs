@@ -40,7 +40,6 @@ namespace OverHaulers
         public float massCapacityFloor = SettingsDefaults.MassCapacityFloor;
 
         public bool compatibilitySafetyFloor = SettingsDefaults.CompatibilitySafetyFloor;
-        public bool devAllowNonPackSpeciesInLivePlay = SettingsDefaults.DevAllowNonPackSpeciesInLivePlay;
 
         #endregion
 
@@ -127,6 +126,23 @@ namespace OverHaulers
         #region 11. [SEC-09] DIAGNOSTICS & DEVELOPER FIELDS
 
         public bool verboseBreakdown = SettingsDefaults.VerboseBreakdown;
+
+        /// <summary>
+        /// High-load population stress-test benchmark toggle forcing 100% of biological fauna
+        /// (livestock, wild animals, vermin, predators) through the solver and dynamic cache.
+        /// </summary>
+        public bool devStressTestAllFauna = SettingsDefaults.DevStressTestAllFauna;
+
+        /// <summary>
+        /// Backwards-compatible alias for <see cref="devStressTestAllFauna"/>.
+        /// </summary>
+        [System.Obsolete("Use devStressTestAllFauna instead.")]
+        public bool devAllowNonPackSpeciesInLivePlay
+        {
+            get => devStressTestAllFauna;
+            set => devStressTestAllFauna = value;
+        }
+
         public int reportMetricsIntervalHours = SettingsDefaults.ReportMetricsIntervalHours;
         public bool logQueryMetrics = SettingsDefaults.LogQueryMetrics;
         public bool logCacheMetrics = SettingsDefaults.LogCacheMetrics;
@@ -230,7 +246,6 @@ namespace OverHaulers
             athleticScaling = SettingsDefaults.AthleticScaling;
             massCapacityFloor = SettingsDefaults.MassCapacityFloor;
             compatibilitySafetyFloor = SettingsDefaults.CompatibilitySafetyFloor;
-            devAllowNonPackSpeciesInLivePlay = SettingsDefaults.DevAllowNonPackSpeciesInLivePlay;
             enableProsthetics = SettingsDefaults.EnableProsthetics;
             enableAthletics = SettingsDefaults.EnableAthletics;
             enablePartHealth = SettingsDefaults.EnablePartHealth;
@@ -393,6 +408,7 @@ namespace OverHaulers
         public void ResetDiagnostics()
         {
             verboseBreakdown = SettingsDefaults.VerboseBreakdown;
+            devStressTestAllFauna = SettingsDefaults.DevStressTestAllFauna;
             reportMetricsIntervalHours = SettingsDefaults.ReportMetricsIntervalHours;
             logQueryMetrics = SettingsDefaults.LogQueryMetrics;
             logCacheMetrics = SettingsDefaults.LogCacheMetrics;
@@ -444,7 +460,6 @@ namespace OverHaulers
             Scribe_Values.Look(ref athleticScaling, "athleticScaling", SettingsDefaults.AthleticScaling);
             Scribe_Values.Look(ref massCapacityFloor, "massCapacityFloor", SettingsDefaults.MassCapacityFloor);
             Scribe_Values.Look(ref compatibilitySafetyFloor, "compatibilitySafetyFloor", SettingsDefaults.CompatibilitySafetyFloor);
-            Scribe_Values.Look(ref devAllowNonPackSpeciesInLivePlay, "restrictNonCaravanAnimals", SettingsDefaults.DevAllowNonPackSpeciesInLivePlay);
 
             Scribe_Values.Look(ref iconScalePercent, "iconScalePercent", SettingsDefaults.IconScalePercent);
             Scribe_Values.Look(ref activePalettePreset, "activePalettePreset", SettingsDefaults.DefaultPalettePreset);
@@ -455,6 +470,9 @@ namespace OverHaulers
             Scribe_Values.Look(ref anatomyWeightTorso, "anatomyWeightTorso", SettingsDefaults.AnatomyWeightTorso);
             Scribe_Values.Look(ref anatomyWeightArm, "anatomyWeightArm", SettingsDefaults.AnatomyWeightArm);
             Scribe_Values.Look(ref anatomyWeightLeg, "anatomyWeightLeg", SettingsDefaults.AnatomyWeightLeg);
+
+            // [SEC-03] Master lock for symmetric/individual systemic editing
+            Scribe_Values.Look(ref linkSystemicWeights, "linkSystemicWeights", SettingsDefaults.LinkSystemicWeights);
 
             Scribe_Values.Look(ref torsoPositiveBreathing, "torsoPositiveBreathing", SettingsDefaults.TorsoPositiveBreathing);
             Scribe_Values.Look(ref torsoPositiveBlood, "torsoPositiveBlood", SettingsDefaults.TorsoPositiveBlood);
@@ -502,6 +520,7 @@ namespace OverHaulers
             }
 
             Scribe_Values.Look(ref verboseBreakdown, "verboseBreakdown", SettingsDefaults.VerboseBreakdown);
+            Scribe_Values.Look(ref devStressTestAllFauna, "devStressTestAllFauna", SettingsDefaults.DevStressTestAllFauna);
             Scribe_Values.Look(ref reportMetricsIntervalHours, "reportMetricsIntervalHours", SettingsDefaults.ReportMetricsIntervalHours);
             Scribe_Values.Look(ref logQueryMetrics, "logQueryMetrics", SettingsDefaults.LogQueryMetrics);
             Scribe_Values.Look(ref logCacheMetrics, "logCacheMetrics", SettingsDefaults.LogCacheMetrics);

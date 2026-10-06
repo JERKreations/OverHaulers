@@ -36,7 +36,8 @@ namespace OverHaulers
 
         /// <summary>
         /// Retrieves or instantiates a clean thread-local <see cref="AnatomicalWorkspace"/> instance.
-        /// Supports re-entrant leases (up to 4 levels) during nested cross-pawn evaluations.
+        /// Supports re-entrant leases up to <see cref="MaxWorkspacePoolDepth"/> levels.
+        /// If depth is exceeded, allocates an unpooled standalone instance to prevent corrupting active leases.
         /// </summary>
         /// <returns>A cleared and ready-to-use <see cref="AnatomicalWorkspace"/>.</returns>
         public static AnatomicalWorkspace GetWorkspace()
@@ -46,35 +47,52 @@ namespace OverHaulers
                 threadWorkspaces = new AnatomicalWorkspace[MaxWorkspacePoolDepth];
             }
 
-            int index = poolIndex;
-            if (index < MaxWorkspacePoolDepth)
+            if (poolIndex < MaxWorkspacePoolDepth)
             {
-                poolIndex++;
-            }
-            else
-            {
-                // Safety fallback if depth is exceeded: reuse topmost slot
-                index = MaxWorkspacePoolDepth - 1;
-            }
-
-            AnatomicalWorkspace ws = threadWorkspaces[index];
-            if (ws == null || ws.IsNullified)
-            {
-                int settingsCapacity = SettingsDefaults.DefaultWorkspaceCapacity; 
-                int globalMaxLayout = TopologyLayoutCompiler.globalMaxPartCount;
-                int initialCapacity = Math.Max(settingsCapacity, globalMaxLayout);
-
-                ws = new AnatomicalWorkspace(initialCapacity);
-                threadWorkspaces[index] = ws;
-
-                lock (syncRoot)
+                int index = poolIndex++;
+                AnatomicalWorkspace ws = threadWorkspaces[index];
+                if (ws == null || ws.IsNullified)
                 {
-                    allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
+                    int settingsCapacity = SettingsDefaults.DefaultWorkspaceCapacity; 
+                    int globalMaxLayout = TopologyLayoutCompiler.globalMaxPartCount;
+                    int initialCapacity = Math.Max(settingsCapacity, globalMaxLayout);
+
+                    ws = new AnatomicalWorkspace(initialCapacity);
+                    threadWorkspaces[index] = ws;
+
+                    lock (syncRoot)
+                    {
+                        allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
+                    }
                 }
+
+                ws.Clear();
+                return ws;
             }
 
-            ws.Clear();
-            return ws;
+            // Safety fallback if depth is exceeded: allocate an unpooled fallback workspace
+            // instead of prematurely reusing and clearing an active workspace currently in use.
+            poolIndex++;
+            OHLog.Solver.Warn("WorkspacePool", null, $"Workspace pool depth exceeded ({poolIndex} > {MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
+
+            int fallbackCapacity = Math.Max(SettingsDefaults.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);
+            AnatomicalWorkspace unpooledWs = new AnatomicalWorkspace(fallbackCapacity);
+            lock (syncRoot)
+            {
+                allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(unpooledWs));
+            }
+
+            return unpooledWs;
+        }
+
+        /// <summary>
+        /// Leases a workspace wrapped in a deterministic <see cref="WorkspaceLease"/> token.
+        /// Acts as a thin pass-through hand-off to <see cref="GetWorkspace"/>.
+        /// </summary>
+        /// <returns>A disposable lease token containing the leased workspace.</returns>
+        public static WorkspaceLease LeaseWorkspace()
+        {
+            return new WorkspaceLease(GetWorkspace());
         }
 
         /// <summary>
@@ -91,6 +109,28 @@ namespace OverHaulers
             if (poolIndex > 0)
             {
                 poolIndex--;
+            }
+        }
+
+        /// <summary>
+        /// Lightweight IDisposable lease wrapper for <see cref="AnatomicalWorkspace"/>
+        /// to guarantee deterministic release via C# using blocks without boxing.
+        /// </summary>
+        public readonly struct WorkspaceLease : IDisposable
+        {
+            public readonly AnatomicalWorkspace Workspace;
+
+            public WorkspaceLease(AnatomicalWorkspace workspace)
+            {
+                Workspace = workspace;
+            }
+
+            public void Dispose()
+            {
+                if (Workspace != null)
+                {
+                    ReleaseWorkspace(Workspace);
+                }
             }
         }
 

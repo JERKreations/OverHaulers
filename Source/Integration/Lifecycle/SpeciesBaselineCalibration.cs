@@ -389,6 +389,12 @@ namespace OverHaulers
             {
                 if (!speciesCache.TryGetValue(raceDef, out CalibrationEntry entry))
                 {
+                    // Off-thread callers must never instantiate dummy pawns
+                    if (!UnityData.IsInMainThread)
+                    {
+                        return massCapacityScalarTestingAndFallbackOnly;
+                    }
+
                     float scalar = EvaluateDummyPawn(raceDef, out string errorDetail);
                     entry = ClassifyDummyResult(raceDef, scalar, errorDetail);
                     speciesCache[raceDef] = entry;
@@ -415,10 +421,26 @@ namespace OverHaulers
         {
             if (pawn == null || pawn.def == null) return 0f;
 
+            // 1. OFF-THREAD FAST PATH: Background worker threads (e.g. async pathfinding) must never
+            // instantiate dummy pawns, touch comps, or execute live rescues outside Unity's main thread.
+            if (!UnityData.IsInMainThread)
+            {
+                float safeBodySize = MedicalClassifier.GetSafeBodySize(pawn);
+                lock (calibrationLock)
+                {
+                    if (speciesCache.TryGetValue(pawn.def, out CalibrationEntry cachedEntry) && cachedEntry.Scalar > 0f)
+                    {
+                        return cachedEntry.Scalar * safeBodySize;
+                    }
+                }
+
+                return massCapacityScalarTestingAndFallbackOnly * safeBodySize;
+            }
+
             CalibrationEntry entry;
             bool requiresLiveCalibration = false;
 
-            // 1. Check cache and attempt pristine dummy evaluation
+            // 2. Check cache and attempt pristine dummy evaluation (Main Thread only)
             lock (calibrationLock)
             {
                 if (!speciesCache.TryGetValue(pawn.def, out entry))
@@ -436,7 +458,7 @@ namespace OverHaulers
 
             float currentBodySize = MedicalClassifier.GetSafeBodySize(pawn);
 
-            // 2. Perform live rescue outside the lock to prevent stalling background threads.
+            // 3. Perform live rescue outside the lock to prevent stalling background threads.
             // Only real, fully-spawned pawns on an active map can execute a live rescue.
             // Headless sandbox dummy pawns and unspawned pawns must NEVER attempt live rescues or log false warnings.
             if (requiresLiveCalibration)
@@ -501,7 +523,7 @@ namespace OverHaulers
                 }
             }
 
-            // 3. Apply the final resolved scalar
+            // 4. Apply the final resolved scalar
             if (entry.Scalar == EmergencyFailsafeSentinel)
             {
                 return massCapacityScalarTestingAndFallbackOnly * currentBodySize;

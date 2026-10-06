@@ -39,16 +39,16 @@ namespace OverHaulers
 
             Rect inner = boxRect.ContractedBy(6f);
             
-            bool prev = settings.devAllowNonPackSpeciesInLivePlay;
+            bool prev = settings.devStressTestAllFauna;
             bool current = prev;
 
             Widgets.CheckboxLabeled(new Rect(inner.x + 4f, inner.y + 1f, inner.width - 8f, 22f), 
-                "OverHaulers_DevAllowNonPackSpecies".Translate().ToString(), ref current);
-            TooltipHandler.TipRegion(inner, "OverHaulers_DevAllowNonPackSpecies_Tooltip".Translate().ToString());
+                "OverHaulers_DevStressTestAllFauna_Label".Translate().ToString(), ref current);
+            TooltipHandler.TipRegion(inner, "OverHaulers_DevStressTestAllFauna_Desc".Translate().ToString());
 
             if (prev != current)
             {
-                settings.devAllowNonPackSpeciesInLivePlay = current;
+                settings.devStressTestAllFauna = current;
 
                 if (current)
                 {

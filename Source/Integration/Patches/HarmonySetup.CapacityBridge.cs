@@ -77,7 +77,7 @@ namespace OverHaulers
             if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
             {
                 __result += fastOffset;
-                __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+                __result = MassCapacitySolver.EnforceSafetyFloorForPawn(__result, p);
                 if (explanation != null)
                 {
                     SyncExplanationCapacity(explanation, p, __result);
@@ -93,7 +93,7 @@ namespace OverHaulers
             __result += calculatedOffset;
 
             // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
-            __result = MassCapacitySolver.EnforceSafetyFloor(__result, p.LabelShortCap);
+            __result = MassCapacitySolver.EnforceSafetyFloorForPawn(__result, p);
 
             // EXPLANATION SYNC: If caller provided an explanation StringBuilder (e.g. CollectionsMassCalculator),
             // replace vanilla's pre-postfix baseline entry with the true final capacity.

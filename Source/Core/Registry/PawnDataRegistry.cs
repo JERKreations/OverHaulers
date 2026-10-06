@@ -57,7 +57,7 @@ namespace OverHaulers
             if (pawn == null) return false;
 
             Settings settings = OverHaulers.settings;
-            if (settings != null && settings.devAllowNonPackSpeciesInLivePlay)
+            if (settings != null && settings.devStressTestAllFauna)
             {
                 return true;
             }
@@ -451,47 +451,51 @@ namespace OverHaulers
             bool shouldCompileUIProperties, 
             out AnatomicalWorkspace workspace)
         {
-            float bioBaseline;
-            float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
-                pawn, baselineCapacity, out bioBaseline, OverHaulers.settings, 
-                shouldCompileUIProperties, out workspace);
-
-            // Enforce domain rules (safety floor & multiplier) directly in Core
-            float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(bioBaseline + solvedOffset, pawn.LabelShortCap);
-            float calculatedMultiplier = bioBaseline > 0f ? (finalCapacity / bioBaseline) : 0f;
-
-            // Commit complete domain state to the cache entry
-            node.Offset = solvedOffset;
-            node.FinalCapacity = finalCapacity;
-            node.TotalMultiplier = calculatedMultiplier;
-            node.CalculatedTick = currentTick;
-            // Extract summary metrics directly from contiguous solver workspace
-            float prostheticBoost = 0f;
-            float healthDeficit = 0f;
-            float athleticOffset = 0f;
-            if (workspace != null)
+            workspace = null;
+            try
             {
-                for (int i = 0; i < workspace.PartCount; i++)
-                {
-                    if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
-                    if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
-                    athleticOffset += workspace.CalculatedAthletics[i];
-                }
-            }
-            node.ProstheticBoost = prostheticBoost;
-            node.HealthDeficit = healthDeficit;
-            node.AthleticOffset = athleticOffset;
-            node.BaselineCapacity = baselineCapacity;
-            node.IsStale = false;
+                float bioBaseline;
+                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
+                    pawn, baselineCapacity, out bioBaseline, OverHaulers.settings, 
+                    shouldCompileUIProperties, out workspace);
 
-            // Background atomic cache update
-            MassSnapshotCache.WriteState(pawn.thingIDNumber, solvedOffset, calculatedMultiplier);
+                // Enforce domain rules (safety floor & multiplier) directly in Core
+                float finalCapacity = MassCapacitySolver.EnforceSafetyFloorForPawn(bioBaseline + solvedOffset, pawn);
+                float calculatedMultiplier = bioBaseline > 0f ? (finalCapacity / bioBaseline) : 0f;
 
-            PerformanceTelemetry.IncrementCacheMisses();
+                // Commit complete domain state to the cache entry
+                node.Offset = solvedOffset;
+                node.FinalCapacity = finalCapacity;
+                node.TotalMultiplier = calculatedMultiplier;
+                node.CalculatedTick = currentTick;
 
-            if (!shouldCompileUIProperties)
-            {
+                // Extract summary metrics directly from contiguous solver workspace
+                float prostheticBoost = 0f;
+                float healthDeficit = 0f;
+                float athleticOffset = 0f;
                 if (workspace != null)
+                {
+                    for (int i = 0; i < workspace.PartCount; i++)
+                    {
+                        if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
+                        if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
+                        athleticOffset += workspace.CalculatedAthletics[i];
+                    }
+                }
+                node.ProstheticBoost = prostheticBoost;
+                node.HealthDeficit = healthDeficit;
+                node.AthleticOffset = athleticOffset;
+                node.BaselineCapacity = baselineCapacity;
+                node.IsStale = false;
+
+                // Background atomic cache update
+                MassSnapshotCache.WriteState(pawn.thingIDNumber, solvedOffset, calculatedMultiplier);
+
+                PerformanceTelemetry.IncrementCacheMisses();
+            }
+            finally
+            {
+                if (!shouldCompileUIProperties && workspace != null)
                 {
                     WorkspacePool.ReleaseWorkspace(workspace);
                     workspace = null;

@@ -133,7 +133,7 @@ namespace OverHaulers
 
             // 4. Reset & re-run dynamic modpack baseline calibration sweep
             SpeciesBaselineCalibration.Reset();
-            bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devAllowNonPackSpeciesInLivePlay;
+            bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "Recompile All");
 
             // 5. Rebuild test subject registry (species, flesh types, categories)
@@ -232,6 +232,8 @@ namespace OverHaulers
         private static string GenerateTestExplanation(Settings settings, out float speciesBaseline)
         {
             speciesBaseline = 0.0f;
+            // Initialize the anatomical workspace to null; it will be allocated by the solver if needed.
+            AnatomicalWorkspace workspace = null;
 
             try
             {
@@ -248,7 +250,7 @@ namespace OverHaulers
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
                 float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
-                    dataSource, speciesBaseline, out speciesBaseline, settings, true, out AnatomicalWorkspace workspace);
+                    dataSource, speciesBaseline, out speciesBaseline, settings, true, out workspace);
 
                 float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
                 float totalMultiplier = speciesBaseline > 0f ? (finalCapacity / speciesBaseline) : 0f;
@@ -264,7 +266,6 @@ namespace OverHaulers
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {
                     SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(subject.BodyDef);
-                    WorkspacePool.ReleaseWorkspace(workspace);
                     return GenerateTopologyXRayReport(template, settings, subject);
                 }
 
@@ -274,13 +275,21 @@ namespace OverHaulers
                 bool verbose = settings?.verboseBreakdown ?? false;
                 string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
 
-                WorkspacePool.ReleaseWorkspace(workspace);
                 return explanation ?? string.Empty;
             }
             catch (Exception ex)
             {
                 OHLog.TestBench.Warn("GenerateTestExplanation", ex, "An error occurred while generating the test explanation.");
                 return string.Empty;
+            }
+            finally
+            {
+                // Release the anatomical workspace back to the pool if it was allocated
+                if (workspace != null)
+                {
+                    WorkspacePool.ReleaseWorkspace(workspace);
+                    workspace = null;
+                }
             }
         }
 
