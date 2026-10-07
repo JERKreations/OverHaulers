@@ -4,9 +4,6 @@
   <!-- ========================================================================= -->
   <!-- [SEC-11.A] TEST BENCH HEADER & ACTIONS                                    -->
   <!-- ========================================================================= -->
-  <OverHaulers_DevAllowNonPackSpecies>Extend to Non-Pack Species (Live Play Testing Override)</OverHaulers_DevAllowNonPackSpecies>
-  <OverHaulers_DevAllowNonPackSpecies_Tooltip>Developer &amp; Test Bench Tool: Extends caravan mass capacity calculations, stat transforms, and cache tracking to ALL creatures in live gameplay, including non-pack wildlife.&#10;&#10;WARNING: Enabling this executes an immediate full catalogue calibration sweep across all loaded species, which may cause a brief frame hitch (~50-100ms), and increases background cache workload.</OverHaulers_DevAllowNonPackSpecies_Tooltip>
-
   <OverHaulers_TestBenchHeader>Interactive Anatomical Test Bench</OverHaulers_TestBenchHeader>
   <OverHaulers_TestBenchSubject>Subject: {0} ▼</OverHaulers_TestBenchSubject>
   <OverHaulers_ActiveBodyTopology>Topology: {0} ({1} parts) • Mod: {2}</OverHaulers_ActiveBodyTopology>

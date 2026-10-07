@@ -134,7 +134,7 @@ namespace OverHaulers
             // 4. Reset & re-run dynamic modpack baseline calibration sweep
             SpeciesBaselineCalibration.Reset();
             bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "Recompile All");
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "OverHaulers_SweepContext_RecompileAll".Translate().ToString());
 
             // 5. Rebuild test subject registry (species, flesh types, categories)
             TestSubjectRegistry.ClearCache();

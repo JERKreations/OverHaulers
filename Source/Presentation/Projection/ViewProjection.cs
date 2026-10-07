@@ -151,7 +151,8 @@ namespace OverHaulers
 
                 CategorizePartsFast(template, pooledCategorizedParts);
 
-                // Clear any previously recorded ailments and evaluated parts from the mass model.
+                // Reset pooled node cursor and clear previously recorded ailments and evaluated parts.
+                massModel.ResetPool();
                 massModel.ClearAilments();
                 massModel.EvaluatedParts.Clear();
 

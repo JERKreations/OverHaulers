@@ -140,6 +140,21 @@ namespace OverHaulers
             float budgetTorso = OverHaulers.settings?.anatomyWeightTorso ?? SettingsDefaults.AnatomyWeightTorso;
             float budgetManip = OverHaulers.settings?.anatomyWeightArm ?? SettingsDefaults.AnatomyWeightArm;
             float budgetMove = OverHaulers.settings?.anatomyWeightLeg ?? SettingsDefaults.AnatomyWeightLeg;
+
+            // Redistribute manipulation and moving budgets if the archetype lacks corresponding roots
+            if (totalManipRoots == 0 && budgetManip > 0f)
+            {
+                budgetTorso += budgetManip * 0.67f;
+                budgetMove += budgetManip * 0.33f;
+                budgetManip = 0f;
+            }
+
+            if (totalMovingRoots == 0 && budgetMove > 0f)
+            {
+                budgetTorso += budgetMove;
+                budgetMove = 0f;
+            }
+
             float totalBudget = budgetTorso + budgetManip + budgetMove;
 
             // Ensure the total budget is positive to avoid division by zero during normalization.

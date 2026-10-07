@@ -25,47 +25,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. STANDALONE DEVELOPER LIVE PLAY TESTING OVERRIDE BOX
-
-        /// <summary>
-        /// Draws a dedicated, lightweight container section above the Test Bench for toggling
-        /// full-game calculations on non-pack species.
-        /// </summary>
-        public static void DrawDevTestingOverrideSection(Rect viewRect, ref float currentY, Settings settings)
-        {
-            float sectionHeight = 36f;
-            Rect boxRect = new Rect(0f, currentY, viewRect.width, sectionHeight);
-            Widgets.DrawMenuSection(boxRect);
-
-            Rect inner = boxRect.ContractedBy(6f);
-            
-            bool prev = settings.devStressTestAllFauna;
-            bool current = prev;
-
-            Widgets.CheckboxLabeled(new Rect(inner.x + 4f, inner.y + 1f, inner.width - 8f, 22f), 
-                "OverHaulers_DevStressTestAllFauna_Label".Translate().ToString(), ref current);
-            TooltipHandler.TipRegion(inner, "OverHaulers_DevStressTestAllFauna_Desc".Translate().ToString());
-
-            if (prev != current)
-            {
-                settings.devStressTestAllFauna = current;
-
-                if (current)
-                {
-                    // Full catalogue sweep across ALL species on enable
-                    SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "Full Catalogue");
-                }
-
-                PawnDataRegistry.ClearAllCaches();
-                SettingsViewUtilities.OnSettingMutated();
-            }
-
-            currentY += sectionHeight + 10f;
-        }
-
-        #endregion
-
-        #region 3. [SEC-11] INTERACTIVE ANATOMICAL TEST BENCH ORCHESTRATOR
+        #region 2. [SEC-11] INTERACTIVE ANATOMICAL TEST BENCH ORCHESTRATOR
 
         /// <summary>
         /// [SEC-11] Draws the interactive Test Bench section of the OverHaulers settings view, which includes controls for selecting test subjects,
@@ -119,7 +79,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. TOP ACTION TOOLBAR & EXPORT MENUS
+        #region 3. TOP ACTION TOOLBAR & EXPORT MENUS
 
         /// <summary>
         /// Draws the header section of the Test Bench, placing the title over the left column and expanding
@@ -303,7 +263,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. LEFT CONTROL COLUMN (SUBJECT PICKER & TOPOLOGY READOUT)
+        #region 4. LEFT CONTROL COLUMN (SUBJECT PICKER & TOPOLOGY READOUT)
 
         /// <summary>
         /// Draws the left control column of the Test Bench section, which includes the reference subject picker button, topology readout badge,
@@ -356,9 +316,9 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. UNIVERSAL SANDBOX ACCORDION PLANNER VIEW (FLATTENED)
+        #region 5. UNIVERSAL SANDBOX ACCORDION PLANNER VIEW (FLATTENED)
 
-        #region 6A. Planner Main Controls & Simulated Drug Badges
+        #region 5A. Planner Main Controls & Simulated Drug Badges
 
         /// <summary>
         /// Draws the universal sandbox planner view, including search bar, systemic stimulants, and staged conditions controls.
@@ -488,7 +448,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6B. Search Bar & Passive Group Accordion Headers
+        #region 5B. Search Bar & Passive Group Accordion Headers
 
         /// <summary>
         /// Draws the sandbox search bar, allowing the user to filter passive group accordions based on the search text.
@@ -588,7 +548,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6C. Recursive Part Node Rendering & Badge Formatter
+        #region 5C. Recursive Part Node Rendering & Badge Formatter
 
         /// <summary>
         /// Recursively draws a passive part node and its child nodes within the sandbox test bench view.
@@ -809,7 +769,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6D. Bulk Operations & Replacement Tiers
+        #region 5D. Bulk Operations & Replacement Tiers
 
         /// <summary>
         /// Opens the bulk operations menu for the specified group of sub-parts within the sandbox pawn harness context.
@@ -983,7 +943,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6E. Single Part Simulation Menus & Limb Predicates
+        #region 5E. Single Part Simulation Menus & Limb Predicates
 
         /// <summary>
         /// Opens the simulation menu for the specified body part, allowing the user to perform various operations on it.
@@ -1115,7 +1075,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 7. RIGHT COLUMN PREVIEW & COMPARISON BANNER
+        #region 6. RIGHT COLUMN PREVIEW & COMPARISON BANNER
 
         /// <summary>
         /// Draws the right-hand preview column, which includes the top action toolbar (View Modes & Dump options),

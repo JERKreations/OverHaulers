@@ -67,7 +67,7 @@ namespace OverHaulers
             isCalibrationSweepDone = true;
 
             // BATCH PRE-CALIBRATION SWEEP: Pre-calibrate caravan species ThingDefs in one fast sweep
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "World Load");
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "OverHaulers_SweepContext_WorldLoad".Translate().ToString());
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
             WarmupActivePawns();

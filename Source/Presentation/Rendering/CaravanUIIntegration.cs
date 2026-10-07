@@ -85,6 +85,25 @@ namespace OverHaulers
 
         #region HOOK 2: UNIVERSAL CARAVAN TOP BAR DRAWER
 
+        private static string cachedFleetHeaderPrefix;
+
+        /// <summary>
+        /// Retrieves the localized fleet header prefix substring preceding format arguments for deduplication detection.
+        /// </summary>
+        private static string FleetHeaderPrefix
+        {
+            get
+            {
+                if (cachedFleetHeaderPrefix == null)
+                {
+                    string raw = "OverHaulers_Fleet_Header".Translate().ToString();
+                    int splitIdx = raw.IndexOf('{');
+                    cachedFleetHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
+                }
+                return cachedFleetHeaderPrefix;
+            }
+        }
+
         /// <summary>
         /// Prefix hook on CaravanUIUtility.DrawCaravanInfo.
         /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject fleet breakdowns.
@@ -99,7 +118,7 @@ namespace OverHaulers
             if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
 
             // BREAKPOINT ANCHOR: Fast O(1) Header Deduplication Gate
-            if (info.massCapacityExplanation.IndexOf("OverHaulers_Fleet_Header".Translate(), StringComparison.Ordinal) >= 0)
+            if (info.massCapacityExplanation.IndexOf(FleetHeaderPrefix, StringComparison.Ordinal) >= 0)
             {
                 return;
             }

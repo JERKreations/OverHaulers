@@ -247,7 +247,7 @@ namespace OverHaulers
         /// <param name="containerRect">The rectangle within which to draw the Test Bench tab content.</param>
         private static void DrawTestBenchTab(Rect containerRect)
         {
-            float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_TestBench", 560f) + 60f;
+            float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_TestBench", 560f) + 20f;
             float canvasHeight = Mathf.Max(containerRect.height, estimatedHeight);
             Rect viewRect = new Rect(0f, 0f, containerRect.width - 18f, canvasHeight);
 
@@ -256,9 +256,6 @@ namespace OverHaulers
 
             try
             {
-                // Standalone Developer Testing Override Box (Placed above Test Bench)
-                SettingsView.DrawDevTestingOverrideSection(viewRect, ref currentY, settings);
-
                 // Main Interactive Anatomical Test Bench Section
                 SettingsView.DrawTestBenchSection(viewRect, ref currentY, settings, TestBench.ResetTestBench);
             }

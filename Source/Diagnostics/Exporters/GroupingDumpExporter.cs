@@ -46,7 +46,7 @@ namespace OverHaulers
 
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 List<ThingDef> allPawnThings = DefDatabase<ThingDef>.AllDefsListForReading.FindAll(t => t.category == ThingCategory.Pawn && t.race?.body != null);
-                List<BodyDef> allBodies = DefDatabase<BodyDef>.AllDefsListForReading;
+                List<BodyDef> allBodies = new List<BodyDef>(DefDatabase<BodyDef>.AllDefsListForReading);
 
                 allPawnThings.Sort((a, b) => string.Compare(a.LabelCap.ToString(), b.LabelCap.ToString(), StringComparison.OrdinalIgnoreCase));
                 allBodies.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
@@ -222,7 +222,11 @@ namespace OverHaulers
                 }
                 finally
                 {
-                    workspace?.Clear();
+                    if (workspace != null)
+                    {
+                        WorkspacePool.ReleaseWorkspace(workspace);
+                        workspace = null;
+                    }
                 }
 
                 builder.AppendLine();
@@ -334,7 +338,11 @@ namespace OverHaulers
                 }
                 finally
                 {
-                    workspace?.Clear();
+                    if (workspace != null)
+                    {
+                        WorkspacePool.ReleaseWorkspace(workspace);
+                        workspace = null;
+                    }
                 }
 
                 // Anomalies
