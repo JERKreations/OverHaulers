@@ -9,6 +9,9 @@ namespace OverHaulers
     {
         #region 1. [PERF-00] PERFORMANCE TRACE MODELS & STATE BUFFERS
 
+        /// <summary>
+        /// Represents a record of a pawn's mass being clamped to a safety floor, storing both the raw and clamped values.
+        /// </summary>
         public struct SafetyClampRecord
         {
             public float RawMass;
@@ -45,6 +48,12 @@ namespace OverHaulers
                 }
             }
 
+            /// <summary>
+            /// Records an instance where a pawn's mass was clamped to the safety floor, storing both the raw and clamped values.
+            /// </summary>
+            /// <param name="pawnName">The name of the pawn whose mass was clamped.</param>
+            /// <param name="rawMass">The original mass of the pawn before clamping.</param>
+            /// <param name="clampedMass">The mass of the pawn after being clamped to the safety floor.</param>
             public static void RecordSafetyFloorClamped(string pawnName, float rawMass, float clampedMass)
             {
                 if (OverHaulers.settings == null) return;
@@ -61,6 +70,9 @@ namespace OverHaulers
                 }
             }
 
+            /// <summary>
+            /// Clears all pending trace buffers, including evicted pawn IDs and safety clamp records.
+            /// </summary>
             public static void ClearTraceBuffers()
             {
                 lock (bufferLock)

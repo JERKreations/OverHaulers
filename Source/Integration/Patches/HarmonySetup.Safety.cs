@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -91,53 +93,128 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. PERMANENT HEADLESS SANDBOX SHIELDS
+        #region 2. SCOPED HEADLESS SANDBOX SHIELDS
+
+        private static readonly object shieldSyncRoot = new object();
+        private static int shieldScopeCount;
+        private static readonly List<KeyValuePair<MethodBase, MethodInfo>> installedShields = new List<KeyValuePair<MethodBase, MethodInfo>>(4);
 
         /// <summary>
-        /// Installs permanent, fast-path entity shields that protect against third-party mod crashes on dummy pawns.
-        /// Does not hook global property getters.
+        /// Opens a reference-counted shield scope. While at least one scope is open, entity shields that protect
+        /// against third-party mod crashes on headless sandbox pawns are attached to the relevant game methods
+        /// (and, on the Main Menu, the fallback <c>Find.*</c> getters). Every call must be paired with
+        /// <see cref="ReleaseSandboxShields"/>; the hooks are removed again when the last scope closes.
         /// </summary>
-        /// <param name="harmony">The active Harmony instance used to apply the safety patches.</param>
-        private static void InstallPermanentSandboxShields(Harmony harmony)
+        public static void AcquireSandboxShields()
         {
-            try
+            Harmony harmony = HarmonyInstance;
+            if (harmony == null) return;
+
+            lock (shieldSyncRoot)
             {
-                // 1. Headless Sandbox State-Change Shield
-                var stateChangeMethod = AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.CheckForStateChange));
-                var stateChangePrefix = AccessTools.Method(typeof(HarmonySetup), nameof(CheckForStateChange_Prefix));
-                if (stateChangeMethod != null && stateChangePrefix != null)
+                shieldScopeCount++;
+                if (shieldScopeCount == 1)
                 {
-                    harmony.Patch(stateChangeMethod, prefix: new HarmonyMethod(stateChangePrefix));
-                }
-
-                // 2. Headless Sandbox Death Shield
-                var pawnKillMethod = AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill));
-                var pawnKillPrefix = AccessTools.Method(typeof(HarmonySetup), nameof(Pawn_Kill_Prefix));
-                if (pawnKillMethod != null && pawnKillPrefix != null)
-                {
-                    harmony.Patch(pawnKillMethod, prefix: new HarmonyMethod(pawnKillPrefix));
-                }
-
-                // 3. Headless Sandbox HealthScale Shield
-                var healthScaleGetter = AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.HealthScale));
-                var healthScaleFinalizer = AccessTools.Method(typeof(HarmonySetup), nameof(HealthScale_Finalizer));
-                if (healthScaleGetter != null && healthScaleFinalizer != null)
-                {
-                    harmony.Patch(healthScaleGetter, finalizer: new HarmonyMethod(healthScaleFinalizer));
-                }
-
-                // 4. Headless Sandbox StatWorker Finalizer (Suppresses VEF Animal Genes NREs)
-                var statWorkerMethod = AccessTools.Method(typeof(StatWorker), nameof(StatWorker.GetValueUnfinalized));
-                var statWorkerFinalizer = AccessTools.Method(typeof(HarmonySetup), nameof(StatWorker_GetValueUnfinalized_Finalizer));
-                if (statWorkerMethod != null && statWorkerFinalizer != null)
-                {
-                    harmony.Patch(statWorkerMethod, finalizer: new HarmonyMethod(statWorkerFinalizer));
+                    InstallSandboxShields(harmony);
                 }
             }
-            catch (Exception ex)
+
+            if (Current.ProgramState != ProgramState.Playing)
             {
-                OHLog.Integration.Warn("HarmonySetup_Safety", ex, "Failed to install permanent sandbox shields.");
+                EnsureSafetyPatchesApplied();
             }
+        }
+
+        /// <summary>
+        /// Closes a scope opened by <see cref="AcquireSandboxShields"/>, detaching all shields once no scopes remain.
+        /// </summary>
+        public static void ReleaseSandboxShields()
+        {
+            Harmony harmony = HarmonyInstance;
+            if (harmony == null) return;
+
+            bool lastScopeClosed = false;
+            lock (shieldSyncRoot)
+            {
+                if (shieldScopeCount <= 0) return;
+
+                shieldScopeCount--;
+                if (shieldScopeCount == 0)
+                {
+                    lastScopeClosed = true;
+                    UninstallSandboxShields(harmony);
+                }
+            }
+
+            if (lastScopeClosed)
+            {
+                DeescalateSafetyPatches();
+            }
+        }
+
+        /// <summary>
+        /// Attaches the sandbox entity shields: state-change, death, HealthScale and StatWorker guards.
+        /// Each shield is installed independently and recorded so it can be removed precisely.
+        /// </summary>
+        /// <param name="harmony">The active Harmony instance used to apply the shields.</param>
+        private static void InstallSandboxShields(Harmony harmony)
+        {
+            // 1. Headless Sandbox State-Change Shield
+            ApplyShield(harmony, "Pawn_HealthTracker.CheckForStateChange",
+                AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.CheckForStateChange)),
+                nameof(CheckForStateChange_Prefix), asFinalizer: false);
+
+            // 2. Headless Sandbox Death Shield
+            ApplyShield(harmony, "Pawn.Kill",
+                AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill)),
+                nameof(Pawn_Kill_Prefix), asFinalizer: false);
+
+            // 3. Headless Sandbox HealthScale Shield
+            ApplyShield(harmony, "Pawn.HealthScale",
+                AccessTools.PropertyGetter(typeof(Pawn), nameof(Pawn.HealthScale)),
+                nameof(HealthScale_Finalizer), asFinalizer: true);
+
+            // 4. Headless Sandbox StatWorker Finalizer (Suppresses VEF Animal Genes NREs)
+            ApplyShield(harmony, "StatWorker.GetValueUnfinalized",
+                AccessTools.Method(typeof(StatWorker), nameof(StatWorker.GetValueUnfinalized)),
+                nameof(StatWorker_GetValueUnfinalized_Finalizer), asFinalizer: true);
+        }
+
+        /// <summary>
+        /// Applies a single shield patch and records it for later removal.
+        /// </summary>
+        private static void ApplyShield(Harmony harmony, string label, MethodBase target, string patchMethodName, bool asFinalizer)
+        {
+            Guarded("Shield:" + label, () =>
+            {
+                MethodInfo patchMethod = AccessTools.Method(typeof(HarmonySetup), patchMethodName);
+                HarmonyMethod harmonyMethod = new HarmonyMethod(patchMethod);
+
+                if (asFinalizer)
+                {
+                    harmony.Patch(target, finalizer: harmonyMethod);
+                }
+                else
+                {
+                    harmony.Patch(target, prefix: harmonyMethod);
+                }
+
+                installedShields.Add(new KeyValuePair<MethodBase, MethodInfo>(target, patchMethod));
+            });
+        }
+
+        /// <summary>
+        /// Removes every shield recorded by <see cref="ApplyShield"/>. Callers must hold <see cref="shieldSyncRoot"/>.
+        /// </summary>
+        private static void UninstallSandboxShields(Harmony harmony)
+        {
+            for (int i = 0; i < installedShields.Count; i++)
+            {
+                KeyValuePair<MethodBase, MethodInfo> shield = installedShields[i];
+                Guarded("Unshield:" + shield.Key.Name, () => harmony.Unpatch(shield.Key, shield.Value));
+            }
+
+            installedShields.Clear();
         }
 
         #endregion

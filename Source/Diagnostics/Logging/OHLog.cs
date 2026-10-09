@@ -62,6 +62,10 @@ namespace OverHaulers
         #region 2. DOMAIN CONVENIENCE WRAPPERS & INFORMATIVE LOGS
 
         // --- LIFECYCLE DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to the lifecycle of the mod, such as world loading and session management.
+        /// </summary>
         public static class Lifecycle
         {
             public static void WorldLoadedReset() => 
@@ -72,6 +76,10 @@ namespace OverHaulers
         }
 
         // --- INTEGRATION DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to integration with external mods and systems.
+        /// </summary>
         public static class Integration
         {
             public static void ExternalPatchesDetected(string modOwners) => 
@@ -88,6 +96,10 @@ namespace OverHaulers
         }
 
         // --- TOPOLOGY DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to the compilation and management of species skeletal topologies.
+        /// </summary>
         public static class Topology
         {
             public static void CompilationCompleted(float ms, int species, int maxParts, string maxDef, int maxDepth) => 
@@ -101,6 +113,10 @@ namespace OverHaulers
         }
 
         // --- SOLVER DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to the solver component of the mod.
+        /// </summary>
         public static class Solver
         {
             public static void Warn(string context, Exception ex = null, string customMessage = null) => 
@@ -108,6 +124,10 @@ namespace OverHaulers
         }
 
         // --- PRESENTATION DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to the presentation layer of the mod.
+        /// </summary>
         public static class Presentation
         {
             public static void Warn(string context, Exception ex = null, string customMessage = null) => 
@@ -115,6 +135,10 @@ namespace OverHaulers
         }
 
         // --- TESTBENCH DOMAIN ---
+
+        /// <summary>
+        /// Logs events related to the testbench component of the mod.
+        /// </summary>
         public static class TestBench
         {
             public static void Warn(string context, Exception ex = null, string customMessage = null) => 

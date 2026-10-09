@@ -10,7 +10,7 @@ namespace OverHaulers
     /// StatPart injected into foreign mass capacity StatDefs (e.g., VEF_MassCarryCapacity).
     /// Purely responsible for injecting the OverHaulers anatomical breakdown and bionic hyperlinks
     /// into the foreign mod's InfoCard dialog without modifying numerical values.
-    /// Direct game-engine carrying capacity is decoupled and universally delivered via MassUtility.Capacity.
+    /// Direct game-engine capacity is decoupled and universally delivered via MassUtility.Capacity.
     /// </summary>
     public class MassCapacityStatPart : StatPart
     {

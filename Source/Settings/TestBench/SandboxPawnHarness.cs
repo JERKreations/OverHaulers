@@ -107,6 +107,35 @@ namespace OverHaulers
 
         #endregion
 
+        #region 3B. SHIELD SCOPE OWNERSHIP
+
+        private bool holdsShieldScope;
+
+        /// <summary>
+        /// Ensures the sandbox entity shields are attached for this harness. Cheap no-op when already held.
+        /// </summary>
+        public void EnsureShields()
+        {
+            if (holdsShieldScope) return;
+
+            HarmonySetup.AcquireSandboxShields();
+            holdsShieldScope = true;
+        }
+
+        /// <summary>
+        /// Releases this harness's shield scope (e.g. while the settings window is closed). The sandbox pawn stays intact;
+        /// shields are re-attached automatically the next time the harness is used via <see cref="EnsureShields"/>.
+        /// </summary>
+        public void SuspendShields()
+        {
+            if (!holdsShieldScope) return;
+
+            holdsShieldScope = false;
+            HarmonySetup.ReleaseSandboxShields();
+        }
+
+        #endregion
+
         #region 4. CONSTRUCTOR & SUBJECT BINDING
 
         /// <summary>
@@ -118,6 +147,18 @@ namespace OverHaulers
         /// </remarks>
         public SandboxPawnHarness()
         {
+        }
+
+        /// <summary>
+        /// Single canonical factory for a harness appropriate to the current program state: the comp-initialising
+        /// <see cref="LiveSandboxPawnHarness"/> while a game is being played, the sterile base harness on the Main Menu.
+        /// </summary>
+        /// <returns>A new, unbound harness. Call <see cref="BindSubject"/> before use and dispose it when finished.</returns>
+        public static SandboxPawnHarness CreateForCurrentProgramState()
+        {
+            return Current.ProgramState == ProgramState.Playing
+                ? new LiveSandboxPawnHarness()
+                : new SandboxPawnHarness();
         }
 
         /// <summary>
@@ -152,11 +193,8 @@ namespace OverHaulers
                 return;
             }
 
-            // Ensure main-menu fallback hooks are active if constructing dummy on Main Menu
-            if (Current.ProgramState != ProgramState.Playing)
-            {
-                HarmonySetup.EnsureSafetyPatchesApplied();
-            }
+            // Entity shields (and main-menu fallback hooks) are only attached while a harness is alive.
+            EnsureShields();
 
             ThingDef raceDef = boundSubject.RaceDef ?? boundSubject.LivePawn?.def ?? ThingDefOf.Human;
             if (raceDef == null) return;
@@ -581,6 +619,45 @@ namespace OverHaulers
             DirtySandboxHealthCache();
         }
 
+        /// <summary>
+        /// Applies a fixed, representative wound set to the bound subject: amputates one root arm and one root leg and leaves
+        /// up to three torso parts on 1 HP, so the solver's deficit, symmetry and clamping branches are exercised.
+        /// Used by the diagnostics benchmark and self-check so both measure the same "wounded" profile.
+        /// </summary>
+        public void SimulateRepresentativeWounds()
+        {
+            SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(boundSubject?.BodyDef);
+            if (template == null) return;
+
+            bool armDone = false;
+            bool legDone = false;
+            int traumaCount = 0;
+
+            for (int i = 0; i < template.PartCount; i++)
+            {
+                PartType type = template.PartTypes[i];
+                int parent = template.ParentIndices[i];
+                bool isRoot = parent == -1 || template.PartTypes[parent] != type;
+                BodyPartRecord part = template.IndexedParts[i];
+
+                if (isRoot && type == PartType.ManipulationPart && !armDone)
+                {
+                    SimulateAmputation(part);
+                    armDone = true;
+                }
+                else if (isRoot && type == PartType.MovingPart && !legDone)
+                {
+                    SimulateAmputation(part);
+                    legDone = true;
+                }
+                else if (type == PartType.CorePart && parent != -1 && traumaCount < 3 && part.coverageAbs > 0f)
+                {
+                    SimulateSevereTrauma(part);
+                    traumaCount++;
+                }
+            }
+        }
+
         #endregion
 
         #region 6C. Localized Implants & Systemic Drugs
@@ -836,6 +913,7 @@ namespace OverHaulers
             TeardownSandboxPawn();
             sourcePawn = null;
             boundSubject = null;
+            SuspendShields();
             GC.SuppressFinalize(this);
         }
 

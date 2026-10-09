@@ -21,6 +21,12 @@ namespace OverHaulers
         /// Scratch list for temporarily storing stale keys during cleanup operations.
         private static readonly List<int> staleKeysScratch = new List<int>(256);
 
+        /// Invalidation requests raised off the main thread, applied on the next main-thread tick.
+        private static readonly System.Collections.Concurrent.ConcurrentQueue<int> deferredInvalidations =
+            new System.Collections.Concurrent.ConcurrentQueue<int>();
+        private static int deferredInvalidationCount = 0;
+        private const int MaxDeferredInvalidations = 4096;
+
         /// <summary>Tracks the last main-thread tick when the registry captured pawn data.</summary>
         private static volatile int lastCapturedMainThreadTick = 0;
 
@@ -295,6 +301,14 @@ namespace OverHaulers
         public static float GetCapacity(Pawn pawn, float baselineCapacity)
         {
             if (pawn == null || !CanCarryCaravanMass(pawn)) return 0f;
+
+            // The main-thread dictionary is never touched off-thread; background callers derive the value from the atomic snapshot.
+            if (!UnityData.IsInMainThread)
+            {
+                float snapshotOffset = MassSnapshotCache.GetOffsetThreadSafe(pawn.thingIDNumber);
+                return MassCapacitySolver.EnforceSafetyFloorForPawn(baselineCapacity + snapshotOffset, pawn);
+            }
+
             GetOffset(pawn, baselineCapacity); // Ensures cache entry is evaluated and fresh
             return capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData node) ? node.FinalCapacity : baselineCapacity;
         }
@@ -326,7 +340,7 @@ namespace OverHaulers
             healthDeficit = 0f;
             athleticOffset = 0f;
 
-            if (pawn == null || !CanCarryCaravanMass(pawn)) return false;
+            if (pawn == null || !CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread) return false;
             GetOffset(pawn, baselineCapacity);
 
             if (capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData node))
@@ -347,8 +361,9 @@ namespace OverHaulers
         /// <returns>The detailed mass capacity model for the pawn.</returns>
         public static MassCapacityModel GetDetailedModel(Pawn pawn, float baselineCapacity)
         {
-            // Early exit if the pawn is null or cannot carry caravan mass
-            if (pawn == null || !CanCarryCaravanMass(pawn)) return null;
+            // Early exit if the pawn is null, cannot carry caravan mass, or this is a background thread
+            // (the detailed model mutates main-thread caches and shared scratch buffers).
+            if (pawn == null || !CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread) return null;
 
             int pawnId = pawn.thingIDNumber;
             int currentTick = GetSafeCurrentTick();
@@ -562,30 +577,63 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Reactive cache invalidator. Marks the pawn's main-thread cache entry as stale,
-        /// evicts the entry from the background snapshot cache, and records the invalidation timestamp.
+        /// Reactive cache invalidator. Marks the pawn's main-thread cache entry as stale and records the invalidation timestamp.
+        /// The background snapshot is deliberately left in place: it keeps serving the last solved value until the
+        /// main thread re-solves and overwrites it, so background readers never fall back to vanilla capacity mid-update.
+        /// Calls from background threads are queued and applied on the next main-thread tick.
         /// </summary>
         /// <param name="thingID">The unique identifier of the pawn to invalidate.</param>
         public static void Invalidate(int thingID)
         {
-            AssertMainThread("Cache Invalidation");
+            if (!UnityData.IsInMainThread)
+            {
+                if (System.Threading.Interlocked.Increment(ref deferredInvalidationCount) <= MaxDeferredInvalidations)
+                {
+                    deferredInvalidations.Enqueue(thingID);
+                }
+                else
+                {
+                    System.Threading.Interlocked.Decrement(ref deferredInvalidationCount);
+                }
+                return;
+            }
 
-            bool invalidatedMain = false;
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
                 cachedNode.LastInvalidatedTick = GetSafeCurrentTick();
                 if (!cachedNode.IsStale)
                 {
                     cachedNode.IsStale = true;
-                    invalidatedMain = true;
+                    PerformanceTelemetry.IncrementInvalidations();
                 }
             }
+        }
 
-            bool evictedGlobal = MassSnapshotCache.Evict(thingID);
+        /// <summary>
+        /// Marks every cached pawn entry stale without discarding background snapshots.
+        /// Used when settings change so values are re-solved lazily while background readers keep the last solved values.
+        /// </summary>
+        public static void MarkAllStale()
+        {
+            AssertMainThread("Cache Stale Sweep");
 
-            if (invalidatedMain || evictedGlobal)
+            foreach (var keyValuePair in capacityCache)
             {
-                PerformanceTelemetry.IncrementInvalidations();
+                keyValuePair.Value.IsStale = true;
+            }
+
+            cachedActiveCount = -1;
+        }
+
+        /// <summary>
+        /// Applies invalidations that were requested from background threads.
+        /// </summary>
+        private static void DrainDeferredInvalidations()
+        {
+            while (deferredInvalidations.TryDequeue(out int thingID))
+            {
+                System.Threading.Interlocked.Decrement(ref deferredInvalidationCount);
+                Invalidate(thingID);
             }
         }
 
@@ -614,6 +662,8 @@ namespace OverHaulers
         {
             capacityCache.Clear();
             staleKeysScratch.Clear();
+            while (deferredInvalidations.TryDequeue(out _)) { }
+            System.Threading.Interlocked.Exchange(ref deferredInvalidationCount, 0);
             cachedActiveCount = -1;
             cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
             lastCapturedMainThreadTick = 0;
@@ -691,6 +741,7 @@ namespace OverHaulers
             if (currentTick != lastCapturedMainThreadTick)
             {
                 lastCapturedMainThreadTick = currentTick;
+                DrainDeferredInvalidations();
                 MaybeCleanupCache(currentTick);
             }
         }

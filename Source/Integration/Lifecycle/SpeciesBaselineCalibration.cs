@@ -19,7 +19,7 @@ namespace OverHaulers
 
     /// <summary>
     /// [SSoT] Centralized dynamic calibration engine.
-    /// Manages species-specific baseline carrying capacity scalars using a 3-Tier Fallback system: 
+    /// Manages species-specific baseline mass capacity scalars using a 3-Tier Fallback system: 
     /// Pristine Dummy Pawn -> Live Pawn Rescue -> Testing/Emergency Assumption.
     /// </summary>
     public static class SpeciesBaselineCalibration
@@ -110,9 +110,7 @@ namespace OverHaulers
             try
             {
                 // Instantiate the appropriate sandbox harness based on the current program state.
-                SandboxPawnHarness harness = (Current.ProgramState == ProgramState.Playing) 
-                    ? new LiveSandboxPawnHarness() 
-                    : new SandboxPawnHarness();
+                SandboxPawnHarness harness = SandboxPawnHarness.CreateForCurrentProgramState();
 
                 // The harness will be used within a using block to ensure proper disposal.
                 using (harness)
@@ -358,17 +356,26 @@ namespace OverHaulers
 
             if (allDefs != null)
             {
-                for (int i = 0; i < allDefs.Count; i++)
+                // Hold one shield scope for the whole sweep so the sandbox shields are not attached and detached per species.
+                HarmonySetup.AcquireSandboxShields();
+                try
                 {
-                    ThingDef def = allDefs[i];
-                    if (def != null && def.category == ThingCategory.Pawn && def.race != null)
+                    for (int i = 0; i < allDefs.Count; i++)
                     {
-                        if (!onlyCaravanCapable || PawnDataRegistry.IsCaravanCapable(def))
+                        ThingDef def = allDefs[i];
+                        if (def != null && def.category == ThingCategory.Pawn && def.race != null)
                         {
-                            PrecalibrateDef(def);
-                            totalSweep++;
+                            if (!onlyCaravanCapable || PawnDataRegistry.IsCaravanCapable(def))
+                            {
+                                PrecalibrateDef(def);
+                                totalSweep++;
+                            }
                         }
                     }
+                }
+                finally
+                {
+                    HarmonySetup.ReleaseSandboxShields();
                 }
             }
 
@@ -385,22 +392,51 @@ namespace OverHaulers
         {
             if (raceDef == null) return 0f;
 
+            // Off-thread callers must never instantiate dummy pawns; they may only read an already-resolved entry.
+            if (!UnityData.IsInMainThread)
+            {
+                lock (calibrationLock)
+                {
+                    if (speciesCache.TryGetValue(raceDef, out CalibrationEntry cachedEntry))
+                    {
+                        return cachedEntry.Scalar;
+                    }
+                }
+
+                return massCapacityScalarTestingAndFallbackOnly;
+            }
+
+            return ResolveEntryOnMainThread(raceDef).Scalar;
+        }
+
+        /// <summary>
+        /// Single canonical main-thread path that returns a species' calibration entry, evaluating a pristine dummy pawn on a cache miss.
+        /// The slow dummy evaluation runs outside <c>calibrationLock</c> so background readers are never blocked behind it;
+        /// only the cache lookup and the publication of the result are locked.
+        /// </summary>
+        /// <param name="raceDef">The race definition of the species to resolve.</param>
+        /// <returns>The cached or freshly evaluated and classified calibration entry.</returns>
+        private static CalibrationEntry ResolveEntryOnMainThread(ThingDef raceDef)
+        {
+            lock (calibrationLock)
+            {
+                if (speciesCache.TryGetValue(raceDef, out CalibrationEntry cachedEntry))
+                {
+                    return cachedEntry;
+                }
+            }
+
+            float scalar = EvaluateDummyPawn(raceDef, out string errorDetail);
+
             lock (calibrationLock)
             {
                 if (!speciesCache.TryGetValue(raceDef, out CalibrationEntry entry))
                 {
-                    // Off-thread callers must never instantiate dummy pawns
-                    if (!UnityData.IsInMainThread)
-                    {
-                        return massCapacityScalarTestingAndFallbackOnly;
-                    }
-
-                    float scalar = EvaluateDummyPawn(raceDef, out string errorDetail);
                     entry = ClassifyDummyResult(raceDef, scalar, errorDetail);
                     speciesCache[raceDef] = entry;
                 }
 
-                return entry.Scalar;
+                return entry;
             }
         }
 
@@ -437,24 +473,9 @@ namespace OverHaulers
                 return massCapacityScalarTestingAndFallbackOnly * safeBodySize;
             }
 
-            CalibrationEntry entry;
-            bool requiresLiveCalibration = false;
-
-            // 2. Check cache and attempt pristine dummy evaluation (Main Thread only)
-            lock (calibrationLock)
-            {
-                if (!speciesCache.TryGetValue(pawn.def, out entry))
-                {
-                    float dummyScalar = EvaluateDummyPawn(pawn.def, out string dummyError);
-                    entry = ClassifyDummyResult(pawn.def, dummyScalar, dummyError);
-                    speciesCache[pawn.def] = entry;
-                }
-
-                if (entry.Scalar == PendingLiveRescueSentinel)
-                {
-                    requiresLiveCalibration = true;
-                }
-            }
+            // 2. Check cache and attempt pristine dummy evaluation (Main Thread only) via the single canonical resolver.
+            CalibrationEntry entry = ResolveEntryOnMainThread(pawn.def);
+            bool requiresLiveCalibration = entry.Scalar == PendingLiveRescueSentinel;
 
             float currentBodySize = MedicalClassifier.GetSafeBodySize(pawn);
 

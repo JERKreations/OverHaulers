@@ -33,14 +33,17 @@ namespace OverHaulers
         #region 2. SETTINGS LIFECYCLE & WINDOW DRAWING
 
         /// <summary>
-        /// Writes the current settings to persistent storage and clears relevant caches.
+        /// Writes the current settings to persistent storage and marks runtime caches stale.
         /// </summary>
         public override void WriteSettings()
         {
             base.WriteSettings();
             
-            PawnDataRegistry.ClearAllCaches();
+            BenchmarkRunner.Cancel();
+            SelfCheckRunner.Cancel();
+            PawnDataRegistry.MarkAllStale();
             MedicalClassifier.ClearStaticCaches();
+            TestBench.SuspendSandboxShields();
             PerformanceTelemetry.SyncSettingsState();
         }
 

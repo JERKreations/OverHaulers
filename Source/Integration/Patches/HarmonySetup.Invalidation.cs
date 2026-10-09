@@ -12,106 +12,110 @@ namespace OverHaulers
 
         /// <summary>
         /// Installs cache invalidation patches for various pawn-related events, ensuring that cached data is properly updated when changes
-        ///  occur.
+        ///  occur. Each patch is installed independently so one failure cannot prevent the remaining patches from being applied.
         /// </summary>
         /// <param name="harmony">The active Harmony instance used to apply the cache invalidation patches.</param>
         private static void InstallInvalidationPatches(Harmony harmony)
         {
-            try
+            Guarded("Pawn_HealthTracker.Notify_HediffChanged", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.Notify_HediffChanged)),
+                postfix: OwnPatch(nameof(Notify_HediffChanged_Postfix))));
+
+            Guarded("Pawn_ApparelTracker.Notify_ApparelAdded", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.Notify_ApparelAdded)),
+                postfix: OwnPatch(nameof(Notify_ApparelAdded_Postfix))));
+
+            Guarded("Pawn_ApparelTracker.Notify_ApparelRemoved", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.Notify_ApparelRemoved)),
+                postfix: OwnPatch(nameof(Notify_ApparelRemoved_Postfix))));
+
+            Guarded("Pawn_EquipmentTracker.Notify_EquipmentAdded", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn_EquipmentTracker), nameof(Pawn_EquipmentTracker.Notify_EquipmentAdded)),
+                postfix: OwnPatch(nameof(Notify_EquipmentAdded_Postfix))));
+
+            Guarded("Pawn_EquipmentTracker.Notify_EquipmentRemoved", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn_EquipmentTracker), nameof(Pawn_EquipmentTracker.Notify_EquipmentRemoved)),
+                postfix: OwnPatch(nameof(Notify_EquipmentRemoved_Postfix))));
+
+            Guarded("Pawn.Kill", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill)),
+                postfix: OwnPatch(nameof(Notify_PawnKilled_Postfix))));
+
+            Guarded("Pawn.DeSpawn", () => harmony.Patch(
+                AccessTools.Method(typeof(Pawn), nameof(Pawn.DeSpawn)),
+                postfix: OwnPatch(nameof(Notify_PawnDeSpawned_Postfix))));
+
+            Guarded("Widgets.Label", () => harmony.Patch(
+                AccessTools.Method(typeof(Widgets), nameof(Widgets.Label), new Type[] { typeof(Rect), typeof(string) }),
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(InfoCardOverlay), nameof(InfoCardOverlay.Prefix)))));
+
+            // Gated InfoCard Intercept: Sets IsRenderingInfoCard = true only while StatsReportUtility is actively rendering
+            Guarded("StatsReportUtility.DrawStatsReport", () =>
             {
-                var hediffChanged = AccessTools.Method(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.Notify_HediffChanged));
-                var hediffPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_HediffChanged_Postfix));
-                if (hediffChanged != null && hediffPostfix != null) harmony.Patch(hediffChanged, postfix: new HarmonyMethod(hediffPostfix));
-
-                var apparelAdded = AccessTools.Method(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.Notify_ApparelAdded));
-                var apparelAddedPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_ApparelAdded_Postfix));
-                if (apparelAdded != null && apparelAddedPostfix != null) harmony.Patch(apparelAdded, postfix: new HarmonyMethod(apparelAddedPostfix));
-
-                var apparelRemoved = AccessTools.Method(typeof(Pawn_ApparelTracker), nameof(Pawn_ApparelTracker.Notify_ApparelRemoved));
-                var apparelRemovedPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_ApparelRemoved_Postfix));
-                if (apparelRemoved != null && apparelRemovedPostfix != null) harmony.Patch(apparelRemoved, postfix: new HarmonyMethod(apparelRemovedPostfix));
-
-                var equipAdded = AccessTools.Method(typeof(Pawn_EquipmentTracker), nameof(Pawn_EquipmentTracker.Notify_EquipmentAdded));
-                var equipAddedPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_EquipmentAdded_Postfix));
-                if (equipAdded != null && equipAddedPostfix != null) harmony.Patch(equipAdded, postfix: new HarmonyMethod(equipAddedPostfix));
-
-                var equipRemoved = AccessTools.Method(typeof(Pawn_EquipmentTracker), nameof(Pawn_EquipmentTracker.Notify_EquipmentRemoved));
-                var equipRemovedPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_EquipmentRemoved_Postfix));
-                if (equipRemoved != null && equipRemovedPostfix != null) harmony.Patch(equipRemoved, postfix: new HarmonyMethod(equipRemovedPostfix));
-
-                var pawnKill = AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill));
-                var pawnKillPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_PawnKilled_Postfix));
-                if (pawnKill != null && pawnKillPostfix != null) harmony.Patch(pawnKill, postfix: new HarmonyMethod(pawnKillPostfix));
-
-                var pawnDeSpawn = AccessTools.Method(typeof(Pawn), nameof(Pawn.DeSpawn));
-                var pawnDeSpawnPostfix = AccessTools.Method(typeof(HarmonySetup), nameof(Notify_PawnDeSpawned_Postfix));
-                if (pawnDeSpawn != null && pawnDeSpawnPostfix != null) harmony.Patch(pawnDeSpawn, postfix: new HarmonyMethod(pawnDeSpawnPostfix));
-
-                var widgetsLabel = AccessTools.Method(typeof(Widgets), nameof(Widgets.Label), new Type[] { typeof(Rect), typeof(string) });
-                var labelPrefix = AccessTools.Method(typeof(InfoCardOverlay), nameof(InfoCardOverlay.Prefix));
-                if (widgetsLabel != null && labelPrefix != null) harmony.Patch(widgetsLabel, prefix: new HarmonyMethod(labelPrefix));
-
-                // Gated InfoCard Intercept: Sets IsRenderingInfoCard = true only while StatsReportUtility is actively rendering
-                var statsReportPrefix = AccessTools.Method(typeof(HarmonySetup), nameof(StatsReport_Prefix));
-                var statsReportFinalizer = AccessTools.Method(typeof(HarmonySetup), nameof(StatsReport_Finalizer));
+                var statsReportPrefix = OwnPatch(nameof(StatsReport_Prefix));
+                var statsReportFinalizer = OwnPatch(nameof(StatsReport_Finalizer));
                 var statsReportMethods = typeof(StatsReportUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 for (int i = 0; i < statsReportMethods.Length; i++)
                 {
                     if (statsReportMethods[i].Name == nameof(StatsReportUtility.DrawStatsReport))
                     {
-                        harmony.Patch(statsReportMethods[i], prefix: new HarmonyMethod(statsReportPrefix), finalizer: new HarmonyMethod(statsReportFinalizer));
+                        harmony.Patch(statsReportMethods[i], prefix: statsReportPrefix, finalizer: statsReportFinalizer);
                     }
                 }
+            });
 
-                var caravanExplanationGetter = AccessTools.PropertyGetter(typeof(RimWorld.Planet.Caravan), "MassCapacityExplanation");
-                var caravanExplanationPostfix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.Caravan_MassCapacityExplanation_Postfix));
-                if (caravanExplanationGetter != null && caravanExplanationPostfix != null) harmony.Patch(caravanExplanationGetter, postfix: new HarmonyMethod(caravanExplanationPostfix));
+            Guarded("Caravan.MassCapacityExplanation", () => harmony.Patch(
+                AccessTools.PropertyGetter(typeof(RimWorld.Planet.Caravan), "MassCapacityExplanation"),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.Caravan_MassCapacityExplanation_Postfix)))));
 
-                var drawCaravanInfoPrefix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.DrawCaravanInfo_Prefix));
-                System.Reflection.MethodInfo drawCaravanInfo = null;
-                var drawMethods = typeof(RimWorld.Planet.CaravanUIUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                for (int i = 0; i < drawMethods.Length; i++)
-                {
-                    var m = drawMethods[i];
-                    if (m.Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
-                    {
-                        var pars = m.GetParameters();
-                        for (int p = 0; p < pars.Length; p++)
-                        {
-                            Type pType = pars[p].ParameterType;
-                            if (pars[p].Name == "info" &&
-                                (pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo) ||
-                                 pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo).MakeByRefType()))
-                            {
-                                drawCaravanInfo = m;
-                                break;
-                            }
-                        }
-                        if (drawCaravanInfo != null) break;
-                    }
-                }
+            Guarded("CaravanUIUtility.DrawCaravanInfo", () => InstallDrawCaravanInfoPatch(harmony));
+        }
 
-                if (drawCaravanInfo != null && drawCaravanInfoPrefix != null)
-                {
-                    harmony.Patch(drawCaravanInfo, prefix: new HarmonyMethod(drawCaravanInfoPrefix));
-                }
-                else
-                {
-                    string candidates = string.Empty;
-                    for (int i = 0; i < drawMethods.Length; i++)
-                    {
-                        if (drawMethods[i].Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
-                        {
-                            candidates += drawMethods[i].ToString() + "; ";
-                        }
-                    }
-                    OHLog.Integration.Warn("HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
-                }
-            }
-            catch (Exception ex)
+        /// <summary>
+        /// Resolves the <c>CaravanUIUtility.DrawCaravanInfo</c> overload that takes the 'info' structure and patches it.
+        /// </summary>
+        /// <param name="harmony">The active Harmony instance used to apply the patch.</param>
+        private static void InstallDrawCaravanInfoPatch(Harmony harmony)
+        {
+            var drawCaravanInfoPrefix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.DrawCaravanInfo_Prefix));
+            System.Reflection.MethodInfo drawCaravanInfo = null;
+            var drawMethods = typeof(RimWorld.Planet.CaravanUIUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            for (int i = 0; i < drawMethods.Length; i++)
             {
-                OHLog.Integration.Warn("HarmonySetup", ex, "Failed to install invalidation patches.");
+                var m = drawMethods[i];
+                if (m.Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
+                {
+                    var pars = m.GetParameters();
+                    for (int p = 0; p < pars.Length; p++)
+                    {
+                        Type pType = pars[p].ParameterType;
+                        if (pars[p].Name == "info" &&
+                            (pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo) ||
+                             pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo).MakeByRefType()))
+                        {
+                            drawCaravanInfo = m;
+                            break;
+                        }
+                    }
+                    if (drawCaravanInfo != null) break;
+                }
             }
+
+            if (drawCaravanInfo != null && drawCaravanInfoPrefix != null)
+            {
+                harmony.Patch(drawCaravanInfo, prefix: new HarmonyMethod(drawCaravanInfoPrefix));
+                return;
+            }
+
+            string candidates = string.Empty;
+            for (int i = 0; i < drawMethods.Length; i++)
+            {
+                if (drawMethods[i].Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
+                {
+                    candidates += drawMethods[i].ToString() + "; ";
+                }
+            }
+            OHLog.Integration.Warn("HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
         }
 
         #endregion

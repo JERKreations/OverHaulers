@@ -43,4 +43,86 @@
   <OverHaulers_CacheInactivityEvictionHours>Pawn Eviction Timeframe ({0}h)</OverHaulers_CacheInactivityEvictionHours>
   <OverHaulers_CacheInactivityEvictionHours_Tooltip>Configures how many game-hours a pawn's capacity cache entry can remain unqueried before being evicted from memory. (1 game-hour = {0} ticks, {1} hours = 1 game day).</OverHaulers_CacheInactivityEvictionHours_Tooltip>
 
+  <!-- [DIAG-03] Performance benchmark -->
+  <OverHaulers_Benchmark_Header>Performance Benchmark</OverHaulers_Benchmark_Header>
+  <OverHaulers_Benchmark_Desc>Measures how long Over Haulers takes to solve a pawn's caravan mass capacity from scratch on this machine with your current mod list, using test pawns only (your colonists and caches are never touched). Results are synthetic and cover Over Haulers only. May take a few seconds depending on your hardware and current mod list; the window may stutter briefly while it runs.</OverHaulers_Benchmark_Desc>
+  <OverHaulers_Benchmark_Run>Run Benchmark</OverHaulers_Benchmark_Run>
+  <OverHaulers_Benchmark_Cancel>Cancel</OverHaulers_Benchmark_Cancel>
+  <OverHaulers_Benchmark_Copy>Copy Report</OverHaulers_Benchmark_Copy>
+  <OverHaulers_Benchmark_Export>Export Report</OverHaulers_Benchmark_Export>
+  <OverHaulers_Benchmark_Copied>Benchmark report copied to the clipboard.</OverHaulers_Benchmark_Copied>
+  <OverHaulers_Benchmark_Running>{0} ({1}%)</OverHaulers_Benchmark_Running>
+  <OverHaulers_Benchmark_Failed>Benchmark failed: {0}</OverHaulers_Benchmark_Failed>
+  <OverHaulers_Benchmark_Cancelled>Benchmark cancelled.</OverHaulers_Benchmark_Cancelled>
+  <OverHaulers_Benchmark_Stage_Startup>Recompiling topologies</OverHaulers_Benchmark_Stage_Startup>
+  <OverHaulers_Benchmark_Stage_Solver>Solving {0} ({1})</OverHaulers_Benchmark_Stage_Solver>
+  <OverHaulers_Benchmark_Stage_Table>Testing the background snapshot table</OverHaulers_Benchmark_Stage_Table>
+  <OverHaulers_Benchmark_Profile_Pristine>Pristine</OverHaulers_Benchmark_Profile_Pristine>
+  <OverHaulers_Benchmark_Profile_Wounded>Wounded</OverHaulers_Benchmark_Profile_Wounded>
+  <OverHaulers_Benchmark_Startup>Topology compile: {0} ms for {1} body definitions (largest: {2}, {3} parts)</OverHaulers_Benchmark_Startup>
+  <OverHaulers_Benchmark_ColSubject>Subject (parts)</OverHaulers_Benchmark_ColSubject>
+  <OverHaulers_Benchmark_ColProfile>Profile</OverHaulers_Benchmark_ColProfile>
+  <OverHaulers_Benchmark_ColMedian>Median (µs)</OverHaulers_Benchmark_ColMedian>
+  <OverHaulers_Benchmark_ColP95>P95 (µs)</OverHaulers_Benchmark_ColP95>
+  <OverHaulers_Benchmark_ColRate>Solves/s</OverHaulers_Benchmark_ColRate>
+  <OverHaulers_Benchmark_ColGc>GC runs</OverHaulers_Benchmark_ColGc>
+  <OverHaulers_Benchmark_RampHeader>Estimated cost of re-solving N pawns from scratch in one go</OverHaulers_Benchmark_RampHeader>
+  <OverHaulers_Benchmark_RampColPawns>Pawns</OverHaulers_Benchmark_RampColPawns>
+  <OverHaulers_Benchmark_RampColReference>Default subject (pristine)</OverHaulers_Benchmark_RampColReference>
+  <OverHaulers_Benchmark_RampColWorst>Worst measured row</OverHaulers_Benchmark_RampColWorst>
+  <OverHaulers_Benchmark_Notes>Percentages are shares of a 60 fps frame (16.7 ms). Normal play uses cached results, which are far cheaper than a from-scratch solve; a full re-solve only follows health, gear or settings changes. "GC runs" should be 0. Compare runs on the same machine rather than across different ones.</OverHaulers_Benchmark_Notes>
+
+  <!-- Snapshot table results -->
+  <OverHaulers_Benchmark_TableHeader>Background snapshot table (lock-free reads used by pathfinding threads)</OverHaulers_Benchmark_TableHeader>
+  <OverHaulers_Benchmark_TableSingle>Single-thread read: {0} ns (hit), {1} ns (miss) - {2} pawns resident in a {3}-slot table</OverHaulers_Benchmark_TableSingle>
+  <OverHaulers_Benchmark_TableColScenario>Scenario</OverHaulers_Benchmark_TableColScenario>
+  <OverHaulers_Benchmark_TableColReaders>Readers</OverHaulers_Benchmark_TableColReaders>
+  <OverHaulers_Benchmark_TableColReads>Reads/s</OverHaulers_Benchmark_TableColReads>
+  <OverHaulers_Benchmark_TableColWrites>Writes/s</OverHaulers_Benchmark_TableColWrites>
+  <OverHaulers_Benchmark_TableColRetry>Retry %</OverHaulers_Benchmark_TableColRetry>
+  <OverHaulers_Benchmark_TableColTimeout>Timeout %</OverHaulers_Benchmark_TableColTimeout>
+  <OverHaulers_Benchmark_TableScenarioPaced>Busy frame ({0} writes/frame)</OverHaulers_Benchmark_TableScenarioPaced>
+  <OverHaulers_Benchmark_TableScenarioSaturating>Saturating writer (worst case)</OverHaulers_Benchmark_TableScenarioSaturating>
+  <OverHaulers_Benchmark_TableNotes>Reads come from background threads while the main thread keeps writing. A retry means a read overlapped a write and was repeated; a timeout means it gave up and safely returned the neutral fallback. The saturating writer is an artificial worst case far beyond real play, which performs only a handful of writes per frame.</OverHaulers_Benchmark_TableNotes>
+
+  <!-- [DIAG-04] Self-check -->
+  <OverHaulers_SelfCheck_Header>Self-Check</OverHaulers_SelfCheck_Header>
+  <OverHaulers_SelfCheck_Desc>Runs Over Haulers' built-in correctness checks on this game install: the lock-free snapshot table (against private copies, so live data is untouched), the core collections, every loaded body definition, and the solver on test pawns. Usually finishes within a second, depending on your hardware and mod list. Failures are also listed in the exported benchmark report, so include it when reporting a bug.</OverHaulers_SelfCheck_Desc>
+  <OverHaulers_SelfCheck_Run>Run Self-Check</OverHaulers_SelfCheck_Run>
+  <OverHaulers_SelfCheck_Running>Running… ({0}/{1})</OverHaulers_SelfCheck_Running>
+  <OverHaulers_SelfCheck_Summary>{0}/{1} checks passed</OverHaulers_SelfCheck_Summary>
+  <OverHaulers_SelfCheck_SummarySkipped>({0} skipped)</OverHaulers_SelfCheck_SummarySkipped>
+  <OverHaulers_SelfCheck_Pass>PASS</OverHaulers_SelfCheck_Pass>
+  <OverHaulers_SelfCheck_Fail>FAIL</OverHaulers_SelfCheck_Fail>
+  <OverHaulers_SelfCheck_Skip>SKIP</OverHaulers_SelfCheck_Skip>
+
+  <!-- Self-check groups -->
+  <OverHaulers_SelfCheck_Group_SnapshotTable>Snapshot table</OverHaulers_SelfCheck_Group_SnapshotTable>
+  <OverHaulers_SelfCheck_Group_Collections>Collections</OverHaulers_SelfCheck_Group_Collections>
+  <OverHaulers_SelfCheck_Group_Topology>Topology</OverHaulers_SelfCheck_Group_Topology>
+  <OverHaulers_SelfCheck_Group_Solver>Solver</OverHaulers_SelfCheck_Group_Solver>
+
+  <!-- Self-check names -->
+  <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
+  <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
+  <OverHaulers_SelfCheck_Check_WriteOverwriteRead>Write, overwrite and read back</OverHaulers_SelfCheck_Check_WriteOverwriteRead>
+  <OverHaulers_SelfCheck_Check_EvictAndReset>Evict and reset</OverHaulers_SelfCheck_Check_EvictAndReset>
+  <OverHaulers_SelfCheck_Check_ClusterEviction>Colliding keys survive eviction in any order</OverHaulers_SelfCheck_Check_ClusterEviction>
+  <OverHaulers_SelfCheck_Check_RandomAgainstModel>Matches a reference model under random insert/evict</OverHaulers_SelfCheck_Check_RandomAgainstModel>
+  <OverHaulers_SelfCheck_Check_Saturation>Saturated probe window displaces one entry per overflow</OverHaulers_SelfCheck_Check_Saturation>
+  <OverHaulers_SelfCheck_Check_ConcurrentReaders>Concurrent readers never observe torn values</OverHaulers_SelfCheck_Check_ConcurrentReaders>
+  <OverHaulers_SelfCheck_Check_UniqueList>Unique list add, merge, clear and enumeration</OverHaulers_SelfCheck_Check_UniqueList>
+  <OverHaulers_SelfCheck_Check_TopologyIntegrity>Every compiled body template is structurally sound</OverHaulers_SelfCheck_Check_TopologyIntegrity>
+  <OverHaulers_SelfCheck_Check_SolverDeterminism>Repeated solves are deterministic</OverHaulers_SelfCheck_Check_SolverDeterminism>
+  <OverHaulers_SelfCheck_Check_WoundsNeverIncrease>Amputation and trauma never increase mass capacity</OverHaulers_SelfCheck_Check_WoundsNeverIncrease>
+
+  <!-- Self-check notes and skip reasons -->
+  <OverHaulers_SelfCheck_Note_ConcurrentReaders>{0} writer cycles checked against {1} concurrent reads</OverHaulers_SelfCheck_Note_ConcurrentReaders>
+  <OverHaulers_SelfCheck_Note_Topology>{0} templates verified</OverHaulers_SelfCheck_Note_Topology>
+  <OverHaulers_SelfCheck_Note_TopologyPartial>{0} templates verified, {1} bodies produced no template</OverHaulers_SelfCheck_Note_TopologyPartial>
+  <OverHaulers_SelfCheck_Note_SolverDeterminism>{0}: baseline {1}, offset {2}</OverHaulers_SelfCheck_Note_SolverDeterminism>
+  <OverHaulers_SelfCheck_Note_WoundsNeverIncrease>{0}: pristine offset {1}, wounded offset {2}</OverHaulers_SelfCheck_Note_WoundsNeverIncrease>
+  <OverHaulers_SelfCheck_Skip_NoBodies>No body definitions are loaded.</OverHaulers_SelfCheck_Skip_NoBodies>
+  <OverHaulers_SelfCheck_Skip_NoSubject>No default test subject is available.</OverHaulers_SelfCheck_Skip_NoSubject>
+
 </LanguageData>

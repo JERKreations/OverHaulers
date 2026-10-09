@@ -180,6 +180,9 @@ namespace OverHaulers
                 {
                     GUI.enabled = originalEnabledState;
                 }
+
+                localY = DrawBenchmarkBlock(inner, localY + 10f);
+                localY = DrawSelfCheckBlock(inner, localY + 10f);
             }
             finally
             {

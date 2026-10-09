@@ -23,6 +23,12 @@ namespace OverHaulers
         public static readonly Color DescriptionTextColor = new Color(0.63f, 0.65f, 0.67f);
         public static readonly Color DarkTargetHighlightColor = new Color(0f, 0f, 0f, 0.40f);
 
+        /// <summary>The player-selected "healthy / good" colour from the accessibility palette (default palette until settings load).</summary>
+        public static Color HealthyColor => OverHaulers.settings?.colorHealthy ?? SettingsDefaults.ColorHealthyDefault;
+
+        /// <summary>The player-selected "critical / bad" colour from the accessibility palette (default palette until settings load).</summary>
+        public static Color CriticalColor => OverHaulers.settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
+
         private static readonly Dictionary<string, string> activeInputBuffers = new Dictionary<string, string>(32);
         private static readonly Dictionary<string, float> sectionHeightCache = new Dictionary<string, float>(16);
 
@@ -98,7 +104,8 @@ namespace OverHaulers
 
         /// <summary>
         /// Single centralized endpoint invoked whenever any slider, input box, or toggle mutates in settings.
-        /// Flushes the TestBench dirty cache, clears precompiled topology layouts, and purges runtime pawn caches.
+        /// Flushes the TestBench dirty cache, clears precompiled topology layouts, and marks runtime pawn caches stale
+        /// (background snapshots keep serving their last solved values until each pawn is re-solved).
         /// </summary>
         /// <remarks>
         /// This method should be called whenever any setting is changed to ensure that all dependent systems are updated accordingly.
@@ -107,7 +114,7 @@ namespace OverHaulers
         {
             TestBench.MarkDirty();
             TopologyLayoutCompiler.InvalidateAllTopologies();
-            PawnDataRegistry.ClearAllCaches();
+            PawnDataRegistry.MarkAllStale();
             PerformanceTelemetry.SyncSettingsState();
         }
 
@@ -722,6 +729,57 @@ namespace OverHaulers
 
             // Funneled into atomic core slider engine
             DrawCoreSliderWithInputDirect(sliderRect, textRect, ref value, min, max, isInteger);
+        }
+
+        #endregion
+
+        #region 9. CACHED TRANSLATION LOOKUPS
+
+        private static readonly Dictionary<string, string> translationCache = new Dictionary<string, string>(128);
+        private static LoadedLanguage translationCacheLanguage;
+        private static int translationEpoch;
+
+        /// <summary>
+        /// Incremented every time the active language changes and the translation cache is flushed.
+        /// Views that cache strings derived from translations compare this value to know when to rebuild them.
+        /// </summary>
+        public static int TranslationEpoch
+        {
+            get
+            {
+                FlushTranslationCacheIfLanguageChanged();
+                return translationEpoch;
+            }
+        }
+
+        /// <summary>
+        /// Returns the localised text for a Keyed translation key. After the first lookup per language this is a single
+        /// dictionary hit with no allocation, which keeps per-frame OnGUI drawing cheap. Use for argument-free keys only.
+        /// </summary>
+        /// <param name="key">The Keyed translation key.</param>
+        /// <returns>The localised text.</returns>
+        public static string CachedText(string key)
+        {
+            FlushTranslationCacheIfLanguageChanged();
+
+            if (!translationCache.TryGetValue(key, out string text))
+            {
+                text = key.Translate().ToString();
+                translationCache[key] = text;
+            }
+
+            return text;
+        }
+
+        private static void FlushTranslationCacheIfLanguageChanged()
+        {
+            LoadedLanguage active = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(active, translationCacheLanguage))
+            {
+                translationCache.Clear();
+                translationCacheLanguage = active;
+                translationEpoch++;
+            }
         }
 
         #endregion

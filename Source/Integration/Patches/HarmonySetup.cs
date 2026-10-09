@@ -39,23 +39,52 @@ namespace OverHaulers
 
             HarmonyInstance = new Harmony("com.overhaulers.mod");
 
-            // 1. Permanent sandbox entity shields (nanosecond guards for dummy pawns)
-            InstallPermanentSandboxShields(HarmonyInstance);
-
-            // 2. Conditionally attach main-menu fallbacks if starting on the Main Menu
-            if (Current.ProgramState != ProgramState.Playing)
-            {
-                EnsureSafetyPatchesApplied();
-            }
-
-            // 3. Reactive invalidation patches (Pawn health, apparel, equipment, death, despawn)
+            // 1. Reactive invalidation patches (Pawn health, apparel, equipment, death, despawn)
             InstallInvalidationPatches(HarmonyInstance);
 
-            // 4. Third-party mod drivers (VEF, PUAH, Simple Sidearms, Custom XML drivers)
-            IntegrationPipeline.Initialize(HarmonyInstance);
+            // 2. Third-party mod drivers (VEF, PUAH, Simple Sidearms, Custom XML drivers)
+            Guarded("IntegrationPipeline.Initialize", () => IntegrationPipeline.Initialize(HarmonyInstance));
 
-            // 5. Native MassUtility.Capacity direct postfix bridge
-            ApplyDirectCapacityPatch(HarmonyInstance);
+            // 3. Native MassUtility.Capacity direct postfix bridge
+            Guarded("MassUtility.Capacity", () => ApplyDirectCapacityPatch(HarmonyInstance));
+
+            // 4. Strip the node an earlier version wrote into saves (avoids one-time "class not found" errors)
+            Guarded("World.ExposeComponents", () => InstallLegacySaveCleanup(HarmonyInstance));
+
+            // Sandbox shields and main-menu fallbacks are intentionally not installed here; they are attached on demand
+            // while a sandbox harness is alive (see AcquireSandboxShields) so normal play pays nothing for them.
+        }
+
+        /// <summary>
+        /// Runs a single patch installation step, logging (rather than propagating) any failure so that
+        /// one broken hook cannot prevent the remaining hooks from being applied.
+        /// </summary>
+        /// <param name="label">Human-readable name of the patch, used for throttled logging.</param>
+        /// <param name="install">The installation action to execute.</param>
+        private static void Guarded(string label, System.Action install)
+        {
+            try
+            {
+                install();
+            }
+            catch (System.Exception ex)
+            {
+                OHLog.Integration.Warn("Patch:" + label, ex, $"Failed to install '{label}'. The feature it supports may be unavailable.");
+            }
+        }
+
+        /// <summary>
+        /// Wraps one of this class's static patch methods as a <see cref="HarmonyMethod"/>, failing loudly if it cannot be found.
+        /// </summary>
+        /// <param name="methodName">The name of the static patch method declared on <see cref="HarmonySetup"/>.</param>
+        private static HarmonyMethod OwnPatch(string methodName)
+        {
+            System.Reflection.MethodInfo method = AccessTools.Method(typeof(HarmonySetup), methodName);
+            if (method == null)
+            {
+                throw new System.MissingMethodException(typeof(HarmonySetup).FullName, methodName);
+            }
+            return new HarmonyMethod(method);
         }
     }
 

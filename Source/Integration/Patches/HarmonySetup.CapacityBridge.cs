@@ -30,7 +30,7 @@ namespace OverHaulers
             MethodInfo targetMethod = AccessTools.Method(typeof(MassUtility), nameof(MassUtility.Capacity));
             if (targetMethod == null)
             {
-                OHLog.Error(LogDomain.Integration, "Failed to resolve MassUtility.Capacity method target.");
+                OHLog.Error(LogDomain.Integration, "ApplyDirectCapacityPatch", null, "Failed to resolve MassUtility.Capacity method target.");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace OverHaulers
         /// Universal postfix patch delivering the biological mass offset directly to MassUtility.Capacity on root calls only.
         /// Immune to third-party apparel debuffs, order-of-operation anomalies, and recursive queries.
         /// </summary>
-        /// <param name="p">The pawn whose carrying capacity is being evaluated.</param>
+        /// <param name="p">The pawn whose mass capacity is being evaluated.</param>
         /// <param name="__result">The running capacity calculation result, modified by our anatomical offset.</param>
         /// <param name="explanation">A StringBuilder containing the explanation for the calculation, if requested.</param>
         private static void MassUtility_Capacity_Postfix(Pawn p, ref float __result, StringBuilder explanation)

@@ -530,6 +530,112 @@ namespace OverHaulers
             Scribe_Values.Look(ref logSafetyFloorClamps, "logSafetyFloorClamps", SettingsDefaults.LogSafetyFloorClamps);
             Scribe_Values.Look(ref logPawnEvictions, "logPawnEvictions", SettingsDefaults.LogPawnEvictions);
             Scribe_Values.Look(ref pawnEvictionTimeframeHours, "pawnEvictionTimeframeHours", SettingsDefaults.PawnEvictionTimeframeHours);
+
+            // Values are fully populated at this point when loading; guard against hand-edited or corrupted settings files.
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                SanitizeLoadedValues();
+            }
+        }
+
+        /// <summary>
+        /// Clamps every numeric setting to its supported range and replaces NaN/infinite values with defaults,
+        /// so a hand-edited or corrupted settings file can never feed invalid numbers into the solver or the UI.
+        /// </summary>
+        private void SanitizeLoadedValues()
+        {
+            if (!System.Enum.IsDefined(typeof(SettingsTab), activeTab)) activeTab = SettingsTab.Tuning;
+            if (!System.Enum.IsDefined(typeof(PalettePreset), activePalettePreset)) activePalettePreset = SettingsDefaults.DefaultPalettePreset;
+            if (string.IsNullOrEmpty(selectedPresentationKey)) selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
+
+            prostheticScaling = Sane(prostheticScaling, SettingsDefaults.ProstheticScaling, SettingsDefaults.ProstheticScalingMin, SettingsDefaults.ProstheticScalingMax);
+            athleticScaling = Sane(athleticScaling, SettingsDefaults.AthleticScaling, SettingsDefaults.AthleticScalingMin, SettingsDefaults.AthleticScalingMax);
+            massCapacityFloor = Sane(massCapacityFloor, SettingsDefaults.MassCapacityFloor, SettingsDefaults.MassCapacityFloorMin, SettingsDefaults.MassCapacityFloorMax);
+
+            anatomyWeightTorso = SanePercent(anatomyWeightTorso, SettingsDefaults.AnatomyWeightTorso);
+            anatomyWeightArm = SanePercent(anatomyWeightArm, SettingsDefaults.AnatomyWeightArm);
+            anatomyWeightLeg = SanePercent(anatomyWeightLeg, SettingsDefaults.AnatomyWeightLeg);
+
+            torsoPositiveBreathing = SanePercent(torsoPositiveBreathing, SettingsDefaults.TorsoPositiveBreathing);
+            torsoPositiveBlood = SanePercent(torsoPositiveBlood, SettingsDefaults.TorsoPositiveBlood);
+            torsoPositiveMoving = SanePercent(torsoPositiveMoving, SettingsDefaults.TorsoPositiveMoving);
+            torsoPositiveManipulation = SanePercent(torsoPositiveManipulation, SettingsDefaults.TorsoPositiveManipulation);
+            armPositiveBreathing = SanePercent(armPositiveBreathing, SettingsDefaults.ArmPositiveBreathing);
+            armPositiveBlood = SanePercent(armPositiveBlood, SettingsDefaults.ArmPositiveBlood);
+            armPositiveMoving = SanePercent(armPositiveMoving, SettingsDefaults.ArmPositiveMoving);
+            armPositiveManipulation = SanePercent(armPositiveManipulation, SettingsDefaults.ArmPositiveManipulation);
+            legPositiveBreathing = SanePercent(legPositiveBreathing, SettingsDefaults.LegPositiveBreathing);
+            legPositiveBlood = SanePercent(legPositiveBlood, SettingsDefaults.LegPositiveBlood);
+            legPositiveMoving = SanePercent(legPositiveMoving, SettingsDefaults.LegPositiveMoving);
+            legPositiveManipulation = SanePercent(legPositiveManipulation, SettingsDefaults.LegPositiveManipulation);
+
+            torsoDeficitBreathing = SanePercent(torsoDeficitBreathing, SettingsDefaults.TorsoDeficitBreathing);
+            torsoDeficitBlood = SanePercent(torsoDeficitBlood, SettingsDefaults.TorsoDeficitBlood);
+            torsoDeficitMoving = SanePercent(torsoDeficitMoving, SettingsDefaults.TorsoDeficitMoving);
+            torsoDeficitManipulation = SanePercent(torsoDeficitManipulation, SettingsDefaults.TorsoDeficitManipulation);
+            armDeficitBreathing = SanePercent(armDeficitBreathing, SettingsDefaults.ArmDeficitBreathing);
+            armDeficitBlood = SanePercent(armDeficitBlood, SettingsDefaults.ArmDeficitBlood);
+            armDeficitMoving = SanePercent(armDeficitMoving, SettingsDefaults.ArmDeficitMoving);
+            armDeficitManipulation = SanePercent(armDeficitManipulation, SettingsDefaults.ArmDeficitManipulation);
+            legDeficitBreathing = SanePercent(legDeficitBreathing, SettingsDefaults.LegDeficitBreathing);
+            legDeficitBlood = SanePercent(legDeficitBlood, SettingsDefaults.LegDeficitBlood);
+            legDeficitMoving = SanePercent(legDeficitMoving, SettingsDefaults.LegDeficitMoving);
+            legDeficitManipulation = SanePercent(legDeficitManipulation, SettingsDefaults.LegDeficitManipulation);
+
+            torsoAxialBias = Sane(torsoAxialBias, SettingsDefaults.TorsoAxialBias, SettingsDefaults.TorsoAxialBiasMin, SettingsDefaults.TorsoAxialBiasMax);
+            torsoHpSensitivity = Sane(torsoHpSensitivity, SettingsDefaults.TorsoHpSensitivity, SettingsDefaults.TorsoHpSensitivityMin, SettingsDefaults.TorsoHpSensitivityMax);
+            limbDepthDecayFactor = Sane(limbDepthDecayFactor, SettingsDefaults.LimbDepthDecayFactor, SettingsDefaults.LimbDepthDecayFactorMin, SettingsDefaults.LimbDepthDecayFactorMax);
+
+            prostheticImpactConstant = Sane(prostheticImpactConstant, SettingsDefaults.ProstheticImpactConstant, SettingsDefaults.ProstheticImpactConstantMin, SettingsDefaults.ProstheticImpactConstantMax);
+            athleticImpactConstant = Sane(athleticImpactConstant, SettingsDefaults.AthleticImpactConstant, SettingsDefaults.AthleticImpactConstantMin, SettingsDefaults.AthleticImpactConstantMax);
+
+            iconScalePercent = Sane(iconScalePercent, SettingsDefaults.IconScalePercent, SettingsDefaults.IconScalePercentMin, SettingsDefaults.IconScalePercentMax);
+            colorHealthy = SaneColor(colorHealthy, SettingsDefaults.ColorHealthyDefault);
+            colorCritical = SaneColor(colorCritical, SettingsDefaults.ColorCriticalDefault);
+            colorBoosted = SaneColor(colorBoosted, SettingsDefaults.ColorBoostedDefault);
+
+            reportMetricsIntervalHours = System.Math.Max(SettingsDefaults.ReportMetricsIntervalHoursMin, System.Math.Min(SettingsDefaults.ReportMetricsIntervalHoursMax, reportMetricsIntervalHours));
+            pawnEvictionTimeframeHours = System.Math.Max(SettingsDefaults.PawnEvictionTimeframeHoursMin, System.Math.Min(SettingsDefaults.PawnEvictionTimeframeHoursMax, pawnEvictionTimeframeHours));
+        }
+
+        /// <summary>
+        /// Returns a finite value clamped to a range, or the fallback when the value is NaN or infinite.
+        /// </summary>
+        /// <param name="value">The loaded value.</param>
+        /// <param name="fallback">The default used when the value is not finite.</param>
+        /// <param name="min">Lower bound.</param>
+        /// <param name="max">Upper bound.</param>
+        /// <returns>A finite value within the range.</returns>
+        private static float Sane(float value, float fallback, float min, float max)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return fallback;
+            return value < min ? min : (value > max ? max : value);
+        }
+
+        /// <summary>
+        /// Sanitises a 0 to 1 percentage-style setting.
+        /// </summary>
+        /// <param name="value">The loaded value.</param>
+        /// <param name="fallback">The default used when the value is not finite.</param>
+        /// <returns>A finite value between 0 and 1.</returns>
+        private static float SanePercent(float value, float fallback)
+        {
+            return Sane(value, fallback, SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax);
+        }
+
+        /// <summary>
+        /// Sanitises a colour setting channel by channel, falling back per channel when a value is not finite.
+        /// </summary>
+        /// <param name="value">The loaded colour.</param>
+        /// <param name="fallback">The default colour.</param>
+        /// <returns>A colour with every channel finite and within 0 to 1.</returns>
+        private static Color SaneColor(Color value, Color fallback)
+        {
+            return new Color(
+                Sane(value.r, fallback.r, 0f, 1f),
+                Sane(value.g, fallback.g, 0f, 1f),
+                Sane(value.b, fallback.b, 0f, 1f),
+                Sane(value.a, 1f, 0f, 1f));
         }
 
         #endregion

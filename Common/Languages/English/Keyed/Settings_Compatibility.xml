@@ -14,7 +14,7 @@
   <OverHaulers_PresentationMode_Auto>Automatic Stat Adoption (Recommended)</OverHaulers_PresentationMode_Auto>
   <OverHaulers_PresentationMode_Auto_Tooltip>Allows OverHaulers to adopt external caravan stats (such as VEF_MassCarryCapacity), injecting our detailed breakdown directly into their InfoCard. This prevents duplicate stat rows on pawns. If no external stats are detected, it cleanly falls back to the native OverHaulers card.</OverHaulers_PresentationMode_Auto_Tooltip>
   <OverHaulers_PresentationMode_Native>Force Native Card Display</OverHaulers_PresentationMode_Native>
-  <OverHaulers_PresentationMode_Native_Tooltip>Forces OverHaulers to always display its own dedicated 'Caravan mass capacity' card on pawns, leaving any third-party mod cards untouched. (Carrying capacity calculations remain fully active).</OverHaulers_PresentationMode_Native_Tooltip>
+  <OverHaulers_PresentationMode_Native_Tooltip>Forces OverHaulers to always display its own dedicated 'Caravan mass capacity' card on pawns, leaving any third-party mod cards untouched. (Caravan mass capacity calculations remain fully active).</OverHaulers_PresentationMode_Native_Tooltip>
 
   <!-- Profile Group Headers -->
   <OverHaulers_ProfileGroup_BuiltIn>Verified Compatible Profiles</OverHaulers_ProfileGroup_BuiltIn>

@@ -43,12 +43,21 @@ namespace OverHaulers
             {
                 if (activeHarness == null)
                 {
-                    activeHarness = (Current.ProgramState == ProgramState.Playing)
-                        ? new LiveSandboxPawnHarness()
-                        : new SandboxPawnHarness();
+                    activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
                 }
+
+                activeHarness.EnsureShields();
                 return activeHarness;
             }
+        }
+
+        /// <summary>
+        /// Detaches the sandbox entity shields while the settings window is closed. The harness and its simulated
+        /// state are preserved; shields re-attach automatically on the next <see cref="Harness"/> access.
+        /// </summary>
+        public static void SuspendSandboxShields()
+        {
+            activeHarness?.SuspendShields();
         }
 
         public static float lastCalculatedFinalMass = 0.0f;
