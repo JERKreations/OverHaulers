@@ -192,6 +192,7 @@ namespace OverHaulers
                 if (UnityData.IsInMainThread)
                 {
                     PawnDataRegistry.EvictCacheEntry(__instance.thingIDNumber);
+                    DetailedModelRegistry.Evict(__instance.thingIDNumber);
                 }
             }
             catch
@@ -215,6 +216,7 @@ namespace OverHaulers
                     if (__instance.Faction != Faction.OfPlayer)
                     {
                         PawnDataRegistry.EvictCacheEntry(__instance.thingIDNumber);
+                        DetailedModelRegistry.Evict(__instance.thingIDNumber);
                     }
                 }
             }

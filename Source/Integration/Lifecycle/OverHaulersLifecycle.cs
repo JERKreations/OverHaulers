@@ -107,6 +107,7 @@ namespace OverHaulers
 
             // 2. Clear all cached pawn data for a clean slate
             PawnDataRegistry.ClearAllCaches();
+            DetailedModelRegistry.Clear();
 
             // 3. Freshly compile all species skeletal topologies (un-locked across save loads)
             TopologyLayoutCompiler.InvalidateAllTopologies();

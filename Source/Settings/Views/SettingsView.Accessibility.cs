@@ -9,10 +9,10 @@ namespace OverHaulers
     /// </summary>
     public static partial class SettingsView
     {
-        #region [SEC-10] ACCESSIBILITY & MEDICAL COLOR PALETTE DRAWER
+        #region 1. [SEC-10] ACCESSIBILITY & MEDICAL COLOR PALETTE DRAWER
 
         /// <summary>
-        /// Draws the accessibility section of the settings view, including icon scale and color palette options.
+        /// [SEC-10] Draws the accessibility section of the settings view, including icon scale and color palette options.
         /// </summary>
         /// <param name="viewRect">The rectangle defining the area in which to draw the section.</param>
         /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
@@ -89,7 +89,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region PRIVATE ACCESSIBILITY IMGUI HELPERS
+        #region 2. PRIVATE ACCESSIBILITY IMGUI HELPERS
 
         /// <summary>
         /// Draws a live gradient preview bar representing the transition from critical to healthy to boosted colors.

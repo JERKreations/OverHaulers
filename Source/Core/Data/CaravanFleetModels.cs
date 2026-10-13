@@ -11,23 +11,43 @@ namespace OverHaulers
     /// </summary>
     public struct CaravanFleetSummary
     {
+        /// <summary>Total baseline mass capacity of all pawns in the caravan.</summary>
         public float TotalBaseline;
+
+        /// <summary>Total actual mass capacity of all pawns in the caravan.</summary>
         public float TotalCapacity;
+
+        /// <summary>Total number of pawns in the caravan.</summary>
         public int TotalPawnCount;
 
-        // Standout Performers: Gross (Tonnage) vs Net (Biomechanical Augmentation)
+        /// <summary>Pawn with the highest gross mass capacity in the caravan.</summary>
         public Pawn TopGrossContributor;
+
+        /// <summary>Gross mass capacity of the top contributor.</summary>
         public float TopGrossCapacity;
 
+        /// <summary>Pawn with the highest net contribution to the caravan's capacity.</summary>
         public Pawn TopNetContributor;
+
+        /// <summary>Net offset of the top net contributor.</summary>
         public float TopNetOffset;
+
+        /// <summary>Actual capacity of the top net contributor.</summary>
         public float TopNetCapacity;
 
+        /// <summary>Pawn with the most impaired net contribution in the caravan.</summary>
         public Pawn MostImpaired;
+
+        /// <summary>Net offset of the most impaired contributor.</summary>
         public float MostImpairedNetOffset;
+
+        /// <summary>Actual capacity of the most impaired contributor.</summary>
         public float MostImpairedCapacity;
 
+        /// <summary>Total net offset of the caravan's capacity.</summary>
         public float TotalNetOffset => TotalCapacity - TotalBaseline;
+
+        /// <summary>Collective multiplier of the caravan's capacity relative to the baseline.</summary>
         public float CollectiveMultiplier => TotalBaseline > 0f ? (TotalCapacity / TotalBaseline) : 1.0f;
     }
 

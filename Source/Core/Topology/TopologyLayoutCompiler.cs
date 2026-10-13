@@ -127,6 +127,12 @@ namespace OverHaulers
         public static int globalMaxSkeletalDepth = 0;
 
         /// <summary>
+        /// Single source of truth for the most recent total topology compilation duration in milliseconds.
+        /// Consumed symmetrically by diagnostic logs and the performance benchmark runner.
+        /// </summary>
+        public static double LastCompileDurationMs { get; private set; } = 0.0;
+
+        /// <summary>
         /// Ensures that all loaded species BodyDefs are compiled into flat, immutable templates.
         /// Thread-safe and re-entrant: if already compiled, returns immediately.
         /// </summary>
@@ -144,10 +150,11 @@ namespace OverHaulers
                     CompileAll();
                     watch.Stop();
                     
+                    LastCompileDurationMs = watch.Elapsed.TotalMilliseconds;
                     int totalSpecies = DefDatabase<BodyDef>.DefCount;
 
                     OHLog.Topology.CompilationCompleted(
-                        (float)watch.Elapsed.TotalMilliseconds,
+                        (float)LastCompileDurationMs,
                         totalSpecies,
                         globalMaxPartCount, 
                         globalMaxPartBodyDefName, 

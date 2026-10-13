@@ -26,7 +26,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [VIEW-04] Builds the Over Haulers Caravan Mass Capacity breakdown report.
-        /// Thread-gated to the main thread to protect static scratch buffers.
+        /// Thread-gated to the main thread with strict try...finally boundaries protecting static scratch buffers.
         /// </summary>
         /// <param name="massModel">The mass capacity model to format.</param>
         /// <param name="verbose">Whether to include unmodified parts.</param>
@@ -42,46 +42,51 @@ namespace OverHaulers
             pooledFinalReport.Clear();
             pooledDetailsBuilder.Clear();
 
-            pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
-
-            // 1. Optional Test Bench Mock Header
-            if (forceFullCard)
+            try
             {
-                pooledFinalReport.AppendLine("StatsReport_BaseValue".Translate() + ": " + biologicalBaseline.ToStringMass());
-                pooledFinalReport.AppendLine();
+                pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
+
+                // 1. Optional Test Bench Mock Header
+                if (forceFullCard)
+                {
+                    pooledFinalReport.AppendLine("StatsReport_BaseValue".Translate() + ": " + biologicalBaseline.ToStringMass());
+                    pooledFinalReport.AppendLine();
+                }
+
+                // 2. OverHaulers Total Body Rating Line
+                string totalMultValStr = massModel.TotalMultiplier.ToString("F2");
+                string signedOffsetValStr = massModel.Offset.ToStringMassOffset();
+                pooledFinalReport.AppendLine("OverHaulers_TotalBodyRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
+
+                // 3. Capacities, Impacts & Anatomical Breakdown
+                AppendCapacities(pooledDetailsBuilder, massModel, verbose);
+                AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
+                AppendStructuralSections(pooledDetailsBuilder, massModel, verbose);
+
+                if (pooledDetailsBuilder.Length > 0 || verbose)
+                {
+                    pooledFinalReport.Append(pooledDetailsBuilder.ToString());
+                }
+
+                // 4. Optional Test Bench Mock Footer
+                if (forceFullCard)
+                {
+                    float finalValue = massModel.FinalCapacity;
+
+                    pooledFinalReport.AppendLine();
+                    pooledFinalReport.Append("StatsReport_FinalValue".Translate() + ": " + finalValue.ToStringMass());
+                }
+
+                string finalResultString = pooledFinalReport.ToString();
+                massModel.Explanation = finalResultString;
+                return finalResultString;
             }
-
-            // 2. OverHaulers Total Body Rating Line
-            string totalMultValStr = massModel.TotalMultiplier.ToString("F2");
-            string signedOffsetValStr = massModel.Offset.ToStringMassOffset();
-            pooledFinalReport.AppendLine("OverHaulers_TotalBodyRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
-
-            // 3. Capacities, Impacts & Anatomical Breakdown
-            AppendCapacities(pooledDetailsBuilder, massModel, verbose);
-            AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
-            AppendStructuralSections(pooledDetailsBuilder, massModel, verbose);
-
-            if (pooledDetailsBuilder.Length > 0 || verbose)
+            finally
             {
-                pooledFinalReport.Append(pooledDetailsBuilder.ToString());
+                // Strict re-entrancy clearing: guarantee buffers never retain dirty strings if an exception occurs
+                pooledFinalReport.Clear();
+                pooledDetailsBuilder.Clear();
             }
-
-            // 4. Optional Test Bench Mock Footer
-            if (forceFullCard)
-            {
-                float finalValue = massModel.FinalCapacity;
-
-                pooledFinalReport.AppendLine();
-                pooledFinalReport.Append("StatsReport_FinalValue".Translate() + ": " + finalValue.ToStringMass());
-            }
-
-            string finalResultString = pooledFinalReport.ToString();
-            massModel.Explanation = finalResultString;
-
-            pooledFinalReport.Clear();
-            pooledDetailsBuilder.Clear();
-
-            return finalResultString;
         }
 
         /// <summary>
@@ -128,41 +133,47 @@ namespace OverHaulers
         private static void AppendAthleticImpacts(StringBuilder builder, MassCapacityModel massModel, bool verbose)
         {
             pooledListBuilder.Clear();
-            bool hasAnyAthleticImpacts = false;
 
-            // 1. Append the list of ailments to the pooled list builder
-            var ailments = massModel.Ailments.Items;
-            int count = ailments.Count;
-
-            if (count > 0)
+            try
             {
-                // 2. Flag that there are athletic impacts and append each ailment to the list
-                hasAnyAthleticImpacts = true;
-                for (int i = 0; i < count; i++)
+                bool hasAnyAthleticImpacts = false;
+
+                // 1. Append the list of ailments to the pooled list builder
+                var ailments = massModel.Ailments.Items;
+                int count = ailments.Count;
+
+                if (count > 0)
                 {
-                    pooledListBuilder.Append("    - ");
-                    pooledListBuilder.AppendLine(ailments[i]);
+                    // 2. Flag that there are athletic impacts and append each ailment to the list
+                    hasAnyAthleticImpacts = true;
+                    for (int i = 0; i < count; i++)
+                    {
+                        pooledListBuilder.Append("    - ");
+                        pooledListBuilder.AppendLine(ailments[i]);
+                    }
+                }
+
+                // 3. Append the header and list to the main builder if there are any athletic impacts or if verbose is true
+                if (hasAnyAthleticImpacts || verbose)
+                {
+                    builder.AppendLine();
+                    builder.Append(Indent2);
+                    builder.AppendLine("OverHaulers_AthleticImpactsHeader".Translate().ToString());
+                    if (hasAnyAthleticImpacts)
+                    {
+                        builder.Append(pooledListBuilder.ToString());
+                    }
+                    else
+                    {
+                        builder.Append("    - ");
+                        builder.AppendLine("OverHaulers_None".Translate().ToString());
+                    }
                 }
             }
-
-            // 3. Append the header and list to the main builder if there are any athletic impacts or if verbose is true
-            if (hasAnyAthleticImpacts || verbose)
+            finally
             {
-                builder.AppendLine();
-                builder.Append(Indent2);
-                builder.AppendLine("OverHaulers_AthleticImpactsHeader".Translate().ToString());
-                if (hasAnyAthleticImpacts)
-                {
-                    builder.Append(pooledListBuilder.ToString());
-                }
-                else
-                {
-                    builder.Append("    - ");
-                    builder.AppendLine("OverHaulers_None".Translate().ToString());
-                }
+                pooledListBuilder.Clear();
             }
-
-            pooledListBuilder.Clear();
         }
 
         /// <summary>

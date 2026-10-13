@@ -34,7 +34,7 @@ namespace OverHaulers
             }
 
             float baselineCapacity = PawnDataRegistry.ResolveBaseline(pawn);
-            MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
+            MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, baselineCapacity);
             if (detailedMassModel == null)
             {
                 return Array.Empty<Dialog_InfoCard.Hyperlink>();

@@ -7,8 +7,11 @@ namespace OverHaulers
 {
     public static partial class SettingsView
     {
-        #region [SEC-09] DIAGNOSTICS & TELEMETRY DRAWER
+        #region 1. [SEC-09] DIAGNOSTICS & TELEMETRY DRAWER
 
+        /// <summary>
+        /// [SEC-09] Draws the telemetry, performance reporting, benchmark, and self-check section.
+        /// </summary>
         public static void DrawDiagnosticsSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
             Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Diagnostics", ref currentY, fallbackEstimate: 600f);
@@ -63,7 +66,7 @@ namespace OverHaulers
                     ? "OverHaulers_ReportMetricsInterval".Translate(settings.reportMetricsIntervalHours).ToString() 
                     : "OverHaulers_ReportMetricsIntervalDisabled".Translate().ToString();
 
-                SettingsViewUtilities.DrawSliderAndInputRowDirect(
+                SettingsViewUtilities.DrawIntSliderAndInputRowDirect(
                     left2Rect,
                     reportIntervalLabel,
                     ref settings.reportMetricsIntervalHours,
@@ -76,7 +79,7 @@ namespace OverHaulers
                     GenDate.HoursPerDay
                 ).ToString();
 
-                SettingsViewUtilities.DrawSliderAndInputRowDirect(
+                SettingsViewUtilities.DrawIntSliderAndInputRowDirect(
                     right2Rect,
                     "OverHaulers_CacheInactivityEvictionHours".Translate(settings.pawnEvictionTimeframeHours).ToString(),
                     ref settings.pawnEvictionTimeframeHours,

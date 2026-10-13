@@ -23,10 +23,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. REGIONAL DEFICITS DATA LAYOUT & ADAPTERS
+        #region 2. INTERNAL REGIONAL DEFICITS & DELTA STRUCTS
 
         /// <summary>
-        /// Zero-allocation stack wrapper adapting an IAnatomicalDataSource reference into the struct solver pipeline.
+        /// Zero-allocation stack wrapper adapting an <see cref="IAnatomicalDataSource"/> reference into the struct solver pipeline.
+        /// Prevents virtual interface dispatch and boxing when non-struct sources are supplied.
         /// </summary>
         private readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource
         {
@@ -50,6 +51,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Represents the raw and clamped deficits for different anatomical regions of a pawn, used in the mass capacity calculations.
+        /// Tracks the ratio of clamped capacity to raw health loss to scale regional deficits proportionally.
         /// </summary>
         private struct RegionalDeficits
         {
@@ -65,9 +67,10 @@ namespace OverHaulers
 
             /// <summary>
             /// Retrieves the ratio of the clamped deficit to the raw negative value for the specified anatomical part type.
+            /// Ensures deficits collapse smoothly onto their allocated budget ceiling without sharp threshold steps.
             /// </summary>
             /// <param name="type">The anatomical part type for which to retrieve the ratio.</param>
-            /// <returns>The ratio of the clamped deficit to the raw negative value for the specified part type.</returns>
+            /// <returns>The ratio of the clamped deficit to the raw negative value for the specified part type (defaults to 1.0f if no deficits exist).</returns>
             public float GetRatio(PartType type)
             {
                 if (type == PartType.CorePart) return RawCoreNegative > 0f ? (ClampedCoreDeficit / RawCoreNegative) : 1.0f;
@@ -85,7 +88,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Stack-allocated accumulator aggregating positive and negative systemic deltas across anatomical regions.
-        /// Consolidates capacity coupling math with 0 bytes GC allocation.
+        /// Consolidates biological capacity coupling math with 0 bytes GC allocation.
         /// </summary>
         private struct SystemicRegionalDeltas
         {
@@ -102,13 +105,13 @@ namespace OverHaulers
             /// <summary>
             /// Accumulates positive and negative regional deltas for a single biological capacity.
             /// </summary>
-            /// <param name="snappedCapacity">The snapped mass capacity value for the current calculation.</param>
-            /// <param name="posTorso">The positive contribution factor for the torso.</param>
-            /// <param name="posArm">The positive contribution factor for the arms.</param>
-            /// <param name="posLeg">The positive contribution factor for the legs.</param>
-            /// <param name="defTorso">The negative contribution factor for the torso.</param>
-            /// <param name="defArm">The negative contribution factor for the arms.</param>
-            /// <param name="defLeg">The negative contribution factor for the legs.</param>
+            /// <param name="snappedCapacity">The snapped biological capacity level being evaluated (1.0f = baseline).</param>
+            /// <param name="posTorso">The positive coupling weight for the torso.</param>
+            /// <param name="posArm">The positive coupling weight for the arms.</param>
+            /// <param name="posLeg">The positive coupling weight for the legs.</param>
+            /// <param name="defTorso">The negative deficit coupling weight for the torso.</param>
+            /// <param name="defArm">The negative deficit coupling weight for the arms.</param>
+            /// <param name="defLeg">The negative deficit coupling weight for the legs.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Accumulate(
                 float snappedCapacity,
@@ -145,8 +148,8 @@ namespace OverHaulers
             /// Retrieves the regional positive and negative deltas for a specific part type in constant time.
             /// </summary>
             /// <param name="type">The part type for which to retrieve the deltas.</param>
-            /// <param name="positiveDelta">The output positive delta for the specified part type.</param>
-            /// <param name="negativeDelta">The output negative delta for the specified part type.</param>
+            /// <param name="positiveDelta">Outputs the positive capacity delta for the specified region.</param>
+            /// <param name="negativeDelta">Outputs the negative capacity delta for the specified region.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void GetDeltas(PartType type, out float positiveDelta, out float negativeDelta)
             {
@@ -178,21 +181,21 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PRIMARY PUBLIC SOLVER ENTRY POINTS
+        #region 3. PRIMARY PUBLIC APIS & CANONICAL ENTRY POINTS
 
         /// <summary>
-        /// [PASS-03 & PASS-04] Primary solver calculating the final Caravan Mass Capacity offset in kilograms (kg) for an abstract data source.
-        /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure C# 7.3/9.0 compatibility.
+        /// [PASS-03 & PASS-04] Primary canonical solver calculating the final Caravan Mass Capacity offset in kilograms (kg) for an abstract data source.
+        /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure strict C# 7.3 compatibility.
         /// Operates with complete thread isolation and encapsulated workspace lifecycle management.
         /// </summary>
-        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing IAnatomicalDataSource.</typeparam>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
         /// <param name="source">The anatomical data source representing the pawn.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity of the pawn.</param>
-        /// <param name="biologicalBaseline">The biological baseline mass capacity of the pawn (output).</param>
-        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
-        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
-        /// <returns>The calculated mass capacity offset for the pawn.</returns>
+        /// <param name="baselineCapacity">The baseline mass capacity of the pawn in kilograms before physiological modifications.</param>
+        /// <param name="biologicalBaseline">Outputs the resolved biological baseline mass capacity of the pawn in kilograms.</param>
+        /// <param name="settings">The mod settings influencing scaling, budget weights, and safety thresholds.</param>
+        /// <param name="shouldCompileUIProperties">True if human-readable labels, ailments, and colors should be stamped onto cold workspace state.</param>
+        /// <param name="workspace">Outputs the leased anatomical workspace populated during the calculation.</param>
+        /// <returns>The calculated physical mass capacity offset in kilograms (kg), where 0.0f indicates parity with baseline.</returns>
         public static float SolveMassCapacityOffset<TSource>(
             TSource source, 
             float baselineCapacity, 
@@ -214,7 +217,7 @@ namespace OverHaulers
 
             try
             {
-                // Initialize the workspace and prepare for mass capacity calculation.
+                // Initialize workspace from thread-local pool
                 workspace = WorkspacePool.GetWorkspace();
                 biologicalBaseline = baselineCapacity;
 
@@ -251,8 +254,8 @@ namespace OverHaulers
                 // The net biological delta: positive boosts minus clamped deficits
                 float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
 
-                // Populate visual nodes with the exact matching deltas
-                PopulateVisualNodeOffsets(workspace, in deficits);
+                // Normalize workspace calculated totals with the exact matching deficits
+                NormalizeWorkspaceCalculatedTotals(workspace, in deficits);
 
                 isSuccessful = true;
                 return netBiologicalOffset;
@@ -265,7 +268,7 @@ namespace OverHaulers
             }
             finally
             {
-                // Ensure the workspace is cleared and released if the calculation was not successful.
+                // Ensure the workspace is released back to the pool if an unhandled exception aborted calculation
                 if (!isSuccessful && workspace != null)
                 {
                     WorkspacePool.ReleaseWorkspace(workspace);
@@ -275,17 +278,45 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [PASS-03 & PASS-04] Interface forwarder adapting interface-typed callers into the unified struct solver.
-        /// Preserves DRY principles and prevents code duplication.
+        /// Ensures that the final calculated capacity does not fall below the configured safety floor.
+        /// Serves as the single canonical implementation for floor enforcement and telemetry recording.
         /// </summary>
-        /// <param name="source">The anatomical data source for which to solve the mass capacity offset.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity of the source.</param>
-        /// <param name="biologicalBaseline">The biological baseline mass capacity of the source (output).</param>
-        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
-        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
-        /// <returns>The calculated mass capacity offset for the source.</returns>
-        public static float SolveMassCapacityOffset(
+        /// <param name="finalCapacity">The calculated final capacity in kilograms to be clamped.</param>
+        /// <param name="targetLabel">The label of the target entity for diagnostic logging purposes.</param>
+        /// <returns>The clamped final capacity in kilograms, ensuring it meets the minimum threshold.</returns>
+        public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
+        {
+            if (OverHaulers.settings != null && !OverHaulers.settings.compatibilitySafetyFloor)
+            {
+                return finalCapacity;
+            }
+
+            if (finalCapacity < 0.01f)
+            {
+                float clampedValue = 0.01f;
+                OHLog.Performance.RecordSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
+                return clampedValue;
+            }
+
+            return finalCapacity;
+        }
+
+        #endregion
+
+        #region 4. SECONDARY ENTRY POINTS (PASS-THROUGHS & HAND-OFFS)
+
+        /// <summary>
+        /// [PASS-03 & PASS-04] Interface adapter solving mass capacity offset for an <see cref="IAnatomicalDataSource"/> instance.
+        /// Thin pass-through wrapping the interface into a <see cref="BoxedDataSourceWrapper"/> to execute the canonical generic solver.
+        /// </summary>
+        /// <param name="source">The anatomical data source representing the entity.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity in kilograms before physiological modifications.</param>
+        /// <param name="biologicalBaseline">Outputs the resolved biological baseline mass capacity in kilograms.</param>
+        /// <param name="settings">The mod settings influencing scaling, budget weights, and safety thresholds.</param>
+        /// <param name="shouldCompileUIProperties">True if human-readable labels, ailments, and colors should be stamped onto cold workspace state.</param>
+        /// <param name="workspace">Outputs the leased anatomical workspace populated during calculation.</param>
+        /// <returns>The calculated physical mass capacity offset in kilograms (kg).</returns>
+        public static float SolveMassCapacityOffsetForSource(
             IAnatomicalDataSource source, 
             float baselineCapacity, 
             out float biologicalBaseline, 
@@ -311,17 +342,17 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Solves the mass capacity offset for the given pawn.
-        /// Binds directly to the generic value-type pipeline to achieve zero heap allocations.
+        /// Solves the mass capacity offset for a live <see cref="Pawn"/> instance.
+        /// Thin pass-through wrapping the pawn into a stack-allocated <see cref="PawnAnatomicalSource"/> to execute the canonical generic solver with zero heap allocations.
         /// </summary>
-        /// <param name="pawn">The pawn for which to solve the mass capacity offset.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity of the pawn.</param>
-        /// <param name="biologicalBaseline">The biological baseline mass capacity of the pawn (output).</param>
-        /// <param name="settings">The settings influencing the mass capacity calculation.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
-        /// <param name="workspace">The anatomical workspace used during the calculation (output).</param>
-        /// <returns>The calculated mass capacity offset for the pawn.</returns>
-        public static float SolveMassCapacityOffset(
+        /// <param name="pawn">The live pawn entity being evaluated.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity of the pawn in kilograms.</param>
+        /// <param name="biologicalBaseline">Outputs the resolved biological baseline mass capacity in kilograms.</param>
+        /// <param name="settings">The mod settings influencing scaling, budget weights, and safety thresholds.</param>
+        /// <param name="shouldCompileUIProperties">True if human-readable labels and cold presentation metadata should be extracted.</param>
+        /// <param name="workspace">Outputs the leased anatomical workspace populated during calculation.</param>
+        /// <returns>The calculated physical mass capacity offset in kilograms (kg).</returns>
+        public static float SolveMassCapacityOffsetForPawn(
             Pawn pawn, 
             float baselineCapacity, 
             out float biologicalBaseline, 
@@ -346,19 +377,41 @@ namespace OverHaulers
             );
         }
 
+        /// <summary>
+        /// Evaluates and clamps the final capacity for a pawn against the safety floor.
+        /// Acts as a zero-allocation pass-through hand-off to <see cref="EnforceSafetyFloor"/>,
+        /// lazily resolving the pawn label string only when safety floor clamping is actively triggered.
+        /// </summary>
+        /// <param name="finalCapacity">The calculated final caravan mass capacity in kilograms to be clamped.</param>
+        /// <param name="pawn">The pawn entity being evaluated.</param>
+        /// <returns>The clamped final capacity in kilograms.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
+        {
+            if (finalCapacity < 0.01f)
+            {
+                string targetLabel = pawn != null
+                    ? (UnityData.IsInMainThread ? pawn.LabelShortCap.ToString() : pawn.def?.label ?? "Pawn")
+                    : "Pawn";
+
+                return EnforceSafetyFloor(finalCapacity, targetLabel);
+            }
+
+            return finalCapacity;
+        }
+
         #endregion
 
-        #region 4. PATHOLOGY COMPILATION & WORKSPACE PREPARATION
+        #region 5. PATHOLOGY COMPILATION & WORKSPACE INGRESS
 
         /// <summary>
-        /// Compiles the pathology information for the given anatomical workspace based on the source data and template.
-        /// Dispatches directly without interface boxing.
+        /// Compiles pathology data into the workspace. Dispatches directly without interface boxing.
         /// </summary>
-        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing IAnatomicalDataSource.</typeparam>
-        /// <param name="source">The anatomical data source providing pathology information.</param>
-        /// <param name="template">The species topology template defining the anatomical structure.</param>
-        /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled.</param>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type.</typeparam>
+        /// <param name="source">The data source containing entity health and hediff information.</param>
+        /// <param name="template">The precompiled species topology template.</param>
+        /// <param name="workspace">The destination anatomical workspace.</param>
+        /// <param name="shouldCompileUIProperties">True if human-readable labels and cold metadata should be extracted.</param>
         private static void CompilePathology<TSource>(
             TSource source, 
             SpeciesTopologyTemplate template, 
@@ -375,7 +428,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. [PASS-03] STREAMING SoA VECTOR MATHEMATICS
+        #region 6. [PASS-03] STREAMING SoA VECTOR MATHEMATICS
 
         /// <summary>
         /// Solves the raw part offsets across contiguous SoA memory lanes.
@@ -401,13 +454,12 @@ namespace OverHaulers
             PartType[] partTypes = workspace.PartTypes;
             int[] parentIndices = workspace.ParentIndices;
 
-            #region 5A. Bilateral Root Symmetry Evaluation
+            #region 6A. Bilateral Root Symmetry Evaluation
             int totalRootArms = context.Counts.TotalManipulationRoots;
             int totalRootLegs = context.Counts.TotalMovingRoots;
             int intactRootArms = 0;
             int intactRootLegs = 0;
 
-            // Initialize counters for intact root limbs to evaluate bilateral symmetry.
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
@@ -433,52 +485,40 @@ namespace OverHaulers
             float dualRootSymmetry = (armRootSymmetry + legRootSymmetry) * 0.5f;
             #endregion
 
-            #region 5B. Branchless Direct Systemic Regional Deltas
+            #region 6B. Branchless Direct Systemic Regional Deltas
             SystemicRegionalDeltas regionalDeltas = default;
 
-            // The positive and negative deltas represent the net contributions of various systemic factors
-            // to the mass capacity of each anatomical region. Positive deltas enhance capacity, while
-            // negative deltas indicate deficits that reduce capacity.
             if (context.EnableAthletics)
             {
-                // 1. Positive and Negative Breathing Delta
                 regionalDeltas.Accumulate(
                     context.SnappedBreathing,
                     context.TorsoPositiveBreathing, context.ArmPositiveBreathing, context.LegPositiveBreathing,
                     context.TorsoDeficitBreathing, context.ArmDeficitBreathing, context.LegDeficitBreathing);
 
-                // 2. Positive and Negative Blood Pumping Delta
                 regionalDeltas.Accumulate(
                     context.SnappedBloodPumping,
                     context.TorsoPositiveBlood, context.ArmPositiveBlood, context.LegPositiveBlood,
                     context.TorsoDeficitBlood, context.ArmDeficitBlood, context.LegDeficitBlood);
 
-                // 3. Positive and Negative Moving Delta (Kinetic Chain Cascade)
                 regionalDeltas.Accumulate(
                     context.SnappedMoving,
                     context.TorsoPositiveMoving, context.ArmPositiveMoving, context.LegPositiveMoving,
                     context.TorsoDeficitMoving, context.ArmDeficitMoving, context.LegDeficitMoving);
 
-                // 4. Positive and Negative Manipulation Delta (Bilateral Synergy)
                 regionalDeltas.Accumulate(
                     context.SnappedManipulation,
                     context.TorsoPositiveManipulation, context.ArmPositiveManipulation, context.LegPositiveManipulation,
                     context.TorsoDeficitManipulation, context.ArmDeficitManipulation, context.LegDeficitManipulation);
 
-                // 5. Dual Limb Contributions (Averaged for Symmetry)
                 regionalDeltas.FinalizeDualLimbs();
             }
             #endregion
 
-            #region 5C. Contiguous Streaming Math (Smooth, Unclamped)
-
-            // Iterate through all parts to calculate their contributions to the overall mass capacity.
-            // This includes evaluating missing limbs, added prosthetics, and health impacts.
+            #region 6C. Contiguous Streaming Math (Smooth, Unclamped)
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
 
-                // Skip non-contributing parts (e.g., head or undefined)
                 if (type == PartType.None || type == PartType.HeadPart) 
                     continue;
 
@@ -501,7 +541,6 @@ namespace OverHaulers
                     }
                     else if (context.EnablePartHealth)
                     {
-                        // Clean linear deficit: 100% missing = full part budget share
                         calculatedHealth = -partPlayableBudget;
                     }
                 }
@@ -510,10 +549,8 @@ namespace OverHaulers
                 {
                     if (context.EnableProsthetics)
                     {
-                        // Retrieve the efficiency of the added prosthetic part
                         float efficiency = effs[i];
 
-                        // Branch A: Positive Prosthetic Delta (Efficiency Boost)
                         if (efficiency > 1.0f)
                         {
                             float efficiencyBoost = efficiency - 1.0f;
@@ -524,7 +561,6 @@ namespace OverHaulers
 
                             calculatedProsthetic = partNormalizedWeight * efficiencyBoost * context.ProstheticAnchorScale * symmetryMultiplier;
                         }
-                        // Branch B: Negative Prosthetic Delta (Efficiency Deficit)
                         else if (efficiency < 1.0f)
                         {
                             float efficiencyDeficit = 1.0f - efficiency;
@@ -532,25 +568,23 @@ namespace OverHaulers
                         }
                     }
                 }
-                // 3. Organic Part Wounds (Clean linear proportion: 50% HP = 50% budget loss)
+                // 3. Organic Part Wounds
                 else if (context.EnablePartHealth && healths[i] < 1.0f)
                 {
                     float healthLoss = 1.0f - healths[i];
                     calculatedHealth = -partPlayableBudget * healthLoss;
                 }
 
-                // 4. Granular Systemic Athletic Coupling (Kinetic Strain)
+                // 4. Granular Systemic Athletic Coupling
                 if (context.EnableAthletics && !isMissing)
                 {
                     regionalDeltas.GetDeltas(type, out float regionalPositiveDelta, out float regionalNegativeDelta);
 
-                    // Apply regional positive delta if applicable
                     if (regionalPositiveDelta > 0f && !hasAddedPart)
                     {
                         calculatedAthletic += partNormalizedWeight * regionalPositiveDelta * context.AthleticAnchorScale;
                     }
 
-                    // Apply regional negative delta if applicable
                     if (regionalNegativeDelta > 0f)
                     {
                         calculatedAthletic -= partPlayableBudget * regionalNegativeDelta * context.AthleticScalingMultiplier;
@@ -566,22 +600,17 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. [PASS-04] REGIONAL BUDGET NORMALIZATION & UI PROJECTION
+        #region 7. [PASS-04] REGIONAL BUDGET NORMALIZATION & SCALING
 
         /// <summary>
         /// [PASS-04] Normalizes accumulated regional deficits against the Safety Floor window.
-        /// If raw physical wounds + kinetic strain exceed the region's assigned slice, GetRatio() scales
-        /// all negative contributors proportionally so the region collapses cleanly onto its budget ceiling.
+        /// If raw physical wounds + kinetic strain exceed the region's assigned slice, scales all negative contributors proportionally.
         /// </summary>
-        /// <param name="workspace">The anatomical workspace containing part states and efficiencies.</param>
-        /// <param name="context">The systemic evaluation context containing scaling factors and budget information.</param>
-        /// <param name="totalPlayableBudget">The total playable budget available for allocation across all regions.</param>
-        /// <param name="totalPositiveBoosts">Outputs the total positive boosts accumulated from all parts.</param>
-        /// <returns>A RegionalDeficits object containing the calculated deficits for each anatomical region.</returns>
-        /// <remarks>
-        /// This method ensures that the calculated deficits for each anatomical region do not exceed the allocated budget.
-        /// It takes into account both positive boosts and negative contributions from prosthetics, athletics, and health.
-        /// </remarks>
+        /// <param name="workspace">The anatomical workspace containing calculated part vectors.</param>
+        /// <param name="context">The systemic evaluation context containing regional budget thresholds.</param>
+        /// <param name="totalPlayableBudget">The total playable capacity budget above the safety floor.</param>
+        /// <param name="totalPositiveBoosts">Outputs the aggregate positive capacity boosts across all regions in kilograms.</param>
+        /// <returns>A populated <see cref="RegionalDeficits"/> structure with clamped regional ceilings and scaling ratios.</returns>
         private static RegionalDeficits CalculateClampedGroupBudgetDeficits(
             AnatomicalWorkspace workspace,
             in SystemicEvaluationContext context,
@@ -603,12 +632,10 @@ namespace OverHaulers
 
             totalPositiveBoosts = 0f;
 
-            // Iterate through all parts to calculate their individual contributions to the overall deficits.
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
 
-                // Skip parts that are not relevant for mass capacity calculations, such as None or HeadPart.
                 if (type == PartType.None || type == PartType.HeadPart) 
                     continue;
 
@@ -622,7 +649,6 @@ namespace OverHaulers
                 if (calcAthletics[i] < 0f) partNegative -= calcAthletics[i];
                 if (calcHealths[i] < 0f) partNegative -= calcHealths[i];
 
-                // Distribute negative contributions to the appropriate regional deficits based on part type.
                 switch (type)
                 {
                     case PartType.CorePart:
@@ -649,11 +675,12 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Populates the visual node offsets for each part in the anatomical workspace based on the calculated regional deficits.
+        /// Normalizes the calculated totals for each part in the anatomical workspace based on the regional deficit ratios.
+        /// Scales negative prosthetics, athletic strain, and injury deficits proportionally to prevent regional budget overruns.
         /// </summary>
-        /// <param name="workspace">The anatomical workspace containing part states and efficiencies.</param>
-        /// <param name="deficits">The calculated regional deficits used to adjust visual node offsets.</param>
-        private static void PopulateVisualNodeOffsets(
+        /// <param name="workspace">The anatomical workspace containing calculated part vectors.</param>
+        /// <param name="deficits">The calculated regional deficit scaling ratios.</param>
+        private static void NormalizeWorkspaceCalculatedTotals(
             AnatomicalWorkspace workspace,
             in RegionalDeficits deficits)
         {
@@ -666,7 +693,6 @@ namespace OverHaulers
 
             PartType[] partTypes = workspace.PartTypes;
 
-            // Iterate through all parts to adjust their visual node offsets based on the regional deficits.
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
@@ -687,64 +713,6 @@ namespace OverHaulers
 
                 calcTotals[i] = finalProsthetic + finalAthletic + finalHealth;
             }
-        }
-
-        #endregion
-
-        #region 7. SAFETY FLOOR CLAMPING ENDPOINT
-
-        /// <summary>
-        /// Ensures that the final capacity does not fall below the defined safety floor.
-        /// Serves as the single canonical implementation for floor enforcement and telemetry recording.
-        /// </summary>
-        /// <param name="finalCapacity">The calculated final capacity to be clamped.</param>
-        /// <param name="targetLabel">The label of the target entity for logging purposes.</param>
-        /// <returns>The clamped final capacity, ensuring it meets the safety floor requirement.</returns>
-        /// <remarks>
-        /// This method checks the final capacity against a predefined safety floor (0.01f) and clamps it if necessary.
-        /// It also logs the clamping action for performance tracking purposes.
-        /// </remarks>
-        public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
-        {
-            // If the compatibility safety floor setting is disabled, bypass the safety floor enforcement.
-            if (OverHaulers.settings != null && !OverHaulers.settings.compatibilitySafetyFloor)
-            {
-                return finalCapacity;
-            }
-
-            // If the safety floor enforcement is enabled, check against the minimum threshold and clamp if necessary.
-            if (finalCapacity < 0.01f)
-            {
-                float clampedValue = 0.01f;
-                OHLog.Performance.RecordSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
-                return clampedValue;
-            }
-
-            return finalCapacity;
-        }
-
-        /// <summary>
-        /// Evaluates and clamps the final capacity for a pawn against the safety floor.
-        /// Acts as a zero-allocation pass-through hand-off to <see cref="EnforceSafetyFloor"/>,
-        /// lazily resolving the pawn label only when safety floor clamping is actively triggered.
-        /// </summary>
-        /// <param name="finalCapacity">The calculated final caravan mass capacity to be clamped.</param>
-        /// <param name="pawn">The pawn being evaluated.</param>
-        /// <returns>The clamped final capacity.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
-        {
-            // Fast path: bypass string allocation and delegate to canonical implementation only if clamped
-            if (finalCapacity < 0.01f)
-            {
-                string targetLabel = pawn != null
-                    ? (UnityData.IsInMainThread ? pawn.LabelShortCap : pawn.def?.label ?? "Pawn")
-                    : "Pawn";
-
-                return EnforceSafetyFloor(finalCapacity, targetLabel);
-            }
-
-            return finalCapacity;
         }
 
         #endregion

@@ -103,6 +103,11 @@ namespace OverHaulers
                     string pawnLabel = pawn.def?.label ?? "Unknown";
                     OHLog.Solver.Warn("StampLiveHediffs", ex, $"An error occurred while extracting systemic ailment impactors for {pawnLabel}");
                 }
+                finally
+                {
+                    // Memory leak guard: immediately release references to pawns and hediffs from static list
+                    pooledImpactors.Clear();
+                }
             }
 
             // Ingress each safe hediff

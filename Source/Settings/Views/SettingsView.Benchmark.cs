@@ -48,7 +48,7 @@ namespace OverHaulers
             benchmarkFailedMessage = null;
 
             benchmarkStartupLine = "OverHaulers_Benchmark_Startup".Translate(
-                BenchmarkRunner.TopologyCompileMs.ToString("F1", CultureInfo.InvariantCulture),
+                BenchmarkRunner.TopologyCompileMs.ToString("F2", CultureInfo.InvariantCulture),
                 BenchmarkRunner.TopologyBodyDefCount,
                 BenchmarkRunner.TopologyMaxPartsBody,
                 BenchmarkRunner.TopologyMaxParts).ToString();
@@ -74,7 +74,7 @@ namespace OverHaulers
 
                 if (r.Failed)
                 {
-                    cells[2] = cells[3] = cells[4] = cells[5] = "—";
+                    cells[2] = cells[3] = cells[4] = cells[5] = "-";
                 }
                 else
                 {

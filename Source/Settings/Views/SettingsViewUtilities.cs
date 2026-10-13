@@ -115,6 +115,7 @@ namespace OverHaulers
             TestBench.MarkDirty();
             TopologyLayoutCompiler.InvalidateAllTopologies();
             PawnDataRegistry.MarkAllStale();
+            DetailedModelRegistry.Clear();
             PerformanceTelemetry.SyncSettingsState();
         }
 
@@ -678,15 +679,16 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Draws a single setting row with a slider and an optional text input field.
+        /// Draws a single setting row with an integer slider and an optional text input field.
+        /// Distinct symbol name disambiguating integer slider parameters from standard floating-point sliders.
         /// </summary>
         /// <param name="baseRect">The rectangle defining the area of the row.</param>
         /// <param name="label">The label text for the slider row.</param>
-        /// <param name="value">The current value of the slider.</param>
-        /// <param name="min">The minimum allowed value for the slider.</param>
-        /// <param name="max">The maximum allowed value for the slider.</param>
+        /// <param name="value">The current integer value of the slider.</param>
+        /// <param name="min">The minimum allowed integer value for the slider.</param>
+        /// <param name="max">The maximum allowed integer value for the slider.</param>
         /// <param name="tooltip">An optional tooltip for the slider row.</param>
-        public static void DrawSliderAndInputRowDirect(
+        public static void DrawIntSliderAndInputRowDirect(
             Rect baseRect, 
             string label, 
             ref int value, 

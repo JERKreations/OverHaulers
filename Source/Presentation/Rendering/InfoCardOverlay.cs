@@ -243,32 +243,38 @@ namespace OverHaulers
             float opticalNudge = exactFontPitch * 0.10f;
             float iconOffsetYBase = centeredOffset + opticalNudge;
 
-            PopulateLineBuffer(cleanText, pooledLineBuffer);
-            float relativeY = 0f;
-
-            for (int i = 0; i < pooledLineBuffer.Count; i++)
+            try
             {
-                string line = pooledLineBuffer[i];
+                PopulateLineBuffer(cleanText, pooledLineBuffer);
+                float relativeY = 0f;
 
-                if (line.Contains(TagProsthetic) || line.Contains(TagAthletic) || line.Contains(TagInjury))
+                for (int i = 0; i < pooledLineBuffer.Count; i++)
                 {
-                    float targetY = relativeY + iconOffsetYBase;
-                    if (line.Contains(TagProsthetic)) ExtractIconCommand('P', TagProsthetic, line, tagReplacement, iconSize, targetY, data.Icons);
-                    if (line.Contains(TagAthletic)) ExtractIconCommand('A', TagAthletic, line, tagReplacement, iconSize, targetY, data.Icons);
-                    if (line.Contains(TagInjury)) ExtractIconCommand('I', TagInjury, line, tagReplacement, iconSize, targetY, data.Icons);
+                    string line = pooledLineBuffer[i];
+
+                    if (line.Contains(TagProsthetic) || line.Contains(TagAthletic) || line.Contains(TagInjury))
+                    {
+                        float targetY = relativeY + iconOffsetYBase;
+                        if (line.Contains(TagProsthetic)) ExtractIconCommand('P', TagProsthetic, line, tagReplacement, iconSize, targetY, data.Icons);
+                        if (line.Contains(TagAthletic)) ExtractIconCommand('A', TagAthletic, line, tagReplacement, iconSize, targetY, data.Icons);
+                        if (line.Contains(TagInjury)) ExtractIconCommand('I', TagInjury, line, tagReplacement, iconSize, targetY, data.Icons);
+                    }
+
+                    // Calculate visual rows wrapped
+                    float measuredLineWidth = string.IsNullOrEmpty(line) ? 0f : Text.CalcSize(line).x;
+                    int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f) 
+                        ? Mathf.Max(1, Mathf.CeilToInt(measuredLineWidth / rectWidth)) 
+                        : 1;
+
+                    relativeY += (lineVisualRows * exactFontPitch);
                 }
 
-                // Calculate visual rows wrapped
-                float measuredLineWidth = string.IsNullOrEmpty(line) ? 0f : Text.CalcSize(line).x;
-                int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f) 
-                    ? Mathf.Max(1, Mathf.CeilToInt(measuredLineWidth / rectWidth)) 
-                    : 1;
-
-                relativeY += (lineVisualRows * exactFontPitch);
+                return data;
             }
-
-            pooledLineBuffer.Clear();
-            return data;
+            finally
+            {
+                pooledLineBuffer.Clear();
+            }
         }
 
         /// <summary>

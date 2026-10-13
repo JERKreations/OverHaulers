@@ -104,12 +104,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resets the Test Bench to its default state, including the active grouping dimension, view mode, and sandbox harness.
+        /// Resets the Test Bench to its default state, ensuring the sandbox harness is unconditionally re-bound and rebuilt.
         /// </summary>
         public static void ResetTestBench()
         {
             activeGroupingDimension = GroupingDimension.Mod;
             activeViewMode = TestBenchViewMode.InfoCard;
+
+            TestSubjectEntry defaultSubject = TestSubjectRegistry.GetDefaultSubject();
+            activeSubject = defaultSubject;
 
             if (activeHarness != null)
             {
@@ -117,8 +120,8 @@ namespace OverHaulers
                 activeHarness = null;
             }
 
-            ActiveSubject = TestSubjectRegistry.GetDefaultSubject();
-            Harness.ResetToSource();
+            // Unconditionally bind the default subject to guarantee the sandbox pawn is instantiated
+            Harness.BindSubject(defaultSubject);
             MarkDirty();
         }
 
@@ -258,7 +261,7 @@ namespace OverHaulers
 
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
+                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForSource(
                     dataSource, speciesBaseline, out speciesBaseline, settings, true, out workspace);
 
                 float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
@@ -279,7 +282,7 @@ namespace OverHaulers
                 }
 
                 // Populate cached model directly for passive UI consumption
-                ViewProjection.RebuildDetailedModel_Internal(dataSource, cachedModel, solvedOffset, speciesBaseline, workspace);
+                ViewProjection.RebuildDetailedModelForSource(dataSource, cachedModel, solvedOffset, speciesBaseline, workspace);
 
                 bool verbose = settings?.verboseBreakdown ?? false;
                 string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
@@ -314,52 +317,58 @@ namespace OverHaulers
             if (template == null) return "OverHaulers_XRay_NoTemplate".Translate().ToString();
 
             pooledXRayBuilder.Clear();
-            // X-Ray contains zero icons and renders purely as rich text; no sentinel tag required
-            pooledXRayBuilder.AppendLine("OverHaulers_XRay_Header".Translate(subject.BodyDef.defName, template.PartCount).ToString().Colorize(Color.cyan));
-            pooledXRayBuilder.AppendLine();
 
-            float budgetTorso = settings.GetBudget(PartType.CorePart);
-            float budgetArm = settings.GetBudget(PartType.ManipulationPart);
-            float budgetLeg = settings.GetBudget(PartType.MovingPart);
-            float totalBudget = budgetTorso + budgetArm + budgetLeg;
-
-            pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgets".Translate().ToString());
-            pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgetsValues".Translate(
-                (budgetTorso / totalBudget).ToStringPercent(),
-                (budgetArm / totalBudget).ToStringPercent(),
-                (budgetLeg / totalBudget).ToStringPercent()
-            ).ToString());
-            pooledXRayBuilder.AppendLine();
-
-            pooledXRayBuilder.AppendLine("OverHaulers_XRay_AnatomicalTopology".Translate().ToString());
-            string defaultParent = "OverHaulers_ParentRoot".Translate().ToString();
-
-            for (int c = 0; c < template.PartCount; c++)
+            try
             {
-                int i = template.CanonicalDisplayIndices != null ? template.CanonicalDisplayIndices[c] : c;
+                // X-Ray contains zero icons and renders purely as rich text; no sentinel tag required
+                pooledXRayBuilder.AppendLine("OverHaulers_XRay_Header".Translate(subject.BodyDef.defName, template.PartCount).ToString().Colorize(Color.cyan));
+                pooledXRayBuilder.AppendLine();
 
-                BodyPartRecord part = template.IndexedParts[i];
-                PartType type = template.PartTypes[i];
+                float budgetTorso = settings.GetBudget(PartType.CorePart);
+                float budgetArm = settings.GetBudget(PartType.ManipulationPart);
+                float budgetLeg = settings.GetBudget(PartType.MovingPart);
+                float totalBudget = budgetTorso + budgetArm + budgetLeg;
 
-                float weightFactor = template.StaticWeightFactors[i];
-                string typeTag = GetLocalizedPartTypeTag(type, part);
-                string weightPct = (weightFactor * 100f).ToString("F1") + "%";
-                int parentIdx = template.ParentIndices[i];
-                string parentName = parentIdx != -1 ? template.IndexedParts[parentIdx].Label : defaultParent;
-
-                bool isVirtual = part.coverageAbs <= 0f && part != part.body?.corePart;
-                Color weightColor = (type == PartType.HeadPart || type == PartType.None || isVirtual) 
-                    ? SettingsViewUtilities.DescriptionTextColor 
-                    : (weightFactor > 0f ? Color.green : Color.white);
-
-                pooledXRayBuilder.AppendLine("OverHaulers_XRay_PartEntry".Translate(
-                    part.LabelCap, weightPct.Colorize(weightColor), parentName, typeTag.Colorize(SettingsViewUtilities.DescriptionTextColor)
+                pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgets".Translate().ToString());
+                pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgetsValues".Translate(
+                    (budgetTorso / totalBudget).ToStringPercent(),
+                    (budgetArm / totalBudget).ToStringPercent(),
+                    (budgetLeg / totalBudget).ToStringPercent()
                 ).ToString());
-            }
+                pooledXRayBuilder.AppendLine();
 
-            string result = pooledXRayBuilder.ToString();
-            pooledXRayBuilder.Clear();
-            return result;
+                pooledXRayBuilder.AppendLine("OverHaulers_XRay_AnatomicalTopology".Translate().ToString());
+                string defaultParent = "OverHaulers_ParentRoot".Translate().ToString();
+
+                for (int c = 0; c < template.PartCount; c++)
+                {
+                    int i = template.CanonicalDisplayIndices != null ? template.CanonicalDisplayIndices[c] : c;
+
+                    BodyPartRecord part = template.IndexedParts[i];
+                    PartType type = template.PartTypes[i];
+
+                    float weightFactor = template.StaticWeightFactors[i];
+                    string typeTag = GetLocalizedPartTypeTag(type, part);
+                    string weightPct = (weightFactor * 100f).ToString("F1") + "%";
+                    int parentIdx = template.ParentIndices[i];
+                    string parentName = parentIdx != -1 ? template.IndexedParts[parentIdx].Label : defaultParent;
+
+                    bool isVirtual = part.coverageAbs <= 0f && part != part.body?.corePart;
+                    Color weightColor = (type == PartType.HeadPart || type == PartType.None || isVirtual) 
+                        ? SettingsViewUtilities.DescriptionTextColor 
+                        : (weightFactor > 0f ? Color.green : Color.white);
+
+                    pooledXRayBuilder.AppendLine("OverHaulers_XRay_PartEntry".Translate(
+                        part.LabelCap, weightPct.Colorize(weightColor), parentName, typeTag.Colorize(SettingsViewUtilities.DescriptionTextColor)
+                    ).ToString());
+                }
+
+                return pooledXRayBuilder.ToString();
+            }
+            finally
+            {
+                pooledXRayBuilder.Clear();
+            }
         }
 
         /// <summary>

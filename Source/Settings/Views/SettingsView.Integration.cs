@@ -8,12 +8,10 @@ namespace OverHaulers
 {
     public static partial class SettingsView
     {
-        #region 1. [SEC-08] COMPATIBILITY & STAT ADOPTION DRAWER
-
-        #region 1. COMPATIBILITY DRAWER ENTRY POINT
+         #region 1. [SEC-08] COMPATIBILITY DRAWER ENTRY POINT
 
         /// <summary>
-        /// Renders the complete Compatibility and External Mod Integration settings panel.
+        /// [SEC-08] Renders the complete Compatibility and External Mod Integration settings panel.
         /// Controls InfoCard stat adoption, deduplication against third-party mods, and bytecode patch discovery.
         /// Executes a deterministic order-of-operations pass to ensure zero IMGUI font leaks,
         /// dynamic height adaptation, and real-time in-game verification guidance.
@@ -556,8 +554,6 @@ namespace OverHaulers
 
             return clicked;
         }
-
-        #endregion
 
         #endregion
     }

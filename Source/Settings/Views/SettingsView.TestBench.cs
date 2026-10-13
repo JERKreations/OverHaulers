@@ -23,6 +23,16 @@ namespace OverHaulers
         // Expanded group labels
         private static readonly HashSet<string> expandedGroupLabels = new HashSet<string>();
 
+        /// <summary>
+        /// Clears the accordion expansion states and search filter in the medical planner.
+        /// Invoked when changing test subjects or resetting the Test Bench to baseline.
+        /// </summary>
+        public static void ResetPlannerViewState()
+        {
+            expandedGroupLabels.Clear();
+            sandboxSearchText = string.Empty;
+        }
+
         #endregion
 
         #region 2. [SEC-11] INTERACTIVE ANATOMICAL TEST BENCH ORCHESTRATOR
@@ -132,6 +142,7 @@ namespace OverHaulers
             if (Widgets.ButtonText(resetRect, "OverHaulers_Reset".Translate().ToString()))
             {
                 resetAction?.Invoke();
+                ResetPlannerViewState();
                 SettingsViewUtilities.ClearInputBuffers();
                 SettingsViewUtilities.ClearHeightCache();
                 SettingsViewUtilities.OnSettingMutated();
@@ -287,7 +298,11 @@ namespace OverHaulers
                 Find.WindowStack.Add(new Dialog_TestSubjectPicker(
                     TestBench.activeGroupingDimension,
                     TestBench.ActiveSubject,
-                    entry => { TestBench.ActiveSubject = entry; }
+                    entry => 
+                    { 
+                        TestBench.ActiveSubject = entry;
+                        ResetPlannerViewState();
+                    }
                 ));
             }
             leftY += 28f;

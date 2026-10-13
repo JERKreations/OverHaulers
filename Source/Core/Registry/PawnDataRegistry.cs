@@ -8,55 +8,69 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [CACHE-01] Centralized registry for caching and retrieving calculated Caravan Mass Capacity data for pawns.
+    /// [CACHE-01] Centralized high-frequency numerical cache and state registry for pawn Caravan Mass Capacity data.
+    /// Manages fast-path evaluation gates, jittered population TTL scaling, combat burst debouncing, and background table writes.
+    /// 100% decoupled from UI presentation models and view projections.
     /// Resides under Source/Core/Registry/.
     /// </summary>
     public static class PawnDataRegistry
     {
-        #region 1. FIELDS & METADATA STORAGE
+        #region 1. STATIC FIELDS & THREAD SCRATCHPADS
 
-        // pre-seed the dictionary with an initial capacity to reduce rehashing during early game ticks.
+        // Pre-seeded dictionary with an initial capacity of 512 to eliminate rehash allocations during early game ticks
         private static readonly Dictionary<int, CachedMassData> capacityCache = new Dictionary<int, CachedMassData>(512);
 
-        /// Scratch list for temporarily storing stale keys during cleanup operations.
+        // Scratch list for temporarily buffering stale keys during periodic maintenance passes
         private static readonly List<int> staleKeysScratch = new List<int>(256);
 
-        /// Invalidation requests raised off the main thread, applied on the next main-thread tick.
+        // Queue of invalidation requests raised off the main thread (e.g. background comps), drained on the next main tick
         private static readonly System.Collections.Concurrent.ConcurrentQueue<int> deferredInvalidations =
             new System.Collections.Concurrent.ConcurrentQueue<int>();
         private static int deferredInvalidationCount = 0;
         private const int MaxDeferredInvalidations = 4096;
 
-        /// <summary>Tracks the last main-thread tick when the registry captured pawn data.</summary>
+        // Tracks the most recent tick captured on the main thread for expiry math and maintenance intervals
         private static volatile int lastCapturedMainThreadTick = 0;
 
-        /// <summary>Retrieves the count of active cached pawns in the main-thread registry.</summary>
-        public static int CachedPawnCount => capacityCache.Count;
-
-        /// <summary>Tracks the last main-thread tick when the registry performed a cleanup operation.</summary>
+        // Tracks the tick of the last out-of-band cache cleanup pass
         private static volatile int lastCleanupTick = 0;
 
-        /// <summary>Sentinel value indicating whether an active cleanup is in progress.</summary>
+        // Sentinel flag ensuring only one thread or maintenance routine executes cleanup at a time
         private static int activeCleanupSentinel = 0;
 
-        // CACHED EXPIRY ARITHMETIC: Eliminates Mathf.Sqrt calls when active population is stable
+        // Cached population count and base TTL to avoid redundant Mathf.Sqrt calculations when population is stable
         private static int cachedActiveCount = -1;
         private static int cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
 
+        // Re-entrancy guard preventing infinite recursion when external stat workers query mass within a mass calculation
         [ThreadStatic]
         private static int currentEvaluatingPawnId;
 
+        #endregion
+
+        #region 2. PROPERTIES & ENCAPSULATED ACCESSORS
+
+        /// <summary>
+        /// Retrieves the exact count of active cached pawns residing in the main-thread registry.
+        /// </summary>
+        public static int CachedPawnCount => capacityCache.Count;
+
+        /// <summary>
+        /// Retrieves the most recent game tick captured on the main thread.
+        /// </summary>
         public static int CurrentTick => lastCapturedMainThreadTick;
 
         #endregion
 
-        #region 2. FAST-PATH PREDICATES
+        #region 3. FAST-PATH PREDICATES
 
         /// <summary>
-        /// Primary gate determining if a live pawn should be processed by OverHaulers.
-        /// By default, only caravan-capable pawns are evaluated. When the dev testing toggle is active,
-        /// all species are evaluated to facilitate live sandbox testing.
+        /// Primary gate determining if a live pawn entity should be processed by the OverHaulers solver.
+        /// By default, only caravan-capable pawns are evaluated. When the dev stress-test toggle is active,
+        /// all biological fauna are evaluated to benchmark cache scaling.
         /// </summary>
+        /// <param name="pawn">The pawn being evaluated.</param>
+        /// <returns>True if the pawn is eligible for Caravan Mass Capacity calculation; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanCarryCaravanMass(Pawn pawn)
         {
@@ -72,10 +86,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Evaluates whether a live pawn is officially designated for caravan mass transport.
+        /// Evaluates whether a live pawn entity is officially designated for caravan mass transport.
         /// Strictly requires Humanlike, designated pack animal, or hauling-capable mechanoid.
         /// </summary>
-        /// <param name="pawn">The pawn being evaluated for caravan capability.</param>
+        /// <param name="pawn">The pawn entity being evaluated.</param>
         /// <returns>True if the pawn is designated for caravan transport; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCaravanCapable(Pawn pawn)
@@ -109,13 +123,13 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Evaluates whether a species ThingDef archetype is designated for caravan transport.
-        /// Used for startup batch sweeps and archetype calibration before pawn spawning.
+        /// Evaluates whether a species <see cref="ThingDef"/> archetype is designated for caravan transport.
+        /// Distinct symbol name disambiguating species archetype queries from live pawn instance queries.
         /// </summary>
-        /// <param name="raceDef">The ThingDef representing the species archetype.</param>
+        /// <param name="raceDef">The race definition representing the species archetype.</param>
         /// <returns>True if the species archetype is designated for caravan transport; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsCaravanCapable(ThingDef raceDef)
+        public static bool IsSpeciesCaravanCapable(ThingDef raceDef)
         {
             if (raceDef == null || raceDef.race == null) return false;
             RaceProperties race = raceDef.race;
@@ -137,15 +151,15 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [CACHE-01] PRIMARY CACHE ENTRY POINTS
+        #region 4. [CACHE-01] PRIMARY CACHE ENTRY POINTS & QUERIES
 
         /// <summary>
         /// Attempts to retrieve a fresh, non-stale cached mass capacity offset for the specified pawn ID.
         /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
         /// </summary>
-        /// <param name="pawnId">The unique thingIDNumber of the pawn.</param>
-        /// <param name="offset">The cached capacity offset if valid.</param>
-        /// <returns>True if a valid, unexpired cached offset was found; otherwise false.</returns>
+        /// <param name="pawnId">The unique ThingIDNumber of the pawn.</param>
+        /// <param name="offset">Outputs the cached capacity offset in kilograms if valid.</param>
+        /// <returns>True if a valid, unexpired cached offset was found; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryGetFreshOffset(int pawnId, out float offset)
         {
@@ -155,7 +169,6 @@ namespace OverHaulers
                 return false;
             }
 
-            // Attempt to retrieve a fresh cached offset first
             if (capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode) && !cachedNode.IsStale)
             {
                 int currentTick = GetSafeCurrentTick();
@@ -163,7 +176,6 @@ namespace OverHaulers
 
                 if (elapsedTicks >= 0)
                 {
-                    // Ultra-fast path: within minimum fast-path ticks (bypasses dynamic expiry math)
                     if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
@@ -182,9 +194,9 @@ namespace OverHaulers
         /// Attempts to retrieve the fresh, non-stale final clamped mass capacity (kg) for the specified pawn ID.
         /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
         /// </summary>
-        /// <param name="pawnId">The unique thingIDNumber of the pawn.</param>
-        /// <param name="finalCapacity">The cached final clamped capacity in kilograms if valid.</param>
-        /// <returns>True if a valid, unexpired cached entry was found; otherwise false.</returns>
+        /// <param name="pawnId">The unique ThingIDNumber of the pawn.</param>
+        /// <param name="finalCapacity">Outputs the cached final clamped capacity in kilograms if valid.</param>
+        /// <returns>True if a valid, unexpired cached entry was found; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryGetFreshCapacity(int pawnId, out float finalCapacity)
         {
@@ -194,13 +206,11 @@ namespace OverHaulers
                 return false;
             }
 
-            // Attempt to retrieve a fresh cached offset first
             if (capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode) && !cachedNode.IsStale)
             {
                 int currentTick = GetSafeCurrentTick();
                 int elapsedTicks = currentTick - cachedNode.CalculatedTick;
 
-                // Ultra-fast path: within minimum fast-path ticks (bypasses dynamic expiry math)
                 if (elapsedTicks >= 0)
                 {
                     if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
@@ -218,11 +228,56 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the offset of the pawn's mass capacity relative to the baseline capacity.
+        /// Attempts to retrieve the cached baseline Caravan Mass Capacity for a pawn if valid and fresh.
+        /// Returns false if the cache entry is marked stale, forcing a native baseline re-evaluation.
         /// </summary>
-        /// <param name="pawn">The pawn whose mass capacity offset is being retrieved.</param>
-        /// <param name="baselineCapacity">The baseline capacity used for the calculation.</param>
-        /// <returns>The offset of the pawn's mass capacity relative to the baseline capacity.</returns>
+        /// <param name="thingID">The unique ThingIDNumber of the target pawn.</param>
+        /// <param name="baseline">Outputs the cached baseline mass capacity in kilograms if fresh; otherwise, 0.0f.</param>
+        /// <returns>True if a valid, fresh baseline was available; otherwise, false.</returns>
+        public static bool TryGetCachedBaseline(int thingID, out float baseline)
+        {
+            if (!UnityData.IsInMainThread) { baseline = 0f; return false; }
+
+            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
+            {
+                PerformanceTelemetry.IncrementCacheHits();
+                baseline = cachedNode.BaselineCapacity;
+                return true;
+            }
+
+            baseline = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// Attempts to retrieve the cached Caravan Mass Capacity offset for a pawn if valid and fresh.
+        /// </summary>
+        /// <param name="thingID">The unique ThingIDNumber of the target pawn.</param>
+        /// <param name="offset">Outputs the cached capacity offset in kilograms if fresh; otherwise, 0.0f.</param>
+        /// <returns>True if a valid, fresh offset was available; otherwise, false.</returns>
+        public static bool TryGetCachedOffset(int thingID, out float offset)
+        {
+            if (!UnityData.IsInMainThread) { offset = 0f; return false; }
+
+            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
+            {
+                PerformanceTelemetry.IncrementCacheHits();
+                offset = cachedNode.Offset;
+                return true;
+            }
+
+            offset = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// Retrieves the solved mass capacity offset in kilograms relative to the baseline capacity.
+        /// Evaluates off-thread pathfinders via atomic <see cref="MassSnapshotCache"/> lookups;
+        /// evaluates main-thread queries via <see cref="capacityCache"/> with on-demand recalculation.
+        /// </summary>
+        /// <param name="pawn">The pawn entity being evaluated.</param>
+        /// <param name="baselineCapacity">The species baseline mass capacity in kilograms.</param>
+        /// <returns>The physical capacity offset in kilograms (kg).</returns>
         public static float GetOffset(Pawn pawn, float baselineCapacity)
         {
             if (pawn == null || !CanCarryCaravanMass(pawn)) return 0f;
@@ -234,9 +289,7 @@ namespace OverHaulers
 
             int pawnId = pawn.thingIDNumber;
 
-            // BREAKPOINT ANCHOR: Exact Pawn Reentrancy Shield
-            // If the exact same pawn is already being evaluated on this thread (e.g. recursive stat query),
-            // return its existing or baseline cache value to prevent infinite recursion.
+            // BREAKPOINT ANCHOR: Exact Pawn Re-entrancy Shield
             if (currentEvaluatingPawnId == pawnId)
             {
                 if (capacityCache.TryGetValue(pawnId, out CachedMassData reentrantNode))
@@ -277,7 +330,7 @@ namespace OverHaulers
                 try
                 {
                     currentEvaluatingPawnId = pawnId;
-                    SolveAndCacheEntry(pawn, cachedNode, baselineCapacity, currentTick, shouldCompileUIProperties: false, out _);
+                    SolveAndCacheEntry(pawn, cachedNode, baselineCapacity, currentTick);
                 }
                 finally
                 {
@@ -292,17 +345,16 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the fully clamped, gameplay-ready Caravan Mass Capacity (kg) for a pawn.
+        /// Retrieves the fully clamped, gameplay-ready Caravan Mass Capacity in kilograms for a pawn.
         /// </summary>
-        /// <param name="pawn">The pawn whose caravan mass capacity is being retrieved.</param>
-        /// <param name="baselineCapacity">The species baseline capacity.</param>
+        /// <param name="pawn">The pawn entity being evaluated.</param>
+        /// <param name="baselineCapacity">The species baseline mass capacity in kilograms.</param>
         /// <returns>The final clamped capacity in kilograms (kg).</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float GetCapacity(Pawn pawn, float baselineCapacity)
         {
             if (pawn == null || !CanCarryCaravanMass(pawn)) return 0f;
 
-            // The main-thread dictionary is never touched off-thread; background callers derive the value from the atomic snapshot.
             if (!UnityData.IsInMainThread)
             {
                 float snapshotOffset = MassSnapshotCache.GetOffsetThreadSafe(pawn.thingIDNumber);
@@ -314,10 +366,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves species baseline capacity via baseline calibration.
+        /// Resolves the clean species baseline mass capacity for a pawn via <see cref="SpeciesBaselineCalibration"/>.
         /// </summary>
-        /// <param name="pawn">The pawn whose baseline capacity is being resolved.</param>
-        /// <returns>The resolved baseline capacity for the pawn.</returns>
+        /// <param name="pawn">The pawn entity whose baseline capacity is being resolved.</param>
+        /// <returns>The baseline mass capacity in kilograms (kg).</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float ResolveBaseline(Pawn pawn)
         {
@@ -326,14 +378,14 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves pre-computed fleet breakdown metrics for a pawn without allocating UI models.
+        /// Retrieves pre-computed fleet breakdown metrics for a pawn directly from cached vectors without allocating UI view models.
         /// </summary>
-        /// <param name="pawn">The pawn whose fleet metrics are being retrieved.</param>
-        /// <param name="baselineCapacity">The species baseline capacity.</param>
-        /// <param name="prostheticBoost">Output parameter for the prosthetic boost.</param>
-        /// <param name="healthDeficit">Output parameter for the health deficit.</param>
-        /// <param name="athleticOffset">Output parameter for the athletic offset.</param>
-        /// <returns>True if the fleet metrics were successfully retrieved; otherwise, false.</returns>
+        /// <param name="pawn">The pawn entity being evaluated.</param>
+        /// <param name="baselineCapacity">The species baseline mass capacity in kilograms.</param>
+        /// <param name="prostheticBoost">Outputs the solved mass capacity boost from prosthetics in kg.</param>
+        /// <param name="healthDeficit">Outputs the solved mass capacity penalty from health deficits in kg.</param>
+        /// <param name="athleticOffset">Outputs the solved mass capacity offset from athletic implants in kg.</param>
+        /// <returns>True if metrics were successfully retrieved; otherwise, false.</returns>
         public static bool TryGetFleetMetrics(Pawn pawn, float baselineCapacity, out float prostheticBoost, out float healthDeficit, out float athleticOffset)
         {
             prostheticBoost = 0f;
@@ -353,138 +405,43 @@ namespace OverHaulers
             return false;
         }
 
-        /// <summary>
-        /// Retrieves the detailed mass capacity model for the specified pawn.
-        /// </summary>
-        /// <param name="pawn">The pawn whose detailed mass capacity model is being requested.</param>
-        /// <param name="baselineCapacity">The baseline capacity used for the calculation.</param>
-        /// <returns>The detailed mass capacity model for the pawn.</returns>
-        public static MassCapacityModel GetDetailedModel(Pawn pawn, float baselineCapacity)
-        {
-            // Early exit if the pawn is null, cannot carry caravan mass, or this is a background thread
-            // (the detailed model mutates main-thread caches and shared scratch buffers).
-            if (pawn == null || !CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread) return null;
-
-            int pawnId = pawn.thingIDNumber;
-            int currentTick = GetSafeCurrentTick();
-
-            // Attempt to retrieve the cached mass data for the pawn
-            if (currentEvaluatingPawnId == pawnId)
-            {
-                if (capacityCache.TryGetValue(pawnId, out CachedMassData reentrantNode) && reentrantNode.FullModel != null)
-                {
-                    return reentrantNode.FullModel;
-                }
-                return null;
-            }
-
-            // Store the previous evaluating pawn ID to restore it after processing
-            int prevEvaluatingPawnId = currentEvaluatingPawnId;
-            try
-            {
-                currentEvaluatingPawnId = pawnId;
-
-                // Attempt to retrieve the cached mass data for the pawn after setting the current evaluating pawn ID
-                if (!capacityCache.TryGetValue(pawnId, out CachedMassData cachedNodeRef))
-                {
-                    cachedNodeRef = new CachedMassData();
-                    capacityCache.Add(pawnId, cachedNodeRef);
-                }
-
-                int expiry = GetCacheExpiryDuration(pawnId);
-                bool isOffsetStale = cachedNodeRef.IsStale || (currentTick - cachedNodeRef.CalculatedTick) > expiry;
-                bool isModelStale = cachedNodeRef.FullModel == null || (currentTick - cachedNodeRef.FullModelCalculatedTick) > expiry;
-
-                // Recompute the detailed model if either the offset or the model is stale.
-                if (isOffsetStale || isModelStale)
-                {
-                    AnatomicalWorkspace workspace = null;
-                    try
-                    {
-                        SolveAndCacheEntry(pawn, cachedNodeRef, baselineCapacity, currentTick, true, out workspace);
-
-                        if (cachedNodeRef.FullModel == null)
-                        {
-                            cachedNodeRef.FullModel = new MassCapacityModel();
-                        }
-
-                        cachedNodeRef.FullModel.ResetPool();
-
-                        // Seed presentation model with domain values already solved in Core
-                        cachedNodeRef.FullModel.Offset = cachedNodeRef.Offset;
-                        cachedNodeRef.FullModel.FinalCapacity = cachedNodeRef.FinalCapacity;
-                        cachedNodeRef.FullModel.TotalMultiplier = cachedNodeRef.TotalMultiplier;
-
-                        ViewProjection.RebuildDetailedModel_Internal(pawn, cachedNodeRef.FullModel, cachedNodeRef.Offset, cachedNodeRef.BaselineCapacity, workspace);
-                        cachedNodeRef.FullModelCalculatedTick = currentTick;
-
-                        return cachedNodeRef.FullModel;
-                    }
-                    finally
-                    {
-                        if (workspace != null)
-                        {
-                            WorkspacePool.ReleaseWorkspace(workspace);
-                        }
-                    }
-                }
-
-                PerformanceTelemetry.IncrementCacheHits();
-                return cachedNodeRef.FullModel;
-            }
-            finally
-            {
-                currentEvaluatingPawnId = prevEvaluatingPawnId;
-            }
-        }
-
         #endregion
 
-        #region 4. UNIFIED SOLVER & CACHE PIPELINE HELPER
+        #region 5. UNIFIED SOLVER & CACHE PIPELINE HELPER
 
         /// <summary>
-        /// Solves the mass capacity for the specified pawn and caches the result in the provided node.
+        /// Solves the mass capacity for the specified pawn and caches the numerical results in the provided node.
+        /// Pure Core implementation: zero UI compilation, zero ViewProjection dependencies.
         /// </summary>
         /// <param name="pawn">The pawn whose mass capacity is being solved.</param>
-        /// <param name="node">The cache node where the solved mass capacity will be stored.</param>
-        /// <param name="baselineCapacity">The baseline capacity used for the calculation.</param>
-        /// <param name="currentTick">The current game tick used to timestamp the calculation.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI properties should be compiled during the calculation.</param>
-        /// <param name="workspace">The anatomical workspace used for the calculation.</param>
-        /// <returns>The anatomical workspace used during the calculation.</returns>
-        /// <remarks>
-        /// This method calculates the mass capacity offset for the specified pawn, enforces safety rules,
-        /// and caches the results in the provided node. The anatomical workspace is used to store intermediate
-        /// calculation details and is returned to the caller for further inspection if needed.
-        /// </remarks>
+        /// <param name="node">The cache node where solved numerical values will be stored.</param>
+        /// <param name="baselineCapacity">The species baseline capacity in kilograms.</param>
+        /// <param name="currentTick">The current game tick timestamp.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void SolveAndCacheEntry(
             Pawn pawn, 
             CachedMassData node, 
             float baselineCapacity, 
-            int currentTick, 
-            bool shouldCompileUIProperties, 
-            out AnatomicalWorkspace workspace)
+            int currentTick)
         {
-            workspace = null;
+            AnatomicalWorkspace workspace = null;
             try
             {
-                float bioBaseline;
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
-                    pawn, baselineCapacity, out bioBaseline, OverHaulers.settings, 
-                    shouldCompileUIProperties, out workspace);
+                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
+                    pawn, baselineCapacity, out float bioBaseline, OverHaulers.settings, 
+                    shouldCompileUIProperties: false, out workspace);
 
                 // Enforce domain rules (safety floor & multiplier) directly in Core
                 float finalCapacity = MassCapacitySolver.EnforceSafetyFloorForPawn(bioBaseline + solvedOffset, pawn);
                 float calculatedMultiplier = bioBaseline > 0f ? (finalCapacity / bioBaseline) : 0f;
 
-                // Commit complete domain state to the cache entry
+                // Commit complete numerical state to the cache entry
                 node.Offset = solvedOffset;
                 node.FinalCapacity = finalCapacity;
                 node.TotalMultiplier = calculatedMultiplier;
                 node.CalculatedTick = currentTick;
 
-                // Extract summary metrics directly from contiguous solver workspace
+                // Extract summary metrics directly from contiguous solver workspace arrays
                 float prostheticBoost = 0f;
                 float healthDeficit = 0f;
                 float athleticOffset = 0f;
@@ -503,29 +460,28 @@ namespace OverHaulers
                 node.BaselineCapacity = baselineCapacity;
                 node.IsStale = false;
 
-                // Background atomic cache update
+                // Publish state atomically to the background snapshot table for pathfinding threads
                 MassSnapshotCache.WriteState(pawn.thingIDNumber, solvedOffset, calculatedMultiplier);
 
                 PerformanceTelemetry.IncrementCacheMisses();
             }
             finally
             {
-                if (!shouldCompileUIProperties && workspace != null)
+                if (workspace != null)
                 {
                     WorkspacePool.ReleaseWorkspace(workspace);
-                    workspace = null;
                 }
             }
         }
 
         /// <summary>
-        /// Determines whether the specified cache node is still valid based on its age and staleness.
+        /// Validates whether a cache entry is within the sub-second fast path and has not mutated its species baseline.
         /// </summary>
-        /// <param name="node">The cache node to validate.</param>
-        /// <param name="baselineCapacity">The baseline capacity to compare against the node's stored baseline capacity.</param>
-        /// <param name="currentTick">The current game tick used to determine the age of the cache node.</param>
-        /// <param name="calculatedTick">The tick at which the cache node was last calculated.</param>
-        /// <returns>True if the cache node is still valid; otherwise, false.</returns>
+        /// <param name="node">The cache node to evaluate.</param>
+        /// <param name="baselineCapacity">The currently requested baseline capacity.</param>
+        /// <param name="currentTick">The active game tick.</param>
+        /// <param name="calculatedTick">The tick when the node was calculated.</param>
+        /// <returns>True if the node is valid for immediate return; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsCacheNodeValid(CachedMassData node, float baselineCapacity, int currentTick, int calculatedTick)
         {
@@ -542,31 +498,27 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. UNIFIED LIFECYCLE, INVALIDATION & EVICTION PIPELINE
+        #region 6. UNIFIED LIFECYCLE, INVALIDATION & EVICTION PIPELINE
 
         /// <summary>
-        /// Determines whether the cache entry for the specified pawn should be culled due to invalidation.
-        /// Prevents redundant eviction searches for uncached combatants and utilizes a state-based debounce on damage bursts.
+        /// Evaluates whether an incoming invalidation signal for a pawn should be culled.
+        /// Culls uncached combatants in $O(1)$ time and implements state-based debouncing during combat damage bursts.
         /// </summary>
-        /// <param name="thingID">The unique identifier of the pawn whose cache entry is being checked for invalidation.</param>
-        /// <returns>True if the cache entry should be culled due to invalidation; otherwise, false.</returns>
+        /// <param name="thingID">The unique ThingIDNumber of the pawn.</param>
+        /// <returns>True if the invalidation is redundant and should be culled; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool ShouldCullInvalidation(int thingID)
         {
             if (!UnityData.IsInMainThread) return false;
 
-            // 1. Uncached Short-Circuit:
-            // If the pawn is not in capacityCache, it is guaranteed not to exist in MassSnapshotCache either.
-            // Culling immediately eliminates 100% of redundant eviction probe searches during combat bursts.
+            // 1. Uncached Short-Circuit: If not cached, avoid redundant probe and eviction searches
             if (!capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
                 PerformanceTelemetry.IncrementCulledInvalidations();
                 return true;
             }
 
-            // 2. Already Stale Check (State-Based Debounce):
-            // If the node is already flagged dirty, downstream queries will re-solve on demand.
-            // This safely catches overlapping burst damage without desynchronizing lazy evaluations.
+            // 2. Already Stale Check: Debounce multiple damage signals within the same tick burst
             if (cachedNode.IsStale)
             {
                 PerformanceTelemetry.IncrementCulledInvalidations();
@@ -577,12 +529,11 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Reactive cache invalidator. Marks the pawn's main-thread cache entry as stale and records the invalidation timestamp.
-        /// The background snapshot is deliberately left in place: it keeps serving the last solved value until the
-        /// main thread re-solves and overwrites it, so background readers never fall back to vanilla capacity mid-update.
-        /// Calls from background threads are queued and applied on the next main-thread tick.
+        /// Reactively invalidates a pawn's cache entry, marking it stale for lazy re-evaluation.
+        /// Leaves the background snapshot table intact to serve continuous numbers until the main thread updates.
+        /// Calls from background threads are safely enqueued and processed on the next main tick.
         /// </summary>
-        /// <param name="thingID">The unique identifier of the pawn to invalidate.</param>
+        /// <param name="thingID">The unique ThingIDNumber of the pawn to invalidate.</param>
         public static void Invalidate(int thingID)
         {
             if (!UnityData.IsInMainThread)
@@ -610,8 +561,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Marks every cached pawn entry stale without discarding background snapshots.
-        /// Used when settings change so values are re-solved lazily while background readers keep the last solved values.
+        /// Marks every cached pawn entry stale across the registry without flushing background snapshots.
+        /// Used when global balance settings mutate so values recalculate lazily on demand.
         /// </summary>
         public static void MarkAllStale()
         {
@@ -626,7 +577,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Applies invalidations that were requested from background threads.
+        /// Drains and processes invalidation requests that were deferred from off-thread callers.
         /// </summary>
         private static void DrainDeferredInvalidations()
         {
@@ -638,9 +589,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Evicts the cache entry for the specified pawn, removing it from both the main and global caches.
+        /// Completely purges a pawn from both the main-thread registry and the background snapshot table.
+        /// Triggered on pawn death, map despawn, or long-term inactivity eviction.
         /// </summary>
-        /// <param name="thingID">The unique identifier of the pawn whose cache entry is to be evicted.</param>
+        /// <param name="thingID">The unique ThingIDNumber of the pawn to evict.</param>
         public static void EvictCacheEntry(int thingID)
         {
             AssertMainThread("Cache Eviction");
@@ -656,7 +608,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clears all cached pawn data, including main-thread and snapshot caches, scratch buffers, and resets relevant tick counters.
+        /// Completely flushes all registry entries, background snapshot tables, and pooled workspace buffers.
+        /// Invoked on save load, world transitions, and developer hot-recompilation.
         /// </summary>
         public static void ClearAllCaches()
         {
@@ -678,64 +631,12 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. METADATA READERS & CACHE WRITERS
+        #region 7. OUT-OF-BAND MAINTENANCE & HELPER UTILITIES
 
         /// <summary>
-        /// Attempts to retrieve the cached baseline Caravan Mass Capacity for a pawn if valid and fresh.
-        /// Returns false if the cache entry is marked stale, forcing a native baseline re-evaluation.
+        /// Main-thread tick driver called by the lifecycle manager to process deferred invalidations and out-of-band cleanup.
         /// </summary>
-        /// <param name="thingID">The unique identifier of the pawn whose cached baseline is being retrieved.</param>
-        /// <param name="baseline">The cached baseline Caravan Mass Capacity if available and fresh; otherwise, 0.</param>
-        /// <returns>True if a valid and fresh cached baseline was found; otherwise, false.</returns>
-        public static bool TryGetCachedBaseline(int thingID, out float baseline)
-        {
-            if (!UnityData.IsInMainThread) { baseline = 0f; return false; }
-
-            // BREAKPOINT ANCHOR: Stale Gate Check
-            // Prevents returning outdated baseline values when gear, hediffs, or drivers mutate
-            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
-            {
-                PerformanceTelemetry.IncrementCacheHits();
-                baseline = cachedNode.BaselineCapacity;
-                return true;
-            }
-
-            baseline = 0f;
-            return false;
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the cached Caravan Mass Capacity offset for a pawn if valid and fresh.
-        /// </summary>
-        /// <param name="thingID">The unique identifier of the pawn whose cached offset is being retrieved.</param>
-        /// <param name="offset">The cached Caravan Mass Capacity offset if available and fresh; otherwise, 0.</param>
-        /// <returns>True if a valid and fresh cached offset was found; otherwise, false.</returns>
-        public static bool TryGetCachedOffset(int thingID, out float offset)
-        {
-            if (!UnityData.IsInMainThread) { offset = 0f; return false; }
-
-            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
-            {
-                PerformanceTelemetry.IncrementCacheHits();
-                offset = cachedNode.Offset;
-                return true;
-            }
-
-            offset = 0f;
-            return false;
-        }
-
-        #endregion
-
-        #region 7. OUT-OF-BAND CLEANUP & HELPER UTILITIES
-
-        /// <summary>
-        /// Updates the internal main thread tick counter and triggers cache cleanup if the current tick differs from the last captured tick.
-        /// </summary>
-        /// <param name="currentTick">The current game tick used to determine if cache cleanup should be performed.</param>
-        /// <remarks>
-        /// This method should be invoked from the main thread to maintain thread safety.
-        /// </remarks>
+        /// <param name="currentTick">The active game tick from the TickManager.</param>
         public static void UpdateTick(int currentTick)
         {
             if (currentTick != lastCapturedMainThreadTick)
@@ -747,25 +648,19 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Updates the internal tick counter and triggers cache cleanup if necessary.
+        /// Periodically sweeps the cache for entries unqueried beyond the configured inactivity threshold.
         /// </summary>
-        /// <param name="currentTick">The current game tick used to determine if cache cleanup should be performed.</param>
-        /// <remarks>
-        /// This method should be invoked from the main thread to maintain thread safety.
-        /// </remarks>
+        /// <param name="currentTick">The current game tick.</param>
         private static void MaybeCleanupCache(int currentTick)
         {
             int interval = SettingsDefaults.CacheCleanupInterval;
 
-            // If the current tick is less than the last cleanup tick, or if the interval has elapsed, perform cache cleanup.
             if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
             {
-                // Attempt to acquire the cleanup sentinel to ensure only one cleanup operation occurs at a time.
                 if (System.Threading.Interlocked.CompareExchange(ref activeCleanupSentinel, 1, 0) == 0)
                 {
                     try
                     {
-                        // Double-check the cleanup condition after acquiring the sentinel to avoid redundant cleanup operations.
                         if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
                         {
                             AssertMainThread("Registry Cleanup");
@@ -777,7 +672,6 @@ namespace OverHaulers
 
                             staleKeysScratch.Clear();
 
-                            // Iterate through the capacity cache to identify stale entries based on the long-term inactivity threshold.
                             foreach (var keyValuePair in capacityCache)
                             {
                                 int age = currentTick - keyValuePair.Value.CalculatedTick;
@@ -786,7 +680,7 @@ namespace OverHaulers
                                     staleKeysScratch.Add(keyValuePair.Key);
                                 }
                             }
-                            // Evict all identified stale entries from the cache.
+
                             for (int i = 0; i < staleKeysScratch.Count; i++)
                             {
                                 EvictCacheEntry(staleKeysScratch[i]);
@@ -798,7 +692,6 @@ namespace OverHaulers
                     }
                     finally
                     {
-                        // Release the cleanup sentinel to allow future cleanup operations to proceed.
                         System.Threading.Interlocked.Exchange(ref activeCleanupSentinel, 0);
                     }
                 }
@@ -806,13 +699,12 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the dynamic cache expiry duration for the specified pawn ID.
-        /// Scales sub-linearly with active cached population using a square-root curve (Floor + K * sqrt(N))
-        /// governed by SettingsDefaults invariants, providing sub-second early-game responsiveness
-        /// while preventing herd spikes during large raids.
+        /// Computes the dynamic cache TTL in game ticks for a pawn ID.
+        /// Scales sub-linearly with active cached population using a square-root curve:
+        /// <c>Floor + K * sqrt(N) + Jitter</c>.
         /// </summary>
-        /// <param name="pawnId">The unique identifier of the pawn for which to retrieve the cache expiry duration.</param>
-        /// <returns>The calculated cache expiry duration in game ticks.</returns>
+        /// <param name="pawnId">The unique ThingIDNumber of the pawn (used for 25% staggered jitter).</param>
+        /// <returns>The calculated TTL in game ticks.</returns>
         private static int GetCacheExpiryDuration(int pawnId)
         {
             int activeCount = capacityCache.Count;
@@ -822,7 +714,6 @@ namespace OverHaulers
             if (activeCount != cachedActiveCount)
             {
                 cachedActiveCount = activeCount;
-                // Base TTL = Floor + K * sqrt(activeCount)
                 cachedExpiryBase = floor + (int)(scaleK * Mathf.Sqrt(activeCount));
             }
 
@@ -832,15 +723,13 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves the current game tick in a thread-safe manner, ensuring that the value is updated on the main thread if necessary.
+        /// Safely retrieves the current game tick on the main thread, updating the internal counter if ticks advanced.
         /// </summary>
-        /// <returns>The current game tick, updated in a thread-safe manner.</returns>
+        /// <returns>The active game tick.</returns>
         private static int GetSafeCurrentTick()
         {
-            // Ensure that the current tick is safely captured and updated on the main thread if necessary.
             if (UnityData.IsInMainThread)
             {
-                // Capture the current main thread tick to ensure thread-safe access.
                 if (Current.ProgramState == ProgramState.Playing && Find.TickManager != null)
                 {
                     int ticks = Find.TickManager.TicksGame;
@@ -854,10 +743,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Asserts that the current code is executing on the main thread. Throws an exception if not.
+        /// Enforces that a critical cache mutation executes strictly on Unity's main thread.
+        /// Throws an <see cref="InvalidOperationException"/> if invoked from a background thread.
         /// </summary>
-        /// <param name="context">A description of the context in which the main thread assertion is being checked.</param>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <param name="context">The operation description for diagnostic reporting.</param>
         private static void AssertMainThread(string context)
         {
             if (!UnityData.IsInMainThread)

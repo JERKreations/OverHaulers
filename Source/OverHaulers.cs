@@ -11,12 +11,6 @@ namespace OverHaulers
         public static Settings settings;
         public static ModContentPack ContentPack { get; private set; }
 
-        // Isolated scroll positions per tab to prevent jarring jumps when switching views
-        private static Vector2 scrollPositionTuning = Vector2.zero;
-        private static Vector2 scrollPositionTestBench = Vector2.zero;
-        private static Vector2 scrollPositionIntegration = Vector2.zero;
-        private static Vector2 scrollPositionAccessibility = Vector2.zero;
-
         /// <summary>
         /// Initializes a new instance of the OverHaulers mod with the specified content pack.
         /// </summary>
@@ -168,157 +162,12 @@ namespace OverHaulers
         #region 4. ACTIVE TAB CONTENT ROUTING
 
         /// <summary>
-        /// Draws the content of the currently active settings tab within the specified container rectangle.
+        /// Delegates active settings tab rendering to <see cref="SettingsView"/>.
         /// </summary>
-        /// <param name="containerRect">The rectangle within which to draw the active tab content.</param>
+        /// <param name="containerRect">The bounding rectangle for tab content.</param>
         private static void DrawActiveTabContent(Rect containerRect)
         {
-            switch (settings.activeTab)
-            {
-                case SettingsTab.Tuning:
-                    DrawTuningTab(containerRect);
-                    break;
-
-                case SettingsTab.TestBench:
-                    DrawTestBenchTab(containerRect);
-                    break;
-
-                case SettingsTab.Integration:
-                    DrawIntegrationTab(containerRect);
-                    break;
-
-                case SettingsTab.Accessibility:
-                    DrawAccessibilityTab(containerRect);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Draws the content of the Tuning tab within the specified container rectangle.
-        /// </summary>
-        /// <param name="containerRect">The rectangle within which to draw the Tuning tab content.</param>
-        private static void DrawTuningTab(Rect containerRect)
-        {
-            float systemicHeight = settings.linkSystemicWeights ? 340f : 520f;
-            float totalEstimatedHeight = 
-                SettingsViewUtilities.GetCachedSectionHeight("SEC_Globals", 280f) + 15f
-                + SettingsViewUtilities.GetCachedSectionHeight("SEC_CoreBodyWeights", 180f) + 15f
-                + SettingsViewUtilities.GetCachedSectionHeight("SEC_SystemicWeightings", systemicHeight) + 15f
-                + SettingsViewUtilities.GetCachedSectionHeight("SEC_TorsoLimbDepths", 260f) + 15f
-                + SettingsViewUtilities.GetCachedSectionHeight("SEC_ScalingConstants", 180f) + 30f;
-
-            float canvasHeight = Mathf.Max(containerRect.height, totalEstimatedHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 18f, canvasHeight);
-
-            Widgets.BeginScrollView(containerRect, ref scrollPositionTuning, viewRect);
-            float currentY = 0f;
-
-            try
-            {
-                // 1. [SEC-01] Main Scalar Settings & Safety Floor
-                SettingsView.DrawBasicModifiers(viewRect, ref currentY, settings, settings.ResetGlobals);
-
-                // 2. [SEC-02] Core Body Group Weights Section
-                SettingsView.DrawCoreBodyGroupWeights(viewRect, ref currentY, settings, settings.ResetBodyParts);
-
-                // 3. [SEC-03 & SEC-04] Unified Systemic Health Weightings Section
-                SettingsView.DrawSystemicHealthWeights(
-                    viewRect, 
-                    ref currentY, 
-                    settings, 
-                    settings.ResetTorsoSystemic, 
-                    settings.ResetArmSystemic, 
-                    settings.ResetLegSystemic,
-                    settings.ResetSystemicWeightings
-                );
-
-                // 4. [SEC-05] Torso Macro Topology & Limb Depths Section (50/50 Split)
-                SettingsView.DrawTorsoAndLimbDepths(viewRect, ref currentY, settings, settings.ResetTorsoParts, settings.ResetLimbDecay);
-
-                // 5. [SEC-06] Scaling Constants Section
-                SettingsView.DrawScalingConstants(viewRect, ref currentY, settings, settings.ResetScalingConstants);
-            }
-            finally
-            {
-                Widgets.EndScrollView();
-            }
-        }
-
-        /// <summary>
-        /// Draws the content of the Test Bench tab within the specified container rectangle.
-        /// </summary>
-        /// <param name="containerRect">The rectangle within which to draw the Test Bench tab content.</param>
-        private static void DrawTestBenchTab(Rect containerRect)
-        {
-            float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_TestBench", 560f) + 20f;
-            float canvasHeight = Mathf.Max(containerRect.height, estimatedHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 18f, canvasHeight);
-
-            Widgets.BeginScrollView(containerRect, ref scrollPositionTestBench, viewRect);
-            float currentY = 0f;
-
-            try
-            {
-                // Main Interactive Anatomical Test Bench Section
-                SettingsView.DrawTestBenchSection(viewRect, ref currentY, settings, TestBench.ResetTestBench);
-            }
-            finally
-            {
-                Widgets.EndScrollView();
-            }
-        }
-
-        /// <summary>
-        /// Draws the content of the Integration tab within the specified container rectangle.
-        /// </summary>
-        /// <param name="containerRect">The rectangle within which to draw the Integration tab content.</param>
-        private static void DrawIntegrationTab(Rect containerRect)
-        {
-            float totalEstimatedHeight = 
-                SettingsViewUtilities.GetCachedSectionHeight("SEC_Compatibility", 220f) + 15f
-                + SettingsViewUtilities.GetCachedSectionHeight("SEC_Diagnostics", 260f) + 30f;
-
-            float canvasHeight = Mathf.Max(containerRect.height, totalEstimatedHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 18f, canvasHeight);
-
-            Widgets.BeginScrollView(containerRect, ref scrollPositionIntegration, viewRect);
-            float currentY = 0f;
-
-            try
-            {
-                // 1. [SEC-08] Harmony Patch Inspector & Driver Overrides
-                SettingsView.DrawIntegrationSection(viewRect, ref currentY, settings, settings.ResetCompatibility);
-
-                // 2. [SEC-09] Engine Metrics & Performance Reporting
-                SettingsView.DrawDiagnosticsSection(viewRect, ref currentY, settings, settings.ResetDiagnostics);
-            }
-            finally
-            {
-                Widgets.EndScrollView();
-            }
-        }
-
-        /// <summary>
-        /// Draws the content of the Accessibility tab within the specified container rectangle.
-        /// </summary>
-        /// <param name="containerRect">The rectangle within which to draw the Accessibility tab content.</param>
-        private static void DrawAccessibilityTab(Rect containerRect)
-        {
-            float estimatedHeight = SettingsViewUtilities.GetCachedSectionHeight("SEC_Accessibility", 360f) + 20f;
-            float canvasHeight = Mathf.Max(containerRect.height, estimatedHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 18f, canvasHeight);
-
-            Widgets.BeginScrollView(containerRect, ref scrollPositionAccessibility, viewRect);
-            float currentY = 0f;
-
-            try
-            {
-                SettingsView.DrawAccessibilitySection(viewRect, ref currentY, settings, settings.ResetAccessibility);
-            }
-            finally
-            {
-                Widgets.EndScrollView();
-            }
+            SettingsView.DrawActiveTabContent(containerRect, settings);
         }
 
         #endregion

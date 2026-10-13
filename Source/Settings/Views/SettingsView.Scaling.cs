@@ -10,10 +10,10 @@ namespace OverHaulers
     /// </summary>
     public static partial class SettingsView
     {
-        #region [SEC-07] STRUCTURAL SCALING CONSTANTS DRAWER
+        #region 1. [SEC-07] STRUCTURAL SCALING CONSTANTS DRAWER
 
         /// <summary>
-        /// Draws the structural scaling constants settings section, including prosthetic and athletic impact constants.
+        /// [SEC-07] Draws the structural scaling constants settings section, including prosthetic and athletic impact constants.
         /// </summary>
         /// <param name="viewRect">The rectangle defining the area in which to draw the scaling constants section.</param>
         /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>

@@ -155,49 +155,55 @@ namespace OverHaulers
             if (!UnityData.IsInMainThread || summary.TotalPawnCount == 0) return string.Empty;
 
             pooledFleetReportBuilder.Clear();
-            pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's secondary "Mass capacity:" section header
 
-            // 1. Header Banner
-            string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
-            string multStr = summary.CollectiveMultiplier.ToString("F2");
-            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
-
-            // 2. Physical Total
-            pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
-
-            // 3. Standout Performers: Net vs Gross with Smart Collapse
-            bool hasNet = summary.TopNetContributor != null;
-            bool hasGross = summary.TopGrossContributor != null;
-
-            // Case A: Split — Top net gainer is different from top gross carrier (e.g. Augmented Colonist vs Pack Elephant)
-            if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
+            try
             {
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
+                pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's secondary "Mass capacity:" section header
 
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
+                // 1. Header Banner
+                string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
+                string multStr = summary.CollectiveMultiplier.ToString("F2");
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
+
+                // 2. Physical Total
+                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
+
+                // 3. Standout Performers: Net vs Gross with Smart Collapse
+                bool hasNet = summary.TopNetContributor != null;
+                bool hasGross = summary.TopGrossContributor != null;
+
+                // Case A: Split - Top net gainer is different from top gross carrier (e.g. Augmented Colonist vs Pack Elephant)
+                if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
+                {
+                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
+
+                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
+                }
+                // Case B: Collapsed - Single standout asset (same pawn won both, or nobody has net augmentations)
+                else if (hasGross)
+                {
+                    Pawn topPawn = hasNet ? summary.TopNetContributor : summary.TopGrossContributor;
+                    float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
+
+                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity);
+                }
+
+                // 4. Most Impaired (Greatest Net Deficit)
+                if (summary.MostImpaired != null)
+                {
+                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
+                }
+
+                return pooledFleetReportBuilder.ToString();
             }
-            // Case B: Collapsed — Single standout asset (same pawn won both, or nobody has net augmentations)
-            else if (hasGross)
+            finally
             {
-                Pawn topPawn = hasNet ? summary.TopNetContributor : summary.TopGrossContributor;
-                float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
-
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity);
+                pooledFleetReportBuilder.Clear();
             }
-
-            // 4. Most Impaired (Greatest Net Deficit)
-            if (summary.MostImpaired != null)
-            {
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
-                AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
-            }
-
-            string result = pooledFleetReportBuilder.ToString();
-            pooledFleetReportBuilder.Clear();
-            return result;
         }
 
         /// <summary>

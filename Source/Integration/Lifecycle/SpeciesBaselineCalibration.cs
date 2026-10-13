@@ -152,7 +152,7 @@ namespace OverHaulers
                         }
 
                         // Naturally non-caravan species legitimately return 0 in vanilla; return sentinel -3f
-                        if (!PawnDataRegistry.IsCaravanCapable(raceDef))
+                        if (!PawnDataRegistry.IsSpeciesCaravanCapable(raceDef))
                         {
                             return LegitimatelyNonCaravanSentinel;
                         }
@@ -169,7 +169,7 @@ namespace OverHaulers
                 errorDetail = ex.Message;
             }
 
-            if (!PawnDataRegistry.IsCaravanCapable(raceDef))
+            if (!PawnDataRegistry.IsSpeciesCaravanCapable(raceDef))
             {
                 // If the species is naturally non-caravan capable, return the sentinel value to indicate this special case.
                 return LegitimatelyNonCaravanSentinel;
@@ -286,7 +286,7 @@ namespace OverHaulers
                 }
             }
 
-            return PawnDataRegistry.IsCaravanCapable(raceDef) 
+            return PawnDataRegistry.IsSpeciesCaravanCapable(raceDef) 
                 ? CalibrationMethod.PristineDummy 
                 : CalibrationMethod.TestingFallback;
         }
@@ -365,7 +365,7 @@ namespace OverHaulers
                         ThingDef def = allDefs[i];
                         if (def != null && def.category == ThingCategory.Pawn && def.race != null)
                         {
-                            if (!onlyCaravanCapable || PawnDataRegistry.IsCaravanCapable(def))
+                            if (!onlyCaravanCapable || PawnDataRegistry.IsSpeciesCaravanCapable(def))
                             {
                                 PrecalibrateDef(def);
                                 totalSweep++;

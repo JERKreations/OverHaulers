@@ -76,7 +76,7 @@ namespace OverHaulers
             if (req.HasThing && req.Thing is Pawn pawn)
             {
                 float baselineCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
-                MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, baselineCapacity);
+                MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, baselineCapacity);
                 return detailedMassModel?.Explanation ?? string.Empty;
             }
 

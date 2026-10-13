@@ -403,10 +403,10 @@ namespace OverHaulers
             try
             {
                 cleanBaseline = dataSource.ResolveBaselineCapacity();
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffset(
+                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForSource(
                     dataSource, cleanBaseline, out cleanBaseline, settings, true, out activeWorkspace);
 
-                ViewProjection.RebuildDetailedModel_Internal(dataSource, massModel, solvedOffset, cleanBaseline, activeWorkspace);
+                ViewProjection.RebuildDetailedModelForSource(dataSource, massModel, solvedOffset, cleanBaseline, activeWorkspace);
             }
             finally
             {

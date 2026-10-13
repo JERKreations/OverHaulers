@@ -434,13 +434,24 @@ namespace OverHaulers
         /// <returns>The solved caravan mass capacity offset in kg.</returns>
         private static float SolveOnce(Pawn pawn, float baseline)
         {
-            float offset = MassCapacitySolver.SolveMassCapacityOffset(
-                pawn, baseline, out float _, OverHaulers.settings, false, out AnatomicalWorkspace workspace);
+            AnatomicalWorkspace workspace = null;
+            try
+            {
+                float offset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
+                    pawn, baseline, out float _, OverHaulers.settings, false, out workspace);
 
-            Expect.True(workspace != null, "the solver reported an internal failure (no workspace returned)");
-            WorkspacePool.ReleaseWorkspace(workspace);
-            Expect.True(!float.IsNaN(offset) && !float.IsInfinity(offset), "the solver produced a non-finite offset");
-            return offset;
+                Expect.True(workspace != null, "the solver reported an internal failure (no workspace returned)");
+                Expect.True(!float.IsNaN(offset) && !float.IsInfinity(offset), "the solver produced a non-finite offset");
+                return offset;
+            }
+            finally
+            {
+                // Strict lease hygiene: guarantee thread-local workspace is released even if an Expect assertion fails
+                if (workspace != null)
+                {
+                    WorkspacePool.ReleaseWorkspace(workspace);
+                }
+            }
         }
 
         /// <summary>

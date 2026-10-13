@@ -81,8 +81,14 @@ namespace OverHaulers
 
         /// <summary>
         /// Projects the compiled anatomical workspace into a passive visual node hierarchy for UI rendering.
+        /// Canonical implementation operating on an abstract <see cref="IAnatomicalDataSource"/>.
         /// </summary>
-        public static void RebuildDetailedModel_Internal(
+        /// <param name="source">The anatomical data source providing biological metrics and def definitions.</param>
+        /// <param name="massModel">The target mass model to populate with visual tree nodes and explanations.</param>
+        /// <param name="solvedOffset">The solved physical capacity offset in kilograms.</param>
+        /// <param name="biologicalBaseline">The pawn's biological baseline capacity in kilograms.</param>
+        /// <param name="workspace">The populated workspace containing part calculations and cold metadata.</param>
+        public static void RebuildDetailedModelForSource(
             IAnatomicalDataSource source,
             MassCapacityModel massModel,
             float solvedOffset,
@@ -231,14 +237,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Rebuilds the detailed mass model for the specified pawn, using the provided solved offset, biological baseline, and anatomical workspace.
+        /// Rebuilds the detailed mass model for a live <see cref="Pawn"/> entity.
+        /// Thin pass-through wrapping the pawn into a stack-allocated <see cref="PawnAnatomicalSource"/> to invoke the canonical source engine.
         /// </summary>
-        /// <param name="pawn">The pawn for whom the mass model is being rebuilt.</param>
-        /// <param name="massModel">The mass model to be rebuilt.</param>
-        /// <param name="solvedOffset">The solved offset to apply to the mass model.</param>
-        /// <param name="biologicalBaseline">The biological baseline for the pawn's mass.</param>
-        /// <param name="workspace">The anatomical workspace containing relevant structural information.</param>
-        public static void RebuildDetailedModel_Internal(
+        /// <param name="pawn">The live pawn entity being inspected.</param>
+        /// <param name="massModel">The target mass model to populate with visual tree nodes and explanations.</param>
+        /// <param name="solvedOffset">The solved physical capacity offset in kilograms.</param>
+        /// <param name="biologicalBaseline">The biological baseline capacity in kilograms.</param>
+        /// <param name="workspace">The populated workspace containing part calculations and cold metadata.</param>
+        public static void RebuildDetailedModelForPawn(
             Pawn pawn,
             MassCapacityModel massModel,
             float solvedOffset,
@@ -246,7 +253,7 @@ namespace OverHaulers
             AnatomicalWorkspace workspace)
         {
             if (pawn == null) return;
-            RebuildDetailedModel_Internal(new PawnAnatomicalSource(pawn), massModel, solvedOffset, biologicalBaseline, workspace);
+            RebuildDetailedModelForSource(new PawnAnatomicalSource(pawn), massModel, solvedOffset, biologicalBaseline, workspace);
         }
 
         #endregion

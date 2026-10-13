@@ -303,16 +303,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Times a full topology recompile. This is a one-off hitch of the same size players see on world load.
+        /// Executes a full topology recompile and captures the canonical duration directly from the compiler's SSoT.
         /// </summary>
         private static void RunStartupBenchmark()
         {
-            Stopwatch watch = Stopwatch.StartNew();
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
-            watch.Stop();
 
-            TopologyCompileMs = watch.Elapsed.TotalMilliseconds;
+            // SSoT synchronization: bind directly to the compiler's internal benchmark timing
+            TopologyCompileMs = TopologyLayoutCompiler.LastCompileDurationMs;
             TopologyBodyDefCount = DefDatabase<BodyDef>.DefCount;
             TopologyMaxParts = TopologyLayoutCompiler.globalMaxPartCount;
             TopologyMaxPartsBody = TopologyLayoutCompiler.globalMaxPartBodyDefName;
@@ -354,7 +353,7 @@ namespace OverHaulers
             for (int i = 0; i < all.Count && picked.Count < MaxSubjects; i++)
             {
                 RaceProperties race = all[i]?.RaceDef?.race;
-                if (race != null && race.IsMechanoid && !all[i].IsLivePawn && PawnDataRegistry.IsCaravanCapable(all[i].RaceDef))
+                if (race != null && race.IsMechanoid && !all[i].IsLivePawn && PawnDataRegistry.IsSpeciesCaravanCapable(all[i].RaceDef))
                 {
                     AddDistinct(picked, all[i]);
                     break;
@@ -435,7 +434,7 @@ namespace OverHaulers
             {
                 long t0 = Stopwatch.GetTimestamp();
 
-                float offset = MassCapacitySolver.SolveMassCapacityOffset(
+                float offset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
                     sandboxPawn, baseline, out float _, settings, false, out AnatomicalWorkspace workspace);
 
                 bool solved = workspace != null;
@@ -603,7 +602,7 @@ namespace OverHaulers
             report.AppendLine();
 
             report.AppendLine("-- Startup --");
-            report.AppendLine("Topology compile: " + FormatInvariant(TopologyCompileMs, "F1") + " ms for " + TopologyBodyDefCount + " body definitions (largest: "
+            report.AppendLine("Topology compile: " + FormatInvariant(TopologyCompileMs, "F2") + " ms for " + TopologyBodyDefCount + " body definitions (largest: "
                 + TopologyMaxPartsBody + ", " + TopologyMaxParts + " parts)");
             report.AppendLine();
 

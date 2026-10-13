@@ -48,7 +48,7 @@ namespace OverHaulers
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
-                MassCapacityModel detailedMassModel = PawnDataRegistry.GetDetailedModel(pawn, bioBaseline);
+                MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, bioBaseline);
                 
                 return detailedMassModel?.Explanation ?? string.Empty;
             }

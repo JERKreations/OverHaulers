@@ -86,6 +86,31 @@ namespace OverHaulers
             /// Compiles and dispatches the localized cumulative performance report to the RimWorld console log.
             /// Synchronized via bufferLock to ensure thread-safe StringBuilder assembly and trace buffer clearing.
             /// </summary>
+            /// <param name="elapsedHours">The number of in-game hours that have elapsed since the start of the performance tracking period.</param>
+            /// <param name="totalQueries">The total number of cache queries performed.</param>
+            /// <param name="mainQueries">The number of queries directed at the main cache.</param>
+            /// <param name="bgQueries">The number of queries directed at the background cache.</param>
+            /// <param name="mainHitRatio">The hit ratio for the main cache.</param>
+            /// <param name="hits">The number of successful hits in the main cache.</param>
+            /// <param name="misses">The number of misses in the main cache.</param>
+            /// <param name="bgHitRatio">The hit ratio for the background cache.</param>
+            /// <param name="bgHits">The number of successful hits in the background cache.</param>
+            /// <param name="bgMisses">The number of misses in the background cache.</param>
+            /// <param name="totalHitRatio">The overall hit ratio across all caches.</param>
+            /// <param name="invalidations">The number of cache invalidations that have occurred.</param>
+            /// <param name="culledInvalidations">The number of invalidations that were culled.</param>
+            /// <param name="debounceEfficiency">The efficiency of the debounce mechanism.</param>
+            /// <param name="evictions">The number of cache evictions that have occurred.</param>
+            /// <param name="mainCacheCount">The current count of entries in the main cache.</param>
+            /// <param name="snapshotOccupied">The number of occupied slots in the snapshot table.</param>
+            /// <param name="tableCapacity">The total capacity of the snapshot table.</param>
+            /// <param name="avgProbeDepth">The average depth of probe sequences in the cache.</param>
+            /// <param name="peakProbe">The peak probe depth observed.</param>
+            /// <param name="maxProbeSteps">The maximum number of probe steps allowed.</param>
+            /// <param name="displacements">The number of cache entry displacements that have occurred.</param>
+            /// <param name="retries">The number of cache query retries that have occurred.</param>
+            /// <param name="timeouts">The number of cache query timeouts that have occurred.</param>
+            /// <param name="activeWorkspaces">The number of active pooled workspaces.</param>
             public static void DispatchCumulativeReport(
                 int elapsedHours,
                 // Query Metrics
@@ -110,117 +135,122 @@ namespace OverHaulers
                 {
                     pooledReportBuilder.Clear();
 
-                    pooledReportBuilder.Append("OverHaulers_Log_PerformanceReportHeader".Translate(elapsedHours).ToString());
-
-                    // 1. Query Metrics
-                    if (settings.logQueryMetrics)
+                    try
                     {
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Queries".Translate(
-                            totalQueries, 
-                            mainQueries, 
-                            bgQueries
-                        ).ToString());
-                    }
+                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReportHeader".Translate(elapsedHours).ToString());
 
-                    // 2. Cache Hit Efficiency
-                    if (settings.logCacheMetrics)
-                    {
-                        pooledReportBuilder.AppendLine();
-                        if (bgQueries > 0)
-                        {
-                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_CacheDetailed".Translate(
-                                totalHitRatio.ToString("F1"),
-                                mainHitRatio.ToString("F1"), hits, misses,
-                                bgHitRatio.ToString("F1"), bgHits, bgMisses
-                            ).ToString());
-                        }
-                        else
-                        {
-                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Cache".Translate(
-                                mainHitRatio.ToString("F1"), 
-                                hits, 
-                                misses
-                            ).ToString());
-                        }
-                    }
-
-                    // 3. Snapshot Table & Probing Health (NEW)
-                    if (settings.logSnapshotTableMetrics)
-                    {
-                        float loadPercent = tableCapacity > 0 ? ((float)snapshotOccupied / tableCapacity) * 100f : 0f;
-
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotHealth".Translate(
-                            mainCacheCount,
-                            snapshotOccupied,
-                            tableCapacity,
-                            loadPercent.ToString("F1"),
-                            avgProbeDepth.ToString("F2"),
-                            peakProbe,
-                            maxProbeSteps,
-                            displacements
-                        ).ToString());
-
-                        // If reader contention occurred during this interval, append secondary diagnostic line
-                        if (retries > 0 || timeouts > 0)
+                        // 1. Query Metrics
+                        if (settings.logQueryMetrics)
                         {
                             pooledReportBuilder.AppendLine();
-                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotContention".Translate(
-                                retries,
-                                timeouts
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Queries".Translate(
+                                totalQueries, 
+                                mainQueries, 
+                                bgQueries
                             ).ToString());
                         }
-                    }
 
-                    // 4. Lifecycle Events & Combat Debounce Efficacy
-                    if (settings.logLifecycleMetrics)
-                    {
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_LifeCycleDetailed".Translate(
-                            invalidations,
-                            culledInvalidations,
-                            debounceEfficiency.ToString("F1"),
-                            evictions
-                        ).ToString());
-                    }
-
-                    // 5. Pooled Workspaces
-                    if (settings.logWorkspaceMetrics)
-                    {
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Workspaces".Translate(activeWorkspaces).ToString());
-                    }
-
-                    // 6. Safety Floor Clamps
-                    if (settings.logSafetyFloorClamps && pendingClampedPawns.Count > 0)
-                    {
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampsHeader".Translate().ToString());
-                        foreach (var kvp in pendingClampedPawns)
+                        // 2. Cache Hit Efficiency
+                        if (settings.logCacheMetrics)
                         {
                             pooledReportBuilder.AppendLine();
-                            pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampEntry".Translate(
-                                kvp.Key, 
-                                kvp.Value.RawMass.ToString("F2"), 
-                                kvp.Value.ClampedMass.ToString("F2")
+                            if (bgQueries > 0)
+                            {
+                                pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_CacheDetailed".Translate(
+                                    totalHitRatio.ToString("F1"),
+                                    mainHitRatio.ToString("F1"), hits, misses,
+                                    bgHitRatio.ToString("F1"), bgHits, bgMisses
+                                ).ToString());
+                            }
+                            else
+                            {
+                                pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Cache".Translate(
+                                    mainHitRatio.ToString("F1"), 
+                                    hits, 
+                                    misses
+                                ).ToString());
+                            }
+                        }
+
+                        // 3. Snapshot Table & Probing Health
+                        if (settings.logSnapshotTableMetrics)
+                        {
+                            float loadPercent = tableCapacity > 0 ? ((float)snapshotOccupied / tableCapacity) * 100f : 0f;
+
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotHealth".Translate(
+                                mainCacheCount,
+                                snapshotOccupied,
+                                tableCapacity,
+                                loadPercent.ToString("F1"),
+                                avgProbeDepth.ToString("F2"),
+                                peakProbe,
+                                maxProbeSteps,
+                                displacements
+                            ).ToString());
+
+                            // If reader contention occurred during this interval, append secondary diagnostic line
+                            if (retries > 0 || timeouts > 0)
+                            {
+                                pooledReportBuilder.AppendLine();
+                                pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_SnapshotContention".Translate(
+                                    retries,
+                                    timeouts
+                                ).ToString());
+                            }
+                        }
+
+                        // 4. Lifecycle Events & Combat Debounce Efficacy
+                        if (settings.logLifecycleMetrics)
+                        {
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_LifeCycleDetailed".Translate(
+                                invalidations,
+                                culledInvalidations,
+                                debounceEfficiency.ToString("F1"),
+                                evictions
                             ).ToString());
                         }
-                    }
 
-                    // 7. Evicted Pawn IDs
-                    if (settings.logPawnEvictions && pendingEvictedPawnIds.Count > 0)
+                        // 5. Pooled Workspaces
+                        if (settings.logWorkspaceMetrics)
+                        {
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Workspaces".Translate(activeWorkspaces).ToString());
+                        }
+
+                        // 6. Safety Floor Clamps
+                        if (settings.logSafetyFloorClamps && pendingClampedPawns.Count > 0)
+                        {
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampsHeader".Translate().ToString());
+                            foreach (var kvp in pendingClampedPawns)
+                            {
+                                pooledReportBuilder.AppendLine();
+                                pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampEntry".Translate(
+                                    kvp.Key, 
+                                    kvp.Value.RawMass.ToString("F2"), 
+                                    kvp.Value.ClampedMass.ToString("F2")
+                                ).ToString());
+                            }
+                        }
+
+                        // 7. Evicted Pawn IDs
+                        if (settings.logPawnEvictions && pendingEvictedPawnIds.Count > 0)
+                        {
+                            string idsFormatted = string.Join(", ", pendingEvictedPawnIds);
+                            pooledReportBuilder.AppendLine();
+                            pooledReportBuilder.Append("OverHaulers_Log_EvictedPawnsBuffer".Translate(pendingEvictedPawnIds.Count, idsFormatted).ToString());
+                        }
+
+                        Log.Message(pooledReportBuilder.ToString());
+                    }
+                    finally
                     {
-                        string idsFormatted = string.Join(", ", pendingEvictedPawnIds);
-                        pooledReportBuilder.AppendLine();
-                        pooledReportBuilder.Append("OverHaulers_Log_EvictedPawnsBuffer".Translate(pendingEvictedPawnIds.Count, idsFormatted).ToString());
+                        pooledReportBuilder.Clear();
+                        pendingEvictedPawnIds.Clear();
+                        pendingClampedPawns.Clear();
                     }
-
-                    Log.Message(pooledReportBuilder.ToString());
-
-                    pooledReportBuilder.Clear();
-                    pendingEvictedPawnIds.Clear();
-                    pendingClampedPawns.Clear();
                 }
             }
         }

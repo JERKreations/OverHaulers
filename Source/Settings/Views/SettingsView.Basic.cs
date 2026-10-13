@@ -9,7 +9,7 @@ namespace OverHaulers
     /// </summary>
     public static partial class SettingsView
     {
-        #region [SEC-01] MAIN SCALAR SETTINGS & SAFETY FLOORS
+        #region 1. [SEC-01] MAIN SCALAR SETTINGS & SAFETY FLOORS
 
         /// <summary>
         /// [SEC-01] Draws the main scalar modifiers for prosthetics and athletics, alongside the unified
