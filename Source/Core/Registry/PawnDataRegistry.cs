@@ -51,6 +51,17 @@ namespace OverHaulers
         #region 2. PROPERTIES & ENCAPSULATED ACCESSORS
 
         /// <summary>
+        /// [CACHE-01] Downward notification event fired on the main thread when a specific pawn entity is evicted from Core caches.
+        /// Consumed by Presentation layers (e.g. DetailedModelRegistry) to maintain strict downward layer directionality.
+        /// </summary>
+        public static event Action<int> OnPawnEvicted;
+
+        /// <summary>
+        /// [CACHE-01] Downward notification event fired on the main thread when all pawn data caches are cleared.
+        /// </summary>
+        public static event Action OnCacheCleared;
+
+        /// <summary>
         /// Retrieves the exact count of active cached pawns residing in the main-thread registry.
         /// </summary>
         public static int CachedPawnCount => capacityCache.Count;
@@ -424,54 +435,24 @@ namespace OverHaulers
             float baselineCapacity, 
             int currentTick)
         {
-            AnatomicalWorkspace workspace = null;
-            try
-            {
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
-                    pawn, baselineCapacity, out float bioBaseline, OverHaulers.settings, 
-                    shouldCompileUIProperties: false, out workspace);
+            MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
+                pawn, baselineCapacity);
 
-                // Enforce domain rules (safety floor & multiplier) directly in Core
-                float finalCapacity = MassCapacitySolver.EnforceSafetyFloorForPawn(bioBaseline + solvedOffset, pawn);
-                float calculatedMultiplier = bioBaseline > 0f ? (finalCapacity / bioBaseline) : 0f;
+            // Commit complete numerical state to the cache entry
+            node.Offset = result.SolvedOffset;
+            node.FinalCapacity = result.FinalCapacity;
+            node.TotalMultiplier = result.TotalMultiplier;
+            node.CalculatedTick = currentTick;
+            node.ProstheticBoost = result.CalculatedProsthetics;
+            node.HealthDeficit = result.CalculatedHealths;
+            node.AthleticOffset = result.CalculatedAthletics;
+            node.BaselineCapacity = baselineCapacity;
+            node.IsStale = false;
 
-                // Commit complete numerical state to the cache entry
-                node.Offset = solvedOffset;
-                node.FinalCapacity = finalCapacity;
-                node.TotalMultiplier = calculatedMultiplier;
-                node.CalculatedTick = currentTick;
+            // Publish state atomically to the background snapshot table for pathfinding threads
+            MassSnapshotCache.WriteState(pawn.thingIDNumber, result.SolvedOffset, result.TotalMultiplier);
 
-                // Extract summary metrics directly from contiguous solver workspace arrays
-                float prostheticBoost = 0f;
-                float healthDeficit = 0f;
-                float athleticOffset = 0f;
-                if (workspace != null)
-                {
-                    for (int i = 0; i < workspace.PartCount; i++)
-                    {
-                        if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
-                        if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
-                        athleticOffset += workspace.CalculatedAthletics[i];
-                    }
-                }
-                node.ProstheticBoost = prostheticBoost;
-                node.HealthDeficit = healthDeficit;
-                node.AthleticOffset = athleticOffset;
-                node.BaselineCapacity = baselineCapacity;
-                node.IsStale = false;
-
-                // Publish state atomically to the background snapshot table for pathfinding threads
-                MassSnapshotCache.WriteState(pawn.thingIDNumber, solvedOffset, calculatedMultiplier);
-
-                PerformanceTelemetry.IncrementCacheMisses();
-            }
-            finally
-            {
-                if (workspace != null)
-                {
-                    WorkspacePool.ReleaseWorkspace(workspace);
-                }
-            }
+            PerformanceTelemetry.IncrementCacheMisses();
         }
 
         /// <summary>
@@ -589,7 +570,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Completely purges a pawn from both the main-thread registry and the background snapshot table.
+        /// Completely purges a pawn from both the main-thread registry and the background snapshot table,
+        /// notifying subscribed presentation layers to maintain synchronized eviction.
         /// Triggered on pawn death, map despawn, or long-term inactivity eviction.
         /// </summary>
         /// <param name="thingID">The unique ThingIDNumber of the pawn to evict.</param>
@@ -605,17 +587,23 @@ namespace OverHaulers
                 PerformanceTelemetry.IncrementEvictions();
                 OHLog.Performance.RecordPawnEvicted(thingID);
             }
+
+            OnPawnEvicted?.Invoke(thingID);
         }
 
         /// <summary>
-        /// Completely flushes all registry entries, background snapshot tables, and pooled workspace buffers.
+        /// Completely flushes all registry entries, background snapshot tables, and pooled workspace buffers,
+        /// notifying subscribed presentation layers to clear UI models.
         /// Invoked on save load, world transitions, and developer hot-recompilation.
         /// </summary>
         public static void ClearAllCaches()
         {
             capacityCache.Clear();
             staleKeysScratch.Clear();
+
+            // Drain any remaining deferred invalidations before clearing the cache.
             while (deferredInvalidations.TryDequeue(out _)) { }
+
             System.Threading.Interlocked.Exchange(ref deferredInvalidationCount, 0);
             cachedActiveCount = -1;
             cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
@@ -627,6 +615,8 @@ namespace OverHaulers
             MassSnapshotCache.Reset();
             WorkspacePool.ClearPools();
             OHLog.Performance.ClearTraceBuffers();
+
+            OnCacheCleared?.Invoke();
         }
 
         #endregion

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -25,7 +24,7 @@ namespace OverHaulers
         /// <param name="pawn">The pawn whose hediff set is being translated.</param>
         /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
         /// <param name="workspace">The anatomical workspace to be updated.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI properties should be compiled during translation.</param>
+        /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
         /// <remarks>
         /// This method is intended to be called on the main thread and assumes that the provided hediffs are safe for translation.
         /// </remarks>
@@ -33,15 +32,15 @@ namespace OverHaulers
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
-            bool shouldCompileUIProperties)
+            bool populateColdMetadata)
         {
             if (pawn == null || safeHediffs == null || workspace == null) return;
 
             // Stage 1: Hediff Pathology Stamping & Systemic Ailment Extraction
-            StampLiveHediffs(pawn, safeHediffs, workspace, shouldCompileUIProperties);
+            StampLiveHediffs(pawn, safeHediffs, workspace, populateColdMetadata);
 
             // Stage 2: Unified Topological Graph Sweeps
-            FinalizeTopologicalSweeps(pawn, workspace, shouldCompileUIProperties);
+            FinalizeTopologicalSweeps(pawn, workspace, populateColdMetadata);
         }
 
         #endregion
@@ -54,7 +53,7 @@ namespace OverHaulers
         /// <param name="pawn">The pawn whose hediff set is being translated.</param>
         /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
         /// <param name="workspace">The anatomical workspace to be updated.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI properties should be compiled during translation.</param>
+        /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
         /// <remarks>
         /// This method is intended to be called on the main thread and assumes that the provided hediffs are safe for translation.
         /// </remarks>
@@ -62,7 +61,7 @@ namespace OverHaulers
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
-            bool shouldCompileUIProperties)
+            bool populateColdMetadata)
         {
             int partCount = workspace.PartCount;
             float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
@@ -80,7 +79,7 @@ namespace OverHaulers
             bool consciousnessIsDropped = consciousness < 1.0f - SettingsDefaults.EfficiencyEpsilon;
 
             // Ingress Native Consciousness Impactors at the translation boundary
-            if (shouldCompileUIProperties && consciousnessIsDropped && pawn.health?.hediffSet != null)
+            if (populateColdMetadata && consciousnessIsDropped && pawn.health?.hediffSet != null)
             {
                 pooledImpactors.Clear();
                 try
@@ -121,7 +120,7 @@ namespace OverHaulers
                 // =========================================================================
                 if (hediff.Part == null)
                 {
-                    if (shouldCompileUIProperties && MedicalClassifier.IsActivePathologyOrSubstance(hediff, consciousnessIsDropped))
+                    if (populateColdMetadata && MedicalClassifier.IsActivePathologyOrSubstance(hediff, consciousnessIsDropped))
                     {
                         workspace.AddSystemicAilmentUnique(hediff.LabelCap);
                     }
@@ -158,16 +157,14 @@ namespace OverHaulers
                         athEffs[partIndex] = characteristics.EfficiencyModifier;
                     }
 
-                    // Compile UI properties for the added part
-                    if (shouldCompileUIProperties)
+                    // Record biological Def references for UI presentation (zero string allocations in Core)
+                    if (populateColdMetadata)
                     {
-                        coldState.ProstheticName = addedPart.LabelCap;
-                        coldState.ProstheticColor = addedPart.def?.defaultLabelColor ?? Color.white;
+                        coldState.ProstheticDef = addedPart.def;
 
                         if (characteristics.AffectsAthletics)
                         {
-                            coldState.AthleticImplantName = addedPart.LabelCap;
-                            coldState.AthleticImplantColor = addedPart.def?.defaultLabelColor ?? Color.white;
+                            coldState.AthleticImplantDef = addedPart.def;
                         }
                     }
                 }
@@ -182,11 +179,10 @@ namespace OverHaulers
                         workspace.SetFlag(partIndex, PartFlags.HasAthleticImplant, true);
                         athEffs[partIndex] = characteristics.EfficiencyModifier;
 
-                        // Compile UI properties for the implant
-                        if (shouldCompileUIProperties)
+                        // Record biological Def reference for UI presentation
+                        if (populateColdMetadata)
                         {
-                            coldState.AthleticImplantName = implant.LabelCap;
-                            coldState.AthleticImplantColor = implant.def?.defaultLabelColor ?? Color.white;
+                            coldState.AthleticImplantDef = implant.def;
                         }
                     }
                 }
@@ -201,11 +197,10 @@ namespace OverHaulers
                 {
                     workspace.SetFlag(partIndex, PartFlags.HasDirectDamage, true);
 
-                    // Compile UI properties for the localized ailment
-                    if (shouldCompileUIProperties)
+                    // Record biological Def reference for UI presentation
+                    if (populateColdMetadata)
                     {
-                        coldState.LocalAilmentName = hediff.LabelCap;
-                        coldState.LocalAilmentColor = hediff.def?.defaultLabelColor ?? Color.white;
+                        coldState.LocalAilmentDef = hediff.def;
                     }
                 }
             }
@@ -220,11 +215,11 @@ namespace OverHaulers
         /// </summary>
         /// <param name="pawn">The pawn whose anatomical workspace is being finalized.</param>
         /// <param name="workspace">The anatomical workspace containing part states and efficiencies.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI properties should be compiled during the finalization process.</param>
+        /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during the finalization process.</param>
         private static void FinalizeTopologicalSweeps(
             Pawn pawn,
             AnatomicalWorkspace workspace,
-            bool shouldCompileUIProperties)
+            bool populateColdMetadata)
         {
             int partCount = workspace.PartCount;
             var healths = workspace.HealthFractions;
@@ -307,12 +302,11 @@ namespace OverHaulers
                                 workspace.SetFlag(i, PartFlags.HasDirectDamage, false);
                                 workspace.SetFlag(i, PartFlags.IsNeutralized, false);
 
-                                // Compile UI properties for the added limb
-                                if (shouldCompileUIProperties)
+                                // Propagate biological Def reference to inherited child limb
+                                if (populateColdMetadata)
                                 {
-                                    coldStates[i].ProstheticName = coldStates[parentIdx].ProstheticName;
-                                    coldStates[i].ProstheticColor = coldStates[parentIdx].ProstheticColor;
-                                    coldStates[i].LocalAilmentName = null;
+                                    coldStates[i].ProstheticDef = coldStates[parentIdx].ProstheticDef;
+                                    coldStates[i].LocalAilmentDef = null;
                                 }
                             }
                         }

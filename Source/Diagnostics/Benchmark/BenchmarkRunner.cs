@@ -425,7 +425,6 @@ namespace OverHaulers
         /// </summary>
         private static void RunSolveBatch(bool isWarmup)
         {
-            Settings settings = OverHaulers.settings;
             long budgetTicks = (long)(SliceBudgetMs * Stopwatch.Frequency / 1000.0);
             int gcBefore = GC.CollectionCount(0);
             long sliceStart = Stopwatch.GetTimestamp();
@@ -434,17 +433,13 @@ namespace OverHaulers
             {
                 long t0 = Stopwatch.GetTimestamp();
 
-                float offset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
-                    sandboxPawn, baseline, out float _, settings, false, out AnatomicalWorkspace workspace);
+                MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
+                    sandboxPawn, baseline);
 
-                bool solved = workspace != null;
-                if (solved)
-                {
-                    WorkspacePool.ReleaseWorkspace(workspace);
-                }
+                bool solved = result.BiologicalBaseline > 0f;
 
                 long t1 = Stopwatch.GetTimestamp();
-                optimiserDefeatSink += offset;
+                optimiserDefeatSink += result.SolvedOffset;
                 unitsDone++;
 
                 if (isWarmup)

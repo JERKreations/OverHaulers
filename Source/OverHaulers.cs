@@ -37,7 +37,6 @@ namespace OverHaulers
             SelfCheckRunner.Cancel();
             PawnDataRegistry.MarkAllStale();
             MedicalClassifier.ClearStaticCaches();
-            TestBench.SuspendSandboxShields();
             PerformanceTelemetry.SyncSettingsState();
         }
 

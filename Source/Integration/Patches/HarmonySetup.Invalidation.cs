@@ -1,20 +1,25 @@
-using System;
-using UnityEngine;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// [INT-06] REACTIVE CACHE INVALIDATION DRIVER
+    /// Intercepts pawn health mutations, apparel changes, equipment equipping, and life-cycle events.
+    /// Filters signals via O(1) debouncing gates and evicts stale entries from Core caches.
+    /// Strictly decoupled from UI and presentation rendering (§ 4).
+    /// Resides under Source/Integration/Patches/.
+    /// </summary>
     public static partial class HarmonySetup
     {
         #region 1. [INT-06] INVALIDATION REGISTRATION & BINDING
 
         /// <summary>
-        /// Installs cache invalidation patches for various pawn-related events, ensuring that cached data is properly updated when changes
-        ///  occur. Each patch is installed independently so one failure cannot prevent the remaining patches from being applied.
+        /// Installs cache invalidation patches for pawn lifecycle and equipment events.
+        /// Each patch is applied independently so one failure cannot prevent the remaining patches from operating.
         /// </summary>
-        /// <param name="harmony">The active Harmony instance used to apply the cache invalidation patches.</param>
+        /// <param name="harmony">The active Harmony instance used to apply the patches.</param>
         private static void InstallInvalidationPatches(Harmony harmony)
         {
             Guarded("Pawn_HealthTracker.Notify_HediffChanged", () => harmony.Patch(
@@ -44,78 +49,6 @@ namespace OverHaulers
             Guarded("Pawn.DeSpawn", () => harmony.Patch(
                 AccessTools.Method(typeof(Pawn), nameof(Pawn.DeSpawn)),
                 postfix: OwnPatch(nameof(Notify_PawnDeSpawned_Postfix))));
-
-            Guarded("Widgets.Label", () => harmony.Patch(
-                AccessTools.Method(typeof(Widgets), nameof(Widgets.Label), new Type[] { typeof(Rect), typeof(string) }),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(InfoCardOverlay), nameof(InfoCardOverlay.Prefix)))));
-
-            // Gated InfoCard Intercept: Sets IsRenderingInfoCard = true only while StatsReportUtility is actively rendering
-            Guarded("StatsReportUtility.DrawStatsReport", () =>
-            {
-                var statsReportPrefix = OwnPatch(nameof(StatsReport_Prefix));
-                var statsReportFinalizer = OwnPatch(nameof(StatsReport_Finalizer));
-                var statsReportMethods = typeof(StatsReportUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                for (int i = 0; i < statsReportMethods.Length; i++)
-                {
-                    if (statsReportMethods[i].Name == nameof(StatsReportUtility.DrawStatsReport))
-                    {
-                        harmony.Patch(statsReportMethods[i], prefix: statsReportPrefix, finalizer: statsReportFinalizer);
-                    }
-                }
-            });
-
-            Guarded("Caravan.MassCapacityExplanation", () => harmony.Patch(
-                AccessTools.PropertyGetter(typeof(RimWorld.Planet.Caravan), "MassCapacityExplanation"),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.Caravan_MassCapacityExplanation_Postfix)))));
-
-            Guarded("CaravanUIUtility.DrawCaravanInfo", () => InstallDrawCaravanInfoPatch(harmony));
-        }
-
-        /// <summary>
-        /// Resolves the <c>CaravanUIUtility.DrawCaravanInfo</c> overload that takes the 'info' structure and patches it.
-        /// </summary>
-        /// <param name="harmony">The active Harmony instance used to apply the patch.</param>
-        private static void InstallDrawCaravanInfoPatch(Harmony harmony)
-        {
-            var drawCaravanInfoPrefix = AccessTools.Method(typeof(CaravanUIIntegration), nameof(CaravanUIIntegration.DrawCaravanInfo_Prefix));
-            System.Reflection.MethodInfo drawCaravanInfo = null;
-            var drawMethods = typeof(RimWorld.Planet.CaravanUIUtility).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            for (int i = 0; i < drawMethods.Length; i++)
-            {
-                var m = drawMethods[i];
-                if (m.Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
-                {
-                    var pars = m.GetParameters();
-                    for (int p = 0; p < pars.Length; p++)
-                    {
-                        Type pType = pars[p].ParameterType;
-                        if (pars[p].Name == "info" &&
-                            (pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo) ||
-                             pType == typeof(RimWorld.Planet.CaravanUIUtility.CaravanInfo).MakeByRefType()))
-                        {
-                            drawCaravanInfo = m;
-                            break;
-                        }
-                    }
-                    if (drawCaravanInfo != null) break;
-                }
-            }
-
-            if (drawCaravanInfo != null && drawCaravanInfoPrefix != null)
-            {
-                harmony.Patch(drawCaravanInfo, prefix: new HarmonyMethod(drawCaravanInfoPrefix));
-                return;
-            }
-
-            string candidates = string.Empty;
-            for (int i = 0; i < drawMethods.Length; i++)
-            {
-                if (drawMethods[i].Name == nameof(RimWorld.Planet.CaravanUIUtility.DrawCaravanInfo))
-                {
-                    candidates += drawMethods[i].ToString() + "; ";
-                }
-            }
-            OHLog.Integration.Warn("HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
         }
 
         #endregion
@@ -124,15 +57,15 @@ namespace OverHaulers
 
         /// <summary>
         /// Direct main-thread processing gate filtering out duplicate invalidation signals in O(1) time.
-        /// Ignores mock sandbox surgeries and non-caravan wildlife before collection lookups.
+        /// Ignores headless sandbox surgeries and non-caravan wildlife before collection lookups.
         /// </summary>
         private static void ProcessInvalidationGate(Pawn pawn)
         {
             if (pawn == null || pawn.thingIDNumber <= 0) return;
 
-            // BREAKPOINT ANCHOR: Sandbox Pawn Fast Bypass
-            // Immediately ignore mock surgeries performed inside the Test Bench
-            if (pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
+            // BREAKPOINT ANCHOR: Headless Pawn Fast Bypass
+            // Immediately ignore mock operations and calibrations performed on headless pawns
+            if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
             {
                 return;
             }
@@ -180,7 +113,8 @@ namespace OverHaulers
         private static void Notify_EquipmentRemoved_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
         /// <summary>
-        /// [INT-06] Postfix hook for Pawn.Kill. Immediately evicts dead pawns from all cache registries.
+        /// [INT-06] Postfix hook for Pawn.Kill. Immediately evicts dead pawns from Core cache registries.
+        /// Core downward events automatically synchronize presentation cache eviction (§ 4).
         /// </summary>
         private static void Notify_PawnKilled_Postfix(Pawn __instance)
         {
@@ -192,7 +126,6 @@ namespace OverHaulers
                 if (UnityData.IsInMainThread)
                 {
                     PawnDataRegistry.EvictCacheEntry(__instance.thingIDNumber);
-                    DetailedModelRegistry.Evict(__instance.thingIDNumber);
                 }
             }
             catch
@@ -216,7 +149,6 @@ namespace OverHaulers
                     if (__instance.Faction != Faction.OfPlayer)
                     {
                         PawnDataRegistry.EvictCacheEntry(__instance.thingIDNumber);
-                        DetailedModelRegistry.Evict(__instance.thingIDNumber);
                     }
                 }
             }
@@ -224,12 +156,6 @@ namespace OverHaulers
             {
             }
         }
-
-        /// <summary>[INT-06] Sets the active InfoCard rendering context gate when an in-game stat report begins drawing.</summary>
-        private static void StatsReport_Prefix() => InfoCardOverlay.PushInfoCardContext();
-
-        /// <summary>[INT-06] Resets the active InfoCard rendering context gate when an in-game stat report finishes drawing.</summary>
-        private static void StatsReport_Finalizer() => InfoCardOverlay.PopInfoCardContext();
 
         #endregion
     }

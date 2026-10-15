@@ -35,7 +35,7 @@ namespace OverHaulers
                 if (pawn == null) return "Unknown";
                 
                 // Fast-path: If this is our headless sandbox dummy, avoid triggering third-party label patches
-                if (pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
+                if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
                 {
                     return pawn.def?.label ?? "SandboxPawn";
                 }
@@ -79,13 +79,13 @@ namespace OverHaulers
         /// Populates the specified anatomical workspace with the pawn's pathology data, including wounds, diseases, and prosthetic modifications.
         /// </summary>
         /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled during ingress.</param>
-        public void IngressPathology(AnatomicalWorkspace workspace, bool shouldCompileUIProperties)
+        /// <param name="populateColdMetadata">Indicates whether UI-related properties should be compiled during ingress.</param>
+        public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
         {
             List<Hediff> safeHediffs = pawn?.health?.hediffSet?.hediffs;
             if (safeHediffs != null)
             {
-                AnatomicalIngressSolver.IngressLivePawnPathology(pawn, safeHediffs, workspace, shouldCompileUIProperties);
+                AnatomicalIngressSolver.IngressLivePawnPathology(pawn, safeHediffs, workspace, populateColdMetadata);
             }
         }
 

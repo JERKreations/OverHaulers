@@ -23,6 +23,36 @@ namespace OverHaulers
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<OverHaulersLifecycleDriver>();
         }
+
+        /// <summary>
+        /// [LIFE-02] Canonical lifecycle entry point for full runtime re-initialization and cache recompilation.
+        /// Orchestrates teardown and rebuilding of Core and Integration systems in strict topological order.
+        /// Consumed by the Test Bench without inverting downward layer directionality.
+        /// </summary>
+        /// <param name="onlyCaravanCapable">If true, filters species sweeps to caravan-capable fauna.</param>
+        /// <param name="sweepContext">Human-readable label for the batch sweep summary log.</param>
+        public static void ReinitializeRuntime(bool onlyCaravanCapable = true, string sweepContext = null)
+        {
+            BenchmarkRunner.Cancel();
+            SelfCheckRunner.Cancel();
+
+            // 1. Flush Core caches and medical registries
+            PawnDataRegistry.ClearAllCaches();
+            DetailedModelRegistry.Clear();
+            MedicalClassifier.ClearStaticCaches();
+            MedicalRecipeCatalog.ClearAndReinitialize();
+
+            // 2. Invalidate and freshly compile all species skeletal topologies
+            TopologyLayoutCompiler.InvalidateAllTopologies();
+            TopologyLayoutCompiler.EnsureInitialized();
+
+            // 3. Reset and re-run baseline calibration sweep
+            SpeciesBaselineCalibration.Reset();
+            string context = !string.IsNullOrEmpty(sweepContext)
+                ? sweepContext
+                : "OverHaulers_SweepContext_RecompileAll".Translate().ToString();
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, context);
+        }
     }
 
     /// <summary>
@@ -92,7 +122,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resets all runtime state for a freshly started or loaded game.
+        /// Resets all runtime state for a freshly started or loaded game session.
         /// </summary>
         private void BeginSession(int currentTick)
         {
@@ -102,26 +132,23 @@ namespace OverHaulers
             lastReportTick = -1;
             isCalibrationSweepDone = false;
 
-            // 1. De-escalate main-menu fallback hooks immediately upon entering world state
-            HarmonySetup.DeescalateSafetyPatches();
-
-            // 2. Clear all cached pawn data for a clean slate
+            // 1. Clear all cached pawn data and presentation models for a clean slate
             PawnDataRegistry.ClearAllCaches();
             DetailedModelRegistry.Clear();
 
-            // 3. Freshly compile all species skeletal topologies (un-locked across save loads)
+            // 2. Freshly compile all species skeletal topologies (un-locked across save loads)
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
 
-            // 4. Pre-index all medical recipes and stimulants
+            // 3. Pre-index all medical recipes and stimulants
             MedicalRecipeCatalog.InitializeCatalog();
 
-            // 5. Reset dynamic baseline calibrations (batch sweep itself is deferred - see MaybeRunDeferredCalibrationSweep)
+            // 4. Reset dynamic baseline calibrations (batch sweep is deferred - see MaybeRunDeferredCalibrationSweep)
             SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = currentTick;
 
-            // 6. Reset the lifecycle log
+            // 5. Reset the lifecycle log
             OHLog.Lifecycle.WorldLoadedReset();
         }
 

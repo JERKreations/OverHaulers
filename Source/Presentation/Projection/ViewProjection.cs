@@ -554,17 +554,36 @@ namespace OverHaulers
                 partViewNode.IsMissing = workspace.HasFlag(index, PartFlags.IsMissing);
                 partViewNode.IsNeutralized = workspace.HasFlag(index, PartFlags.IsNeutralized);
                 partViewNode.HealthFraction = workspace.HealthFractions[index];
-                partViewNode.LocalAilmentName = coldState.LocalAilmentName;
-                partViewNode.LocalAilmentColor = coldState.LocalAilmentColor;
+
+                // Presentation Layer: On-demand deferred formatting and color resolution
+                if (coldState.LocalAilmentDef != null)
+                {
+                    partViewNode.LocalAilmentName = coldState.LocalAilmentDef.LabelCap.ToString();
+                    partViewNode.LocalAilmentColor = coldState.LocalAilmentDef.defaultLabelColor;
+                }
+                else
+                {
+                    partViewNode.LocalAilmentName = null;
+                    partViewNode.LocalAilmentColor = Color.white;
+                }
 
                 // Populate the part view node with the retrieved cold state and workspace flags.
                 if (workspace.HasFlag(index, PartFlags.HasAddedPart))
                 {
                     partViewNode.HasProsthetic = true;
-                    partViewNode.ProstheticName = coldState.ProstheticName;
                     partViewNode.EfficiencyRating = workspace.EfficiencyRatings[index];
-                    partViewNode.ProstheticColor = coldState.ProstheticColor;
                     partViewNode.IsInherited = workspace.HasFlag(index, PartFlags.ProstheticIsInherited);
+
+                    if (coldState.ProstheticDef != null)
+                    {
+                        partViewNode.ProstheticName = coldState.ProstheticDef.LabelCap.ToString();
+                        partViewNode.ProstheticColor = coldState.ProstheticDef.defaultLabelColor;
+                    }
+                    else
+                    {
+                        partViewNode.ProstheticName = null;
+                        partViewNode.ProstheticColor = Color.white;
+                    }
                 }
                 // If the part does not have an added part, set its efficiency rating based on its health fraction.
                 else
@@ -575,8 +594,16 @@ namespace OverHaulers
                 // If the part has an athletic implant, populate the corresponding fields in the part view node.
                 if (workspace.HasFlag(index, PartFlags.HasAthleticImplant))
                 {
-                    partViewNode.AthleticImplantName = coldState.AthleticImplantName;
-                    partViewNode.AthleticImplantColor = coldState.AthleticImplantColor;
+                    if (coldState.AthleticImplantDef != null)
+                    {
+                        partViewNode.AthleticImplantName = coldState.AthleticImplantDef.LabelCap.ToString();
+                        partViewNode.AthleticImplantColor = coldState.AthleticImplantDef.defaultLabelColor;
+                    }
+                    else
+                    {
+                        partViewNode.AthleticImplantName = null;
+                        partViewNode.AthleticImplantColor = Color.white;
+                    }
                 }
 
                 partViewNode.ProstheticOffset = workspace.CalculatedProsthetics[index];

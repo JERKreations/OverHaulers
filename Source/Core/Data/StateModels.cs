@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using UnityEngine;
+using Verse;
 
 namespace OverHaulers
 {
@@ -23,34 +23,25 @@ namespace OverHaulers
 
     #endregion
 
-    #region 2. COLD PRESENTATION METADATA (Managed UI Buffer)
+    #region 2. COLD PRESENTATION METADATA (Biological Def References)
 
     /// <summary>
-    /// Memory-aligned metadata representing the presentation state of a body part.
-    /// Populated only during UI inspection passes to ensure mathematical passes remain 100% unmanaged.
+    /// Memory-aligned metadata storing biological HediffDef references per body part for UI presentation.
+    /// Free of managed strings and Color structs to keep Core data models decoupled from presentation rendering.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct PartStateCold
     {
-        public string ProstheticName;
-        public Color ProstheticColor;
-
-        public string AthleticImplantName;
-        public Color AthleticImplantColor;
-
-        public string LocalAilmentName;
-        public Color LocalAilmentColor;
+        public HediffDef ProstheticDef;
+        public HediffDef AthleticImplantDef;
+        public HediffDef LocalAilmentDef;
 
         public void Reset()
         {
-            ProstheticName = null;
-            ProstheticColor = Color.white;
-
-            AthleticImplantName = null;
-            AthleticImplantColor = Color.white;
-
-            LocalAilmentName = null;
-            LocalAilmentColor = Color.white;
+            ProstheticDef = null;
+            AthleticImplantDef = null;
+            LocalAilmentDef = null;
         }
     }
 
@@ -61,7 +52,8 @@ namespace OverHaulers
     /// <summary>
     /// Stores cached numerical mass capacity metrics for a pawn, including the last calculated offsets,
     /// summary breakdown metrics, and combat debounce timestamps.
-    /// 100% decoupled from UI presentation models. Resides under Source/Core/Data/.
+    /// 100% decoupled from UI presentation models.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     public class CachedMassData
     {
@@ -91,6 +83,50 @@ namespace OverHaulers
         public float Moving;
         public float Manipulation;
         public float Consciousness;
+    }
+
+    #endregion
+
+    #region 5. MASS CAPACITY EVALUATION RESULT
+
+    /// <summary>
+    /// Readonly value-type evaluation result containing all solved Caravan Mass Capacity metrics.
+    /// Encapsulates solver execution completely within Core, eliminating leaky workspace lifetimes.
+    /// Resides under Source/Core/Data/.
+    /// </summary>
+    public readonly struct MassCapacityEvaluationResult
+    {
+        public readonly float SolvedOffset;
+        public readonly float BiologicalBaseline;
+        public readonly float FinalCapacity;
+        public readonly float TotalMultiplier;
+        public readonly float CalculatedProsthetics;
+        public readonly float CalculatedHealths;
+        public readonly float CalculatedAthletics;
+        public readonly bool IsAtSafetyFloor;
+
+        public MassCapacityEvaluationResult(
+            float solvedOffset,
+            float biologicalBaseline,
+            float finalCapacity,
+            float totalMultiplier,
+            float calculatedProsthetics,
+            float calculatedHealths,
+            float calculatedAthletics,
+            bool isAtSafetyFloor)
+        {
+            SolvedOffset = solvedOffset;
+            BiologicalBaseline = biologicalBaseline;
+            FinalCapacity = finalCapacity;
+            TotalMultiplier = totalMultiplier;
+            CalculatedProsthetics = calculatedProsthetics;
+            CalculatedHealths = calculatedHealths;
+            CalculatedAthletics = calculatedAthletics;
+            IsAtSafetyFloor = isAtSafetyFloor;
+        }
+
+        public static readonly MassCapacityEvaluationResult Fallback =
+            new MassCapacityEvaluationResult(0f, 0f, 0.01f, 1f, 0f, 0f, 0f, false);
     }
 
     #endregion

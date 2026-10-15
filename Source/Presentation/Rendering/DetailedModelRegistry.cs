@@ -28,6 +28,13 @@ namespace OverHaulers
         [ThreadStatic]
         private static int currentEvaluatingPawnId;
 
+        static DetailedModelRegistry()
+        {
+            // Subscribe downward to Core invalidation events (Strict Downward Directionality)
+            PawnDataRegistry.OnPawnEvicted += Evict;
+            PawnDataRegistry.OnCacheCleared += Clear;
+        }
+
         #endregion
 
         #region 2. PUBLIC PRESENTATION API
@@ -79,39 +86,26 @@ namespace OverHaulers
 
             // Cache Miss: Rebuild presentation model via Core solver and ViewProjection
             int prevEvaluatingId = currentEvaluatingPawnId;
-            AnatomicalWorkspace workspace = null;
 
             try
             {
                 currentEvaluatingPawnId = pawnId;
 
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
-                    pawn, baselineCapacity, out float bioBaseline, OverHaulers.settings,
-                    shouldCompileUIProperties: true, out workspace);
+                MassCapacityEvaluationResult result = MassCapacitySolver.InspectMassCapacityModelForPawn(
+                    pawn, baselineCapacity, entry.Model);
 
-                float finalCapacity = MassCapacitySolver.EnforceSafetyFloorForPawn(bioBaseline + solvedOffset, pawn);
-                float totalMultiplier = bioBaseline > 0f ? (finalCapacity / bioBaseline) : 1f;
-
-                entry.Model.ResetPool();
-                entry.Model.Offset = solvedOffset;
-                entry.Model.FinalCapacity = finalCapacity;
-                entry.Model.TotalMultiplier = totalMultiplier;
-
-                ViewProjection.RebuildDetailedModelForPawn(pawn, entry.Model, solvedOffset, bioBaseline, workspace);
-
-                entry.SolvedOffset = solvedOffset;
-                entry.BaselineCapacity = bioBaseline;
+                entry.SolvedOffset = result.SolvedOffset;
+                entry.BaselineCapacity = result.BiologicalBaseline;
                 entry.CalculatedTick = currentTick;
                 entry.IsValid = true;
+
+                // Synchronize fresh solve to background snapshot cache for pathfinding threads
+                MassSnapshotCache.WriteState(pawnId, result.SolvedOffset, result.TotalMultiplier);
 
                 return entry.Model;
             }
             finally
             {
-                if (workspace != null)
-                {
-                    WorkspacePool.ReleaseWorkspace(workspace);
-                }
                 currentEvaluatingPawnId = prevEvaluatingId;
             }
         }

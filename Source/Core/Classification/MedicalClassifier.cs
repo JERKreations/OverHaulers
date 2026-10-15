@@ -415,7 +415,7 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Headless Sandbox Dummy Shield
             // Evaluates native body size directly to prevent broken third-party postfixes
             // (e.g. GeneticRim.Patch_BodySize) from crashing on unspawned dummy pawns.
-            if (pawn.thingIDNumber == SandboxPawnHarness.SandboxPawnThingId)
+            if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
             {
                 float lifeStageFactor = pawn.ageTracker?.CurLifeStage?.bodySizeFactor ?? 1f;
                 return raceFallback * lifeStageFactor;

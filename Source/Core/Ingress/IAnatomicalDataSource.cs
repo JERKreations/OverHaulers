@@ -43,8 +43,8 @@ namespace OverHaulers
         /// Translates pathology, wounds, and prosthetic modifications into workspace arrays.
         /// </summary>
         /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
-        /// <param name="shouldCompileUIProperties">Indicates whether UI-related properties should be compiled during ingress.</param>
-        void IngressPathology(AnatomicalWorkspace workspace, bool shouldCompileUIProperties);
+        /// <param name="populateColdMetadata">Indicates whether UI-related properties should be compiled during ingress.</param>
+        void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata);
 
         /// <summary>
         /// Resolves the clean baseline mass capacity in kg before physiological modifications.

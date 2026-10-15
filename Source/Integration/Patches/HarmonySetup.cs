@@ -42,17 +42,20 @@ namespace OverHaulers
             // 1. Reactive invalidation patches (Pawn health, apparel, equipment, death, despawn)
             InstallInvalidationPatches(HarmonyInstance);
 
-            // 2. Third-party mod drivers (VEF, PUAH, Simple Sidearms, Custom XML drivers)
+            // 2. Presentation and UI overlay patches (InfoCard labels, caravan inspector bars)
+            InstallPresentationPatches(HarmonyInstance);
+
+            // 3. Third-party mod integration and compatibility bridges
             Guarded("IntegrationPipeline.Initialize", () => IntegrationPipeline.Initialize(HarmonyInstance));
 
-            // 3. Native MassUtility.Capacity direct postfix bridge
+            // 4. Native MassUtility.Capacity direct postfix bridge
             Guarded("MassUtility.Capacity", () => ApplyDirectCapacityPatch(HarmonyInstance));
 
-            // 4. Strip the node an earlier version wrote into saves (avoids one-time "class not found" errors)
+            // 5. Strip the node an earlier version wrote into saves (avoids one-time "class not found" errors)
             Guarded("World.ExposeComponents", () => InstallLegacySaveCleanup(HarmonyInstance));
 
-            // Sandbox shields and main-menu fallbacks are intentionally not installed here; they are attached on demand
-            // while a sandbox harness is alive (see AcquireSandboxShields) so normal play pays nothing for them.
+            // 6. Permanent branchless safety shields and main-menu fallbacks
+            Guarded("Safety.InstallPermanentShields", () => InstallPermanentSafetyShields(HarmonyInstance));
         }
 
         /// <summary>

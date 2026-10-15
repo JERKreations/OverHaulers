@@ -169,63 +169,52 @@ namespace OverHaulers
 
                 // Section 2.B: Simulated Model Population (Isolated from Active UI Session)
                 TestSubjectEntry evalSubject = ResolveEvaluationSubject(scope, subject, body, allPawnThings);
-                MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, settings, out float cleanBaseline, out AnatomicalWorkspace workspace);
+                MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
-                try
+                // 1. Caravan Mass Capacity Progression Readout
+                float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
+                builder.AppendLine("CARAVAN MASS CAPACITY PROGRESSION:");
+                builder.AppendLine($"  Baseline: {cleanBaseline.ToStringMass()}  ➔  Final: {finalMass.ToStringMass()} (Offset: {massModel.Offset.ToStringMassOffset()}, Total Rating: {massModel.TotalMultiplier:F2}x)");
+                builder.AppendLine();
+
+                // 2. Athletic Capacities Readout
+                builder.AppendLine("ATHLETIC CAPACITIES:");
+                builder.AppendLine($"  - Breathing:     {(massModel.CapacityLevels[0] * 100f):F0}%");
+                builder.AppendLine($"  - Blood Pumping: {(massModel.CapacityLevels[1] * 100f):F0}%");
+                builder.AppendLine($"  - Moving:        {(massModel.CapacityLevels[2] * 100f):F0}%");
+                builder.AppendLine($"  - Manipulation:  {(massModel.CapacityLevels[3] * 100f):F0}%");
+                builder.AppendLine($"  - Consciousness: {(massModel.CapacityLevels[4] * 100f):F0}%");
+                builder.AppendLine();
+
+                // 3. Athletic Impacts / Ailments Readout
+                builder.AppendLine("ATHLETIC IMPACTS & SYSTEMIC CONDITIONS:");
+                if (massModel.Ailments.Count == 0)
                 {
-                    // 1. Caravan Mass Capacity Progression Readout
-                    float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
-                    builder.AppendLine("CARAVAN MASS CAPACITY PROGRESSION:");
-                    builder.AppendLine($"  Baseline: {cleanBaseline.ToStringMass()}  ➔  Final: {finalMass.ToStringMass()} (Offset: {massModel.Offset.ToStringMassOffset()}, Total Rating: {massModel.TotalMultiplier:F2}x)");
-                    builder.AppendLine();
-
-                    // 2. Athletic Capacities Readout
-                    builder.AppendLine("ATHLETIC CAPACITIES:");
-                    builder.AppendLine($"  - Breathing:     {(massModel.CapacityLevels[0] * 100f):F0}%");
-                    builder.AppendLine($"  - Blood Pumping: {(massModel.CapacityLevels[1] * 100f):F0}%");
-                    builder.AppendLine($"  - Moving:        {(massModel.CapacityLevels[2] * 100f):F0}%");
-                    builder.AppendLine($"  - Manipulation:  {(massModel.CapacityLevels[3] * 100f):F0}%");
-                    builder.AppendLine($"  - Consciousness: {(massModel.CapacityLevels[4] * 100f):F0}%");
-                    builder.AppendLine();
-
-                    // 3. Athletic Impacts / Ailments Readout
-                    builder.AppendLine("ATHLETIC IMPACTS & SYSTEMIC CONDITIONS:");
-                    if (massModel.Ailments.Count == 0)
+                    builder.AppendLine("  - None");
+                }
+                else
+                {
+                    for (int a = 0; a < massModel.Ailments.Count; a++)
                     {
-                        builder.AppendLine("  - None");
-                    }
-                    else
-                    {
-                        for (int a = 0; a < massModel.Ailments.Count; a++)
-                        {
-                            builder.AppendLine($"  - {massModel.Ailments[a]}");
-                        }
-                    }
-                    builder.AppendLine();
-
-                    // 4. Simulated InfoCard View Model Nesting Tree
-                    builder.AppendLine("INFOCARD VIEW MODEL NESTING TREE (As Rendered in UI):");
-
-                    if (massModel.EvaluatedParts.Count == 0)
-                    {
-                        builder.AppendLine("  [WARNING: No visual group nodes generated for this BodyDef!]");
-                    }
-                    else
-                    {
-                        for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
-                        {
-                            PartViewNode groupNode = massModel.EvaluatedParts[g];
-                            builder.AppendLine($"  + [{groupNode.Label}] (Subtotal: {groupNode.TotalOffset.ToStringMassOffset()}, P: {groupNode.ProstheticOffset.ToStringMassOffset()}, A: {groupNode.AthleticOffset.ToStringMassOffset()}, I: {groupNode.HealthOffset.ToStringMassOffset()})");
-                            DumpSubPartsRecursive(builder, groupNode.SubParts, 2);
-                        }
+                        builder.AppendLine($"  - {massModel.Ailments[a]}");
                     }
                 }
-                finally
+                builder.AppendLine();
+
+                // 4. Simulated InfoCard View Model Nesting Tree
+                builder.AppendLine("INFOCARD VIEW MODEL NESTING TREE (As Rendered in UI):");
+
+                if (massModel.EvaluatedParts.Count == 0)
                 {
-                    if (workspace != null)
+                    builder.AppendLine("  [WARNING: No visual group nodes generated for this BodyDef!]");
+                }
+                else
+                {
+                    for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
                     {
-                        WorkspacePool.ReleaseWorkspace(workspace);
-                        workspace = null;
+                        PartViewNode groupNode = massModel.EvaluatedParts[g];
+                        builder.AppendLine($"  + [{groupNode.Label}] (Subtotal: {groupNode.TotalOffset.ToStringMassOffset()}, P: {groupNode.ProstheticOffset.ToStringMassOffset()}, A: {groupNode.AthleticOffset.ToStringMassOffset()}, I: {groupNode.HealthOffset.ToStringMassOffset()})");
+                        DumpSubPartsRecursive(builder, groupNode.SubParts, 2);
                     }
                 }
 
@@ -310,40 +299,29 @@ namespace OverHaulers
 
                 // Simulated Progression, Capacities & InfoCard View Model Tree
                 TestSubjectEntry evalSubject = ResolveEvaluationSubject(scope, subject, body, allPawnThings);
-                MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, settings, out float cleanBaseline, out AnatomicalWorkspace workspace);
+                MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
-                try
+                float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
+                builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline:F2}\" solvedOffsetKg=\"{massModel.Offset:F2}\" finalMassKg=\"{finalMass:F2}\" totalMultiplier=\"{massModel.TotalMultiplier:F2}\" />");
+
+                builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" consciousness=\"{massModel.CapacityLevels[4]:F2}\" />");
+
+                builder.AppendLine($"      <AthleticImpacts count=\"{massModel.Ailments.Count}\">");
+                for (int a = 0; a < massModel.Ailments.Count; a++)
                 {
-                    float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
-                    builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline:F2}\" solvedOffsetKg=\"{massModel.Offset:F2}\" finalMassKg=\"{finalMass:F2}\" totalMultiplier=\"{massModel.TotalMultiplier:F2}\" />");
-
-                    builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" consciousness=\"{massModel.CapacityLevels[4]:F2}\" />");
-
-                    builder.AppendLine($"      <AthleticImpacts count=\"{massModel.Ailments.Count}\">");
-                    for (int a = 0; a < massModel.Ailments.Count; a++)
-                    {
-                        builder.AppendLine($"        <Impact label=\"{DiagnosticExportUtility.EscapeXml(massModel.Ailments[a])}\" />");
-                    }
-                    builder.AppendLine("      </AthleticImpacts>");
-
-                    builder.AppendLine("      <InfoCardViewModelTree>");
-                    for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
-                    {
-                        PartViewNode groupNode = massModel.EvaluatedParts[g];
-                        builder.AppendLine($"        <GroupNode label=\"{DiagnosticExportUtility.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset:F2}\" prostheticKg=\"{groupNode.ProstheticOffset:F2}\" athleticKg=\"{groupNode.AthleticOffset:F2}\" healthKg=\"{groupNode.HealthOffset:F2}\">");
-                        DumpSubPartsXmlRecursive(builder, groupNode.SubParts, 10);
-                        builder.AppendLine("        </GroupNode>");
-                    }
-                    builder.AppendLine("      </InfoCardViewModelTree>");
+                    builder.AppendLine($"        <Impact label=\"{DiagnosticExportUtility.EscapeXml(massModel.Ailments[a])}\" />");
                 }
-                finally
+                builder.AppendLine("      </AthleticImpacts>");
+
+                builder.AppendLine("      <InfoCardViewModelTree>");
+                for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
                 {
-                    if (workspace != null)
-                    {
-                        WorkspacePool.ReleaseWorkspace(workspace);
-                        workspace = null;
-                    }
+                    PartViewNode groupNode = massModel.EvaluatedParts[g];
+                    builder.AppendLine($"        <GroupNode label=\"{DiagnosticExportUtility.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset:F2}\" prostheticKg=\"{groupNode.ProstheticOffset:F2}\" athleticKg=\"{groupNode.AthleticOffset:F2}\" healthKg=\"{groupNode.HealthOffset:F2}\">");
+                    DumpSubPartsXmlRecursive(builder, groupNode.SubParts, 10);
+                    builder.AppendLine("        </GroupNode>");
                 }
+                builder.AppendLine("      </InfoCardViewModelTree>");
 
                 // Anomalies
                 List<string> anomalies = DetectTopologicalAnomalies(tmpl, body, massModel);
@@ -368,45 +346,38 @@ namespace OverHaulers
         /// <summary>
         /// Populates a MassCapacityModel for diagnostic exports.
         /// Protects the active interactive TestBench session by evaluating non-active subjects inside an isolated ephemeral harness.
+        /// Workspace lease lifecycle is managed and released internally by the solver.
         /// </summary>
         /// <param name="evalSubject">The test subject being evaluated.</param>
-        /// <param name="settings">The export settings to be used.</param>
         /// <param name="cleanBaseline">The resolved clean baseline mass capacity for the subject.</param>
-        /// <param name="activeWorkspace">The active anatomical workspace used during evaluation.</param>
         /// <returns>The populated MassCapacityModel for the given test subject.</returns>
         private static MassCapacityModel ResolveAndPopulateDiagnosticModel(
             TestSubjectEntry evalSubject,
-            Settings settings,
-            out float cleanBaseline,
-            out AnatomicalWorkspace activeWorkspace)
+            out float cleanBaseline)
         {
-            activeWorkspace = null;
             MassCapacityModel massModel = new MassCapacityModel();
-
-            IAnatomicalDataSource dataSource;
             SandboxPawnHarness isolatedHarness = null;
+            Pawn targetPawn;
 
             // BREAKPOINT ANCHOR: Harness Isolation Guard
             // If evaluating the currently selected test subject, use the active harness without mutating it.
             // If evaluating an unselected census species, instantiate a temporary ephemeral harness to avoid wiping UI modifications.
             if (evalSubject != null && evalSubject == TestBench.ActiveSubject && TestBench.Harness.IsValid)
             {
-                dataSource = new PawnAnatomicalSource(TestBench.Harness.SandboxPawn);
+                targetPawn = TestBench.Harness.SandboxPawn;
             }
             else
             {
                 isolatedHarness = new SandboxPawnHarness();
                 isolatedHarness.BindSubject(evalSubject);
-                dataSource = new PawnAnatomicalSource(isolatedHarness.SandboxPawn);
+                targetPawn = isolatedHarness.SandboxPawn;
             }
 
             try
             {
-                cleanBaseline = dataSource.ResolveBaselineCapacity();
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForSource(
-                    dataSource, cleanBaseline, out cleanBaseline, settings, true, out activeWorkspace);
-
-                ViewProjection.RebuildDetailedModelForSource(dataSource, massModel, solvedOffset, cleanBaseline, activeWorkspace);
+                PawnAnatomicalSource source = new PawnAnatomicalSource(targetPawn);
+                cleanBaseline = source.ResolveBaselineCapacity();
+                MassCapacitySolver.InspectMassCapacityModel(source, cleanBaseline, massModel);
             }
             finally
             {

@@ -46,18 +46,8 @@ namespace OverHaulers
                     activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
                 }
 
-                activeHarness.EnsureShields();
                 return activeHarness;
             }
-        }
-
-        /// <summary>
-        /// Detaches the sandbox entity shields while the settings window is closed. The harness and its simulated
-        /// state are preserved; shields re-attach automatically on the next <see cref="Harness"/> access.
-        /// </summary>
-        public static void SuspendSandboxShields()
-        {
-            activeHarness?.SuspendShields();
         }
 
         public static float lastCalculatedFinalMass = 0.0f;
@@ -126,43 +116,31 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [TEST-02] Flushes and completely recompiles all species topologies, XML mod extensions,
-        /// medical catalogs, test subjects, and sandbox harness states in real-time without restarting the game.
+        /// [TEST-02] Triggers a full live re-compilation of all engine registries and refreshes the local Test Bench session.
+        /// Hot-reloads Core and Integration systems via <see cref="OverHaulersLifecycle.ReinitializeRuntime"/>,
+        /// then rebuilds local test subjects and the sandbox pawn for rapid developer turnaround.
         /// </summary>
         public static void RecompileAll()
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
-            // 1. Flush medical classifier & mod extensions
-            MedicalClassifier.ClearStaticCaches();
-
-            // 2. Re-index surgery recipes, implants, and staged conditions
-            MedicalRecipeCatalog.ClearAndReinitialize();
-
-            // 3. Invalidate and freshly compile all species skeletal layouts
-            TopologyLayoutCompiler.InvalidateAllTopologies();
-            TopologyLayoutCompiler.EnsureInitialized();
-
-            // 4. Reset & re-run dynamic modpack baseline calibration sweep
-            SpeciesBaselineCalibration.Reset();
             bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: onlyCaravan, context: "OverHaulers_SweepContext_RecompileAll".Translate().ToString());
+            string context = "OverHaulers_SweepContext_RecompileAll".Translate().ToString();
 
-            // 5. Rebuild test subject registry (species, flesh types, categories)
+            // 1. Hot-recompile Core and Integration engines (Topologies, Calibrations, Medical Registries, Caches)
+            OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan, context);
+
+            // 2. Refresh Test Bench subjects from active DefDatabase
             TestSubjectRegistry.ClearCache();
             TestSubjectRegistry.EnsureCacheInitialized();
 
-            // 6. Clear pawn runtime caches and background snapshots
-            PawnDataRegistry.ClearAllCaches();
-
-            // 7. Rebuild the harness to ensure clean state
+            // 3. Rebuild local testbench harness & subject bindings
             if (activeHarness != null)
             {
                 activeHarness.Dispose();
                 activeHarness = null;
             }
 
-            // 8. Refresh active subject reference and rebuild sandbox pawn
             if (activeSubject != null)
             {
                 var updatedSubject = TestSubjectRegistry.AllSubjects.Find(s => 
@@ -176,7 +154,7 @@ namespace OverHaulers
                 ActiveSubject = TestSubjectRegistry.GetDefaultSubject();
             }
 
-            // 9. Flush UI layout caches and mark dirty
+            // 4. Flush UI layout caches and mark Test Bench dirty for immediate recalculation
             SettingsViewUtilities.ClearInputBuffers();
             SettingsViewUtilities.ClearHeightCache();
             MarkDirty();
@@ -244,8 +222,6 @@ namespace OverHaulers
         private static string GenerateTestExplanation(Settings settings, out float speciesBaseline)
         {
             speciesBaseline = 0.0f;
-            // Initialize the anatomical workspace to null; it will be allocated by the solver if needed.
-            AnatomicalWorkspace workspace = null;
 
             try
             {
@@ -258,31 +234,19 @@ namespace OverHaulers
                 // Unified Ingress: Evaluates directly against the Headless Sandbox Pawn
                 // =========================================================================
                 IAnatomicalDataSource dataSource = new PawnAnatomicalSource(Harness.SandboxPawn);
-
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
-                float solvedOffset = MassCapacitySolver.SolveMassCapacityOffsetForSource(
-                    dataSource, speciesBaseline, out speciesBaseline, settings, true, out workspace);
+                MassCapacityEvaluationResult result = MassCapacitySolver.InspectMassCapacityModel(
+                    new PawnAnatomicalSource(Harness.SandboxPawn), speciesBaseline, cachedModel);
 
-                float finalCapacity = MassCapacitySolver.EnforceSafetyFloor(speciesBaseline + solvedOffset, subject?.Label);
-                float totalMultiplier = speciesBaseline > 0f ? (finalCapacity / speciesBaseline) : 0f;
-
-                // Pre-seed domain state on the model before layout projection
-                cachedModel.Offset = solvedOffset;
-                cachedModel.FinalCapacity = finalCapacity;
-                cachedModel.TotalMultiplier = totalMultiplier;
-
-                lastCalculatedDelta = solvedOffset;
-                lastCalculatedFinalMass = finalCapacity;
+                lastCalculatedDelta = result.SolvedOffset;
+                lastCalculatedFinalMass = result.FinalCapacity;
 
                 if (activeViewMode == TestBenchViewMode.TopologyXRay)
                 {
                     SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(subject.BodyDef);
                     return GenerateTopologyXRayReport(template, settings, subject);
                 }
-
-                // Populate cached model directly for passive UI consumption
-                ViewProjection.RebuildDetailedModelForSource(dataSource, cachedModel, solvedOffset, speciesBaseline, workspace);
 
                 bool verbose = settings?.verboseBreakdown ?? false;
                 string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
@@ -293,15 +257,6 @@ namespace OverHaulers
             {
                 OHLog.TestBench.Warn("GenerateTestExplanation", ex, "An error occurred while generating the test explanation.");
                 return string.Empty;
-            }
-            finally
-            {
-                // Release the anatomical workspace back to the pool if it was allocated
-                if (workspace != null)
-                {
-                    WorkspacePool.ReleaseWorkspace(workspace);
-                    workspace = null;
-                }
             }
         }
 

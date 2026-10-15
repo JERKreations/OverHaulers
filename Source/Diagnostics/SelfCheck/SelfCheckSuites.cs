@@ -427,31 +427,19 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Solves a sandbox pawn once, releases the workspace and verifies the result is finite.
+        /// Solves a sandbox pawn once and verifies the result is finite.
+        /// Workspace lease lifecycle is managed and released internally by the solver.
         /// </summary>
         /// <param name="pawn">The sandbox pawn to solve.</param>
         /// <param name="baseline">The species baseline mass capacity in kg.</param>
         /// <returns>The solved caravan mass capacity offset in kg.</returns>
         private static float SolveOnce(Pawn pawn, float baseline)
         {
-            AnatomicalWorkspace workspace = null;
-            try
-            {
-                float offset = MassCapacitySolver.SolveMassCapacityOffsetForPawn(
-                    pawn, baseline, out float _, OverHaulers.settings, false, out workspace);
+            MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
+                pawn, baseline);
 
-                Expect.True(workspace != null, "the solver reported an internal failure (no workspace returned)");
-                Expect.True(!float.IsNaN(offset) && !float.IsInfinity(offset), "the solver produced a non-finite offset");
-                return offset;
-            }
-            finally
-            {
-                // Strict lease hygiene: guarantee thread-local workspace is released even if an Expect assertion fails
-                if (workspace != null)
-                {
-                    WorkspacePool.ReleaseWorkspace(workspace);
-                }
-            }
+            Expect.True(!float.IsNaN(result.SolvedOffset) && !float.IsInfinity(result.SolvedOffset), "the solver produced a non-finite offset");
+            return result.SolvedOffset;
         }
 
         /// <summary>

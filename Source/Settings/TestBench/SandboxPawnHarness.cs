@@ -1,16 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.Serialization;
-using HarmonyLib;
 using RimWorld;
 using Verse;
-using Verse.AI;
 
 namespace OverHaulers
 {
-    #region 1. [TEST-05] SIMULATION METADATA MODELS
+    #region 1. CONSTANTS & METADATA MODELS
 
     /// <summary>
     /// [TEST-05] Identifies the simulated surgical procedure applied to a sandbox pawn joint.
@@ -39,59 +34,32 @@ namespace OverHaulers
     #endregion
 
     /// <summary>
-    /// [TEST-05] HEADLESS SANDBOX PAWN HARNESS
-    /// Manages an ephemeral, unspawned Pawn instance mirroring any live colonist or species archetype.
-    /// Executes genuine RimWorld health tracker and surgery methods in an isolated sandbox,
-    /// guaranteeing 1:1 Caravan Mass Capacity (kg) and physiological capacity evaluation with zero world leaks.
-    /// Safe for execution both in-game and on the Main Menu via direct backing-field age and life-stage pinning.
-    /// Resides under Source/Settings/TestBench/.
+    /// [TEST-05] INTERACTIVE SANDBOX PAWN HARNESS
+    /// Extends Core <see cref="HeadlessPawnShell"/> with interactive surgical procedures,
+    /// simulated condition toggling, and UI inspection delta tracking.
+    /// Resides strictly under Source/Settings/TestBench/.
     /// </summary>
-    /// <remarks>
-    /// ARCHITECTURAL DESIGN RATIONALE (WHY THIS IS NOT USING PawnGenerator):
-    /// In vanilla RimWorld, calling PawnGenerator.GeneratePawn() or ThingMaker.MakeThing() executes 
-    /// deep engine hooks: registering the pawn into WorldPawns, firing TaleRecorder events, assigning 
-    /// faction relations, and running InitializeComps().
-    /// 
-    /// On the Main Menu (e.g. Test Bench before loading a save), those managers do not exist, resulting 
-    /// in fatal NullReferenceExceptions. Furthermore, in-game, generating throwaway pawns causes memory 
-    /// leaks in world pawn caches.
-    /// 
-    /// This harness uses Activator.CreateInstance and uninitialized FormatterServices shells to construct 
-    /// a 100% sterile, decoupled pawn shell with zero world registration. ThingComps are intentionally omitted 
-    /// until LiveSandboxPawnHarness is invoked mid-game.
-    /// </remarks>
-    public class SandboxPawnHarness : IDisposable
+    public class SandboxPawnHarness : HeadlessPawnShell
     {
-        #region 2. HARNESS CONSTANTS & SENTINELS
+        #region 2. INSTANCE FIELDS & STATE STORAGE
 
-        /// <summary>
-        /// [TEST-05] Reserved sentinel ThingID for the headless sandbox pawn.
-        /// Uses unique negative "OverHaulers_Sandbox_Pawn" hash to guarantee zero collision with legitimate world pawns.
-        /// </summary>
-        public static readonly int SandboxPawnThingId = -Math.Abs("OverHaulers_Sandbox_Pawn".GetHashCode());
-
-        #endregion
-
-        #region 3. HARNESS FIELDS & STATE STORAGE
-
-        protected Pawn sandboxPawn;
-        protected Pawn sourcePawn;
+        /// <summary>The test subject entry currently bound to this harness.</summary>
         protected TestSubjectEntry boundSubject;
 
         /// <summary>Simulated replacement modifications (Prosthetics/Amputations/Trauma) indexed by target BodyPartRecord.</summary>
-        public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas = 
+        public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas =
             new Dictionary<BodyPartRecord, SimulatedModification>();
 
         /// <summary>Simulated localized implants (Glands, Ribs) indexed by target BodyPartRecord.</summary>
-        public readonly Dictionary<BodyPartRecord, List<SimulatedModification>> ImplantDeltas = 
+        public readonly Dictionary<BodyPartRecord, List<SimulatedModification>> ImplantDeltas =
             new Dictionary<BodyPartRecord, List<SimulatedModification>>();
 
         /// <summary>Active simulated systemic drugs, combat stimulants, and whole-body conditions.</summary>
-        public readonly HashSet<HediffDef> ActiveSimulatedDrugs = 
+        public readonly HashSet<HediffDef> ActiveSimulatedDrugs =
             new HashSet<HediffDef>();
 
-        /// <summary>Gets the active, unspawned sandbox pawn instance.</summary>
-        public Pawn SandboxPawn => sandboxPawn;
+        /// <summary>Gets the active, unspawned sandbox pawn instance (alias to base Pawn).</summary>
+        public Pawn SandboxPawn => headlessPawn;
 
         /// <summary>Gets the reference live colonist currently mirrored (null if generic archetype).</summary>
         public Pawn SourcePawn => sourcePawn;
@@ -99,70 +67,35 @@ namespace OverHaulers
         /// <summary>Gets the test subject entry currently blueprinting the harness.</summary>
         public TestSubjectEntry BoundSubject => boundSubject;
 
-        /// <summary>True if the harness currently contains a valid, non-destroyed sandbox pawn.</summary>
-        public bool IsValid => sandboxPawn != null && !sandboxPawn.Destroyed;
-
         /// <summary>True if any hypothetical modifications are currently applied to the sandbox pawn.</summary>
         public bool HasModifications => ReplacementDeltas.Count > 0 || ImplantDeltas.Count > 0 || ActiveSimulatedDrugs.Count > 0;
 
         #endregion
 
-        #region 3B. SHIELD SCOPE OWNERSHIP
-
-        private bool holdsShieldScope;
+        #region 3. CONSTRUCTORS & FACTORY METHODS
 
         /// <summary>
-        /// Ensures the sandbox entity shields are attached for this harness. Cheap no-op when already held.
+        /// Initializes a new unbound instance of the <see cref="SandboxPawnHarness"/> class.
         /// </summary>
-        public void EnsureShields()
-        {
-            if (holdsShieldScope) return;
-
-            HarmonySetup.AcquireSandboxShields();
-            holdsShieldScope = true;
-        }
-
-        /// <summary>
-        /// Releases this harness's shield scope (e.g. while the settings window is closed). The sandbox pawn stays intact;
-        /// shields are re-attached automatically the next time the harness is used via <see cref="EnsureShields"/>.
-        /// </summary>
-        public void SuspendShields()
-        {
-            if (!holdsShieldScope) return;
-
-            holdsShieldScope = false;
-            HarmonySetup.ReleaseSandboxShields();
-        }
-
-        #endregion
-
-        #region 4. CONSTRUCTOR & SUBJECT BINDING
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SandboxPawnHarness"/> class.
-        /// </summary>
-        /// <remarks>
-        /// The constructor does not automatically bind a test subject or create a sandbox pawn.
-        /// Use <see cref="BindSubject"/> to initialize the harness with a specific test subject.
-        /// </remarks>
         public SandboxPawnHarness()
         {
         }
 
         /// <summary>
-        /// Single canonical factory for a harness appropriate to the current program state: the comp-initialising
-        /// <see cref="LiveSandboxPawnHarness"/> while a game is being played, the sterile base harness on the Main Menu.
+        /// Canonical factory for an unbound interactive harness.
+        /// Comp initialization is handled automatically by <see cref="HeadlessPawnShell"/> based on active program state.
         /// </summary>
-        /// <returns>A new, unbound harness. Call <see cref="BindSubject"/> before use and dispose it when finished.</returns>
         public static SandboxPawnHarness CreateForCurrentProgramState()
         {
-            return Current.ProgramState == ProgramState.Playing
-                ? new LiveSandboxPawnHarness()
-                : new SandboxPawnHarness();
+            return new SandboxPawnHarness();
         }
 
+        #endregion
+
+        #region 4. SUBJECT BINDING & HARNESS SYNTHESIS
+
         /// <summary>
-        /// Binds a test subject (live colonist or generic species) to the harness and builds a fresh, isolated sandbox pawn.
+        /// Binds a test subject (live colonist or generic species) to the harness and builds an isolated sandbox pawn.
         /// </summary>
         /// <param name="subject">The test subject entry to blueprint.</param>
         public void BindSubject(TestSubjectEntry subject)
@@ -174,310 +107,29 @@ namespace OverHaulers
             RebuildSandboxPawn();
         }
 
-        #endregion
-
-        #region 5. HEADLESS PAWN ALLOCATION & STATE CLONING
-
         /// <summary>
-        /// Allocates a detached Pawn shell and initializes physiological state.
-        /// Uses direct backing-field age pinning and empty equipment/apparel trackers to prevent Main Menu stat NREs.
-        /// Guaranteed zero registration into WorldPawns, MapPawns, or TaleRecorder.
+        /// Rebuilds the underlying headless pawn shell from the currently bound test subject.
         /// </summary>
         public virtual void RebuildSandboxPawn()
         {
-            TeardownSandboxPawn();
-
-            // BREAKPOINT ANCHOR: Subject Validation Guard
             if (boundSubject == null)
             {
+                Teardown();
                 return;
             }
 
-            // Entity shields (and main-menu fallback hooks) are only attached while a harness is alive.
-            EnsureShields();
-
             ThingDef raceDef = boundSubject.RaceDef ?? boundSubject.LivePawn?.def ?? ThingDefOf.Human;
-            if (raceDef == null) return;
+            Pawn source = boundSubject.IsLivePawn ? boundSubject.LivePawn : null;
+            bool initializeComps = Current.ProgramState == ProgramState.Playing;
 
-            try
-            {
-                #region 5A. Raw Pawn Shell Allocation & Tracker Creation
-                // This section handles the raw allocation of the sandbox pawn shell and the creation of essential trackers.
-                // It ensures that the sandbox pawn is properly instantiated with the correct race, kind, gender, and faction.
-                // Physiological, needs, and equipment trackers are initialized to prevent null reference issues during testing.
-
-                // 1. Direct Instantiation: Bypasses ThingMaker.MakeThing / ThingIDMaker.GiveIDTo (Safe on Main Menu)
-                sandboxPawn = (Pawn)Activator.CreateInstance(raceDef.thingClass);
-                sandboxPawn.def = raceDef;
-                sandboxPawn.SetStuffDirect(sourcePawn?.Stuff);
-
-                // Sentinel ID Assignment
-                sandboxPawn.thingIDNumber = SandboxPawnThingId;
-
-                // 2. Resolve appropriate PawnKindDef and Gender
-                sandboxPawn.kindDef = sourcePawn?.kindDef ?? ResolvePawnKindForRace(raceDef);
-                sandboxPawn.gender = sourcePawn != null 
-                    ? sourcePawn.gender 
-                    : (raceDef.race != null && !raceDef.race.hasGenders ? Gender.None : Gender.Male);
-
-                // 3. Safe Faction mirror (In-game only)
-                if (sourcePawn?.Faction != null)
-                {
-                    sandboxPawn.SetFactionDirect(sourcePawn.Faction);
-                }
-
-                // 4. Targeted Physiological, Needs & Equipment Initialization
-                sandboxPawn.health = new Pawn_HealthTracker(sandboxPawn);
-                sandboxPawn.ageTracker = new Pawn_AgeTracker(sandboxPawn);
-                sandboxPawn.apparel = new Pawn_ApparelTracker(sandboxPawn);
-                sandboxPawn.equipment = new Pawn_EquipmentTracker(sandboxPawn);
-
-                try
-                {
-                    Pawn_NeedsTracker needs = (Pawn_NeedsTracker)FormatterServices.GetUninitializedObject(typeof(Pawn_NeedsTracker));
-                    SafeSetField(needs, "pawn", sandboxPawn);
-                    SafeSetField(needs, "needs", new List<Need>());
-                    sandboxPawn.needs = needs;
-                }
-                catch { }
-
-                try
-                {
-                    Pawn_MindState mindState = (Pawn_MindState)FormatterServices.GetUninitializedObject(typeof(Pawn_MindState));
-                    mindState.pawn = sandboxPawn;
-                    mindState.mentalStateHandler = new MentalStateHandler(sandboxPawn);
-                    mindState.inspirationHandler = new InspirationHandler(sandboxPawn);
-                    mindState.priorityWork = new PriorityWork(sandboxPawn);
-                    sandboxPawn.mindState = mindState;
-                }
-                catch { }
-
-                #endregion
-
-                #region 5B. Life-Stage & Backing-Field Pinning
-                // This section ensures that the sandbox pawn's age and life stage are correctly initialized.
-                // It calculates the appropriate biological and chronological ticks based on the source pawn or defaults to adult values.
-
-                List<LifeStageAge> lifeStageAges = raceDef.race?.lifeStageAges;
-                int adultStageIdx = (lifeStageAges != null && lifeStageAges.Count > 0) ? (lifeStageAges.Count - 1) : 0;
-                float adultAgeYears = (lifeStageAges != null && lifeStageAges.Count > 0) ? lifeStageAges[adultStageIdx].minAge : 20f;
-                long defaultAdultTicks = Math.Max((long)GenDate.TicksPerYear, (long)(adultAgeYears * GenDate.TicksPerYear));
-
-                long targetBioTicks = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.AgeBiologicalTicks : defaultAdultTicks;
-                long targetChronoTicks = targetBioTicks;
-                int targetStageIdx = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.CurLifeStageIndex : adultStageIdx;
-
-                SafeSetField(sandboxPawn.ageTracker, "ageBiologicalTicksInt", targetBioTicks);
-                SafeSetField(sandboxPawn.ageTracker, "birthAbsTicksInt", -targetChronoTicks);
-                SafeSetField(sandboxPawn.ageTracker, "cachedLifeStageIndex", targetStageIdx);
-                SafeSetField(sandboxPawn.ageTracker, "curLifeStageIndex", targetStageIdx);
-
-                #endregion
-
-                #region 5C. Story & Biotech Gene Tracking
-                // This section initializes the sandbox pawn's story tracker for humanoid pawns and sets up biotech gene tracking if the Biotech
-                //  mod is active.
-                // It ensures that body type, head type, xenotype, and genes are correctly copied from the source pawn when available.
-
-                if (raceDef.race != null && raceDef.race.Humanlike && sandboxPawn.story == null)
-                {
-                    sandboxPawn.story = new Pawn_StoryTracker(sandboxPawn);
-                    if (sourcePawn?.story != null)
-                    {
-                        sandboxPawn.story.bodyType = sourcePawn.story.bodyType;
-                        sandboxPawn.story.headType = sourcePawn.story.headType;
-                    }
-                    else
-                    {
-                        sandboxPawn.story.bodyType = BodyTypeDefOf.Male ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male");
-                    }
-                }
-
-                // Initialize Biotech Xenotype & Genes
-                if (ModsConfig.BiotechActive && sandboxPawn.genes == null)
-                {
-                    sandboxPawn.genes = new Pawn_GeneTracker(sandboxPawn);
-
-                    if (raceDef.race != null && raceDef.race.Humanlike)
-                    {
-                        if (sourcePawn?.genes != null)
-                        {
-                            sandboxPawn.genes.SetXenotypeDirect(sourcePawn.genes.Xenotype);
-
-                            for (int i = 0; i < sourcePawn.genes.Endogenes.Count; i++)
-                            {
-                                GeneDef gene = sourcePawn.genes.Endogenes[i].def;
-                                if (!sandboxPawn.genes.HasActiveGene(gene))
-                                {
-                                    sandboxPawn.genes.AddGene(gene, xenogene: false);
-                                }
-                            }
-                            for (int i = 0; i < sourcePawn.genes.Xenogenes.Count; i++)
-                            {
-                                GeneDef gene = sourcePawn.genes.Xenogenes[i].def;
-                                if (!sandboxPawn.genes.HasActiveGene(gene))
-                                {
-                                    sandboxPawn.genes.AddGene(gene, xenogene: true);
-                                }
-                            }
-                        }
-                    }
-                    else if (sourcePawn?.genes != null)
-                        {
-                        // Clone custom animal/mechanoid genes if present from VEF Animal Genes
-                        for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
-                        {
-                            GeneDef gene = sourcePawn.genes.GenesListForReading[i].def;
-                            if (!sandboxPawn.genes.HasActiveGene(gene))
-                            {
-                                sandboxPawn.genes.AddGene(gene, xenogene: false);
-                            }
-                        }
-                    }
-                }
-
-                #endregion
-
-                #region 5D. Authentic Hediff Graph Synchronization
-                // This section ensures that the sandbox pawn's health state mirrors the source pawn's authentic hediff graph.
-                // Any missing body parts or hediffs are handled gracefully, and the health cache is marked dirty after synchronization.
-
-                SyncHediffsFromSource();
-                #endregion
-            }
-            catch (Exception ex)
-            {
-                OHLog.TestBench.Warn("SandboxPawnHarness:RebuildSandboxPawn", ex, "An error occurred while rebuilding the sandbox pawn.");
-                TeardownSandboxPawn();
-            }
-        }
-
-        /// <summary>
-        /// Synchronizes the sandbox pawn's health with the source colonist's authentic hediff graph.
-        /// If the harness is bound to a generic species archetype, clears all hediffs to pristine health.
-        /// </summary>
-        /// <remarks>
-        /// This method ensures that the sandbox pawn's health state mirrors that of the source pawn.
-        /// Any missing body parts or hediffs are handled gracefully, and the health cache is marked dirty after synchronization.
-        /// </remarks>
-        public void SyncHediffsFromSource()
-        {
-            if (sandboxPawn?.health?.hediffSet == null) return;
-
-            sandboxPawn.health.hediffSet.Clear();
-
-            if (sourcePawn?.health?.hediffSet != null)
-            {
-                List<Hediff> sourceHediffs = sourcePawn.health.hediffSet.hediffs;
-                if (sourceHediffs != null && sourceHediffs.Count > 0)
-                {
-                    List<Hediff> sortedHediffs = new List<Hediff>(sourceHediffs);
-                    sortedHediffs.Sort((a, b) => GetPartDepth(a?.Part).CompareTo(GetPartDepth(b?.Part)));
-
-                    for (int i = 0; i < sortedHediffs.Count; i++)
-                    {
-                        Hediff src = sortedHediffs[i];
-                        if (src?.def == null) continue;
-
-                        if (src.Part != null && sandboxPawn.health.hediffSet.PartIsMissing(src.Part))
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            Hediff cloneHediff = HediffMaker.MakeHediff(src.def, sandboxPawn, src.Part);
-                            if (cloneHediff != null)
-                            {
-                                cloneHediff.Severity = src.Severity;
-                                sandboxPawn.health.AddHediff(cloneHediff);
-                            }
-                        }
-                        catch
-                        {
-                            // Defensive barrier: A third-party mod hediff failed to clone.
-                        }
-                    }
-                }
-            }
-
-            DirtySandboxHealthCache();
-        }
-
-        /// <summary>
-        /// Safely sets the value of a specified field on the target object using reflection, handling any exceptions that may occur.
-        /// </summary>
-        /// <typeparam name="TTarget">The type of the target object on which the field is to be set.</typeparam>
-        /// <typeparam name="TVal">The type of the value to be assigned to the field.</typeparam>
-        /// <param name="target">The target object on which to set the field value.</param>
-        /// <param name="fieldName">The name of the field to set.</param>
-        /// <param name="value">The value to assign to the specified field.</param>
-        protected static void SafeSetField<TTarget, TVal>(TTarget target, string fieldName, TVal value) where TTarget : class
-        {
-            if (target == null) return;
-            try
-            {
-                FieldInfo field = AccessTools.Field(typeof(TTarget), fieldName);
-                if (field != null)
-                {
-                    field.SetValue(target, value);
-                }
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Calculates the depth of the specified body part within the hierarchy of the pawn's body.
-        /// </summary>
-        /// <param name="part">The BodyPartRecord for which to calculate the depth.</param>
-        /// <returns>An integer representing the depth of the body part within the hierarchy, with root parts having a depth of 0.</returns>
-        private static int GetPartDepth(BodyPartRecord part)
-        {
-            if (part == null) return -1;
-            int depth = 0;
-            BodyPartRecord curr = part.parent;
-            while (curr != null)
-            {
-                depth++;
-                curr = curr.parent;
-            }
-            return depth;
-        }
-
-        /// <summary>
-        /// Resolves the appropriate PawnKindDef for the specified race, falling back to a default colonist kind if necessary.
-        /// </summary>
-        /// <param name="raceDef">The ThingDef representing the race for which to resolve the PawnKindDef.</param>
-        /// <returns>The resolved PawnKindDef for the specified race, or a default colonist kind if no specific kind is found.</returns>
-        private static PawnKindDef ResolvePawnKindForRace(ThingDef raceDef)
-        {
-            if (raceDef == null) return PawnKindDefOf.Colonist ?? DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist");
-
-            if (raceDef.race?.AnyPawnKind != null)
-            {
-                return raceDef.race.AnyPawnKind;
-            }
-
-            List<PawnKindDef> allKinds = DefDatabase<PawnKindDef>.AllDefsListForReading;
-            if (allKinds != null)
-            {
-                for (int i = 0; i < allKinds.Count; i++)
-                {
-                    if (allKinds[i].race == raceDef)
-                    {
-                        return allKinds[i];
-                    }
-                }
-            }
-
-            return DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist") ?? DefDatabase<PawnKindDef>.AllDefsListForReading?.FirstOrDefault();
+            RebuildPawnCore(raceDef, source, initializeComps);
         }
 
         #endregion
 
-        #region 6. NATIVE SURGICAL MUTATION PIPELINE
+        #region 5. SURGICAL SIMULATION PIPELINE
 
-        #region 6A. Artificial Replacement Procedures
+        #region 5A. ARTIFICIAL REPLACEMENT PROCEDURES
 
         /// <summary>
         /// Simulates installing an artificial prosthetic or bionic replacement onto a specific BodyPartRecord.
@@ -493,9 +145,8 @@ namespace OverHaulers
         /// </remarks>
         public void SimulateReplacement(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label, float efficiency)
         {
-            if (sandboxPawn?.health == null || part == null || hediff == null) return;
+            if (headlessPawn?.health == null || part == null || hediff == null) return;
 
-            // 1. Flush existing conflicting socket states on target part and all absorbed child parts
             ImplantDeltas.Remove(part);
             if (part.parts != null)
             {
@@ -505,14 +156,12 @@ namespace OverHaulers
                 }
             }
 
-            // 2. Clear socket cleanly without premature state changes
-            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
+            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
 
-            // 3. Install replacement hediff explicitly onto target socket
-            Hediff appliedHediff = HediffMaker.MakeHediff(hediff, sandboxPawn, part);
+            Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
             if (appliedHediff != null)
             {
-                sandboxPawn.health.AddHediff(appliedHediff, part);
+                headlessPawn.health.AddHediff(appliedHediff, part);
             }
 
             ReplacementDeltas[part] = new SimulatedModification
@@ -524,12 +173,12 @@ namespace OverHaulers
                 Efficiency = efficiency
             };
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         #endregion
 
-        #region 6B. Destructive Amputation & Trauma Simulation
+        #region 5B. AMPUTATIONS & TRAUMA SIMULATION
 
         /// <summary>
         /// Simulates a surgical amputation or permanent limb loss (0% HP) on the sandbox pawn.
@@ -541,18 +190,15 @@ namespace OverHaulers
         /// </remarks>
         public void SimulateAmputation(BodyPartRecord part)
         {
-            if (sandboxPawn?.health == null || part == null) return;
+            if (headlessPawn?.health == null || part == null) return;
 
-            // 1. Clean child limb deltas so severed digits do not retain phantom states
             CleanDeltasRecursive(part);
+            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
 
-            // 2. Clear socket cleanly without premature state changes
-            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
-
-            Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, sandboxPawn, part);
+            Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
             if (missingPartHediff != null)
             {
-                sandboxPawn.health.AddHediff(missingPartHediff, part);
+                headlessPawn.health.AddHediff(missingPartHediff, part);
             }
 
             ReplacementDeltas[part] = new SimulatedModification
@@ -564,7 +210,7 @@ namespace OverHaulers
                 Efficiency = 0f
             };
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         /// <summary>
@@ -577,33 +223,28 @@ namespace OverHaulers
         /// </remarks>
         public void SimulateSevereTrauma(BodyPartRecord part)
         {
-            // BREAKPOINT ANCHOR: Null & Zero-Coverage Part Guard
-            if (sandboxPawn?.health == null || part == null || part.coverageAbs <= 0f) return;
+            if (headlessPawn?.health == null || part == null || part.coverageAbs <= 0f) return;
 
-            // 1. Flush existing conflicting socket states
             ImplantDeltas.Remove(part);
             ReplacementDeltas.Remove(part);
+            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
 
-            // 2. Clear socket cleanly without premature state changes
-            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
-
-            float maxHp = part.def.GetMaxHealth(sandboxPawn);
+            float maxHp = part.def.GetMaxHealth(headlessPawn);
             float damageToApply = Math.Max(1f, maxHp - 1f);
 
-            // Resolve native Crush / Blunt injury HediffDef via DamageDef
-            HediffDef injuryDef = DamageDefOf.Crush?.hediff 
-                               ?? DamageDefOf.Blunt?.hediff 
-                               ?? DamageDefOf.Cut?.hediff 
-                               ?? DefDatabase<HediffDef>.GetNamedSilentFail("Crush") 
+            HediffDef injuryDef = DamageDefOf.Crush?.hediff
+                               ?? DamageDefOf.Blunt?.hediff
+                               ?? DamageDefOf.Cut?.hediff
+                               ?? DefDatabase<HediffDef>.GetNamedSilentFail("Crush")
                                ?? DefDatabase<HediffDef>.GetNamedSilentFail("Bruise");
 
             if (injuryDef != null)
             {
-                Hediff injury = HediffMaker.MakeHediff(injuryDef, sandboxPawn, part);
+                Hediff injury = HediffMaker.MakeHediff(injuryDef, headlessPawn, part);
                 if (injury != null)
                 {
                     injury.Severity = damageToApply;
-                    sandboxPawn.health.AddHediff(injury, part);
+                    headlessPawn.health.AddHediff(injury, part);
                 }
             }
 
@@ -616,7 +257,7 @@ namespace OverHaulers
                 Efficiency = 1f / Math.Max(1f, maxHp)
             };
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         /// <summary>
@@ -660,10 +301,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6C. Localized Implants & Systemic Drugs
+        #region 5C. LOCALIZED IMPLANTS & SYSTEMIC DRUGS
 
         /// <summary>
-        /// Simulates adding a non-replacing localized implant (e.g., Glands, Ribs) onto the sandbox pawn.
+        /// Simulates adding a non-replacing localized implant (e.g. Glands, Ribs) onto the sandbox pawn.
         /// </summary>
         /// <param name="part">The BodyPartRecord where the implant will be added.</param>
         /// <param name="recipe">The RecipeDef representing the implant procedure.</param>
@@ -674,14 +315,13 @@ namespace OverHaulers
         /// </remarks>
         public void SimulateAddImplant(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label)
         {
-            if (sandboxPawn?.health == null || part == null || hediff == null) return;
+            if (headlessPawn?.health == null || part == null || hediff == null) return;
 
-            // If socket was missing or severely traumatized, restore health so implant can attach
-            if (ReplacementDeltas.TryGetValue(part, out var existingRepl) && 
+            if (ReplacementDeltas.TryGetValue(part, out var existingRepl) &&
                 (existingRepl.OpType == SimulatedOpType.Amputate || existingRepl.OpType == SimulatedOpType.Trauma))
             {
                 ReplacementDeltas.Remove(part);
-                sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
             }
 
             if (!ImplantDeltas.TryGetValue(part, out var list))
@@ -692,10 +332,10 @@ namespace OverHaulers
 
             if (!list.Exists(m => m.TargetHediff == hediff))
             {
-                Hediff appliedHediff = HediffMaker.MakeHediff(hediff, sandboxPawn, part);
+                Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
                 if (appliedHediff != null)
                 {
-                    sandboxPawn.health.AddHediff(appliedHediff, part);
+                    headlessPawn.health.AddHediff(appliedHediff, part);
 
                     list.Add(new SimulatedModification
                     {
@@ -708,7 +348,7 @@ namespace OverHaulers
                 }
             }
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         /// <summary>
@@ -719,12 +359,12 @@ namespace OverHaulers
         /// <param name="hediff">The HediffDef representing the implant to remove.</param>
         public void SimulateRemoveImplant(BodyPartRecord part, HediffDef hediff)
         {
-            if (sandboxPawn?.health == null || part == null || hediff == null) return;
+            if (headlessPawn?.health == null || part == null || hediff == null) return;
 
-            Hediff existing = sandboxPawn.health.hediffSet.hediffs.Find(h => h.def == hediff && h.Part == part);
+            Hediff existing = headlessPawn.health.hediffSet.hediffs.Find(h => h.def == hediff && h.Part == part);
             if (existing != null)
             {
-                sandboxPawn.health.RemoveHediff(existing);
+                headlessPawn.health.RemoveHediff(existing);
             }
 
             if (ImplantDeltas.TryGetValue(part, out var list))
@@ -733,30 +373,30 @@ namespace OverHaulers
                 if (list.Count == 0) ImplantDeltas.Remove(part);
             }
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         /// <summary>
         /// Toggles a simulated systemic drug, combat stimulant, or whole-body condition on the sandbox pawn.
         /// </summary>
-        /// <param name="drugDef">The HediffDef representing the drug or condition to toggle.</param>
+        /// <param name="drugDef">The drug definition representing the systemic drug, combat stimulant, or whole-body condition to toggle.</param>
         public void SimulateToggleDrug(HediffDef drugDef)
         {
-            if (sandboxPawn?.health == null || drugDef == null) return;
+            if (headlessPawn?.health == null || drugDef == null) return;
 
             if (ActiveSimulatedDrugs.Contains(drugDef))
             {
                 ActiveSimulatedDrugs.Remove(drugDef);
-                Hediff existing = sandboxPawn.health.hediffSet.GetFirstHediffOfDef(drugDef);
+                Hediff existing = headlessPawn.health.hediffSet.GetFirstHediffOfDef(drugDef);
                 if (existing != null)
                 {
-                    sandboxPawn.health.RemoveHediff(existing);
+                    headlessPawn.health.RemoveHediff(existing);
                 }
             }
             else
             {
                 ActiveSimulatedDrugs.Add(drugDef);
-                Hediff drugHediff = HediffMaker.MakeHediff(drugDef, sandboxPawn);
+                Hediff drugHediff = HediffMaker.MakeHediff(drugDef, headlessPawn);
 
                 if (drugHediff != null)
                 {
@@ -766,26 +406,26 @@ namespace OverHaulers
                         drugHediff.Severity = peakSeverity;
                     }
 
-                    sandboxPawn.health.AddHediff(drugHediff);
+                    headlessPawn.health.AddHediff(drugHediff);
                 }
             }
 
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
         #endregion
 
-        #region 6D. Branch Reversion & Delta Cleaning
+        #region 5D. BRANCH REVERSION & DELTA CLEANING
 
         /// <summary>
         /// Reverts a specific body part and all its descendant branches back to the authentic live health state.
         /// </summary>
-        /// <param name="part">The BodyPartRecord representing the root part to revert.</param>
+        /// <param name="part">The body part to revert to the authentic live health state.</param>
         public void SimulateRevertPart(BodyPartRecord part)
         {
-            if (sandboxPawn?.health == null || part == null) return;
+            if (headlessPawn?.health == null || part == null) return;
 
-            sandboxPawn.health.RestorePart(part, null, checkStateChange: false);
+            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
 
             if (sourcePawn?.health?.hediffSet != null)
             {
@@ -806,18 +446,18 @@ namespace OverHaulers
                 for (int i = 0; i < relevantHediffs.Count; i++)
                 {
                     Hediff src = relevantHediffs[i];
-                    if (src.Part != null && sandboxPawn.health.hediffSet.PartIsMissing(src.Part))
+                    if (src.Part != null && headlessPawn.health.hediffSet.PartIsMissing(src.Part))
                     {
                         continue;
                     }
 
                     try
                     {
-                        Hediff cloneHediff = HediffMaker.MakeHediff(src.def, sandboxPawn, src.Part);
+                        Hediff cloneHediff = HediffMaker.MakeHediff(src.def, headlessPawn, src.Part);
                         if (cloneHediff != null)
                         {
                             cloneHediff.Severity = src.Severity;
-                            sandboxPawn.health.AddHediff(cloneHediff);
+                            headlessPawn.health.AddHediff(cloneHediff);
                         }
                     }
                     catch { }
@@ -825,9 +465,15 @@ namespace OverHaulers
             }
 
             CleanDeltasRecursive(part);
-            DirtySandboxHealthCache();
+            DirtyHealthCache();
         }
 
+        /// <summary>
+        /// Determines whether the specified candidate body part is the same as or a descendant of the given root body part.
+        /// </summary>
+        /// <param name="candidate">The body part to check.</param>
+        /// <param name="root">The root body part to compare against.</param>
+        /// <returns>True if the candidate is the same as or a descendant of the root; otherwise, false.</returns>
         private static bool IsPartOrDescendantOf(BodyPartRecord candidate, BodyPartRecord root)
         {
             BodyPartRecord curr = candidate;
@@ -839,6 +485,10 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>
+        /// Recursively removes replacement and implant deltas for the specified body part and all its descendants.
+        /// </summary>
+        /// <param name="part">The root body part for which to clean deltas.</param>
         private void CleanDeltasRecursive(BodyPartRecord part)
         {
             if (part == null) return;
@@ -855,7 +505,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clears all simulated surgical operations and drug regimens, restoring the sandbox completely to the clean/live baseline.
+        /// Clears all simulated surgical operations and drug regimens, restoring the sandbox to baseline.
         /// </summary>
         public void ResetToSource()
         {
@@ -864,8 +514,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clears all replacement and implant deltas, as well as active simulated drugs, effectively resetting all modifications made to
-        ///  the sandbox pawn.
+        /// Clears all active modification tracking collections.
         /// </summary>
         protected void ClearModifications()
         {
@@ -874,78 +523,22 @@ namespace OverHaulers
             ActiveSimulatedDrugs.Clear();
         }
 
-        /// <summary>
-        /// Marks the sandbox pawn's health cache as dirty, forcing a refresh of capacities and hediffs on the next access.
-        /// </summary>
-        protected void DirtySandboxHealthCache()
-        {
-            if (sandboxPawn?.health != null)
-            {
-                sandboxPawn.health.capacities?.Clear();
-                sandboxPawn.health.hediffSet?.DirtyCache();
-            }
-        }
         #endregion
 
         #endregion
 
-        #region 7. TEARDOWN & DISPOSAL LIFECYCLE
+        #region 6. TEARDOWN & DISPOSAL
 
         /// <summary>
-        /// Tears down the sandbox pawn, clearing its health and capacity caches and nullifying the reference.
+        /// Tears down the sandbox pawn and clears modification tracking collections.
         /// </summary>
-        protected void TeardownSandboxPawn()
-        {
-            if (sandboxPawn != null)
-            {
-                sandboxPawn.health?.hediffSet?.Clear();
-                sandboxPawn.health?.capacities?.Clear();
-                sandboxPawn = null;
-            }
-        }
-
-        /// <summary>
-        /// Disposes of the sandbox pawn instance and flushes all tracking dictionaries.
-        /// </summary>
-        public void Dispose()
+        public override void Teardown()
         {
             ClearModifications();
-            TeardownSandboxPawn();
-            sourcePawn = null;
             boundSubject = null;
-            SuspendShields();
-            GC.SuppressFinalize(this);
+            base.Teardown();
         }
 
         #endregion
     }
-
-    #region 8. [TEST-05B] LIVE SANDBOX PAWN HARNESS (EXTENDED COMP RUNTIME)
-
-    /// <summary>
-    /// [TEST-05B] LIVE SANDBOX PAWN HARNESS (EXTENDED)
-    /// Used exclusively when a game is active (Current.ProgramState == Playing).
-    /// Inherits the sterile structure of the base harness but fully initializes ThingComps,
-    /// providing third-party mods (like Vanilla Genetics Expanded) the initialized data they require.
-    /// </summary>
-    public class LiveSandboxPawnHarness : SandboxPawnHarness
-    {
-        public override void RebuildSandboxPawn()
-        {
-            base.RebuildSandboxPawn();
-
-            if (sandboxPawn == null || sandboxPawn.def == null) return;
-
-            try
-            {
-                sandboxPawn.InitializeComps();
-            }
-            catch (Exception ex)
-            {
-                OHLog.TestBench.Warn("LiveSandboxPawnHarness:InitializeComps", ex, $"Failed to initialize comps for sandbox pawn ({sandboxPawn.def.defName}).");
-            }
-        }
-    }
-
-    #endregion
 }
