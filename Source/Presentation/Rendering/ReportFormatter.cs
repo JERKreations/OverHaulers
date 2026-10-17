@@ -6,8 +6,16 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// [VIEW-04] Presentation text formatter compiling <see cref="MassCapacityModel"/> structures into
+    /// rich-text explanation tooltips and InfoCard breakdown cards.
+    /// Thread-gated to the main thread with strict try...finally boundaries protecting static scratch buffers.
+    /// Resides under Source/Presentation/Rendering/.
+    /// </summary>
     public static class ReportFormatter
     {
+        #region 1. CONSTANTS & POOLED SCRATCHPADS
+
         private const string Indent2 = "  ";
         private const string Indent4 = "    ";
 
@@ -24,15 +32,18 @@ namespace OverHaulers
         private static readonly StringBuilder pooledDetailsBuilder = new StringBuilder(1024);
         private static readonly StringBuilder pooledListBuilder = new StringBuilder(1024);
 
+        #endregion
+
+        #region 2. PUBLIC CANONICAL EXPLANATION API
+
         /// <summary>
-        /// [VIEW-04] Builds the Over Haulers Caravan Mass Capacity breakdown report.
-        /// Thread-gated to the main thread with strict try...finally boundaries protecting static scratch buffers.
+        /// [VIEW-04] Canonical Single Source of Truth (SSoT) entry point formatting the Caravan Mass Capacity breakdown.
+        /// Consumes <see cref="OverHaulers.settings"/> directly to determine verbose layout rules.
+        /// Thread-gated to the main thread with 0 bytes GC allocation via pooled scratch buffers.
         /// </summary>
-        /// <param name="massModel">The mass capacity model to format.</param>
-        /// <param name="verbose">Whether to include unmodified parts.</param>
-        /// <param name="biologicalBaseline">The baseline biological mass capacity in kg.</param>
-        /// <param name="forceFullCard">If true, wraps with Base and Final lines for Test Bench previews.</param>
-        public static string BuildExplanation(MassCapacityModel massModel, bool verbose, float biologicalBaseline, bool forceFullCard = false)
+        /// <param name="massModel">The populated mass capacity model to format.</param>
+        /// <returns>A formatted rich-text explanation string containing typographic overlay sentinels.</returns>
+        public static string BuildExplanation(MassCapacityModel massModel)
         {
             if (!UnityData.IsInMainThread || massModel == null)
             {
@@ -44,21 +55,16 @@ namespace OverHaulers
 
             try
             {
+                bool verbose = OverHaulers.settings?.verboseBreakdown ?? SettingsDefaults.VerboseBreakdown;
+
                 pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
 
-                // 1. Optional Test Bench Mock Header
-                if (forceFullCard)
-                {
-                    pooledFinalReport.AppendLine("StatsReport_BaseValue".Translate() + ": " + biologicalBaseline.ToStringMass());
-                    pooledFinalReport.AppendLine();
-                }
-
-                // 2. OverHaulers Total Body Rating Line
+                // 1. OverHaulers Total Body Rating Line
                 string totalMultValStr = massModel.TotalMultiplier.ToString("F2");
                 string signedOffsetValStr = massModel.Offset.ToStringMassOffset();
                 pooledFinalReport.AppendLine("OverHaulers_TotalBodyRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
 
-                // 3. Capacities, Impacts & Anatomical Breakdown
+                // 2. Capacities, Impacts & Anatomical Breakdown
                 AppendCapacities(pooledDetailsBuilder, massModel, verbose);
                 AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
                 AppendStructuralSections(pooledDetailsBuilder, massModel, verbose);
@@ -66,15 +72,6 @@ namespace OverHaulers
                 if (pooledDetailsBuilder.Length > 0 || verbose)
                 {
                     pooledFinalReport.Append(pooledDetailsBuilder.ToString());
-                }
-
-                // 4. Optional Test Bench Mock Footer
-                if (forceFullCard)
-                {
-                    float finalValue = massModel.FinalCapacity;
-
-                    pooledFinalReport.AppendLine();
-                    pooledFinalReport.Append("StatsReport_FinalValue".Translate() + ": " + finalValue.ToStringMass());
                 }
 
                 string finalResultString = pooledFinalReport.ToString();
@@ -89,9 +86,12 @@ namespace OverHaulers
             }
         }
 
+        #endregion
+
+        #region 3. ALGORITHMIC BREAKDOWN STAGES
+
         /// <summary>
         /// [VIEW-02] Appends the list of mass capacity levels to the report builder.
-        /// Includes a verbose flag to force display even if no capacity levels are modified.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the report to.</param>
         /// <param name="massModel">The mass capacity model containing the capacity levels.</param>
@@ -125,7 +125,6 @@ namespace OverHaulers
 
         /// <summary>
         /// Appends the list of athletic impacts (ailments) to the report builder.
-        /// Includes a verbose flag to force display even if no athletic impacts are present.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the report to.</param>
         /// <param name="massModel">The mass capacity model containing athletic impacts.</param>
@@ -178,7 +177,6 @@ namespace OverHaulers
 
         /// <summary>
         /// Appends the structural sections of the report, including parts and sub-parts, to the report builder.
-        /// Includes a verbose flag to force display even if no structural modifications are present.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the report sections to.</param>
         /// <param name="massModel">The mass model containing evaluated parts and ailments.</param>
@@ -219,8 +217,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Appends a subtotal row for a given part, displaying the offsets for prosthetic, athletic, and health factors if they are present or if
-        ///  verbose is true.
+        /// Appends a subtotal row for a given part, displaying the offsets for prosthetic, athletic, and health factors.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the subtotal row to.</param>
         /// <param name="part">The part for which to append the subtotal row.</param>
@@ -265,8 +262,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Appends the structural sub-parts of the specified part to the provided StringBuilder, including only modified sub-parts unless verbose
-        ///  mode is enabled.
+        /// Appends the structural sub-parts of the specified part to the provided StringBuilder.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the structural sub-parts will be appended.</param>
         /// <param name="part">The parent part whose structural sub-parts are to be appended.</param>
@@ -296,8 +292,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Recursively appends the structural sub-parts of the specified parent part to the provided StringBuilder, including only modified
-        ///  sub-parts unless verbose mode is enabled.
+        /// Recursively appends the structural sub-parts of the specified parent part to the provided StringBuilder.
         /// </summary>
         /// <param name="statsBuilder">The StringBuilder to which the structural sub-parts will be appended.</param>
         /// <param name="parent">The parent part whose structural sub-parts are to be appended.</param>
@@ -328,8 +323,12 @@ namespace OverHaulers
             }
         }
 
+        #endregion
+
+        #region 4. PRIVATE FORMATTING & MEDICAL COLOR HELPERS
+
         /// <summary>
-        /// Appends a single structural sub-part line to the provided StringBuilder, including details about prosthetics, implants, and damage status.
+        /// Appends a single structural sub-part line to the provided StringBuilder.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the sub-part line will be appended.</param>
         /// <param name="sub">The sub-part whose details are to be appended.</param>
@@ -431,7 +430,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Appends a line representing the capacity of a specific attribute to the provided StringBuilder, including the value and its modification status.
+        /// Appends a line representing the capacity of a specific attribute to the provided StringBuilder.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the capacity line will be appended.</param>
         /// <param name="translationKey">The translation key for the capacity label.</param>
@@ -451,7 +450,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Appends an ailment suffix for the specified part to the provided StringBuilder, if the part has a local ailment.
+        /// Appends an ailment suffix for the specified part to the provided StringBuilder, if present.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the ailment suffix will be appended.</param>
         /// <param name="part">The part whose local ailment is to be appended as a suffix.</param>
@@ -463,8 +462,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines the appropriate color for a medical value based on its magnitude, using configured thresholds for healthy, critical, and
-        ///  boosted states.
+        /// Determines the appropriate color for a medical value based on its magnitude.
         /// </summary>
         /// <param name="value">The medical value for which to determine the color.</param>
         /// <returns>The color corresponding to the specified medical value.</returns>
@@ -543,5 +541,7 @@ namespace OverHaulers
             }
             return false;
         }
+
+        #endregion
     }
 }

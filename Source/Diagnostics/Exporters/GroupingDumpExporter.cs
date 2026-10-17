@@ -377,7 +377,7 @@ namespace OverHaulers
             {
                 PawnAnatomicalSource source = new PawnAnatomicalSource(targetPawn);
                 cleanBaseline = source.ResolveBaselineCapacity();
-                MassCapacitySolver.InspectMassCapacityModel(source, cleanBaseline, massModel);
+                ViewProjection.InspectAndProject(source, cleanBaseline, massModel);
             }
             finally
             {

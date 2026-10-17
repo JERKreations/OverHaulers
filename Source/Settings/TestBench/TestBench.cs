@@ -236,7 +236,7 @@ namespace OverHaulers
                 IAnatomicalDataSource dataSource = new PawnAnatomicalSource(Harness.SandboxPawn);
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
-                MassCapacityEvaluationResult result = MassCapacitySolver.InspectMassCapacityModel(
+                MassCapacityEvaluationResult result = ViewProjection.InspectAndProject(
                     new PawnAnatomicalSource(Harness.SandboxPawn), speciesBaseline, cachedModel);
 
                 lastCalculatedDelta = result.SolvedOffset;
@@ -248,8 +248,7 @@ namespace OverHaulers
                     return GenerateTopologyXRayReport(template, settings, subject);
                 }
 
-                bool verbose = settings?.verboseBreakdown ?? false;
-                string explanation = ReportFormatter.BuildExplanation(cachedModel, verbose, speciesBaseline, forceFullCard: true);
+                string explanation = ReportFormatter.BuildExplanation(cachedModel);
 
                 return explanation ?? string.Empty;
             }

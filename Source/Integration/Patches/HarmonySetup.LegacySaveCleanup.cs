@@ -9,12 +9,17 @@ namespace OverHaulers
     /// [LIFE-02] One-time cleanup for saves written by earlier versions, which stored an empty <c>OverHaulersWorldComponent</c> node.
     /// The class no longer exists, so without this shim RimWorld would log "Could not find class" errors on every load.
     /// The node is stripped from the XML while the world components are being read; the next save no longer contains it.
+    /// Resides under Source/Integration/Patches/.
     /// </summary>
     public static partial class HarmonySetup
     {
-        #region 1. [LIFE-02] LEGACY WORLD COMPONENT NODE REMOVAL
+        #region 1. [LIFE-02] CONSTANTS
 
         private const string LegacyWorldComponentClass = "OverHaulers.OverHaulersWorldComponent";
+
+        #endregion
+
+        #region 2. [LIFE-02] HOOK REGISTRATION & XML SCRUBBER
 
         /// <summary>
         /// Attaches the legacy-node cleanup prefix to <c>World.ExposeComponents</c>.

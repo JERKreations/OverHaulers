@@ -7,19 +7,22 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-01] UNIVERSAL CAPACITY HARMONY BRIDGE
-
     /// <summary>
-    /// Universal Harmony bridge hooking into RimWorld's MassUtility.Capacity.
+    /// [INT-01] Universal Harmony bridge hooking into RimWorld's MassUtility.Capacity.
     /// Serves as the single, universal egress point delivering anatomical mass capacity offsets
     /// to the game engine across all play modes and external mod configurations.
+    /// Resides under Source/Integration/Patches/.
     /// </summary>
     public static partial class HarmonySetup
     {
-        #region 1. DIRECT CAPACITY PATCH BINDING & POSTFIX BRIDGE
+        #region 1. [INT-CAP-01] THREAD-STATIC SCRATCHPADS & CALL DEPTH
 
         [ThreadStatic]
         private static int capacityCallDepth;
+
+        #endregion
+
+        #region 2. [INT-CAP-02] UNIVERSAL CAPACITY PATCH REGISTRATION
 
         /// <summary>
         /// Applies the universal capacity postfix patch to MassUtility.Capacity.
@@ -40,6 +43,10 @@ namespace OverHaulers
 
             harmony.Patch(targetMethod, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix), finalizer: new HarmonyMethod(finalizer));
         }
+
+        #endregion
+
+        #region 3. [INT-CAP-03] HARMONY HOOKS (PREFIX, POSTFIX, FINALIZER)
 
         /// <summary>
         /// Prefix patch tracking call depth to prevent recursive postfix double-dipping.
@@ -102,6 +109,21 @@ namespace OverHaulers
                 SyncExplanationCapacity(explanation, p, __result);
             }
         }
+
+        /// <summary>
+        /// Finalizer guaranteeing the call depth shield is decremented even if the original method or third-party patches throw an exception.
+        /// </summary>
+        private static void MassUtility_Capacity_Finalizer()
+        {
+            if (capacityCallDepth > 0)
+            {
+                capacityCallDepth--;
+            }
+        }
+
+        #endregion
+
+        #region 4. [INT-CAP-04] STRING EXPLANATION SYNCHRONIZATION HELPERS
 
         /// <summary>
         /// Synchronizes vanilla's explanation StringBuilder entry for the pawn with the true post-offset mass capacity.
@@ -186,19 +208,6 @@ namespace OverHaulers
             return -1;
         }
 
-        /// <summary>
-        /// Finalizer guaranteeing the call depth shield is decremented even if the original method or third-party patches throw an exception.
-        /// </summary>
-        private static void MassUtility_Capacity_Finalizer()
-        {
-            if (capacityCallDepth > 0)
-            {
-                capacityCallDepth--;
-            }
-        }
-
         #endregion
     }
-
-    #endregion
 }

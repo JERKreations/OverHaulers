@@ -5,7 +5,7 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. CONSTANTS & METADATA MODELS
+    #region 1. MODELS & ENUMS
 
     /// <summary>
     /// [TEST-05] Identifies the simulated surgical procedure applied to a sandbox pawn joint.
@@ -41,7 +41,7 @@ namespace OverHaulers
     /// </summary>
     public class SandboxPawnHarness : HeadlessPawnShell
     {
-        #region 2. INSTANCE FIELDS & STATE STORAGE
+        #region 2. INSTANCE FIELDS & BACKING STATE
 
         /// <summary>The test subject entry currently bound to this harness.</summary>
         protected TestSubjectEntry boundSubject;
@@ -58,6 +58,10 @@ namespace OverHaulers
         public readonly HashSet<HediffDef> ActiveSimulatedDrugs =
             new HashSet<HediffDef>();
 
+        #endregion
+
+        #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
+
         /// <summary>Gets the active, unspawned sandbox pawn instance (alias to base Pawn).</summary>
         public Pawn SandboxPawn => headlessPawn;
 
@@ -72,11 +76,9 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. CONSTRUCTORS & FACTORY METHODS
+        #region 4. LIFECYCLE, FACTORIES & TEARDOWN
 
-        /// <summary>
-        /// Initializes a new unbound instance of the <see cref="SandboxPawnHarness"/> class.
-        /// </summary>
+        /// <summary>Initializes a new unbound instance of the <see cref="SandboxPawnHarness"/> class.</summary>
         public SandboxPawnHarness()
         {
         }
@@ -90,9 +92,17 @@ namespace OverHaulers
             return new SandboxPawnHarness();
         }
 
+        /// <summary>Tears down the sandbox pawn and clears modification tracking collections.</summary>
+        public override void Teardown()
+        {
+            ClearModifications();
+            boundSubject = null;
+            base.Teardown();
+        }
+
         #endregion
 
-        #region 4. SUBJECT BINDING & HARNESS SYNTHESIS
+        #region 5. PUBLIC CANONICAL BINDING & REBUILD API
 
         /// <summary>
         /// Binds a test subject (live colonist or generic species) to the harness and builds an isolated sandbox pawn.
@@ -107,9 +117,7 @@ namespace OverHaulers
             RebuildSandboxPawn();
         }
 
-        /// <summary>
-        /// Rebuilds the underlying headless pawn shell from the currently bound test subject.
-        /// </summary>
+        /// <summary>Rebuilds the underlying headless pawn shell from the currently bound test subject.</summary>
         public virtual void RebuildSandboxPawn()
         {
             if (boundSubject == null)
@@ -125,11 +133,18 @@ namespace OverHaulers
             RebuildPawnCore(raceDef, source, initializeComps);
         }
 
+        /// <summary>Clears all simulated surgical operations and drug regimens, restoring the sandbox to baseline.</summary>
+        public void ResetToSource()
+        {
+            ClearModifications();
+            SyncHediffsFromSource();
+        }
+
         #endregion
 
-        #region 5. SURGICAL SIMULATION PIPELINE
+        #region 6. SURGICAL SIMULATION PIPELINE
 
-        #region 5A. ARTIFICIAL REPLACEMENT PROCEDURES
+        #region 6A. ARTIFICIAL REPLACEMENT PROCEDURES
 
         /// <summary>
         /// Simulates installing an artificial prosthetic or bionic replacement onto a specific BodyPartRecord.
@@ -140,9 +155,6 @@ namespace OverHaulers
         /// <param name="hediff">The HediffDef representing the replacement to be installed.</param>
         /// <param name="label">The display label for the replacement operation.</param>
         /// <param name="efficiency">The efficiency value for the replacement operation.</param>
-        /// <remarks>
-        /// This method ensures that any existing conflicting implants or replacements are removed before installing the new replacement.
-        /// </remarks>
         public void SimulateReplacement(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label, float efficiency)
         {
             if (headlessPawn?.health == null || part == null || hediff == null) return;
@@ -178,16 +190,13 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5B. AMPUTATIONS & TRAUMA SIMULATION
+        #region 6B. AMPUTATIONS & TRAUMA SIMULATION
 
         /// <summary>
         /// Simulates a surgical amputation or permanent limb loss (0% HP) on the sandbox pawn.
         /// Strictly reserved for structural appendages (Arms, Legs, Hands, Feet, Dual Limbs).
         /// </summary>
         /// <param name="part">The BodyPartRecord representing the part to simulate amputation on.</param>
-        /// <remarks>
-        /// This method ensures that the specified part is cleanly removed and marked as missing, simulating a surgical amputation.
-        /// </remarks>
         public void SimulateAmputation(BodyPartRecord part)
         {
             if (headlessPawn?.health == null || part == null) return;
@@ -218,9 +227,6 @@ namespace OverHaulers
         /// Skips zero-coverage virtual anchor parts (e.g. Waist / apparel hooks) to prevent vanilla hit-validation errors.
         /// </summary>
         /// <param name="part">The BodyPartRecord representing the part to simulate severe trauma on.</param>
-        /// <remarks>
-        /// This method ensures that the part is left with exactly 1 HP, simulating severe trauma without causing immediate destruction.
-        /// </remarks>
         public void SimulateSevereTrauma(BodyPartRecord part)
         {
             if (headlessPawn?.health == null || part == null || part.coverageAbs <= 0f) return;
@@ -301,7 +307,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5C. LOCALIZED IMPLANTS & SYSTEMIC DRUGS
+        #region 6C. LOCALIZED IMPLANTS & SYSTEMIC DRUGS
 
         /// <summary>
         /// Simulates adding a non-replacing localized implant (e.g. Glands, Ribs) onto the sandbox pawn.
@@ -310,9 +316,6 @@ namespace OverHaulers
         /// <param name="recipe">The RecipeDef representing the implant procedure.</param>
         /// <param name="hediff">The HediffDef representing the implant to be added.</param>
         /// <param name="label">The display label for the implant operation.</param>
-        /// <remarks>
-        /// This method ensures that the implant is added only if the part is healthy or has been restored from trauma.
-        /// </remarks>
         public void SimulateAddImplant(BodyPartRecord part, RecipeDef recipe, HediffDef hediff, string label)
         {
             if (headlessPawn?.health == null || part == null || hediff == null) return;
@@ -379,7 +382,7 @@ namespace OverHaulers
         /// <summary>
         /// Toggles a simulated systemic drug, combat stimulant, or whole-body condition on the sandbox pawn.
         /// </summary>
-        /// <param name="drugDef">The drug definition representing the systemic drug, combat stimulant, or whole-body condition to toggle.</param>
+        /// <param name="drugDef">The drug definition representing the condition to toggle.</param>
         public void SimulateToggleDrug(HediffDef drugDef)
         {
             if (headlessPawn?.health == null || drugDef == null) return;
@@ -415,7 +418,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5D. BRANCH REVERSION & DELTA CLEANING
+        #region 6D. BRANCH REVERSION
 
         /// <summary>
         /// Reverts a specific body part and all its descendant branches back to the authentic live health state.
@@ -468,6 +471,12 @@ namespace OverHaulers
             DirtyHealthCache();
         }
 
+        #endregion
+
+        #endregion
+
+        #region 7. PRIVATE HELPERS & DELTA CLEANING
+
         /// <summary>
         /// Determines whether the specified candidate body part is the same as or a descendant of the given root body part.
         /// </summary>
@@ -505,15 +514,6 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clears all simulated surgical operations and drug regimens, restoring the sandbox to baseline.
-        /// </summary>
-        public void ResetToSource()
-        {
-            ClearModifications();
-            SyncHediffsFromSource();
-        }
-
-        /// <summary>
         /// Clears all active modification tracking collections.
         /// </summary>
         protected void ClearModifications()
@@ -521,22 +521,6 @@ namespace OverHaulers
             ReplacementDeltas.Clear();
             ImplantDeltas.Clear();
             ActiveSimulatedDrugs.Clear();
-        }
-
-        #endregion
-
-        #endregion
-
-        #region 6. TEARDOWN & DISPOSAL
-
-        /// <summary>
-        /// Tears down the sandbox pawn and clears modification tracking collections.
-        /// </summary>
-        public override void Teardown()
-        {
-            ClearModifications();
-            boundSubject = null;
-            base.Teardown();
         }
 
         #endregion

@@ -91,8 +91,7 @@ namespace OverHaulers
             {
                 currentEvaluatingPawnId = pawnId;
 
-                MassCapacityEvaluationResult result = MassCapacitySolver.InspectMassCapacityModelForPawn(
-                    pawn, baselineCapacity, entry.Model);
+                MassCapacityEvaluationResult result = ViewProjection.InspectAndProjectForPawn(pawn, baselineCapacity, entry.Model);
 
                 entry.SolvedOffset = result.SolvedOffset;
                 entry.BaselineCapacity = result.BiologicalBaseline;

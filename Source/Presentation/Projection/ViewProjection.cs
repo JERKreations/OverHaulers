@@ -9,7 +9,10 @@ namespace OverHaulers
     /// <summary>
     /// [VIEW-01 to VIEW-04] VIEW PROJECTION COMPILER
     /// Stateless view projection compiler translating mathematical workspace vectors into passive visual node hierarchies.
-    /// Operates on IAnatomicalDataSource with zero transient heap allocations on the main thread via O(1) direct array access and pooled view nodes.
+    /// Operates on IAnatomicalDataSource with zero transient heap allocations on the main thread via O(1) direct array access and pooled
+    ///  view nodes.
+    /// Strictly decoupled from Core mathematical solvers; consumes Core via rented workspace leases.
+    /// Resides under Source/Presentation/Projection/.
     /// </summary>
     public static class ViewProjection
     {
@@ -77,7 +80,105 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. PRIMARY PROJECTION ORCHESTRATORS
+        #region 2. CANONICAL PRESENTATION PROJECTION API
+
+        /// <summary>
+        /// [VIEW-PROJ-01] Canonical Presentation entry point executing full anatomical inspection and projecting
+        /// the solved state into a visual <see cref="MassCapacityModel"/> hierarchy.
+        /// Resides strictly in Presentation, consuming Core via rented workspace leases.
+        /// </summary>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
+        /// <param name="source">The anatomical data source providing biological metrics and def definitions.</param>
+        /// <param name="baselineCapacity">The pawn's biological baseline capacity in kilograms.</param>
+        /// <param name="targetModel">The target mass model to populate with visual tree nodes and explanations.</param>
+        /// <returns>A populated <see cref="MassCapacityEvaluationResult"/> value containing all solved metrics.</returns>
+        public static MassCapacityEvaluationResult InspectAndProject<TSource>(
+            TSource source,
+            float baselineCapacity,
+            MassCapacityModel targetModel) where TSource : struct, IAnatomicalDataSource
+        {
+            if (!source.IsValidBiologicalState || targetModel == null)
+            {
+                targetModel?.ResetPool();
+                return MassCapacityEvaluationResult.Fallback;
+            }
+
+            try
+            {
+                using (WorkspacePool.WorkspaceLease lease = WorkspacePool.LeaseWorkspace())
+                {
+                    AnatomicalWorkspace workspace = lease.Workspace;
+
+                    // Ingress and solve with cold metadata enabled for UI tooltips
+                    MassCapacityEvaluationResult result = MassCapacitySolver.SolveSource(
+                        source, baselineCapacity, workspace, populateColdMetadata: true);
+
+                    if (result.BiologicalBaseline <= 0f && Math.Abs(result.SolvedOffset - MassCapacitySolver.FallbackMassOffsetKg) < 0.001f)
+                    {
+                        targetModel.ResetPool();
+                        return result;
+                    }
+
+                    // Populate presentation model properties
+                    targetModel.ResetPool();
+                    targetModel.Offset = result.SolvedOffset;
+                    targetModel.FinalCapacity = result.FinalCapacity;
+                    targetModel.TotalMultiplier = result.TotalMultiplier;
+
+                    // BREAKPOINT ANCHOR: Build visual projection hierarchy while workspace is pinned
+                    RebuildDetailedModelForSource(source, targetModel, result.SolvedOffset, baselineCapacity, workspace);
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                string targetName = source.EntityLabel ?? "Unknown";
+                OHLog.Presentation.Warn("InfoCard", ex, $"Failed to inspect and project view for pawn {targetName}.");
+                targetModel?.ResetPool();
+                return MassCapacityEvaluationResult.Fallback;
+            }
+        }
+
+        /// <summary>
+        /// [VIEW-PROJ-02] Secondary presentation entry point projecting a live RimWorld <see cref="Pawn"/>.
+        /// </summary>
+        public static MassCapacityEvaluationResult InspectAndProjectForPawn(
+            Pawn pawn,
+            float baselineCapacity,
+            MassCapacityModel targetModel)
+        {
+            if (pawn == null || targetModel == null)
+            {
+                targetModel?.ResetPool();
+                return MassCapacityEvaluationResult.Fallback;
+            }
+
+            PawnAnatomicalSource source = new PawnAnatomicalSource(pawn);
+            return InspectAndProject(source, baselineCapacity, targetModel);
+        }
+
+        /// <summary>
+        /// [VIEW-PROJ-03] Secondary presentation entry point projecting a boxed <see cref="IAnatomicalDataSource"/>.
+        /// </summary>
+        public static MassCapacityEvaluationResult InspectAndProjectForSource(
+            IAnatomicalDataSource source,
+            float baselineCapacity,
+            MassCapacityModel targetModel)
+        {
+            if (source == null || !source.IsValidBiologicalState || targetModel == null)
+            {
+                targetModel?.ResetPool();
+                return MassCapacityEvaluationResult.Fallback;
+            }
+
+            BoxedDataSourceWrapper wrapper = new BoxedDataSourceWrapper(source);
+            return InspectAndProject(wrapper, baselineCapacity, targetModel);
+        }
+
+        #endregion
+
+        #region 3. SECONDARY ENTRY POINTS & ENGINE REBUILDERS
 
         /// <summary>
         /// Projects the compiled anatomical workspace into a passive visual node hierarchy for UI rendering.
@@ -115,7 +216,7 @@ namespace OverHaulers
                 SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(bodyDef);
                 if (template == null) return;
 
-                // Snapshot Biological Capacities
+                // Snapshot Biological Capacities (synchronizing workspace cached consciousness)
                 // This captures the current state of the pawn's biological capacities for use in the view projection.
                 BiologicalCapacitySnapshot capacitySnapshot;
 
@@ -126,7 +227,9 @@ namespace OverHaulers
                     capacitySnapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
                     capacitySnapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
                     capacitySnapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
-                    capacitySnapshot.Consciousness = source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
+                    capacitySnapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
+                        ? workspace.CachedConsciousness
+                        : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
                 }
                 // If no source is available, initialize the biological capacity snapshot with values derived from the mass model.
                 else
@@ -219,9 +322,8 @@ namespace OverHaulers
                     ProcessAndAddGroupWrapper(pooledGroupSubModels[typeIndex], (PartType)typeIndex, context, massModel, template);
                 }
 
-                // Build a detailed explanation of the mass model, optionally including verbose breakdowns.
-                bool verbose = OverHaulers.settings?.verboseBreakdown ?? false;
-                massModel.Explanation = ReportFormatter.BuildExplanation(massModel, verbose, biologicalBaseline);
+                // Build a detailed explanation of the mass model, using canonical single-parameter SSoT
+                massModel.Explanation = ReportFormatter.BuildExplanation(massModel);
             }
             catch (Exception ex)
             {
@@ -258,11 +360,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. GROUP CONSOLIDATION & NESTING HELPERS
+        #region 4. GROUP CONSOLIDATION & NESTING PIPELINE
 
         /// <summary>
         /// Processes a group of sub-models, consolidates them into a single wrapper node, nests the sub-models in place, and adds the wrapper
-        ///  to the mass model.
+        /// to the mass model.
         /// </summary>
         /// <param name="subModels">The list of sub-models to be processed and added.</param>
         /// <param name="type">The type of the part group being processed.</param>
@@ -326,7 +428,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Consolidates a group of sub-models into a single wrapper node, calculating cumulative offsets, efficiencies, and health metrics,
-        ///  while ignoring neutralized parts.
+        /// while ignoring neutralized parts.
         /// </summary>
         /// <param name="subModels">The list of sub-models to be consolidated.</param>
         /// <param name="type">The type of the part group being consolidated.</param>
@@ -380,8 +482,7 @@ namespace OverHaulers
                 {
                     effectiveEfficiency = 0f;
                 }
-                // If the sub-model is neither missing nor has a prosthetic, it is considered a natural part and its efficiency is
-                //  calculated accordingly.
+                // If the sub-model is neither missing nor has a prosthetic, it is considered a natural part and its efficiency is calculated accordingly.
                 else if (subModel.HasProsthetic)
                 {
                     effectiveEfficiency = subModel.EfficiencyRating;
@@ -394,8 +495,7 @@ namespace OverHaulers
                         dominantProstheticColor = subModel.ProstheticColor;
                     }
                 }
-                // If the sub-model has a prosthetic, its efficiency is taken directly from its rating and it may influence the dominant
-                //  prosthetic tracking.
+                // If the sub-model has a prosthetic, its efficiency is taken directly from its rating and it may influence the dominant prosthetic tracking.
                 else
                 {
                     float healthLoss = 1.0f - subModel.HealthFraction;
@@ -517,7 +617,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. LOW-LEVEL FACTORIES & CATEGORIZERS
+        #region 5. LOW-LEVEL FACTORIES & CATEGORIZERS
 
         /// <summary>
         /// Creates a new PartViewNode for the specified body part, initializing it with the given parameters and workspace state.

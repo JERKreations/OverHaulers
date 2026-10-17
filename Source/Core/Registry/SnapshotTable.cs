@@ -37,7 +37,7 @@ namespace OverHaulers
     /// </remarks>
     public sealed class SnapshotTable
     {
-        #region 1. ZERO-ALLOCATION BIT-CAST STRUCT UNION
+        #region 1. CONSTANTS & STRUCT UNIONS
 
         /// <summary>
         /// Overlays two 32-bit floats on one 64-bit integer so both can be read or written as a single atomic word.
@@ -50,10 +50,6 @@ namespace OverHaulers
             [FieldOffset(0)] public long Packed;
         }
 
-        #endregion
-
-        #region 2. STORAGE CONSTANTS & PACKED DATA TABLES
-
         /// <summary>Default slot count of the live table, accommodating maximum active simultaneous map populations.</summary>
         public const int DefaultCapacity = 4096;
 
@@ -65,6 +61,10 @@ namespace OverHaulers
 
         /// <summary>Knuth's 32-bit golden ratio multiplicative hash constant.</summary>
         private const uint HashMultiplier = 2654435761u;
+
+        #endregion
+
+        #region 2. INSTANCE FIELDS & BACKING STATE
 
         private readonly int capacity;
         private readonly uint mask;
@@ -88,12 +88,14 @@ namespace OverHaulers
         private long readerTimeouts;
         private long displacedWrites;
 
+        #endregion
+
+        #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
+
         /// <summary>Slot count of this table.</summary>
         public int Capacity => capacity;
 
-        /// <summary>
-        /// Retrieves the exact count of occupied, non-zero slots currently residing in the atomic table.
-        /// </summary>
+        /// <summary>Retrieves the exact count of occupied, non-zero slots currently residing in the atomic table.</summary>
         public int OccupiedSlotsCount => Volatile.Read(ref occupiedSlots);
 
         /// <summary>Number of reader retries caused by concurrent writer mutations since creation or the last <see cref="ResetCounters"/>.</summary>
@@ -105,8 +107,12 @@ namespace OverHaulers
         /// <summary>Number of writes that found the probe window saturated and displaced the root occupant.</summary>
         public long DisplacedWrites => Interlocked.Read(ref displacedWrites);
 
+        #endregion
+
+        #region 4. LIFECYCLE & RESET METHODS
+
         /// <summary>
-        /// Creates a new table.
+        /// Creates a new atomic snapshot table.
         /// </summary>
         /// <param name="capacity">Slot count; must be a power of two and at least twice <see cref="MaxProbeSteps"/>.</param>
         /// <param name="forwardTelemetry">
@@ -127,204 +133,40 @@ namespace OverHaulers
             slotPackedData = new long[capacity];
         }
 
-        #endregion
-
-        #region 3. [CACHE-03] PACKING, HASHING & BACK-OFF PRIMITIVES
-
         /// <summary>
-        /// Packs two 32-bit floating point metrics (Offset in kg and Multiplier) into a single atomic 64-bit integer with 0 GC overhead.
+        /// [CACHE-03] Completely flushes the atomic snapshot table on save load or world reset.
+        /// Resets active occupied slot metrics to baseline zero.
         /// </summary>
-        /// <param name="offset">Caravan mass capacity offset in kg.</param>
-        /// <param name="multiplier">Total physical mass multiplier.</param>
-        /// <returns>A packed 64-bit integer.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long Pack(float offset, float multiplier)
+        public void Reset()
         {
-            FloatPairUnion union = default;
-            union.Offset = offset;
-            union.Multiplier = multiplier;
-            return union.Packed;
+            // BREAKPOINT ANCHOR: Snapshot Registry Flush
+            Interlocked.Increment(ref tableVersion);
+
+            try
+            {
+                Array.Clear(slotPawnIds, 0, capacity);
+                Array.Clear(slotPackedData, 0, capacity);
+                occupiedSlots = 0;
+            }
+            finally
+            {
+                Interlocked.Increment(ref tableVersion);
+            }
         }
 
         /// <summary>
-        /// Unpacks a 64-bit integer into its constituent 32-bit floating point metrics with 0 GC overhead.
+        /// Zeroes the instance-local retry, timeout and displacement counters.
         /// </summary>
-        /// <param name="packed">The packed 64-bit integer.</param>
-        /// <param name="offset">Extracted caravan mass capacity offset in kg.</param>
-        /// <param name="multiplier">Extracted physical mass multiplier.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Unpack(long packed, out float offset, out float multiplier)
+        public void ResetCounters()
         {
-            FloatPairUnion union = default;
-            union.Packed = packed;
-            offset = union.Offset;
-            multiplier = union.Multiplier;
-        }
-
-        /// <summary>
-        /// Short exponential spin so a reader that collided with an in-flight writer does not burn all of its retries instantly.
-        /// </summary>
-        /// <param name="retry">The zero-based retry number about to be attempted.</param>
-        private static void BackOffBeforeRetry(int retry)
-        {
-            Thread.SpinWait(32 << Math.Min(retry, 6));
-        }
-
-        /// <summary>
-        /// Applies multiplicative hashing to uniformly diffuse sequential pawn IDs across the power-of-two table.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint GetNaturalSlot(int pawnId)
-        {
-            return ((uint)pawnId * HashMultiplier) & mask;
-        }
-
-        /// <summary>
-        /// Returns the slot a pawn ID hashes to in this table. Exposed so diagnostics can construct deliberate collisions.
-        /// </summary>
-        /// <param name="pawnId">The pawn ID to hash.</param>
-        /// <returns>The natural (root) slot index of the ID.</returns>
-        public int NaturalSlotOf(int pawnId)
-        {
-            return (int)GetNaturalSlot(pawnId);
+            Interlocked.Exchange(ref readerRetries, 0);
+            Interlocked.Exchange(ref readerTimeouts, 0);
+            Interlocked.Exchange(ref displacedWrites, 0);
         }
 
         #endregion
 
-        #region 4. [CACHE-03] LOCK-FREE BACKGROUND READ PATHS
-
-        /// <summary>
-        /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity offset (kg) from any thread.
-        /// Fully lock-free, zero-allocation, and linearizable via optimistic SeqLock reads.
-        /// Thin pass-through to <see cref="TryReadPackedSnapshot"/>, the single canonical read implementation.
-        /// </summary>
-        /// <param name="pawnId">The target pawn's unique ID.</param>
-        /// <returns>The physical offset in kg (defaults to 0.0f if not cached).</returns>
-        public float GetOffsetThreadSafe(int pawnId)
-        {
-            if (pawnId <= 0) return 0f;
-
-            if (TryReadPackedSnapshot(pawnId, out long packed))
-            {
-                Unpack(packed, out float offset, out _);
-                return offset;
-            }
-
-            return 0f;
-        }
-
-        /// <summary>
-        /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity multiplier from any thread.
-        /// Thin pass-through to <see cref="TryReadPackedSnapshot"/>, the single canonical read implementation.
-        /// </summary>
-        /// <param name="pawnId">The target pawn's unique ID.</param>
-        /// <returns>The mass multiplier (defaults to 1.0f if not cached or not positive).</returns>
-        public float GetMultiplierThreadSafe(int pawnId)
-        {
-            if (pawnId <= 0) return 1.0f;
-
-            if (TryReadPackedSnapshot(pawnId, out long packed))
-            {
-                Unpack(packed, out _, out float multiplier);
-                return multiplier <= 0f ? 1.0f : multiplier;
-            }
-
-            return 1.0f;
-        }
-
-        /// <summary>
-        /// [CACHE-03] Single canonical lock-free read path: probes the table under an optimistic SeqLock window and returns
-        /// the packed (offset, multiplier) payload of a pawn. Retries when a writer mutation overlaps the read, and gives up
-        /// after <see cref="MaxReaderRetries"/> attempts. Records hit, miss, retry and timeout telemetry.
-        /// </summary>
-        /// <remarks>
-        /// Force-inlined into both public readers: measured with the diagnostics benchmark, leaving this as a real call cost
-        /// roughly 1-1.5 ns (20-25%) per read, while inlining matches the former duplicated loops exactly.
-        /// Ordering contract: the first version sample and every probe/payload read are acquire loads (Volatile.Read), so a
-        /// validated read (even, unchanged version) can only have observed a fully published state.
-        /// </remarks>
-        /// <param name="pawnId">The target pawn's unique ID; must be positive.</param>
-        /// <param name="packed">The packed payload when found; 0 otherwise.</param>
-        /// <returns>True if the pawn was found in a validated, untorn read; false on a miss or a contention timeout.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool TryReadPackedSnapshot(int pawnId, out long packed)
-        {
-            uint baseSlot = GetNaturalSlot(pawnId);
-
-            for (int retry = 0; retry < MaxReaderRetries; retry++)
-            {
-                // BREAKPOINT ANCHOR: Reader Contention Retry Tracking
-                if (retry > 0)
-                {
-                    Interlocked.Increment(ref readerRetries);
-                    if (forwardTelemetry) PerformanceTelemetry.IncrementReaderRetry();
-                    BackOffBeforeRetry(retry);
-                }
-
-                int v1 = Volatile.Read(ref tableVersion);
-                if ((v1 & 1) != 0)
-                {
-                    // Mutation in flight on the writer thread; retry probe
-                    continue;
-                }
-
-                long candidatePayload = 0L;
-                bool found = false;
-
-                // BREAKPOINT ANCHOR: Bounded Linear Probe Search (Max 16 Steps)
-                for (uint i = 0; i < MaxProbeSteps; i++)
-                {
-                    uint slot = (baseSlot + i) & mask;
-                    int candidateId = Volatile.Read(ref slotPawnIds[slot]);
-
-                    if (candidateId == pawnId)
-                    {
-                        candidatePayload = Volatile.Read(ref slotPackedData[slot]);
-                        found = true;
-                        break;
-                    }
-
-                    // If an empty slot is encountered, the key does not exist in the probe chain
-                    if (candidateId == 0) break;
-                }
-
-                // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
-                // No explicit full fence is needed before the second version sample: every probe and payload read above is a
-                // Volatile.Read (acquire), so this later read cannot be reordered before any of them, and the writer brackets its
-                // mutations with full-fence Interlocked increments. Measured on Unity's Mono, the former Thread.MemoryBarrier()
-                // accounted for roughly two thirds of the cost of a read (about 14 of 21 ns).
-                int v2 = Volatile.Read(ref tableVersion);
-                if (v1 == v2)
-                {
-                    // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
-                    if (found)
-                    {
-                        if (forwardTelemetry) PerformanceTelemetry.IncrementBackgroundHit();
-                        packed = candidatePayload;
-                        return true;
-                    }
-
-                    if (forwardTelemetry) PerformanceTelemetry.IncrementBackgroundMiss();
-                    packed = 0L;
-                    return false;
-                }
-            }
-
-            // BREAKPOINT ANCHOR: Reader Contention Timeout Fallback
-            Interlocked.Increment(ref readerTimeouts);
-            if (forwardTelemetry)
-            {
-                PerformanceTelemetry.IncrementReaderTimeout();
-                PerformanceTelemetry.IncrementBackgroundMiss();
-            }
-
-            packed = 0L;
-            return false;
-        }
-
-        #endregion
-
-        #region 5. [CACHE-03] SINGLE-WRITER SYNCHRONIZED SINK & EVICTION OPERATIONS
+        #region 5. PUBLIC CANONICAL MUTATION & READ API
 
         /// <summary>
         /// [CACHE-03] Writes or updates calculated Caravan Mass Capacity parameters into the atomic table.
@@ -435,7 +277,153 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Internal implementation of the backward-shift deletion (Algorithm R) for evicting a pawn entry from the table.
+        /// [CACHE-03] Single canonical lock-free read path: probes the table under an optimistic SeqLock window and returns
+        /// the packed (offset, multiplier) payload of a pawn. Retries when a writer mutation overlaps the read, and gives up
+        /// after <see cref="MaxReaderRetries"/> attempts. Records hit, miss, retry and timeout telemetry.
+        /// </summary>
+        /// <remarks>
+        /// Force-inlined into both public readers: measured with the diagnostics benchmark, leaving this as a real call cost
+        /// roughly 1-1.5 ns (20-25%) per read, while inlining matches the former duplicated loops exactly.
+        /// Ordering contract: the first version sample and every probe/payload read are acquire loads (Volatile.Read), so a
+        /// validated read (even, unchanged version) can only have observed a fully published state.
+        /// </remarks>
+        /// <param name="pawnId">The target pawn's unique ID; must be positive.</param>
+        /// <param name="packed">The packed payload when found; 0 otherwise.</param>
+        /// <returns>True if the pawn was found in a validated, untorn read; false on a miss or a contention timeout.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryReadPackedSnapshot(int pawnId, out long packed)
+        {
+            uint baseSlot = GetNaturalSlot(pawnId);
+
+            for (int retry = 0; retry < MaxReaderRetries; retry++)
+            {
+                // BREAKPOINT ANCHOR: Reader Contention Retry Tracking
+                if (retry > 0)
+                {
+                    Interlocked.Increment(ref readerRetries);
+                    if (forwardTelemetry) PerformanceTelemetry.IncrementReaderRetry();
+                    BackOffBeforeRetry(retry);
+                }
+
+                int v1 = Volatile.Read(ref tableVersion);
+                if ((v1 & 1) != 0)
+                {
+                    // Mutation in flight on the writer thread; retry probe
+                    continue;
+                }
+
+                long candidatePayload = 0L;
+                bool found = false;
+
+                // BREAKPOINT ANCHOR: Bounded Linear Probe Search (Max 16 Steps)
+                for (uint i = 0; i < MaxProbeSteps; i++)
+                {
+                    uint slot = (baseSlot + i) & mask;
+                    int candidateId = Volatile.Read(ref slotPawnIds[slot]);
+
+                    if (candidateId == pawnId)
+                    {
+                        candidatePayload = Volatile.Read(ref slotPackedData[slot]);
+                        found = true;
+                        break;
+                    }
+
+                    // If an empty slot is encountered, the key does not exist in the probe chain
+                    if (candidateId == 0) break;
+                }
+
+                // BREAKPOINT ANCHOR: SeqLock Optimistic Read Validation
+                // No explicit full fence is needed before the second version sample: every probe and payload read above is a
+                // Volatile.Read (acquire), so this later read cannot be reordered before any of them, and the writer brackets its
+                // mutations with full-fence Interlocked increments.
+                int v2 = Volatile.Read(ref tableVersion);
+                if (v1 == v2)
+                {
+                    // BREAKPOINT ANCHOR: Atomic Performance Counter Increment
+                    if (found)
+                    {
+                        if (forwardTelemetry) PerformanceTelemetry.IncrementBackgroundHit();
+                        packed = candidatePayload;
+                        return true;
+                    }
+
+                    if (forwardTelemetry) PerformanceTelemetry.IncrementBackgroundMiss();
+                    packed = 0L;
+                    return false;
+                }
+            }
+
+            // BREAKPOINT ANCHOR: Reader Contention Timeout Fallback
+            Interlocked.Increment(ref readerTimeouts);
+            if (forwardTelemetry)
+            {
+                PerformanceTelemetry.IncrementReaderTimeout();
+                PerformanceTelemetry.IncrementBackgroundMiss();
+            }
+
+            packed = 0L;
+            return false;
+        }
+
+        #endregion
+
+        #region 6. SECONDARY THREAD-SAFE READERS & DIAGNOSTIC HOOKS
+
+        /// <summary>
+        /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity offset (kg) from any thread.
+        /// Fully lock-free, zero-allocation, and linearizable via optimistic SeqLock reads.
+        /// Thin pass-through to <see cref="TryReadPackedSnapshot"/>, the single canonical read implementation.
+        /// </summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <returns>The physical offset in kg (defaults to 0.0f if not cached).</returns>
+        public float GetOffsetThreadSafe(int pawnId)
+        {
+            if (pawnId <= 0) return 0f;
+
+            if (TryReadPackedSnapshot(pawnId, out long packed))
+            {
+                Unpack(packed, out float offset, out _);
+                return offset;
+            }
+
+            return 0f;
+        }
+
+        /// <summary>
+        /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity multiplier from any thread.
+        /// Thin pass-through to <see cref="TryReadPackedSnapshot"/>, the single canonical read implementation.
+        /// </summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <returns>The mass multiplier (defaults to 1.0f if not cached or not positive).</returns>
+        public float GetMultiplierThreadSafe(int pawnId)
+        {
+            if (pawnId <= 0) return 1.0f;
+
+            if (TryReadPackedSnapshot(pawnId, out long packed))
+            {
+                Unpack(packed, out _, out float multiplier);
+                return multiplier <= 0f ? 1.0f : multiplier;
+            }
+
+            return 1.0f;
+        }
+
+        /// <summary>
+        /// Returns the slot a pawn ID hashes to in this table. Exposed so diagnostics can construct deliberate collisions.
+        /// </summary>
+        /// <param name="pawnId">The pawn ID to hash.</param>
+        /// <returns>The natural (root) slot index of the ID.</returns>
+        public int NaturalSlotOf(int pawnId)
+        {
+            return (int)GetNaturalSlot(pawnId);
+        }
+
+        #endregion
+
+        #region 7. ALGORITHMIC CLUSTER SWEEPS (ALGORITHM R)
+
+        /// <summary>
+        /// Internal implementation of backward-shift deletion (Algorithm R) for evicting a pawn entry from the table.
         /// Decrements the active table occupancy counter when a slot is cleared.
         /// </summary>
         /// <param name="pawnId">The unique identifier of the pawn to evict from the table.</param>
@@ -514,35 +502,56 @@ namespace OverHaulers
             return true;
         }
 
-        /// <summary>
-        /// [CACHE-03] Completely flushes the atomic snapshot table on save load or world reset.
-        /// Resets active occupied slot metrics to baseline zero.
-        /// </summary>
-        public void Reset()
-        {
-            // BREAKPOINT ANCHOR: Snapshot Registry Flush
-            Interlocked.Increment(ref tableVersion);
+        #endregion
 
-            try
-            {
-                Array.Clear(slotPawnIds, 0, capacity);
-                Array.Clear(slotPackedData, 0, capacity);
-                occupiedSlots = 0;
-            }
-            finally
-            {
-                Interlocked.Increment(ref tableVersion);
-            }
+        #region 8. HASHING PRIMITIVES & PRIVATE HELPERS
+
+        /// <summary>
+        /// Packs two 32-bit floating point metrics (Offset in kg and Multiplier) into a single atomic 64-bit integer with 0 GC overhead.
+        /// </summary>
+        /// <param name="offset">Caravan mass capacity offset in kg.</param>
+        /// <param name="multiplier">Total physical mass multiplier.</param>
+        /// <returns>A packed 64-bit integer.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long Pack(float offset, float multiplier)
+        {
+            FloatPairUnion union = default(FloatPairUnion);
+            union.Offset = offset;
+            union.Multiplier = multiplier;
+            return union.Packed;
         }
 
         /// <summary>
-        /// Zeroes the instance-local retry, timeout and displacement counters.
+        /// Unpacks a 64-bit integer into its constituent 32-bit floating point metrics with 0 GC overhead.
         /// </summary>
-        public void ResetCounters()
+        /// <param name="packed">The packed 64-bit integer.</param>
+        /// <param name="offset">Extracted caravan mass capacity offset in kg.</param>
+        /// <param name="multiplier">Extracted physical mass multiplier.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Unpack(long packed, out float offset, out float multiplier)
         {
-            Interlocked.Exchange(ref readerRetries, 0);
-            Interlocked.Exchange(ref readerTimeouts, 0);
-            Interlocked.Exchange(ref displacedWrites, 0);
+            FloatPairUnion union = default(FloatPairUnion);
+            union.Packed = packed;
+            offset = union.Offset;
+            multiplier = union.Multiplier;
+        }
+
+        /// <summary>
+        /// Short exponential spin so a reader that collided with an in-flight writer does not burn all of its retries instantly.
+        /// </summary>
+        /// <param name="retry">The zero-based retry number about to be attempted.</param>
+        private static void BackOffBeforeRetry(int retry)
+        {
+            Thread.SpinWait(32 << Math.Min(retry, 6));
+        }
+
+        /// <summary>
+        /// Applies multiplicative hashing to uniformly diffuse sequential pawn IDs across the power-of-two table.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private uint GetNaturalSlot(int pawnId)
+        {
+            return ((uint)pawnId * HashMultiplier) & mask;
         }
 
         #endregion

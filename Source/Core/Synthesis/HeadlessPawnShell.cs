@@ -29,10 +29,14 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. INSTANCE FIELDS & PROPERTIES
+        #region 2. INSTANCE FIELDS & BACKING STATE
 
         protected Pawn headlessPawn;
         protected Pawn sourcePawn;
+
+        #endregion
+
+        #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
 
         /// <summary>Gets the active unspawned pawn shell.</summary>
         public Pawn Pawn => headlessPawn;
@@ -45,8 +49,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. LIFECYCLE & FACTORY METHODS
+        #region 4. LIFECYCLE, FACTORIES & DISPOSAL
 
+        /// <summary>
+        /// Initializes a new empty instance of the <see cref="HeadlessPawnShell"/> class.
+        /// </summary>
         public HeadlessPawnShell()
         {
         }
@@ -77,9 +84,34 @@ namespace OverHaulers
             return shell;
         }
 
+        /// <summary>
+        /// Performs cleanup and disposal of the headless pawn shell, clearing references to the headless and source pawns.
+        /// This method should be called when the headless pawn shell is no longer needed to ensure proper resource management.
+        /// </summary>
+        public virtual void Teardown()
+        {
+            if (headlessPawn != null)
+            {
+                headlessPawn.health?.hediffSet?.Clear();
+                headlessPawn.health?.capacities?.Clear();
+                headlessPawn = null;
+            }
+            sourcePawn = null;
+        }
+
+        /// <summary>
+        /// Disposes of the headless pawn shell by invoking the Teardown method and suppressing finalization.
+        /// This ensures that all resources are properly released and prevents the finalizer from running.
+        /// </summary>
+        public void Dispose()
+        {
+            Teardown();
+            GC.SuppressFinalize(this);
+        }
+
         #endregion
 
-        #region 4. PAWN SYNTHESIS ENGINE
+        #region 5. CANONICAL SYNTHESIS API
 
         /// <summary>
         /// Allocates a detached Pawn shell and initializes physiological state.
@@ -88,7 +120,6 @@ namespace OverHaulers
         /// <param name="raceDef">The species ThingDef to synthesize.</param>
         /// <param name="source">The live pawn to clone traits and hediffs from, if any.</param>
         /// <param name="initializeComps">If true (mid-game), fully initializes ThingComps.</param>
-        /// <returns>A rebuilt headless pawn shell instance.</returns>
         public virtual void RebuildPawnCore(ThingDef raceDef, Pawn source, bool initializeComps)
         {
             Teardown();
@@ -285,7 +316,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. PRIVATE HELPERS & REFLECTION PRIMITIVES
+        #region 6. SYNTHESIS PIPELINE STAGES
 
         /// <summary>
         /// Marks the headless pawn's health cache as dirty, forcing a recalculation of capacities and hediffs.
@@ -298,6 +329,10 @@ namespace OverHaulers
                 headlessPawn.health.hediffSet?.DirtyCache();
             }
         }
+
+        #endregion
+
+        #region 7. PRIVATE REFLECTION & STRUCTURAL HELPERS
 
         /// <summary>
         /// Safely sets the value of a field on the target object using reflection, catching any exceptions that may occur.
@@ -323,7 +358,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Calculates the depth of the specified body part within the pawn's body hierarchy. A root part has a depth of 0, its immediate
-        ///  children have a depth of 1, and so on.
+        /// children have a depth of 1, and so on.
         /// </summary>
         /// <param name="part">The body part record whose depth is to be calculated.</param>
         /// <returns>The depth of the body part within the body hierarchy, or -1 if the part is null.</returns>
@@ -343,7 +378,7 @@ namespace OverHaulers
         /// <summary>
         /// Resolves the appropriate PawnKindDef for the specified race definition. If the race has a predefined AnyPawnKind, it is returned.
         /// Otherwise, it searches the database for a matching PawnKindDef. Falls back to "Colonist" or the first available PawnKindDef if no
-        ///  match is found.
+        /// match is found.
         /// </summary>
         /// <param name="raceDef">The ThingDef representing the race for which to resolve the PawnKindDef.</param>
         /// <returns>The resolved PawnKindDef for the specified race, or a fallback if none is found.</returns>
@@ -369,38 +404,6 @@ namespace OverHaulers
             }
 
             return DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist") ?? DefDatabase<PawnKindDef>.AllDefsListForReading?.FirstOrDefault();
-        }
-
-        #endregion
-
-        #region 6. TEARDOWN & DISPOSAL
-
-        /// <summary>
-        /// Performs cleanup and disposal of the headless pawn shell, clearing references to the headless and source pawns.
-        /// This method should be called when the headless pawn shell is no longer needed to ensure proper resource management.
-        /// </summary>
-        public virtual void Teardown()
-        {
-            if (headlessPawn != null)
-            {
-                headlessPawn.health?.hediffSet?.Clear();
-                headlessPawn.health?.capacities?.Clear();
-                headlessPawn = null;
-            }
-            sourcePawn = null;
-        }
-
-        /// <summary>
-        /// Disposes of the headless pawn shell by invoking the Teardown method and suppressing finalization.
-        /// This ensures that all resources are properly released and prevents the finalizer from running.
-        /// </summary>
-        /// <remarks>
-        /// It is recommended to call Dispose when the headless pawn shell is no longer needed to ensure proper resource management.
-        /// </remarks>
-        public void Dispose()
-        {
-            Teardown();
-            GC.SuppressFinalize(this);
         }
 
         #endregion

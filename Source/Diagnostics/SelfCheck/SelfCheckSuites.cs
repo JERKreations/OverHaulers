@@ -326,9 +326,9 @@ namespace OverHaulers
             UniqueList<int> source = new UniqueList<int>();
             source.Add(2);
             source.Add(3);
-            target.AddRange(source);
-            target.AddRange(null);
-            Expect.Equal(3, target.Count, "count after AddRange");
+            target.AddRangeFromUniqueList(source);
+            target.AddRangeFromUniqueList(null);
+            Expect.Equal(3, target.Count, "count after AddRangeFromUniqueList");
 
             List<int> seen = new List<int>();
             foreach (int value in target) seen.Add(value);

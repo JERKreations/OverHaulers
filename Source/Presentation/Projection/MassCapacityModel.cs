@@ -136,7 +136,7 @@ namespace OverHaulers
         public void AddAilmentsRangeUnique(UniqueList<string> source)
         {
             if (source == null) return;
-            Ailments.AddRange(source);
+            Ailments.AddRangeFromUniqueList(source);
         }
 
         /// <summary>

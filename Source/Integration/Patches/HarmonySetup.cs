@@ -3,30 +3,38 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-01] HARMONY BOOTSTRAP & ORCHESTRATION
-    
     /// <summary>
     /// [INT-01] Central Harmony bootstrap orchestrator.
     /// Manages master patch registration pipelines, dynamic safety hook lifecycles,
     /// and third-party compatibility bridges across modular partial domains.
+    /// Resides under Source/Integration/Patches/.
     /// </summary>
     [StaticConstructorOnStartup]
     public static partial class HarmonySetup
     {
+        #region 1. STATIC STATE & HARMONY INSTANCE
+
         /// <summary>Active Harmony instance handle used for dynamic driver rebinding.</summary>
         public static Harmony HarmonyInstance { get; private set; }
 
         private static bool isCompatibilityInitialized = false;
+
+        #endregion
+
+        #region 2. LIFECYCLE & STATIC CONSTRUCTOR
 
         static HarmonySetup()
         {
             InitializeCompatibilityLayer();
         }
 
+        #endregion
+
+        #region 3. MASTER COMPATIBILITY INITIALIZATION PIPELINE
+
         /// <summary>
         /// Initializes the compatibility layer for the OverHaulers mod, setting up Harmony patches and integration pipelines.
         /// Ensures that all necessary hooks and safety measures are applied before the mod becomes active.
-        /// This method is called automatically during the static constructor of the HarmonySetup class.
         /// </summary>
         private static void InitializeCompatibilityLayer()
         {
@@ -57,6 +65,10 @@ namespace OverHaulers
             // 6. Permanent branchless safety shields and main-menu fallbacks
             Guarded("Safety.InstallPermanentShields", () => InstallPermanentSafetyShields(HarmonyInstance));
         }
+
+        #endregion
+
+        #region 4. PRIVATE GUARDED EXECUTION & REFLECTION HELPERS
 
         /// <summary>
         /// Runs a single patch installation step, logging (rather than propagating) any failure so that
@@ -89,7 +101,7 @@ namespace OverHaulers
             }
             return new HarmonyMethod(method);
         }
-    }
 
-    #endregion
+        #endregion
+    }
 }

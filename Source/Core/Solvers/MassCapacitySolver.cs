@@ -8,13 +8,19 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-03 & PASS-04] CORE MATHEMATICAL MASS CAPACITY SOLVER ENGINE
     /// Stateless computational engine executing vector mathematics across parallel contiguous SoA arrays.
-    /// Operates on contiguous memory streams off the main thread to calculate biological Caravan Mass Capacity offsets (kg).
+    /// Operates on contiguous memory streams to calculate biological Caravan Mass Capacity offsets (kg).
     /// Manages workspace lease lifecycles internally to guarantee zero memory leaks across all callers.
+    /// Strictly decoupled from UI and Presentation layers.
     /// Resides under Source/Core/Solvers/.
     /// </summary>
     public static class MassCapacitySolver
     {
         #region 1. CONSTANTS & FALLBACK METRICS
+
+        /// <summary>
+        /// [SOLV-02] Absolute safety floor preventing negative or zero carrying capacity divisions.
+        /// </summary>
+        public const float MinimumAllowedCapacityKg = 0.01f;
 
         /// <summary>
         /// Default fallback Caravan Mass Capacity offset in kilograms (0.0 kg) returned during invalid biological states,
@@ -27,34 +33,10 @@ namespace OverHaulers
         #region 2. INTERNAL REGIONAL DEFICITS & DELTA STRUCTS
 
         /// <summary>
-        /// Zero-allocation stack wrapper adapting an <see cref="IAnatomicalDataSource"/> reference into the struct solver pipeline.
-        /// Prevents virtual interface dispatch and boxing when non-struct sources are supplied.
-        /// </summary>
-        private readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource
-        {
-            private readonly IAnatomicalDataSource inner;
-
-            public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
-            {
-                this.inner = inner;
-            }
-
-            public int EntityId => inner != null ? inner.EntityId : 0;
-            public string EntityLabel => inner != null ? inner.EntityLabel : "Unknown";
-            public BodyDef BodyDef => inner != null ? inner.BodyDef : null;
-            public float BaseBodySize => inner != null ? inner.BaseBodySize : 1.0f;
-            public bool IsValidBiologicalState => inner != null && inner.IsValidBiologicalState;
-
-            public float GetCapacityLevel(PawnCapacityDef capacity) => inner != null ? inner.GetCapacityLevel(capacity) : 1.0f;
-            public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata) => inner?.IngressPathology(workspace, populateColdMetadata);
-            public float ResolveBaselineCapacity() => inner != null ? inner.ResolveBaselineCapacity() : 0f;
-        }
-
-        /// <summary>
         /// Represents the raw and clamped deficits for different anatomical regions of a pawn, used in mass capacity calculations.
         /// Tracks the ratio of clamped capacity to raw health loss to scale regional deficits proportionally.
         /// </summary>
-        private struct RegionalDeficits
+        internal struct RegionalDeficits
         {
             public float RawCoreNegative;
             public float RawManipulationNegative;
@@ -70,8 +52,7 @@ namespace OverHaulers
             /// Retrieves the ratio of the clamped deficit to the raw negative value for the specified anatomical part type.
             /// Ensures deficits collapse smoothly onto their allocated budget ceiling without sharp threshold steps.
             /// </summary>
-            /// <param name="type">The anatomical part type for which to retrieve the ratio.</param>
-            /// <returns>The ratio of the clamped deficit to the raw negative value (defaults to 1.0f if no deficits exist).</returns>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public float GetRatio(PartType type)
             {
                 if (type == PartType.CorePart) return RawCoreNegative > 0f ? (ClampedCoreDeficit / RawCoreNegative) : 1.0f;
@@ -106,13 +87,6 @@ namespace OverHaulers
             /// <summary>
             /// Accumulates positive and negative regional deltas for a single biological capacity.
             /// </summary>
-            /// <param name="snappedCapacity">The snapped biological capacity level being evaluated (1.0f = baseline).</param>
-            /// <param name="posTorso">The positive coupling weight for the torso.</param>
-            /// <param name="posArm">The positive coupling weight for the arms.</param>
-            /// <param name="posLeg">The positive coupling weight for the legs.</param>
-            /// <param name="defTorso">The negative deficit coupling weight for the torso.</param>
-            /// <param name="defArm">The negative deficit coupling weight for the arms.</param>
-            /// <param name="defLeg">The negative deficit coupling weight for the legs.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Accumulate(
                 float snappedCapacity,
@@ -148,9 +122,6 @@ namespace OverHaulers
             /// <summary>
             /// Retrieves the regional positive and negative deltas for a specific part type in constant time.
             /// </summary>
-            /// <param name="type">The part type for which to retrieve the deltas.</param>
-            /// <param name="positiveDelta">Outputs the positive capacity delta for the specified region.</param>
-            /// <param name="negativeDelta">Outputs the negative capacity delta for the specified region.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void GetDeltas(PartType type, out float positiveDelta, out float negativeDelta)
             {
@@ -182,10 +153,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PRIMARY CANONICAL NUMERICAL SOLVER
+        #region 3. PUBLIC CANONICAL SOLVER API
 
         /// <summary>
-        /// [PASS-03 & PASS-04] Primary canonical numerical solver calculating the Caravan Mass Capacity metrics for a data source.
+        /// [SOLV-10] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.
         /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure strict C# 7.3 compatibility.
         /// Encapsulates the thread-local workspace lease completely within its execution scope using <see cref="WorkspacePool.WorkspaceLease"/>.
         /// Consumes <see cref="OverHaulers.settings"/> directly as the single source of truth for runtime configuration.
@@ -207,73 +178,7 @@ namespace OverHaulers
             {
                 using (WorkspacePool.WorkspaceLease lease = WorkspacePool.LeaseWorkspace())
                 {
-                    AnatomicalWorkspace workspace = lease.Workspace;
-                    float biologicalBaseline = baselineCapacity;
-
-                    SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(source.BodyDef);
-                    if (template == null)
-                    {
-                        return new MassCapacityEvaluationResult(
-                            FallbackMassOffsetKg, biologicalBaseline, biologicalBaseline, 1f, 0f, 0f, 0f, false);
-                    }
-
-                    // Pure numerical calculation: zero cold UI metadata extraction
-                    CompilePathology(source, template, workspace, populateColdMetadata: false);
-
-                    PartCounts partCounts = template.Counts;
-
-                    BiologicalCapacitySnapshot snapshot;
-                    snapshot.Breathing = source.GetCapacityLevel(PawnCapacityDefOf.Breathing);
-                    snapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
-                    snapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
-                    snapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
-                    snapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
-                        ? workspace.CachedConsciousness
-                        : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
-
-                    SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
-                        biologicalBaseline, partCounts, OverHaulers.settings, snapshot);
-
-                    float totalPlayableBudget = Math.Max(0f, biologicalBaseline - context.CapacityFloor);
-
-                    // PASS 03: Parallel vector calculations across contiguous SoA arrays (Smooth, unclamped)
-                    SolveRawPartOffsets(workspace, context, totalPlayableBudget);
-
-                    // PASS 04: Regional budget clamping and proportional deficit scaling
-                    RegionalDeficits deficits = CalculateClampedGroupBudgetDeficits(
-                        workspace, context, totalPlayableBudget, out float totalPositiveBoosts);
-
-                    // The net biological delta: positive boosts minus clamped deficits
-                    float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
-
-                    // Normalize workspace calculated totals with the exact matching deficits
-                    NormalizeWorkspaceCalculatedTotals(workspace, in deficits);
-
-                    // Extract summary breakdown metrics directly from contiguous arrays
-                    float prostheticBoost = 0f;
-                    float healthDeficit = 0f;
-                    float athleticOffset = 0f;
-                    for (int i = 0; i < workspace.PartCount; i++)
-                    {
-                        if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
-                        if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
-                        athleticOffset += workspace.CalculatedAthletics[i];
-                    }
-
-                    float finalCapacity = EnforceSafetyFloor(biologicalBaseline + netBiologicalOffset, source.EntityLabel);
-                    float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
-                    bool isAtSafetyFloor = finalCapacity <= 0.01f;
-
-                    return new MassCapacityEvaluationResult(
-                        netBiologicalOffset,
-                        biologicalBaseline,
-                        finalCapacity,
-                        totalMultiplier,
-                        prostheticBoost,
-                        healthDeficit,
-                        athleticOffset,
-                        isAtSafetyFloor
-                    );
+                    return SolveSource(source, baselineCapacity, lease.Workspace, populateColdMetadata: false);
                 }
             }
             catch (Exception ex)
@@ -284,118 +189,9 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>
-        /// [VIEW-04] Dedicated presentation inspector solving mass capacity and compiling visual models for UI dialogs.
-        /// Encapsulates the workspace lease completely within its execution scope while projecting part nodes into <paramref name="targetModel"/>.
-        /// Consumes <see cref="OverHaulers.settings"/> directly as the single source of truth for runtime configuration.
-        /// </summary>
-        /// <typeparam name="TSource">The concrete anatomical data source struct type implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
-        /// <param name="source">The anatomical data source representing the pawn.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity of the pawn in kilograms.</param>
-        /// <param name="targetModel">The target presentation model to populate with visual projection nodes.</param>
-        /// <returns>A populated <see cref="MassCapacityEvaluationResult"/> value containing all solved metrics.</returns>
-        public static MassCapacityEvaluationResult InspectMassCapacityModel<TSource>(
-            TSource source,
-            float baselineCapacity,
-            MassCapacityModel targetModel) where TSource : struct, IAnatomicalDataSource
-        {
-            if (!source.IsValidBiologicalState || targetModel == null)
-            {
-                targetModel?.ResetPool();
-                return MassCapacityEvaluationResult.Fallback;
-            }
-
-            try
-            {
-                using (WorkspacePool.WorkspaceLease lease = WorkspacePool.LeaseWorkspace())
-                {
-                    AnatomicalWorkspace workspace = lease.Workspace;
-                    float biologicalBaseline = baselineCapacity;
-
-                    SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(source.BodyDef);
-                    if (template == null)
-                    {
-                        targetModel.ResetPool();
-                        return new MassCapacityEvaluationResult(
-                            FallbackMassOffsetKg, biologicalBaseline, biologicalBaseline, 1f, 0f, 0f, 0f, false);
-                    }
-
-                    // Cold UI presentation metadata compiled during ingress
-                    CompilePathology(source, template, workspace, populateColdMetadata: true);
-
-                    PartCounts partCounts = template.Counts;
-
-                    BiologicalCapacitySnapshot snapshot;
-                    snapshot.Breathing = source.GetCapacityLevel(PawnCapacityDefOf.Breathing);
-                    snapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
-                    snapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
-                    snapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
-                    snapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
-                        ? workspace.CachedConsciousness
-                        : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
-
-                    SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
-                        biologicalBaseline, partCounts, OverHaulers.settings, snapshot);
-
-                    float totalPlayableBudget = Math.Max(0f, biologicalBaseline - context.CapacityFloor);
-
-                    // PASS 03 & PASS 04
-                    SolveRawPartOffsets(workspace, context, totalPlayableBudget);
-                    RegionalDeficits deficits = CalculateClampedGroupBudgetDeficits(
-                        workspace, context, totalPlayableBudget, out float totalPositiveBoosts);
-
-                    float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
-                    NormalizeWorkspaceCalculatedTotals(workspace, in deficits);
-
-                    // Extract summary breakdown metrics
-                    float prostheticBoost = 0f;
-                    float healthDeficit = 0f;
-                    float athleticOffset = 0f;
-                    for (int i = 0; i < workspace.PartCount; i++)
-                    {
-                        if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
-                        if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
-                        athleticOffset += workspace.CalculatedAthletics[i];
-                    }
-
-                    float finalCapacity = EnforceSafetyFloor(biologicalBaseline + netBiologicalOffset, source.EntityLabel);
-                    float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
-                    bool isAtSafetyFloor = finalCapacity <= 0.01f;
-
-                    // Seed target model state
-                    targetModel.ResetPool();
-                    targetModel.Offset = netBiologicalOffset;
-                    targetModel.FinalCapacity = finalCapacity;
-                    targetModel.TotalMultiplier = totalMultiplier;
-
-                    // Build visual part projection tree while workspace lease is safely pinned
-                    ViewProjection.RebuildDetailedModelForSource(
-                        source, targetModel, netBiologicalOffset, biologicalBaseline, workspace);
-
-                    return new MassCapacityEvaluationResult(
-                        netBiologicalOffset,
-                        biologicalBaseline,
-                        finalCapacity,
-                        totalMultiplier,
-                        prostheticBoost,
-                        healthDeficit,
-                        athleticOffset,
-                        isAtSafetyFloor
-                    );
-                }
-            }
-            catch (Exception ex)
-            {
-                string sourceLabel = source.EntityLabel ?? "Unknown";
-                OHLog.Solver.Warn(sourceLabel, ex, "Failed to inspect mass capacity model for pawn.");
-                targetModel?.ResetPool();
-                return MassCapacityEvaluationResult.Fallback;
-            }
-        }
-
         #endregion
 
-        #region 4. SECONDARY PASS-THROUGHS & SAFETY CLAMPING
+        #region 4. SECONDARY ENTRY POINTS & SAFETY CLAMPING
 
         /// <summary>
         /// Evaluates numerical mass capacity metrics for a live <see cref="Pawn"/> instance.
@@ -416,55 +212,19 @@ namespace OverHaulers
 
         /// <summary>
         /// Evaluates numerical mass capacity metrics for an abstract <see cref="IAnatomicalDataSource"/> instance.
+        /// Wraps the interface into a stack-allocated struct to satisfy generic constraints without boxing.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MassCapacityEvaluationResult EvaluateMassCapacityForSource(
             IAnatomicalDataSource source,
             float baselineCapacity)
         {
-            if (source == null)
+            if (source == null || !source.IsValidBiologicalState)
             {
                 return MassCapacityEvaluationResult.Fallback;
             }
 
             return EvaluateMassCapacity(new BoxedDataSourceWrapper(source), baselineCapacity);
-        }
-
-        /// <summary>
-        /// Solves mass capacity and populates a presentation model for a live <see cref="Pawn"/> instance.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static MassCapacityEvaluationResult InspectMassCapacityModelForPawn(
-            Pawn pawn,
-            float baselineCapacity,
-            MassCapacityModel targetModel)
-        {
-            if (pawn == null)
-            {
-                targetModel?.ResetPool();
-                return MassCapacityEvaluationResult.Fallback;
-            }
-
-            return InspectMassCapacityModel(new PawnAnatomicalSource(pawn), baselineCapacity, targetModel);
-        }
-
-        /// <summary>
-        /// Solves mass capacity and populates a presentation model for an abstract <see cref="IAnatomicalDataSource"/> instance.
-        /// Wraps the interface into a stack-allocated struct to satisfy generic constraints without boxing.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static MassCapacityEvaluationResult InspectMassCapacityModelForSource(
-            IAnatomicalDataSource source,
-            float baselineCapacity,
-            MassCapacityModel targetModel)
-        {
-            if (source == null)
-            {
-                targetModel?.ResetPool();
-                return MassCapacityEvaluationResult.Fallback;
-            }
-
-            return InspectMassCapacityModel(new BoxedDataSourceWrapper(source), baselineCapacity, targetModel);
         }
 
         /// <summary>
@@ -481,9 +241,9 @@ namespace OverHaulers
                 return finalCapacity;
             }
 
-            if (finalCapacity < 0.01f)
+            if (finalCapacity < MinimumAllowedCapacityKg)
             {
-                float clampedValue = 0.01f;
+                float clampedValue = MinimumAllowedCapacityKg;
                 OHLog.Performance.RecordSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
                 return clampedValue;
             }
@@ -501,7 +261,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
         {
-            if (finalCapacity < 0.01f)
+            if (finalCapacity < MinimumAllowedCapacityKg)
             {
                 string targetLabel = pawn != null
                     ? (UnityData.IsInMainThread ? pawn.LabelShortCap.ToString() : pawn.def?.label ?? "Pawn")
@@ -515,20 +275,113 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. PATHOLOGY COMPILATION & WORKSPACE INGRESS
+        #region 5. ALGORITHMIC SOLVER PIPELINE
+
+        /// <summary>
+        /// [SOLV-11] Ingress compiler bridge translating anatomical source data into workspace lanes
+        /// and executing the canonical internal solver pipeline.
+        /// </summary>
+        internal static MassCapacityEvaluationResult SolveSource<TSource>(
+            TSource source,
+            float biologicalBaseline,
+            AnatomicalWorkspace workspace,
+            bool populateColdMetadata) where TSource : struct, IAnatomicalDataSource
+        {
+            SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(source.BodyDef);
+            if (template == null)
+            {
+                return new MassCapacityEvaluationResult(
+                    FallbackMassOffsetKg,
+                    biologicalBaseline,
+                    biologicalBaseline,
+                    1f,
+                    0f,
+                    0f,
+                    0f,
+                    false);
+            }
+
+            // Ingress sweep populates SoA contiguous parallel arrays
+            CompilePathology(source, template, workspace, populateColdMetadata);
+
+            PartCounts partCounts = template.Counts;
+
+            BiologicalCapacitySnapshot snapshot;
+            snapshot.Breathing = source.GetCapacityLevel(PawnCapacityDefOf.Breathing);
+            snapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
+            snapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
+            snapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
+            snapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
+                ? workspace.CachedConsciousness
+                : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
+
+            // Instantiate systemic evaluation context
+            SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
+                biologicalBaseline, partCounts, OverHaulers.settings, snapshot);
+
+            // BREAKPOINT ANCHOR: Execute canonical numerical pipeline
+            return SolveInternal(workspace, in context, biologicalBaseline, source.EntityLabel);
+        }
+
+        /// <summary>
+        /// [SOLV-12] Canonical Single Source of Truth (SSoT) executing the numerical solving pipeline.
+        /// Operates directly on contiguous memory in the leased <see cref="AnatomicalWorkspace"/>.
+        /// </summary>
+        internal static MassCapacityEvaluationResult SolveInternal(
+            AnatomicalWorkspace workspace,
+            in SystemicEvaluationContext context,
+            float biologicalBaseline,
+            string entityLabel)
+        {
+            float totalPlayableBudget = Math.Max(0f, biologicalBaseline - context.CapacityFloor);
+
+            // PASS 03: Parallel vector calculations across contiguous SoA arrays (Smooth, unclamped)
+            SolveRawPartOffsets(workspace, context, totalPlayableBudget);
+
+            // PASS 04: Regional budget clamping and proportional deficit scaling
+            RegionalDeficits deficits = CalculateClampedGroupBudgetDeficits(
+                workspace, context, totalPlayableBudget, out float totalPositiveBoosts);
+
+            // The net biological delta: positive boosts minus clamped deficits
+            float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
+
+            // Normalize workspace calculated totals with the exact matching deficits
+            NormalizeWorkspaceCalculatedTotals(workspace, in deficits);
+
+            // Extract summary breakdown metrics directly from contiguous arrays
+            float prostheticBoost = 0f;
+            float healthDeficit = 0f;
+            float athleticOffset = 0f;
+            for (int i = 0; i < workspace.PartCount; i++)
+            {
+                if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
+                if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
+                athleticOffset += workspace.CalculatedAthletics[i];
+            }
+
+            float finalCapacity = EnforceSafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel);
+            float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
+            bool isAtSafetyFloor = finalCapacity <= MinimumAllowedCapacityKg;
+
+            return new MassCapacityEvaluationResult(
+                netBiologicalOffset,
+                biologicalBaseline,
+                finalCapacity,
+                totalMultiplier,
+                prostheticBoost,
+                healthDeficit,
+                athleticOffset,
+                isAtSafetyFloor
+            );
+        }
 
         /// <summary>
         /// Compiles pathology data into the workspace. Dispatches directly without interface boxing.
         /// </summary>
-        /// <typeparam name="TSource">The concrete anatomical data source struct type.</typeparam>
-        /// <param name="source">The data source containing entity health and hediff information.</param>
-        /// <param name="template">The precompiled species topology template.</param>
-        /// <param name="workspace">The destination anatomical workspace.</param>
-        /// <param name="populateColdMetadata">True if human-readable labels and cold metadata should be extracted.</param>
         private static void CompilePathology<TSource>(
-            TSource source, 
-            SpeciesTopologyTemplate template, 
-            AnatomicalWorkspace workspace, 
+            TSource source,
+            SpeciesTopologyTemplate template,
+            AnatomicalWorkspace workspace,
             bool populateColdMetadata) where TSource : struct, IAnatomicalDataSource
         {
             int partCount = template.PartCount;
@@ -596,7 +449,7 @@ namespace OverHaulers
             #endregion
 
             #region 6B. Branchless Direct Systemic Regional Deltas
-            SystemicRegionalDeltas regionalDeltas = default;
+            SystemicRegionalDeltas regionalDeltas = default(SystemicRegionalDeltas);
 
             if (context.EnableAthletics)
             {
@@ -629,7 +482,7 @@ namespace OverHaulers
             {
                 PartType type = partTypes[i];
 
-                if (type == PartType.None || type == PartType.HeadPart) 
+                if (type == PartType.None || type == PartType.HeadPart)
                     continue;
 
                 float partNormalizedWeight = staticWeights[i];
@@ -746,7 +599,7 @@ namespace OverHaulers
             {
                 PartType type = partTypes[i];
 
-                if (type == PartType.None || type == PartType.HeadPart) 
+                if (type == PartType.None || type == PartType.HeadPart)
                     continue;
 
                 float partPositive = 0f;

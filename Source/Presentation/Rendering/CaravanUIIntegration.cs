@@ -7,21 +7,41 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [INT-07] CARAVAN UI HARMONY INTERCEPT
-
     /// <summary>
     /// [INT-07] High-performance Harmony hooks intercepting Caravan Mass Capacity tooltips across:
     /// 1. Active World Caravans (Caravan.MassCapacityExplanation)
     /// 2. Universal Caravan UI Bars (CaravanUIUtility.DrawCaravanInfo for Form Caravan, Pods, Shuttles &amp; Split dialogs)
     /// Employs compiled dynamic IL field accessors to achieve zero reflection overhead during IMGUI rendering passes.
+    /// Resides under Source/Presentation/Rendering/.
     /// </summary>
     public static class CaravanUIIntegration
     {
-        #region FIELDS & COMPILED ACCESSORS
+        #region 1. STATIC STATE & COMPILED IL ACCESSORS
 
         // BREAKPOINT ANCHOR: Compiled IL Fast Field Accessors (0 reflection overhead per frame)
         private static readonly AccessTools.FieldRef<Dialog_LoadTransporters, List<TransferableOneWay>> loadTransportersAccessor;
         private static readonly AccessTools.FieldRef<Dialog_SplitCaravan, List<TransferableOneWay>> splitCaravanAccessor;
+
+        private static string cachedFleetHeaderPrefix;
+
+        /// <summary>Retrieves the localized fleet header prefix substring preceding format arguments for deduplication detection.</summary>
+        private static string FleetHeaderPrefix
+        {
+            get
+            {
+                if (cachedFleetHeaderPrefix == null)
+                {
+                    string raw = "OverHaulers_Fleet_Header".Translate().ToString();
+                    int splitIdx = raw.IndexOf('{');
+                    cachedFleetHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
+                }
+                return cachedFleetHeaderPrefix;
+            }
+        }
+
+        #endregion
+
+        #region 2. LIFECYCLE & STATIC CONSTRUCTOR
 
         /// <summary>
         /// Initializes the compiled IL field accessors for the Caravan UI integration hooks.
@@ -30,7 +50,6 @@ namespace OverHaulers
         {
             try
             {
-                // Initialize the compiled IL field accessor for the load transporters dialog.
                 loadTransportersAccessor = AccessTools.FieldRefAccess<Dialog_LoadTransporters, List<TransferableOneWay>>("transferables");
             }
             catch (Exception ex)
@@ -40,7 +59,6 @@ namespace OverHaulers
 
             try
             {
-                // Initialize the compiled IL field accessor for the split caravan dialog.
                 splitCaravanAccessor = AccessTools.FieldRefAccess<Dialog_SplitCaravan, List<TransferableOneWay>>("transferables");
             }
             catch (Exception ex)
@@ -51,7 +69,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region HOOK 1: ACTIVE WORLD MAP CARAVANS
+        #region 3. PUBLIC HARMONY HOOKS (CANONICAL ENTRY POINTS)
 
         /// <summary>
         /// Postfix hook on Caravan.MassCapacityExplanation.
@@ -65,7 +83,6 @@ namespace OverHaulers
 
             try
             {
-                // Compile the caravan fleet summary from the list of pawns in the caravan.
                 CaravanFleetSummary summary = CaravanFleetAggregator.CompileFromPawns(__instance.PawnsListForReading);
                 if (summary.TotalPawnCount == 0) return;
 
@@ -81,38 +98,11 @@ namespace OverHaulers
             }
         }
 
-        #endregion
-
-        #region HOOK 2: UNIVERSAL CARAVAN TOP BAR DRAWER
-
-        private static string cachedFleetHeaderPrefix;
-
-        /// <summary>
-        /// Retrieves the localized fleet header prefix substring preceding format arguments for deduplication detection.
-        /// </summary>
-        private static string FleetHeaderPrefix
-        {
-            get
-            {
-                if (cachedFleetHeaderPrefix == null)
-                {
-                    string raw = "OverHaulers_Fleet_Header".Translate().ToString();
-                    int splitIdx = raw.IndexOf('{');
-                    cachedFleetHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
-                }
-                return cachedFleetHeaderPrefix;
-            }
-        }
-
         /// <summary>
         /// Prefix hook on CaravanUIUtility.DrawCaravanInfo.
         /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject fleet breakdowns.
         /// </summary>
         /// <param name="info">The caravan info structure containing the mass capacity explanation to be potentially modified.</param>
-        /// <remarks>
-        /// This prefix hook ensures that the fleet breakdown is injected into the mass capacity explanation
-        /// before the caravan info is drawn in the top bar UI.
-        /// </remarks>
         public static void DrawCaravanInfo_Prefix(ref CaravanUIUtility.CaravanInfo info)
         {
             if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
@@ -168,6 +158,10 @@ namespace OverHaulers
             }
         }
 
+        #endregion
+
+        #region 4. ALGORITHMIC SUMMARY INJECTION & STRING MERGING
+
         /// <summary>
         /// Injects the compiled fleet summary into the provided mass capacity explanation string.
         /// </summary>
@@ -196,6 +190,9 @@ namespace OverHaulers
         /// Merges the OverHaulers fleet summary with the vanilla mass capacity breakdown.
         /// Preserves the vanilla breakdown and all third-party mod entries intact.
         /// </summary>
+        /// <param name="fleetExplanation">The OverHaulers fleet summary explanation string.</param>
+        /// <param name="vanillaExplanation">The original vanilla mass capacity explanation string.</param>
+        /// <returns>The merged explanation string combining both the fleet summary and the vanilla breakdown.</returns>
         private static string MergeFleetExplanation(string fleetExplanation, string vanillaExplanation)
         {
             if (string.IsNullOrEmpty(vanillaExplanation))
@@ -210,6 +207,4 @@ namespace OverHaulers
 
         #endregion
     }
-
-    #endregion
 }

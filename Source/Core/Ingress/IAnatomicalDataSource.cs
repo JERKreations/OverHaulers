@@ -1,17 +1,18 @@
-using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
+    #region 1. [PASS-01] DATA SOURCE CONTRACT
+
     /// <summary>
     /// [PASS-01] Ingress contract isolating mathematical solvers and topology compilers
     /// from live RimWorld Pawn entity reference mutations.
-    /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource).
+    /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource, BoxedDataSourceWrapper).
     /// Resides under Source/Core/Ingress/.
     /// </summary>
     public interface IAnatomicalDataSource
     {
-        #region 1. METADATA & TOPOLOGY PROPERTIES
+        #region 1A. METADATA & TOPOLOGY PROPERTIES
 
         /// <summary>Unique entity ID (positive integer for pawns).</summary>
         int EntityId { get; }
@@ -30,7 +31,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. INGRESS & CAPACITY METHODS
+        #region 1B. INGRESS & CAPACITY METHODS
 
         /// <summary>
         /// Reads the biological performance level of a target pawn capacity (0.0 to 1.0+).
@@ -53,4 +54,46 @@ namespace OverHaulers
 
         #endregion
     }
+
+    #endregion
+
+    #region 2. [ING-02] ZERO-ALLOCATION STRUCT ADAPTER
+
+    /// <summary>
+    /// [ING-02] Zero-allocation stack wrapper adapting an <see cref="IAnatomicalDataSource"/> reference
+    /// into the unboxed struct solver pipeline. Declared as a namespace-level struct to ensure strict C# 7.3 compliance.
+    /// Resides under Source/Core/Ingress/.
+    /// </summary>
+    internal readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource
+    {
+        private readonly IAnatomicalDataSource inner;
+
+        public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
+        {
+            this.inner = inner;
+        }
+
+        public int EntityId => inner != null ? inner.EntityId : 0;
+        public string EntityLabel => inner != null ? inner.EntityLabel : "Unknown";
+        public BodyDef BodyDef => inner != null ? inner.BodyDef : null;
+        public float BaseBodySize => inner != null ? inner.BaseBodySize : 1.0f;
+        public bool IsValidBiologicalState => inner != null && inner.IsValidBiologicalState;
+
+        public float GetCapacityLevel(PawnCapacityDef capacity)
+        {
+            return inner != null ? inner.GetCapacityLevel(capacity) : 1.0f;
+        }
+
+        public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
+        {
+            inner?.IngressPathology(workspace, populateColdMetadata);
+        }
+
+        public float ResolveBaselineCapacity()
+        {
+            return inner != null ? inner.ResolveBaselineCapacity() : 0f;
+        }
+    }
+
+    #endregion
 }

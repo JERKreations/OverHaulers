@@ -4,8 +4,6 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [TOPO-03] IMMUTABLE SPECIES TOPOLOGY TEMPLATE
-
     /// <summary>
     /// [TOPO-03] Immutable, precompiled structural topology template for a species <see cref="BodyDef"/>.
     /// Stores flat contiguous primitive arrays, 1D ancestral jump matrices, and flat child buffer spans.
@@ -14,10 +12,16 @@ namespace OverHaulers
     /// </summary>
     public class SpeciesTopologyTemplate
     {
-        #region 1. TOPOLOGY METADATA & CONSTANTS
+        #region 1. TOPOLOGY CONSTANTS
 
         /// <summary>Number of PartType enum slots (0..5) used as the stride multiplier for 1D jump matrix calculations.</summary>
         public const int PartTypeStride = 6;
+
+        #endregion
+
+        #region 2. TOPOLOGY PROPERTIES & STRUCTURAL VECTORS
+
+        #region 2A. STRUCTURAL TOPOLOGY & MATRICES
 
         /// <summary>Total count of body parts defined in the species BodyDef.</summary>
         public int PartCount { get; }
@@ -39,10 +43,6 @@ namespace OverHaulers
 
         /// <summary>Aggregate counts of structural bones, root limbs, dual limbs, and head features.</summary>
         public PartCounts Counts { get; set; }
-
-        #endregion
-
-        #region 2. FLAT TOPOLOGICAL VECTORS & 1D JUMP STRIDE MATRICES
 
         /// <summary>Direct O(1) dictionary mapping a live BodyPartRecord pointer to its precompiled slot index.</summary>
         public Dictionary<BodyPartRecord, int> PartToIndex { get; } = new Dictionary<BodyPartRecord, int>();
@@ -71,9 +71,7 @@ namespace OverHaulers
         /// </summary>
         public int[] NearestAncestorMatrix { get; set; }
 
-        /// <summary>
-        /// Flat array mapping partIndex to the slot index of the nearest structural non-organ ancestor.
-        /// </summary>
+        /// <summary>Flat array mapping partIndex to the slot index of the nearest structural non-organ ancestor.</summary>
         public int[] NearestStructuralAncestor { get; set; }
 
         /// <summary>Flat contiguous buffer storing all child part slot indices across the entire body.</summary>
@@ -87,31 +85,23 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PARALLEL 3-CHANNEL LOAD-BEARING WEIGHT VECTORS
+        #region 2B. 3-CHANNEL LOAD-BEARING WEIGHT VECTORS
 
-        /// <summary>
-        /// Static budget share (0.0 to 1.0) contributed by this part toward the Torso/Core regional budget.
-        /// </summary>
+        /// <summary>Static budget share (0.0 to 1.0) contributed by this part toward the Torso/Core regional budget.</summary>
         public float[] WeightCore { get; }
 
-        /// <summary>
-        /// Static budget share (0.0 to 1.0) contributed by this part toward the Manipulation regional budget.
-        /// </summary>
+        /// <summary>Static budget share (0.0 to 1.0) contributed by this part toward the Manipulation regional budget.</summary>
         public float[] WeightManipulation { get; }
 
-        /// <summary>
-        /// Static budget share (0.0 to 1.0) contributed by this part toward the Locomotion/Moving regional budget.
-        /// </summary>
+        /// <summary>Static budget share (0.0 to 1.0) contributed by this part toward the Locomotion/Moving regional budget.</summary>
         public float[] WeightMoving { get; }
 
-        /// <summary>
-        /// Unified combined weight factor across active channels (used for diagnostics and X-Ray previews).
-        /// </summary>
+        /// <summary>Unified combined weight factor across active channels (used for diagnostics and X-Ray previews).</summary>
         public float[] StaticWeightFactors { get; }
 
         #endregion
 
-        #region 3B. DIAGNOSTIC GROUND-TRUTH & WEIGHT-MODEL METADATA
+        #region 2C. DIAGNOSTIC GROUND-TRUTH & METADATA
 
         /// <summary>Raw BodyPartDef.hitPoints per part slot (ground-truth vanilla data, for external diagnostics).</summary>
         public int[] HitPoints { get; }
@@ -146,14 +136,16 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. CONSTRUCTOR & INITIALIZATION
+        #endregion
+
+        #region 3. LIFECYCLE & CONSTRUCTOR
 
         /// <summary>
         /// Instantiates and allocates flat contiguous arrays for a species topology template matching the given BodyDef.
         /// </summary>
         /// <param name="bodyDef">The target species BodyDef to blueprint.</param>
         /// <remarks>
-        /// This constructor precomputes and allocates all necessary arrays for efficient topology queries.
+        /// Precomputes and allocates all necessary arrays for efficient topology queries and atomic sizing.
         /// </remarks>
         public SpeciesTopologyTemplate(BodyDef bodyDef)
         {
@@ -229,16 +221,13 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. O(1) FLATTENED LOOKUP HELPERS
+        #region 4. PUBLIC CANONICAL QUERY API
 
         /// <summary>
         /// Resolves the precompiled slot index for a live <see cref="BodyPartRecord"/> in O(1) time.
         /// </summary>
         /// <param name="part">The body part record to resolve.</param>
         /// <returns>The precompiled slot index of the part, or -1 if not found.</returns>
-        /// <remarks>
-        /// This method performs the lookup in O(1) time using the precompiled PartToIndex dictionary.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetPartIndex(BodyPartRecord part)
         {
@@ -253,9 +242,6 @@ namespace OverHaulers
         /// <param name="partIndex">The target part's slot index.</param>
         /// <param name="targetType">The anatomical category to locate in the ancestral chain.</param>
         /// <returns>The slot index of the ancestor, or -1 if none exists.</returns>
-        /// <remarks>
-        /// This method performs the lookup in O(1) time using the precompiled NearestAncestorMatrix.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetNearestAncestor(int partIndex, PartType targetType)
         {
@@ -269,9 +255,6 @@ namespace OverHaulers
         /// <param name="parentIndex">The parent part's slot index.</param>
         /// <param name="childSlot">The child index offset (0 to ChildCounts[parentIndex] - 1).</param>
         /// <returns>The slot index of the child part.</returns>
-        /// <remarks>
-        /// This method performs the lookup in O(1) time using the precompiled ChildBuffer and ChildOffsets arrays.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetChildIndex(int parentIndex, int childSlot)
         {
@@ -284,9 +267,6 @@ namespace OverHaulers
         /// </summary>
         /// <param name="part">The body part to query.</param>
         /// <returns>The PartType of the body part, or PartType.None if not found.</returns>
-        /// <remarks>
-        /// This method performs the lookup in O(1) time using the precompiled PartTypes array.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PartType GetPartType(BodyPartRecord part)
         {
@@ -300,9 +280,6 @@ namespace OverHaulers
         /// </summary>
         /// <param name="part">The body part to check.</param>
         /// <returns>True if the body part is a structural limb; otherwise, false.</returns>
-        /// <remarks>
-        /// This method relies on the precompiled PartType and RootPartIndex arrays for efficient lookup.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsLimb(BodyPartRecord part)
         {
@@ -318,9 +295,6 @@ namespace OverHaulers
         /// <param name="part">The body part to check.</param>
         /// <param name="limbRoot">The root of the limb branch.</param>
         /// <returns>True if the body part is a descendant of the specified limb root; otherwise, false.</returns>
-        /// <remarks>
-        /// The RootPartIndex array is precomputed to allow this check to be done in constant time using precompiled topology data.
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDescendantOfLimbRoot(BodyPartRecord part, BodyPartRecord limbRoot)
         {
@@ -332,6 +306,4 @@ namespace OverHaulers
 
         #endregion
     }
-
-    #endregion
 }
