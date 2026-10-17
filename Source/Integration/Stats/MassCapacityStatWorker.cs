@@ -10,6 +10,7 @@ namespace OverHaulers
     /// StatWorker for the native OverHaulers_CaravanMassCapacity stat.
     /// Handles stat evaluation, InfoCard explanation rendering, and hyperlinking when operating
     /// in native standalone presentation mode.
+    /// Resides under Source/Integration/Stats/.
     /// </summary>
     public class MassCapacityStatWorker : StatWorker
     {
@@ -67,17 +68,24 @@ namespace OverHaulers
 
         /// <summary>
         /// Generates the complete anatomical report breakdown for the pawn's native InfoCard dialog.
+        /// Formats vanilla's standard "Base value: N kg" line directly above the OverHaulers anatomical breakdown.
         /// </summary>
         /// <param name="req">The stat request containing the pawn for which the explanation is being generated.</param>
         /// <param name="numberSense">The number sense format requested by the game engine.</param>
         /// <returns>A formatted explanation breakdown detailing all biological systems and modifications.</returns>
         public override string GetExplanationUnfinalized(StatRequest req, ToStringNumberSense numberSense)
         {
-            if (req.HasThing && req.Thing is Pawn pawn)
+            if (req.HasThing && req.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 float baselineCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+                string baseValueLine = "StatsReport_BaseValue".Translate() + ": " + this.stat.ValueToString(baselineCapacity, numberSense);
+
                 MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, baselineCapacity);
-                return detailedMassModel?.Explanation ?? string.Empty;
+                string explanation = detailedMassModel?.Explanation ?? string.Empty;
+
+                return string.IsNullOrEmpty(explanation)
+                    ? baseValueLine
+                    : baseValueLine + "\n\n" + explanation;
             }
 
             return base.GetExplanationUnfinalized(req, numberSense);

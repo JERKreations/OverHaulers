@@ -67,12 +67,10 @@ namespace OverHaulers
         {
             if (p == null) return;
 
-            // RE-ENTRANCY SHIELD: If an external mod's StatWorker (e.g. VEF) queries MassUtility.Capacity
-            // from within a capacity calculation to read the species baseline, return the clean unmodified baseline!
-            if (capacityCallDepth > 1)
-            {
-                return;
-            }
+            // RE-ENTRANCY & ADOPTION SHIELD: If an external mod queries MassUtility.Capacity recursively,
+            // or if a foreign stat is adopted (which delivers the offset directly via MassCapacityStatPart.TransformValue),
+            // return the unmodified baseline to prevent double-counting.
+            if (capacityCallDepth > 1 || IntegrationPipeline.IsForeignStatAdopted) return;
 
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
@@ -104,10 +102,7 @@ namespace OverHaulers
 
             // EXPLANATION SYNC: If caller provided an explanation StringBuilder (e.g. CollectionsMassCalculator),
             // replace vanilla's pre-postfix baseline entry with the true final capacity.
-            if (explanation != null)
-            {
-                SyncExplanationCapacity(explanation, p, __result);
-            }
+            if (explanation != null) SyncExplanationCapacity(explanation, p, __result);
         }
 
         /// <summary>
@@ -115,10 +110,7 @@ namespace OverHaulers
         /// </summary>
         private static void MassUtility_Capacity_Finalizer()
         {
-            if (capacityCallDepth > 0)
-            {
-                capacityCallDepth--;
-            }
+            if (capacityCallDepth > 0) capacityCallDepth--;
         }
 
         #endregion
