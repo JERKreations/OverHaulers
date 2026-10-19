@@ -43,24 +43,27 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// The key used to cache overlay layout data based on the full text, rectangle width, and scale percent.
+        /// The key used to cache overlay layout data based on the full text, rectangle width, scale percent, and active UI scale.
         /// </summary>
         private struct OverlayCacheKey : IEquatable<OverlayCacheKey>
         {
             public readonly string FullText;
             public readonly float RectWidth;
             public readonly float ScalePercent;
+            public readonly float UiScale;
 
-            public OverlayCacheKey(string text, float width, float scale)
+            public OverlayCacheKey(string text, float width, float scale, float uiScale)
             {
                 FullText = text;
                 RectWidth = width;
                 ScalePercent = scale;
+                UiScale = uiScale;
             }
 
             public bool Equals(OverlayCacheKey other) => 
                 RectWidth == other.RectWidth && 
                 ScalePercent == other.ScalePercent && 
+                UiScale == other.UiScale &&
                 FullText == other.FullText;
 
             public override bool Equals(object obj) => obj is OverlayCacheKey other && Equals(other);
@@ -73,9 +76,19 @@ namespace OverHaulers
                     hash = hash * 31 + (FullText != null ? FullText.GetHashCode() : 0);
                     hash = hash * 31 + RectWidth.GetHashCode();
                     hash = hash * 31 + ScalePercent.GetHashCode();
+                    hash = hash * 31 + UiScale.GetHashCode();
                     return hash;
                 }
             }
+        }
+
+        /// <summary>
+        /// [VIEW-04] Flushes the IMGUI overlay typography layout cache.
+        /// Invoked when UI scale changes, caches are flushed, or game transitions occur.
+        /// </summary>
+        public static void ClearCache()
+        {
+            layoutCache.Clear();
         }
 
         /// <summary>
@@ -163,7 +176,8 @@ namespace OverHaulers
             try
             {
                 float scalePercent = OverHaulers.settings?.iconScalePercent ?? SettingsDefaults.IconScalePercent;
-                OverlayCacheKey cacheKey = new OverlayCacheKey(fullText, rect.width, scalePercent);
+                float currentUiScale = Prefs.UIScale;
+                OverlayCacheKey cacheKey = new OverlayCacheKey(fullText, rect.width, scalePercent, currentUiScale);
 
                 // 1. CACHE LOOKUP (O(1) zero-allocation fetch)
                 if (!layoutCache.TryGetValue(cacheKey, out CachedOverlayData cachedData))

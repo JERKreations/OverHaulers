@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -87,6 +86,8 @@ namespace OverHaulers
         /// </summary>
         public static void ClearAllCaches()
         {
+            AssertMainThread("ClearAllCaches");
+
             capacityCache.Clear();
             staleKeysScratch.Clear();
 
@@ -709,7 +710,7 @@ namespace OverHaulers
             if (activeCount != cachedActiveCount)
             {
                 cachedActiveCount = activeCount;
-                cachedExpiryBase = floor + (int)(scaleK * Mathf.Sqrt(activeCount));
+                cachedExpiryBase = floor + (int)(scaleK * Math.Sqrt(activeCount));
             }
 
             int expiryJitter = cachedExpiryBase / 4; // 25% staggered jitter window

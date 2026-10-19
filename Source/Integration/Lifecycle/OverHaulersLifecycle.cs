@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
@@ -17,11 +19,30 @@ namespace OverHaulers
     [StaticConstructorOnStartup]
     public static class OverHaulersLifecycle
     {
+        /// <summary>True once the post-load deferred baseline calibration sweep has finished.</summary>
+        public static bool IsCalibrationSweepDone { get; internal set; }
+
         static OverHaulersLifecycle()
         {
             GameObject host = new GameObject("OverHaulers_Lifecycle");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<OverHaulersLifecycleDriver>();
+
+            // Subscribe to Core cache flush events to automatically re-warm colony pawns
+            PawnDataRegistry.OnCacheCleared += HandleCacheCleared;
+        }
+
+        /// <summary>
+        /// Handles downward cache clear events by re-warming active colony pawns if a game is actively playing.
+        /// </summary>
+        private static void HandleCacheCleared()
+        {
+            InfoCardOverlay.ClearCache();
+
+            if (Current.ProgramState == ProgramState.Playing && IsCalibrationSweepDone)
+            {
+                WarmupActivePawns();
+            }
         }
 
         /// <summary>
@@ -33,14 +54,15 @@ namespace OverHaulers
         /// <param name="sweepContext">Human-readable label for the batch sweep summary log.</param>
         public static void ReinitializeRuntime(bool onlyCaravanCapable = true, string sweepContext = null)
         {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             BenchmarkRunner.Cancel();
             SelfCheckRunner.Cancel();
 
-            // 1. Flush Core caches and medical registries
+            // 1. Flush Core caches, medical classifier caches, and UI layout typography
             PawnDataRegistry.ClearAllCaches();
             DetailedModelRegistry.Clear();
+            InfoCardOverlay.ClearCache();
             MedicalClassifier.ClearStaticCaches();
-            MedicalRecipeCatalog.ClearAndReinitialize();
 
             // 2. Invalidate and freshly compile all species skeletal topologies
             TopologyLayoutCompiler.InvalidateAllTopologies();
@@ -50,8 +72,76 @@ namespace OverHaulers
             SpeciesBaselineCalibration.Reset();
             string context = !string.IsNullOrEmpty(sweepContext)
                 ? sweepContext
-                : "OverHaulers_SweepContext_RecompileAll".Translate().ToString();
+                : "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, context);
+
+            // 4. Mark calibration ready and proactively re-warm all active pawns
+            IsCalibrationSweepDone = true;
+            WarmupActivePawns();
+
+            watch.Stop();
+            OHLog.Lifecycle.FullRecompilationCompleted(watch.Elapsed.TotalMilliseconds);
+        }
+
+        /// <summary>
+        /// [LIFE-03] Evaluates active caravan-capable pawns on maps and in caravans, pre-populating
+        /// Core caches and the atomic snapshot table before pathfinding threads query them.
+        /// </summary>
+        public static void WarmupActivePawns()
+        {
+            // Early exit if the integration pipeline is not initialized or game is not playing
+            if (!IntegrationPipeline.IsInitialized || Current.ProgramState != ProgramState.Playing) return;
+
+            // Sweep Map Pawns
+            if (Find.Maps != null)
+            {
+                for (int m = 0; m < Find.Maps.Count; m++)
+                {
+                    Map map = Find.Maps[m];
+                    if (map?.mapPawns == null) continue;
+
+                    IReadOnlyList<Pawn> pawns = map.mapPawns.AllPawnsSpawned;
+                    if (pawns == null) continue;
+
+                    for (int p = 0; p < pawns.Count; p++)
+                    {
+                        EvaluatePawnForWarmup(pawns[p]);
+                    }
+                }
+            }
+
+            // Sweep World Caravans
+            if (Find.WorldObjects?.Caravans != null)
+            {
+                List<Caravan> caravans = Find.WorldObjects.Caravans;
+                for (int c = 0; c < caravans.Count; c++)
+                {
+                    Caravan caravan = caravans[c];
+                    if (caravan?.PawnsListForReading == null) continue;
+
+                    IReadOnlyList<Pawn> pawns = caravan.PawnsListForReading;
+                    if (pawns == null) continue;
+
+                    for (int p = 0; p < pawns.Count; p++)
+                    {
+                        EvaluatePawnForWarmup(pawns[p]);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Evaluates a pawn for warmup, seating it in PawnDataRegistry and MassSnapshotCache.
+        /// </summary>
+        /// <param name="pawn">The pawn to evaluate for warmup.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void EvaluatePawnForWarmup(Pawn pawn)
+        {
+            if (pawn != null && !pawn.Dead && !pawn.Suspended && PawnDataRegistry.CanCarryCaravanMass(pawn))
+            {
+                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+                PawnDataRegistry.GetOffset(pawn, baseline);
+            }
         }
     }
 
@@ -66,7 +156,6 @@ namespace OverHaulers
         private int lastSeenTick = int.MinValue;
         private int lastReportTick = -1;
         private int coreInitializedTick = -1;
-        private bool isCalibrationSweepDone;
 
         /// <summary>
         /// Unity per-frame callback; runs one pump and keeps any failure from escaping into the engine loop.
@@ -130,25 +219,23 @@ namespace OverHaulers
             SelfCheckRunner.Cancel();
             lastSeenTick = int.MinValue;
             lastReportTick = -1;
-            isCalibrationSweepDone = false;
+            OverHaulersLifecycle.IsCalibrationSweepDone = false;
 
-            // 1. Clear all cached pawn data and presentation models for a clean slate
+            // 1. Clear all cached pawn data, presentation models, and UI layout typography
             PawnDataRegistry.ClearAllCaches();
             DetailedModelRegistry.Clear();
+            InfoCardOverlay.ClearCache();
 
             // 2. Freshly compile all species skeletal topologies (un-locked across save loads)
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
 
-            // 3. Pre-index all medical recipes and stimulants
-            MedicalRecipeCatalog.InitializeCatalog();
-
-            // 4. Reset dynamic baseline calibrations (batch sweep is deferred - see MaybeRunDeferredCalibrationSweep)
+            // 3. Reset dynamic baseline calibrations (batch sweep is deferred - see MaybeRunDeferredCalibrationSweep)
             SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = currentTick;
 
-            // 5. Reset the lifecycle log
+            // 4. Reset the lifecycle log
             OHLog.Lifecycle.WorldLoadedReset();
         }
 
@@ -161,74 +248,18 @@ namespace OverHaulers
         /// <param name="currentTick">The current game tick used to determine if the deferred calibration sweep should run.</param>
         private void MaybeRunDeferredCalibrationSweep(int currentTick)
         {
-            if (isCalibrationSweepDone || coreInitializedTick < 0) return;
+            if (OverHaulersLifecycle.IsCalibrationSweepDone || coreInitializedTick < 0) return;
 
             int elapsed = currentTick - coreInitializedTick;
             if (elapsed < SettingsDefaults.WorldLoadCalibrationDelayTicks && elapsed >= 0) return;
 
-            isCalibrationSweepDone = true;
+            OverHaulersLifecycle.IsCalibrationSweepDone = true;
 
             // BATCH PRE-CALIBRATION SWEEP: Pre-calibrate caravan species ThingDefs in one fast sweep
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "OverHaulers_SweepContext_WorldLoad".Translate().ToString());
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "OverHaulers_Log_Calibration_Context_WorldLoad".Translate().ToString());
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
-            WarmupActivePawns();
-        }
-
-        /// <summary>
-        /// Evaluates active caravan-capable pawns on maps and in caravans, pre-populating
-        /// MassSnapshotCache before background pathfinding threads query it.
-        /// </summary>
-        private void WarmupActivePawns()
-        {
-            // Early exit if the integration pipeline is not initialized
-            if (!IntegrationPipeline.IsInitialized) return;
-
-            // Sweep Map Pawns
-            if (Find.Maps != null)
-            {
-                for (int m = 0; m < Find.Maps.Count; m++)
-                {
-                    Map map = Find.Maps[m];
-                    if (map?.mapPawns == null) continue;
-
-                    var pawns = map.mapPawns.AllPawnsSpawned;
-                    for (int p = 0; p < pawns.Count; p++)
-                    {
-                        EvaluatePawnForWarmup(pawns[p]);
-                    }
-                }
-            }
-
-            // Sweep World Caravans
-            if (Find.WorldObjects?.Caravans != null)
-            {
-                var caravans = Find.WorldObjects.Caravans;
-                for (int c = 0; c < caravans.Count; c++)
-                {
-                    Caravan caravan = caravans[c];
-                    if (caravan?.PawnsListForReading == null) continue;
-
-                    var pawns = caravan.PawnsListForReading;
-                    for (int p = 0; p < pawns.Count; p++)
-                    {
-                        EvaluatePawnForWarmup(pawns[p]);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Evaluates a pawn for warmup, pre-populating the mass snapshot cache if the pawn is capable of carrying caravan mass.
-        /// </summary>
-        /// <param name="pawn">The pawn to evaluate for warmup.</param>
-        private void EvaluatePawnForWarmup(Pawn pawn)
-        {
-            if (pawn != null && PawnDataRegistry.CanCarryCaravanMass(pawn))
-            {
-                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
-                PawnDataRegistry.GetOffset(pawn, baseline);
-            }
+            OverHaulersLifecycle.WarmupActivePawns();
         }
 
         /// <summary>

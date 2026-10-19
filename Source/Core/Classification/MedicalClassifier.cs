@@ -79,18 +79,25 @@ namespace OverHaulers
         /// <summary>Cache for body part mod extensions to avoid repeated lookups.</summary>
         private static readonly ConcurrentDictionary<BodyPartDef, BodyPartModExtension> extensionCache =
             new ConcurrentDictionary<BodyPartDef, BodyPartModExtension>();
+
         /// <summary>Cache for vehicle type checks to avoid repeated reflection lookups.</summary>
         private static readonly ConcurrentDictionary<Type, bool> vehicleCache = new ConcurrentDictionary<Type, bool>();
+
         /// <summary>Cache for packed hediff classification flags to avoid repeated evaluations.</summary>
         private static readonly ConcurrentDictionary<HediffDef, HediffFlags> packedClassificationCache =
             new ConcurrentDictionary<HediffDef, HediffFlags>();
+
         /// <summary>Cache for implant characteristics to avoid repeated lookups.</summary>
         private static readonly ConcurrentDictionary<HediffDef, ImplantCharacteristics> implantCache =
             new ConcurrentDictionary<HediffDef, ImplantCharacteristics>();
-        /// <summary>Cache for physical stat checks to avoid repeated evaluations.</summary>
-        private static readonly ConcurrentDictionary<StatDef, bool> physicalStatCache = new ConcurrentDictionary<StatDef, bool>();
+
+        /// <summary>Cache for physiological stat checks to avoid repeated evaluations.</summary>
+        private static readonly ConcurrentDictionary<StatDef, bool> physiologicallyImpactfulStatCache =
+            new ConcurrentDictionary<StatDef, bool>();
+
         /// <summary>Cache for hediff stage impact evaluations to avoid repeated computations.</summary>
-        private static readonly ConcurrentDictionary<HediffStage, bool> stageImpactCache = new ConcurrentDictionary<HediffStage, bool>();
+        private static readonly ConcurrentDictionary<HediffStage, bool> stageImpactCache =
+            new ConcurrentDictionary<HediffStage, bool>();
 
         /// <summary>Cache for known broken BodySize pawn IDs to avoid repeated exception handling.</summary>
         /// <remarks>
@@ -222,7 +229,7 @@ namespace OverHaulers
                 }
             }
 
-            return StageModifiesPhysicalStats(stage);
+            return StageModifiesPhysiologicalStats(stage);
         };
 
         /// <summary>
@@ -520,11 +527,11 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines whether the specified hediff stage modifies physical stats.
+        /// Determines whether the specified hediff stage modifies physiological stats.
         /// </summary>
         /// <param name="stage">The hediff stage to evaluate.</param>
-        /// <returns>True if the specified hediff stage modifies physical stats; otherwise, false.</returns>
-        private static bool StageModifiesPhysicalStats(HediffStage stage)
+        /// <returns>True if the specified hediff stage modifies physiological stats; otherwise, false.</returns>
+        private static bool StageModifiesPhysiologicalStats(HediffStage stage)
         {
             if (stage == null) return false;
 
@@ -533,7 +540,7 @@ namespace OverHaulers
                 for (int i = 0; i < stage.statOffsets.Count; i++)
                 {
                     StatDef stat = stage.statOffsets[i]?.stat;
-                    if (stat != null && IsPhysicalOrMassStat(stat)) return true;
+                    if (stat != null && IsPhysiologicallyImpactfulStat(stat)) return true;
                 }
             }
 
@@ -542,7 +549,7 @@ namespace OverHaulers
                 for (int i = 0; i < stage.statFactors.Count; i++)
                 {
                     StatDef stat = stage.statFactors[i]?.stat;
-                    if (stat != null && IsPhysicalOrMassStat(stat)) return true;
+                    if (stat != null && IsPhysiologicallyImpactfulStat(stat)) return true;
                 }
             }
 
@@ -550,15 +557,22 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines whether the specified stat is related to physical attributes or mass.
+        /// Heuristically evaluates whether an external vanilla or modded <see cref="StatDef"/> governs physical locomotion,
+        /// item stack hauling limits, pawn body weight, or caravan payload mass capacity.
+        /// Used exclusively by stage impact filters to identify active physical ailments (e.g. drunkenness, hypothermia).
         /// </summary>
-        /// <param name="stat">The stat definition to evaluate.</param>
-        /// <returns>True if the specified stat is related to physical attributes or mass; otherwise, false.</returns>
-        private static bool IsPhysicalOrMassStat(StatDef stat)
+        /// <remarks>
+        /// LEXICAL &amp; ARCHITECTURAL DISAMBIGUATION:
+        /// Inspects vanilla StatDefOf.CarryingCapacity (discrete item stack counts) and StatDefOf.Mass (pawn entity physical body weight)
+        /// solely as external detection predicates to determine whether a third-party HediffStage alters physical capabilities.
+        /// </remarks>
+        /// <param name="stat">The external stat definition to evaluate.</param>
+        /// <returns>True if the stat modifies physiological locomotion, hauling limits, body mass, or caravan capacity.</returns>
+        private static bool IsPhysiologicallyImpactfulStat(StatDef stat)
         {
             if (stat == null) return false;
 
-            return physicalStatCache.GetOrAdd(stat, s =>
+            return physiologicallyImpactfulStatCache.GetOrAdd(stat, s =>
             {
                 StatDef activeStat = IntegrationPipeline.ActiveMassCapacityStat;
 
@@ -653,7 +667,7 @@ namespace OverHaulers
             vehicleCache.Clear();
             packedClassificationCache.Clear();
             implantCache.Clear();
-            physicalStatCache.Clear();
+            physiologicallyImpactfulStatCache.Clear();
             stageImpactCache.Clear();
             knownBrokenBodySizePawnIds.Clear();
             

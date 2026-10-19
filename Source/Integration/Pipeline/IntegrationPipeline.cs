@@ -278,7 +278,7 @@ namespace OverHaulers
         /// <param name="staleKey">The key representing the previously selected preference that is now considered stale.</param>
         private static void RecoverStalePreference(Settings settings, string staleKey)
         {
-            Log.Message($"[Over Haulers] Saved presentation selection '{staleKey}' is no longer active (mod uninstalled?). Reverting to Automatic selection.");
+            OHLog.Integration.StalePreferenceRecovered(staleKey);
             if (settings != null)
             {
                 settings.selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;

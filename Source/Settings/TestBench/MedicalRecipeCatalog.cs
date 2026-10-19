@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -66,6 +65,18 @@ namespace OverHaulers
         #endregion
 
         #region 3. CATALOG BOOTSTRAPPING & PRE-INDEXING
+
+        /// <summary>
+        /// [TEST-04] Ensures the medical surgery and condition catalog has been indexed.
+        /// Thread-safe, idempotent on-demand initializer.
+        /// </summary>
+        public static void EnsureInitialized()
+        {
+            if (!isInitialized)
+            {
+                InitializeCatalog();
+            }
+        }
 
         /// <summary>
         /// [TEST-04] Scans DefDatabase and pre-indexes all medical surgery recipes, artificial parts, drugs, stimulants, and staged conditions.
@@ -297,7 +308,7 @@ namespace OverHaulers
             if (def.stages == null || def.stages.Count == 0)
             {
                 float baseSeverity = def.initialSeverity > 0f ? def.initialSeverity : 0.5f;
-                return Mathf.Min(baseSeverity, safeLethalCeiling);
+                return Math.Min(baseSeverity, safeLethalCeiling);
             }
 
             int bestStageIndex = -1;
@@ -350,7 +361,7 @@ namespace OverHaulers
             if (bestStageIndex == -1)
             {
                 float baseSeverity = def.initialSeverity > 0f ? def.initialSeverity : 0.5f;
-                return Mathf.Min(baseSeverity, safeLethalCeiling);
+                return Math.Min(baseSeverity, safeLethalCeiling);
             }
 
             HediffStage bestStage = def.stages[bestStageIndex];
@@ -386,14 +397,14 @@ namespace OverHaulers
             }
 
             // Final safety clamp: never exceed 99% of lethal threshold
-            targetSeverity = Mathf.Min(targetSeverity, safeLethalCeiling);
+            targetSeverity = Math.Min(targetSeverity, safeLethalCeiling);
 
             if (def.maxSeverity > 0f)
             {
-                targetSeverity = Mathf.Min(targetSeverity, def.maxSeverity);
+                targetSeverity = Math.Min(targetSeverity, def.maxSeverity);
             }
 
-            return Mathf.Max(targetSeverity, bestStage.minSeverity);
+            return Math.Max(targetSeverity, bestStage.minSeverity);
         }
 
         /// <summary>

@@ -105,6 +105,12 @@ namespace OverHaulers
         /// <summary>True if workspace internal arrays were released back for GC.</summary>
         public bool IsNullified { get; private set; } = false;
 
+        /// <summary>Internal tracking index representing the active leased slot in WorkspacePool (-1 for unpooled fallback).</summary>
+        internal int ActiveLeaseSlot { get; set; } = -1;
+
+        /// <summary>True if this workspace is currently leased out via WorkspacePool.</summary>
+        internal bool IsLeased { get; set; } = false;
+
         #endregion
 
         #region 3. CONSTRUCTOR & INITIALIZATION
@@ -272,6 +278,8 @@ namespace OverHaulers
             indexedParts = null;
             partToIndexMap = null;
             depthSortedIndices = null;
+            ActiveLeaseSlot = -1;
+            IsLeased = false;
         }
 
         #endregion

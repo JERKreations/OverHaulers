@@ -44,6 +44,7 @@ namespace OverHaulers
                 if (activeHarness == null)
                 {
                     activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
+                    MedicalRecipeCatalog.EnsureInitialized();
                 }
 
                 return activeHarness;
@@ -101,6 +102,7 @@ namespace OverHaulers
             activeGroupingDimension = GroupingDimension.Mod;
             activeViewMode = TestBenchViewMode.InfoCard;
 
+            MedicalRecipeCatalog.EnsureInitialized();
             TestSubjectEntry defaultSubject = TestSubjectRegistry.GetDefaultSubject();
             activeSubject = defaultSubject;
 
@@ -125,12 +127,13 @@ namespace OverHaulers
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
             bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
-            string context = "OverHaulers_SweepContext_RecompileAll".Translate().ToString();
+            string context = "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
 
-            // 1. Hot-recompile Core and Integration engines (Topologies, Calibrations, Medical Registries, Caches)
+            // 1. Hot-recompile Core and Integration engines (Topologies, Calibrations, Caches)
             OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan, context);
 
-            // 2. Refresh Test Bench subjects from active DefDatabase
+            // 2. Refresh Test Bench medical recipes and subjects from active DefDatabase
+            MedicalRecipeCatalog.ClearAndReinitialize();
             TestSubjectRegistry.ClearCache();
             TestSubjectRegistry.EnsureCacheInitialized();
 
@@ -161,7 +164,7 @@ namespace OverHaulers
 
             watch.Stop();
             Messages.Message(
-                "OverHaulers_Log_FullRecompilationCompleted".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString(), 
+                "OverHaulers_Log_Lifecycle_FullRecompileComplete".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString(), 
                 MessageTypeDefOf.PositiveEvent, 
                 false
             );

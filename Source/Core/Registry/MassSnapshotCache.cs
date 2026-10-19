@@ -11,23 +11,26 @@ namespace OverHaulers
     /// </summary>
     /// <remarks>
     /// The full architectural design rationale (zero-lock atomic concurrency, bit-cast struct union, backward-shift deletion with a
-    /// SeqLock, multiplicative hashing and zero-contention telemetry) is documented on <see cref="SnapshotTable"/>.
+    /// SeqLock, multiplicative hashing, dynamic L1 scaling and zero-contention telemetry) is documented on <see cref="SnapshotTable"/>/.
     /// </remarks>
     public static class MassSnapshotCache
     {
-        /// <summary>Fixed power-of-two capacity accommodating maximum active simultaneous map populations.</summary>
-        public const int TableCapacity = SnapshotTable.DefaultCapacity;
+        /// <summary>Current power-of-two capacity accommodating active simultaneous map populations.</summary>
+        public static int TableCapacity => liveTable.Capacity;
 
         /// <summary>Fast bitwise modulo mask (TableCapacity - 1).</summary>
-        public const int TableMask = TableCapacity - 1;
+        public static int TableMask => liveTable.Capacity - 1;
 
         /// <summary>Maximum linear probe depth before replacing the root hash bucket.</summary>
         public const int MaxProbeSteps = SnapshotTable.MaxProbeSteps;
 
-        private static readonly SnapshotTable liveTable = new SnapshotTable(TableCapacity, forwardTelemetry: true);
+        private static readonly SnapshotTable liveTable = new SnapshotTable(SnapshotTable.DefaultCapacity, forwardTelemetry: true);
 
         /// <summary>Exact count of occupied, non-zero slots currently residing in the live table.</summary>
         public static int OccupiedSlotsCount => liveTable.OccupiedSlotsCount;
+
+        /// <summary>Current load factor percentage in the range 0 to 100.</summary>
+        public static float OccupancyPercentage => liveTable.OccupancyPercentage;
 
         /// <summary>
         /// Packs a caravan mass capacity offset (kg) and a multiplier into one 64-bit word.
@@ -48,15 +51,24 @@ namespace OverHaulers
         public static void Unpack(long packed, out float offset, out float multiplier) => SnapshotTable.Unpack(packed, out offset, out multiplier);
 
         /// <summary>Safely retrieves the cached offset (kg) from any thread; 0 when not cached.</summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <returns>The physical offset in kg.</returns>
         public static float GetOffsetThreadSafe(int pawnId) => liveTable.GetOffsetThreadSafe(pawnId);
 
         /// <summary>Safely retrieves the cached multiplier from any thread; 1 when not cached.</summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <returns>The mass multiplier.</returns>
         public static float GetMultiplierThreadSafe(int pawnId) => liveTable.GetMultiplierThreadSafe(pawnId);
 
         /// <summary>Writes or updates a pawn's snapshot. Main thread only.</summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <param name="offset">The solved caravan mass capacity offset in kg.</param>
+        /// <param name="multiplier">The solved overall mass multiplier.</param>
         public static void WriteState(int pawnId, float offset, float multiplier) => liveTable.WriteState(pawnId, offset, multiplier);
 
         /// <summary>Evicts a pawn's snapshot with backward-shift deletion. Main thread only.</summary>
+        /// <param name="pawnId">The target pawn's unique ID.</param>
+        /// <returns>True if evicted; false otherwise.</returns>
         public static bool Evict(int pawnId) => liveTable.Evict(pawnId);
 
         /// <summary>Flushes the live table on save load or world reset. Main thread only.</summary>

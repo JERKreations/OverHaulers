@@ -35,6 +35,7 @@ namespace OverHaulers
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_ClusterEviction", CheckClusterEviction));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_RandomAgainstModel", CheckRandomAgainstModel));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_Saturation", CheckSaturation));
+            list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_DynamicScaling", CheckDynamicScaling));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_ConcurrentReaders", CheckConcurrentReaders));
             list.Add(new SelfCheckDef(GroupCollections, "OverHaulers_SelfCheck_Check_UniqueList", CheckUniqueList));
             list.Add(new SelfCheckDef(GroupTopology, "OverHaulers_SelfCheck_Check_TopologyIntegrity", CheckTopologyIntegrity));
@@ -299,6 +300,51 @@ namespace OverHaulers
             Expect.True(Interlocked.Read(ref reads) > 0, "readers performed no reads");
             Expect.Equal(0, Volatile.Read(ref violations), "torn or foreign values observed (" + Interlocked.Read(ref reads) + " reads, " + cycles + " writer cycles)");
             ctx.Note("OverHaulers_SelfCheck_Note_ConcurrentReaders".Translate(cycles, Interlocked.Read(ref reads).ToString()).ToString());
+        }
+
+        /// <summary>
+        /// Verifies that the table dynamically scales up upon crossing the high watermark (65%),
+        /// preserves all rehashed data across growth, and cleanly contracts upon dropping below the low watermark (25%).
+        /// </summary>
+        /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        private static void CheckDynamicScaling(SelfCheckContext ctx)
+        {
+            SnapshotTable table = new SnapshotTable(256, forwardTelemetry: false, enableDynamicScaling: true);
+            Expect.Equal(256, table.Capacity, "initial capacity must equal 256");
+
+            // Write 170 items (exceeding 256 * 0.65 = 166.4 items)
+            for (int i = 1; i <= 170; i++)
+            {
+                table.WriteState(i, (float)i, 1f);
+            }
+
+            Expect.Equal(512, table.Capacity, "table must expand to 512 slots after crossing 65% occupancy");
+            Expect.Equal(170, table.OccupiedSlotsCount, "occupancy must remain accurate after expansion");
+
+            // Verify rehash integrity
+            for (int i = 1; i <= 170; i++)
+            {
+                Expect.Equal((float)i, table.GetOffsetThreadSafe(i), "offset of key " + i + " after expansion");
+            }
+
+            // Evict down to 100 items (dropping below 512 * 0.25 = 128 items)
+            for (int i = 101; i <= 170; i++)
+            {
+                Expect.True(table.Evict(i), "eviction of key " + i);
+            }
+
+            Expect.Equal(256, table.Capacity, "table must contract to 256 slots after dropping below 25% occupancy");
+            Expect.Equal(100, table.OccupiedSlotsCount, "occupancy must equal 100 after contraction");
+
+            // Verify remaining keys
+            for (int i = 1; i <= 100; i++)
+            {
+                Expect.Equal((float)i, table.GetOffsetThreadSafe(i), "offset of key " + i + " after contraction");
+            }
+
+            table.Reset();
+            Expect.Equal(256, table.Capacity, "capacity must reset to initial minimum");
+            Expect.Equal(0, table.OccupiedSlotsCount, "occupancy must reset to zero");
         }
 
         #endregion

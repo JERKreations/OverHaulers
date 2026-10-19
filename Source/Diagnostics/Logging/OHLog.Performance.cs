@@ -33,9 +33,44 @@ namespace OverHaulers
             private static readonly StringBuilder pooledReportBuilder = new StringBuilder(1024);
             private static readonly object bufferLock = new object();
 
+            /// <summary>
+            /// Logs a warning message within the performance telemetry domain.
+            /// </summary>
+            /// <param name="context">The context or source of the warning.</param>
+            /// <param name="ex">An optional exception associated with the warning.</param>
+            /// <param name="customMessage">An optional custom message to include in the warning.</param>
             public static void Warn(string context, Exception ex = null, string customMessage = null) => 
                 OHLog.Warn(LogDomain.Performance, context, ex, customMessage);
 
+            /// <summary>
+            /// Logs the initialization of the snapshot table with its capacity, dynamic scaling status, minimum and maximum capacities,
+            ///  and probe depth.
+            /// </summary>
+            public static void SnapshotTableInitialized(int capacity, bool dynamic, int min, int max, int probeDepth) =>
+                Log.Message("OverHaulers_Log_Snapshot_Initialized".Translate(capacity, dynamic ? "Dynamic" : "Static", min, max, probeDepth).ToString());
+
+            /// <summary>
+            /// Logs the event of the snapshot table scaling up, including old and new capacities, current occupancy, and load percentage.
+            /// </summary>
+            public static void SnapshotTableScaledUp(int oldCapacity, int newCapacity, int occupancy, float loadPercent) =>
+                Log.Message("OverHaulers_Log_Snapshot_ScaledUp".Translate(oldCapacity, newCapacity, occupancy, loadPercent.ToString("F1")).ToString());
+
+            /// <summary>
+            /// Logs the event of the snapshot table contracting, including old and new capacities, current occupancy, and load percentage.
+            /// </summary>
+            public static void SnapshotTableContracted(int oldCapacity, int newCapacity, int occupancy, float loadPercent) =>
+                Log.Message("OverHaulers_Log_Snapshot_Contracted".Translate(oldCapacity, newCapacity, occupancy, loadPercent.ToString("F1")).ToString());
+
+            /// <summary>
+            /// Logs the event of the snapshot table being flushed, including the number of cleared entries and the restored capacity.
+            /// </summary>
+            public static void SnapshotTableFlushed(int clearedCount, int restoredCapacity) =>
+                Log.Message("OverHaulers_Log_Snapshot_Flushed".Translate(clearedCount, restoredCapacity).ToString());
+
+            /// <summary>
+            /// Records the eviction of a pawn from the snapshot table, storing its unique ID for later reporting.
+            /// </summary>
+            /// <param name="thingID">The unique ID of the evicted pawn.</param>
             public static void RecordPawnEvicted(int thingID)
             {
                 if (OverHaulers.settings == null) return;

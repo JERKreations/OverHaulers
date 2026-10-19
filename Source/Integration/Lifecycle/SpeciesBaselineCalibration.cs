@@ -95,25 +95,21 @@ namespace OverHaulers
         /// <param name="totalSpecies">The total number of species evaluated in the batch sweep.</param>
         public static void LogBatchSweepSummary(string context, double ms, int totalSpecies)
         {
-            Log.Message("OverHaulers_Log_CalibrationSweepComplete".Translate(
-                ms.ToString("F1"),
+            OHLog.Calibration.SweepCompleted(
+                ms,
                 context,
                 CountDummySuccess,
                 CountTestingFallback,
                 CountLiveRescue,
                 CountEmergencyFallback,
                 totalSpecies
-            ).ToString());
+            );
 
             // Coalesced Notice: Single consolidated informational log for Main Menu comp limitations
             if (pendingSweepNoticeSpecies.Count > 0)
             {
                 string speciesList = string.Join(", ", pendingSweepNoticeSpecies);
-                Log.Message("OverHaulers_Log_CalibrationPendingNotice".Translate(
-                    pendingSweepNoticeSpecies.Count,
-                    speciesList
-                ).ToString());
-
+                OHLog.Calibration.PendingNotice(pendingSweepNoticeSpecies.Count, speciesList);
                 pendingSweepNoticeSpecies.Clear();
             }
         }
@@ -536,7 +532,7 @@ namespace OverHaulers
                                     ? $"Live pawn evaluation failed with exception: {liveError}"
                                     : "Both pristine dummy and live evaluations returned 0 capacity. Applied Emergency Failsafe [3] baseline assumption (35 kg * BodySize).";
 
-                                OHLog.Lifecycle.Warn(pawn.def.defName, null, detail);
+                                OHLog.Calibration.Warn(pawn.def.defName, null, detail);
                             }
                             speciesCache[pawn.def] = entry;
                         }

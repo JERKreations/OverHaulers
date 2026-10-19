@@ -26,7 +26,7 @@
   <OverHaulers_LogCacheMetrics_Desc>Tracks cache hit ratios, hits, and solver recalculations across both main-thread evaluations and background thread queries.</OverHaulers_LogCacheMetrics_Desc>
 
   <OverHaulers_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_LogSnapshotTableMetrics>
-  <OverHaulers_LogSnapshotTableMetrics_Desc>Reports 4096-slot atomic hash table load factor, dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_LogSnapshotTableMetrics_Desc>
+  <OverHaulers_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 512-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_LogSnapshotTableMetrics_Desc>
 
   <OverHaulers_LogLifecycleMetrics>Lifecycle &amp; Invalidation Events</OverHaulers_LogLifecycleMetrics>
   <OverHaulers_LogLifecycleMetrics_Desc>Reports reactive cache invalidations, combat burst damage debouncer efficiency, and active pawn lifecycle purges.</OverHaulers_LogLifecycleMetrics_Desc>
@@ -110,6 +110,7 @@
   <OverHaulers_SelfCheck_Check_ClusterEviction>Colliding keys survive eviction in any order</OverHaulers_SelfCheck_Check_ClusterEviction>
   <OverHaulers_SelfCheck_Check_RandomAgainstModel>Matches a reference model under random insert/evict</OverHaulers_SelfCheck_Check_RandomAgainstModel>
   <OverHaulers_SelfCheck_Check_Saturation>Saturated probe window displaces one entry per overflow</OverHaulers_SelfCheck_Check_Saturation>
+  <OverHaulers_SelfCheck_Check_DynamicScaling>Dynamic table scaling and contraction with hysteresis</OverHaulers_SelfCheck_Check_DynamicScaling>
   <OverHaulers_SelfCheck_Check_ConcurrentReaders>Concurrent readers never observe torn values</OverHaulers_SelfCheck_Check_ConcurrentReaders>
   <OverHaulers_SelfCheck_Check_UniqueList>Unique list add, merge, clear and enumeration</OverHaulers_SelfCheck_Check_UniqueList>
   <OverHaulers_SelfCheck_Check_TopologyIntegrity>Every compiled body template is structurally sound</OverHaulers_SelfCheck_Check_TopologyIntegrity>

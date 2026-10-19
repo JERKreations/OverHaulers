@@ -505,8 +505,8 @@ namespace OverHaulers
             double loadPercent = 100.0 * ReadResult.PawnCount / ReadResult.TableCapacity;
 
             report.AppendLine("-- Snapshot table (lock-free reads used by background threads) --");
-            report.AppendLine("Table: " + ReadResult.TableCapacity + " slots, " + ReadResult.PawnCount + " pawns resident ("
-                + BenchmarkRunner.FormatInvariant(loadPercent, "F0") + "% load)");
+            report.AppendLine("Table: " + ReadResult.TableCapacity + " slots (dynamic 512-8192, max " + SnapshotTable.MaxProbeSteps + " probes), " 
+                + ReadResult.PawnCount + " pawns resident (" + BenchmarkRunner.FormatInvariant(loadPercent, "F0") + "% load)");
             report.AppendLine("Single-thread read: " + BenchmarkRunner.FormatInvariant(ReadResult.HitNanoseconds, "F1") + " ns (hit), "
                 + BenchmarkRunner.FormatInvariant(ReadResult.MissNanoseconds, "F1") + " ns (miss), including loop overhead");
             report.AppendLine(string.Format("{0} | {1} | {2} | {3} | {4} | {5}",

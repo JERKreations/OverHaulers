@@ -7,40 +7,87 @@ namespace OverHaulers
     /// [CACHE-02] THREAD-STATIC WORKSPACE POOL
     /// Provides allocation-free, thread-safe scratchpad recyclers for capacity calculations.
     /// Replaces complex pooling arrays with high-speed ThreadStatic buffers, guarded against memory leaks.
+    /// Resides under Source/Core/Workspaces/.
     /// </summary>
     public static class WorkspacePool
     {
-        #region 1. FIELDS & THREAD LOCAL INSTANCES
+        #region 1. CONSTANTS, ENUMS & STRUCTS
 
-        /// Maximum recursion/nesting depth for thread-local workspaces (e.g. cross-pawn evaluations).
-        private const int MaxWorkspacePoolDepth = 4;
+        /// <summary>Maximum recursion/nesting depth for thread-local workspaces (e.g. cross-pawn evaluations).</summary>
+        public const int MaxWorkspacePoolDepth = 4;
 
-        /// Thread-local pool array for isolated workspaces per thread.
+        /// <summary>
+        /// Lightweight IDisposable lease wrapper for <see cref="AnatomicalWorkspace"/>
+        /// to guarantee deterministic release via C# using blocks without boxing.
+        /// </summary>
+        public struct WorkspaceLease : IDisposable
+        {
+            public readonly AnatomicalWorkspace Workspace;
+            private bool isDisposed;
+
+            public WorkspaceLease(AnatomicalWorkspace workspace)
+            {
+                Workspace = workspace;
+                isDisposed = false;
+            }
+
+            public void Dispose()
+            {
+                if (!isDisposed)
+                {
+                    isDisposed = true;
+                    if (Workspace != null)
+                    {
+                        ReleaseWorkspace(Workspace);
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region 2. STATIC STATE, THREAD-LOCAL POOLS & LOCKS
+
+        /// <summary>Thread-local pool array for isolated workspaces per thread.</summary>
         [ThreadStatic]
         private static AnatomicalWorkspace[] threadWorkspaces;
 
-        /// Thread-local lease stack index.
+        /// <summary>Thread-local lease stack index.</summary>
         [ThreadStatic]
         private static int poolIndex;
 
-        /// Synchronization root for cross-thread tracking and mass invalidation.
+        /// <summary>Synchronization root for cross-thread tracking and mass invalidation.</summary>
         private static readonly object syncRoot = new object();
 
-        /// Registry tracking all instantiated workspaces via weak references for lifecycle sweeps.
+        /// <summary>Registry tracking all instantiated workspaces via weak references for lifecycle sweeps.</summary>
         private static readonly List<System.WeakReference<AnatomicalWorkspace>> allWorkspaces = 
             new List<System.WeakReference<AnatomicalWorkspace>>();
 
         #endregion
 
-        #region 2. THREAD-LOCAL WORKSPACE RECYCLER
+        #region 3. PUBLIC CANONICAL LEASE API
+
+        /// <summary>
+        /// Leases a workspace wrapped in a deterministic <see cref="WorkspaceLease"/> token.
+        /// Single public canonical entry point enforcing RAII scope discipline.
+        /// </summary>
+        /// <returns>A disposable lease token containing the leased workspace.</returns>
+        public static WorkspaceLease LeaseWorkspace()
+        {
+            return new WorkspaceLease(GetWorkspaceInternal());
+        }
+
+        #endregion
+
+        #region 4. INTERNAL LEASE & RELEASE ENGINE
 
         /// <summary>
         /// Retrieves or instantiates a clean thread-local <see cref="AnatomicalWorkspace"/> instance.
         /// Supports re-entrant leases up to <see cref="MaxWorkspacePoolDepth"/> levels.
-        /// If depth is exceeded, allocates an unpooled standalone instance to prevent corrupting active leases.
+        /// If depth is exceeded, allocates an unpooled standalone instance without corrupting poolIndex.
         /// </summary>
         /// <returns>A cleared and ready-to-use <see cref="AnatomicalWorkspace"/>.</returns>
-        public static AnatomicalWorkspace GetWorkspace()
+        internal static AnatomicalWorkspace GetWorkspaceInternal()
         {
             if (threadWorkspaces == null)
             {
@@ -67,16 +114,21 @@ namespace OverHaulers
                 }
 
                 ws.Clear();
+                ws.ActiveLeaseSlot = index;
+                ws.IsLeased = true;
                 return ws;
             }
 
             // Safety fallback if depth is exceeded: allocate an unpooled fallback workspace
-            // instead of prematurely reusing and clearing an active workspace currently in use.
-            poolIndex++;
-            OHLog.Solver.Warn("WorkspacePool", null, $"Workspace pool depth exceeded ({poolIndex} > {MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
+            // without incrementing poolIndex so the pooled stack pointer remains uncorrupted.
+            OHLog.Solver.Warn("WorkspacePool", null, 
+                $"Workspace pool depth exceeded ({poolIndex + 1} > {MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
 
             int fallbackCapacity = Math.Max(SettingsDefaults.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);
             AnatomicalWorkspace unpooledWs = new AnatomicalWorkspace(fallbackCapacity);
+            unpooledWs.ActiveLeaseSlot = -1;
+            unpooledWs.IsLeased = true;
+
             lock (syncRoot)
             {
                 allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(unpooledWs));
@@ -86,57 +138,40 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Leases a workspace wrapped in a deterministic <see cref="WorkspaceLease"/> token.
-        /// Acts as a thin pass-through hand-off to <see cref="GetWorkspace"/>.
-        /// </summary>
-        /// <returns>A disposable lease token containing the leased workspace.</returns>
-        public static WorkspaceLease LeaseWorkspace()
-        {
-            return new WorkspaceLease(GetWorkspace());
-        }
-
-        /// <summary>
         /// Releases and clears a previously acquired <see cref="AnatomicalWorkspace"/>,
-        /// restoring the thread-local pool lease index.
+        /// validating LIFO stack integrity and restoring the thread-local pool lease index.
+        /// Completely idempotent: ignores unleased or already released instances.
         /// </summary>
         /// <param name="workspace">The workspace instance to release.</param>
-        public static void ReleaseWorkspace(AnatomicalWorkspace workspace)
+        internal static void ReleaseWorkspace(AnatomicalWorkspace workspace)
         {
-            if (workspace == null) return;
+            if (workspace == null || !workspace.IsLeased) return;
 
-            workspace.Clear();
+            int slot = workspace.ActiveLeaseSlot;
+            workspace.Clear(); // Sets IsLeased = false and ActiveLeaseSlot = -1
 
+            // Unpooled fallback workspaces do not occupy pool slots; return without modifying poolIndex
+            if (slot < 0) return;
+
+            // Pooled workspace release: enforce LIFO stack invariant
             if (poolIndex > 0)
             {
-                poolIndex--;
-            }
-        }
-
-        /// <summary>
-        /// Lightweight IDisposable lease wrapper for <see cref="AnatomicalWorkspace"/>
-        /// to guarantee deterministic release via C# using blocks without boxing.
-        /// </summary>
-        public readonly struct WorkspaceLease : IDisposable
-        {
-            public readonly AnatomicalWorkspace Workspace;
-
-            public WorkspaceLease(AnatomicalWorkspace workspace)
-            {
-                Workspace = workspace;
-            }
-
-            public void Dispose()
-            {
-                if (Workspace != null)
+                if (poolIndex - 1 != slot)
                 {
-                    ReleaseWorkspace(Workspace);
+                    OHLog.Solver.Warn("WorkspacePool", null, 
+                        $"Out-of-order workspace release detected (expected slot {poolIndex - 1}, released {slot}). Repairing stack pointer.");
+                    poolIndex = slot;
+                }
+                else
+                {
+                    poolIndex--;
                 }
             }
         }
 
         #endregion
 
-        #region 3. GARBAGE SWEEP & LIFECYCLE MANAGEMENT
+        #region 5. GARBAGE SWEEP & LIFECYCLE MANAGEMENT
 
         /// <summary>
         /// Scans the static reference collection and sweeps dead ThreadStatic pointers out of memory.

@@ -47,7 +47,7 @@ namespace OverHaulers
                     if (settings.devStressTestAllFauna)
                     {
                         // Full catalogue sweep across ALL species on enable
-                        SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "OverHaulers_SweepContext_FullCatalogue".Translate().ToString());
+                        SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "OverHaulers_Log_Calibration_Context_FullCatalogue".Translate().ToString());
                     }
 
                     PawnDataRegistry.ClearAllCaches();
