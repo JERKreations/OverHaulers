@@ -15,10 +15,10 @@ namespace OverHaulers
     /// </summary>
     public static class MassCapacitySolver
     {
-        #region 1. CONSTANTS & FALLBACK METRICS
+        #region 1. [SOLV-01] CONSTANTS & FALLBACK METRICS
 
         /// <summary>
-        /// [SOLV-02] Absolute safety floor preventing negative or zero carrying capacity divisions.
+        /// [SOLV-01] Absolute safety floor preventing negative or zero carrying capacity divisions.
         /// </summary>
         public const float MinimumAllowedCapacityKg = 0.01f;
 
@@ -30,7 +30,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. INTERNAL REGIONAL DEFICITS & DELTA STRUCTS
+        #region 2. [SOLV-02] INTERNAL REGIONAL DEFICITS & DELTA STRUCTS
 
         /// <summary>
         /// Represents the raw and clamped deficits for different anatomical regions of a pawn, used in mass capacity calculations.
@@ -87,6 +87,13 @@ namespace OverHaulers
             /// <summary>
             /// Accumulates positive and negative regional deltas for a single biological capacity.
             /// </summary>
+            /// <param name="snappedCapacity">The capacity fraction evaluated for the biological capacity.</param>
+            /// <param name="posTorso">Positive scaling weight applied to the Torso/Core region.</param>
+            /// <param name="posArm">Positive scaling weight applied to the Manipulation region.</param>
+            /// <param name="posLeg">Positive scaling weight applied to the Locomotion region.</param>
+            /// <param name="defTorso">Deficit scaling weight applied to the Torso/Core region.</param>
+            /// <param name="defArm">Deficit scaling weight applied to the Manipulation region.</param>
+            /// <param name="defLeg">Deficit scaling weight applied to the Locomotion region.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Accumulate(
                 float snappedCapacity,
@@ -122,6 +129,9 @@ namespace OverHaulers
             /// <summary>
             /// Retrieves the regional positive and negative deltas for a specific part type in constant time.
             /// </summary>
+            /// <param name="type">The anatomical part type to retrieve deltas for.</param>
+            /// <param name="positiveDelta">Outputs the aggregate positive regional delta.</param>
+            /// <param name="negativeDelta">Outputs the aggregate negative regional delta.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void GetDeltas(PartType type, out float positiveDelta, out float negativeDelta)
             {
@@ -153,10 +163,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PUBLIC CANONICAL SOLVER API
+        #region 3. [SOLV-03] PUBLIC CANONICAL SOLVER API
 
         /// <summary>
-        /// [SOLV-10] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.
+        /// [SOLV-03] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.
         /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure strict C# 7.3 compatibility.
         /// Encapsulates the thread-local workspace lease completely within its execution scope using <see cref="WorkspacePool.WorkspaceLease"/>.
         /// Consumes <see cref="OverHaulers.settings"/> directly as the single source of truth for runtime configuration.
@@ -191,7 +201,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. SECONDARY ENTRY POINTS & SAFETY CLAMPING
+        #region 4. [SOLV-04] SECONDARY ENTRY POINTS & SAFETY CLAMPING
 
         /// <summary>
         /// Evaluates numerical mass capacity metrics for a live <see cref="Pawn"/> instance.
@@ -275,10 +285,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. ALGORITHMIC SOLVER PIPELINE
+        #region 5. [SOLV-05] ALGORITHMIC SOLVER PIPELINE
 
         /// <summary>
-        /// [SOLV-11] Ingress compiler bridge translating anatomical source data into workspace lanes
+        /// [SOLV-05] Ingress compiler bridge translating anatomical source data into workspace lanes
         /// and executing the canonical internal solver pipeline.
         /// </summary>
         internal static MassCapacityEvaluationResult SolveSource<TSource>(
@@ -324,7 +334,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [SOLV-12] Canonical Single Source of Truth (SSoT) executing the numerical solving pipeline.
+        /// [SOLV-05] Canonical Single Source of Truth (SSoT) executing the numerical solving pipeline.
         /// Operates directly on contiguous memory in the leased <see cref="AnatomicalWorkspace"/>.
         /// </summary>
         internal static MassCapacityEvaluationResult SolveInternal(
@@ -378,6 +388,11 @@ namespace OverHaulers
         /// <summary>
         /// Compiles pathology data into the workspace. Dispatches directly without interface boxing.
         /// </summary>
+        /// <typeparam name="TSource">The concrete anatomical data source struct type.</typeparam>
+        /// <param name="source">The anatomical data source representing the pawn.</param>
+        /// <param name="template">The precompiled species topology template.</param>
+        /// <param name="workspace">The active leased workspace to populate.</param>
+        /// <param name="populateColdMetadata">If true, captures Def references for UI presentation.</param>
         private static void CompilePathology<TSource>(
             TSource source,
             SpeciesTopologyTemplate template,
@@ -418,6 +433,7 @@ namespace OverHaulers
             int[] parentIndices = workspace.ParentIndices;
 
             #region 6A. Bilateral Root Symmetry Evaluation
+            // BREAKPOINT ANCHOR: Bilateral Root Symmetry Evaluation Gate
             int totalRootArms = context.Counts.TotalManipulationRoots;
             int totalRootLegs = context.Counts.TotalMovingRoots;
             int intactRootArms = 0;
@@ -478,6 +494,7 @@ namespace OverHaulers
             #endregion
 
             #region 6C. Contiguous Streaming Math (Smooth, Unclamped)
+            // BREAKPOINT ANCHOR: Contiguous SoA Math Streaming Loop
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];

@@ -14,7 +14,7 @@ namespace OverHaulers
     /// </summary>
     public static class ReportFormatter
     {
-        #region 1. CONSTANTS & POOLED SCRATCHPADS
+        #region 1. [VIEW-04-A] CONSTANTS & POOLED SCRATCHPADS
 
         private const string Indent2 = "  ";
         private const string Indent4 = "    ";
@@ -34,7 +34,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. PUBLIC CANONICAL EXPLANATION API
+        #region 2. [VIEW-04-B] PUBLIC CANONICAL EXPLANATION API
 
         /// <summary>
         /// [VIEW-04] Canonical Single Source of Truth (SSoT) entry point formatting the Caravan Mass Capacity breakdown.
@@ -88,7 +88,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. ALGORITHMIC BREAKDOWN STAGES
+        #region 3. [VIEW-04-C] ALGORITHMIC BREAKDOWN STAGES
 
         /// <summary>
         /// [VIEW-02] Appends the list of mass capacity levels to the report builder.
@@ -325,7 +325,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. PRIVATE FORMATTING & MEDICAL COLOR HELPERS
+        #region 4. [VIEW-04-D] PRIVATE FORMATTING & MEDICAL COLOR HELPERS
 
         /// <summary>
         /// Appends a single structural sub-part line to the provided StringBuilder.
@@ -501,8 +501,8 @@ namespace OverHaulers
 
             bool matchesParent = parent.HasProsthetic && sub.HasProsthetic
                 && sub.ProstheticName == parent.ProstheticName
-                && Mathf.Approximately(sub.EfficiencyRating, parent.EfficiencyRating)
-                && (sub.IsInherited || Mathf.Approximately(sub.HealthFraction, parent.HealthFraction))
+                && Math.Abs(sub.EfficiencyRating - parent.EfficiencyRating) < SettingsDefaults.EfficiencyEpsilon
+                && (sub.IsInherited || Math.Abs(sub.HealthFraction - parent.HealthFraction) < SettingsDefaults.EfficiencyEpsilon)
                 && sub.IsMissing == parent.IsMissing
                 && sub.AthleticImplantName == parent.AthleticImplantName
                 && sub.LocalAilmentName == parent.LocalAilmentName;

@@ -7,7 +7,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [VIEW-01 to VIEW-04] VIEW PROJECTION COMPILER
+    /// [VIEW-01 to VIEW-05] VIEW PROJECTION COMPILER
     /// Stateless view projection compiler translating mathematical workspace vectors into passive visual node hierarchies.
     /// Operates on IAnatomicalDataSource with zero transient heap allocations on the main thread via O(1) direct array access and pooled
     ///  view nodes.
@@ -16,7 +16,7 @@ namespace OverHaulers
     /// </summary>
     public static class ViewProjection
     {
-        #region 1. STATIC SCRATCH POOLS & PRESENTATION ORDER (Main Thread Only)
+        #region 1. [VIEW-01] STATIC SCRATCH POOLS & PRESENTATION ORDER (Main Thread Only)
 
         [ThreadStatic]
         private static bool isProjectingView;
@@ -80,10 +80,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. CANONICAL PRESENTATION PROJECTION API
+        #region 2. [VIEW-02] CANONICAL PRESENTATION PROJECTION API
 
         /// <summary>
-        /// [VIEW-PROJ-01] Canonical Presentation entry point executing full anatomical inspection and projecting
+        /// [VIEW-02-A] Canonical Presentation entry point executing full anatomical inspection and projecting
         /// the solved state into a visual <see cref="MassCapacityModel"/> hierarchy.
         /// Resides strictly in Presentation, consuming Core via rented workspace leases.
         /// </summary>
@@ -141,7 +141,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [VIEW-PROJ-02] Secondary presentation entry point projecting a live RimWorld <see cref="Pawn"/>.
+        /// [VIEW-02-B] Secondary presentation entry point projecting a live RimWorld <see cref="Pawn"/>.
         /// </summary>
         public static MassCapacityEvaluationResult InspectAndProjectForPawn(
             Pawn pawn,
@@ -159,7 +159,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [VIEW-PROJ-03] Secondary presentation entry point projecting a boxed <see cref="IAnatomicalDataSource"/>.
+        /// [VIEW-02-C] Secondary presentation entry point projecting a boxed <see cref="IAnatomicalDataSource"/>.
         /// </summary>
         public static MassCapacityEvaluationResult InspectAndProjectForSource(
             IAnatomicalDataSource source,
@@ -178,7 +178,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. SECONDARY ENTRY POINTS & ENGINE REBUILDERS
+        #region 3. [VIEW-03] SECONDARY ENTRY POINTS & ENGINE REBUILDERS
 
         /// <summary>
         /// Projects the compiled anatomical workspace into a passive visual node hierarchy for UI rendering.
@@ -271,7 +271,7 @@ namespace OverHaulers
                     massModel.AddAilmentsRangeUnique(workspace.SystemicAilments);
                 }
 
-                // [VIEW-04.A] Build Structural Sub-Models in Top-Down Anatomical Order
+                // BREAKPOINT ANCHOR: Build Structural Sub-Models in Top-Down Anatomical Order
                 for (int g = 0; g < PresentationGroupOrder.Length; g++)
                 {
                     int typeIndex = (int)PresentationGroupOrder[g];
@@ -290,7 +290,7 @@ namespace OverHaulers
                     }
                 }
 
-                // [VIEW-04.B] Attach Metabolic Organs and Virtual Anchors to Ancestral Bones
+                // BREAKPOINT ANCHOR: Attach Metabolic Organs and Virtual Anchors to Ancestral Bones
                 // Retrieve the list of non-structural parts, typically metabolic organs and virtual anchors.
                 // For each non-structural part, create a corresponding view node and attach it to its nearest structural ancestor if available.
                 var organList = pooledCategorizedParts[(int)PartType.None];
@@ -314,7 +314,7 @@ namespace OverHaulers
                     }
                 }
 
-                // [VIEW-04.C] Consolidate & Nest Visual Group Wrappers
+                // BREAKPOINT ANCHOR: Consolidate & Nest Visual Group Wrappers
                 // Iterate through each presentation group, consolidate its sub-models into a single wrapper, and nest them appropriately.
                 for (int g = 0; g < PresentationGroupOrder.Length; g++)
                 {
@@ -360,7 +360,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. GROUP CONSOLIDATION & NESTING PIPELINE
+        #region 4. [VIEW-04] GROUP CONSOLIDATION & NESTING PIPELINE
 
         /// <summary>
         /// Processes a group of sub-models, consolidates them into a single wrapper node, nests the sub-models in place, and adds the wrapper
@@ -617,7 +617,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. LOW-LEVEL FACTORIES & CATEGORIZERS
+        #region 5. [VIEW-05] LOW-LEVEL FACTORIES & CATEGORIZERS
 
         /// <summary>
         /// Creates a new PartViewNode for the specified body part, initializing it with the given parameters and workspace state.

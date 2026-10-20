@@ -199,10 +199,20 @@ namespace OverHaulers
                     {
                         headlessPawn.story.bodyType = sourcePawn.story.bodyType;
                         headlessPawn.story.headType = sourcePawn.story.headType;
+                        headlessPawn.story.hairDef = sourcePawn.story.hairDef;
                     }
                     else
                     {
-                        headlessPawn.story.bodyType = BodyTypeDefOf.Male ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male");
+                        headlessPawn.story.bodyType = BodyTypeDefOf.Male 
+                            ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male") 
+                            ?? DefDatabase<BodyTypeDef>.AllDefsListForReading?.FirstOrDefault();
+
+                        headlessPawn.story.headType = DefDatabase<HeadTypeDef>.GetNamedSilentFail("Male_AverageNormal") 
+                            ?? DefDatabase<HeadTypeDef>.AllDefsListForReading?.FirstOrDefault();
+
+                        headlessPawn.story.hairDef = HairDefOf.Bald 
+                            ?? DefDatabase<HairDef>.GetNamedSilentFail("Bald") 
+                            ?? DefDatabase<HairDef>.AllDefsListForReading?.FirstOrDefault();
                     }
                 }
 

@@ -5,13 +5,14 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [VIEW-04] Dedicated presentation cache managing <see cref="MassCapacityModel"/> lifecycles for InfoCard dialogs.
+    /// [VIEW-03] PRESENTATION MODEL REGISTRY & INFOCARD CACHE
+    /// Dedicated presentation cache managing <see cref="MassCapacityModel"/> lifecycles for InfoCard dialogs.
     /// Completely isolates presentation tree generation and explanation caching from the high-frequency gameplay Core.
     /// Resides under Source/Presentation/Rendering/.
     /// </summary>
     public static class DetailedModelRegistry
     {
-        #region 1. CACHE DATA STRUCTURES & STATIC STATE
+        #region 1. [VIEW-03-A] CACHE DATA STRUCTURES & STATIC STATE
 
         private sealed class PresentationCacheEntry
         {
@@ -37,7 +38,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. PUBLIC PRESENTATION API
+        #region 2. [VIEW-03-B] PUBLIC PRESENTATION API
 
         /// <summary>
         /// Retrieves or rebuilds the compiled <see cref="MassCapacityModel"/> for a pawn's InfoCard dialog.
@@ -111,7 +112,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. CACHE EVICTION & LIFECYCLE MANAGEMENT
+        #region 3. [VIEW-03-C] CACHE EVICTION & LIFECYCLE MANAGEMENT
 
         /// <summary>
         /// Evicts a specific pawn's presentation model from cache (e.g. on death or despawn).

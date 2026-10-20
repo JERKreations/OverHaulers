@@ -8,12 +8,12 @@ namespace OverHaulers
     /// [INT-06] REACTIVE CACHE INVALIDATION DRIVER
     /// Intercepts pawn health mutations, apparel changes, equipment equipping, and life-cycle events.
     /// Filters signals via O(1) debouncing gates and evicts stale entries from Core caches.
-    /// Strictly decoupled from UI and presentation rendering (§ 4).
+    /// Strictly decoupled from UI and presentation rendering.
     /// Resides under Source/Integration/Patches/.
     /// </summary>
     public static partial class HarmonySetup
     {
-        #region 1. [INT-06] INVALIDATION REGISTRATION & BINDING
+        #region 1. [INT-INVAL-01] INVALIDATION REGISTRATION & BINDING
 
         /// <summary>
         /// Installs cache invalidation patches for pawn lifecycle and equipment events.
@@ -53,7 +53,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. [INT-06] PROCESSING GATES & TELEMETRY
+        #region 2. [INT-INVAL-02] PROCESSING GATES & TELEMETRY
 
         /// <summary>
         /// Direct main-thread processing gate filtering out duplicate invalidation signals in O(1) time.
@@ -95,26 +95,26 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [INT-06] HARMONY POSTFIX TARGETS
+        #region 3. [INT-INVAL-03] HARMONY POSTFIX TARGETS
 
-        /// <summary>[INT-06] Postfix hook for Pawn_HealthTracker.Notify_HediffChanged.</summary>
+        /// <summary>[INT-INVAL-03] Postfix hook for Pawn_HealthTracker.Notify_HediffChanged.</summary>
         private static void Notify_HediffChanged_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
-        /// <summary>[INT-06] Postfix hook for Pawn_ApparelTracker.Notify_ApparelAdded.</summary>
+        /// <summary>[INT-INVAL-03] Postfix hook for Pawn_ApparelTracker.Notify_ApparelAdded.</summary>
         private static void Notify_ApparelAdded_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
-        /// <summary>[INT-06] Postfix hook for Pawn_ApparelTracker.Notify_ApparelRemoved.</summary>
+        /// <summary>[INT-INVAL-03] Postfix hook for Pawn_ApparelTracker.Notify_ApparelRemoved.</summary>
         private static void Notify_ApparelRemoved_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
-        /// <summary>[INT-06] Postfix hook for Pawn_EquipmentTracker.Notify_EquipmentAdded.</summary>
+        /// <summary>[INT-INVAL-03] Postfix hook for Pawn_EquipmentTracker.Notify_EquipmentAdded.</summary>
         private static void Notify_EquipmentAdded_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
-        /// <summary>[INT-06] Postfix hook for Pawn_EquipmentTracker.Notify_EquipmentRemoved.</summary>
+        /// <summary>[INT-INVAL-03] Postfix hook for Pawn_EquipmentTracker.Notify_EquipmentRemoved.</summary>
         private static void Notify_EquipmentRemoved_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
         /// <summary>
-        /// [INT-06] Postfix hook for Pawn.Kill. Immediately evicts dead pawns from Core cache registries.
-        /// Core downward events automatically synchronize presentation cache eviction (§ 4).
+        /// [INT-INVAL-03] Postfix hook for Pawn.Kill. Immediately evicts dead pawns from Core cache registries.
+        /// Core downward events (PawnDataRegistry.OnPawnEvicted) automatically synchronize presentation cache eviction.
         /// </summary>
         private static void Notify_PawnKilled_Postfix(Pawn __instance)
         {
@@ -134,7 +134,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [INT-06] Postfix hook for Pawn.DeSpawn. Immediately evicts non-colonist pawns (fleeing raiders, departing visitors, wild animals)
+        /// [INT-INVAL-03] Postfix hook for Pawn.DeSpawn. Immediately evicts non-colonist pawns (fleeing raiders, departing visitors, wild animals)
         /// from capacity registries to rapidly deflate the cache population and snap dynamic TTL back to baseline after raids.
         /// </summary>
         private static void Notify_PawnDeSpawned_Postfix(Pawn __instance)
@@ -143,6 +143,7 @@ namespace OverHaulers
 
             try
             {
+                // BREAKPOINT ANCHOR: Non-Colonist Despawn Eviction Signal
                 if (UnityData.IsInMainThread)
                 {
                     // Player colonists and caravan members remain cached; all fled raiders and temporary entities are evicted

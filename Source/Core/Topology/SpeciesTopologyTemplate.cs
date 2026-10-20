@@ -12,14 +12,14 @@ namespace OverHaulers
     /// </summary>
     public class SpeciesTopologyTemplate
     {
-        #region 1. TOPOLOGY CONSTANTS
+        #region 1. [TOPO-03-A] TOPOLOGY CONSTANTS
 
         /// <summary>Number of PartType enum slots (0..5) used as the stride multiplier for 1D jump matrix calculations.</summary>
         public const int PartTypeStride = 6;
 
         #endregion
 
-        #region 2. TOPOLOGY PROPERTIES & STRUCTURAL VECTORS
+        #region 2. [TOPO-03-B] TOPOLOGY PROPERTIES & STRUCTURAL VECTORS
 
         #region 2A. STRUCTURAL TOPOLOGY & MATRICES
 
@@ -138,7 +138,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. LIFECYCLE & CONSTRUCTOR
+        #region 3. [TOPO-03-C] LIFECYCLE & CONSTRUCTOR
 
         /// <summary>
         /// Instantiates and allocates flat contiguous arrays for a species topology template matching the given BodyDef.
@@ -152,7 +152,7 @@ namespace OverHaulers
             int currentPartsCount = bodyDef.AllParts.Count;
             int currentMax;
             
-            // Atomic CAS loop: updates the global high-water mark of body part counts across all loaded species.
+            // BREAKPOINT ANCHOR: Global Max Part Count Atomic High-Water CAS Loop
             // This maximum is used by WorkspacePool to pre-size thread-local Structure-of-Arrays buffers without runtime reallocation.
             do
             {
@@ -221,7 +221,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. PUBLIC CANONICAL QUERY API
+        #region 4. [TOPO-03-D] PUBLIC CANONICAL QUERY API
 
         /// <summary>
         /// Resolves the precompiled slot index for a live <see cref="BodyPartRecord"/> in O(1) time.
@@ -245,6 +245,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetNearestAncestor(int partIndex, PartType targetType)
         {
+            // BREAKPOINT ANCHOR: Flat 1D Stride Ancestral Jump Lookup
             if (NearestAncestorMatrix == null || partIndex < 0 || partIndex >= PartCount) return -1;
             return NearestAncestorMatrix[(partIndex * PartTypeStride) + (int)targetType];
         }
@@ -258,6 +259,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetChildIndex(int parentIndex, int childSlot)
         {
+            // BREAKPOINT ANCHOR: Flat Contiguous Child Buffer Lookup
             if (ChildBuffer == null || parentIndex < 0 || parentIndex >= PartCount) return -1;
             return ChildBuffer[ChildOffsets[parentIndex] + childSlot];
         }

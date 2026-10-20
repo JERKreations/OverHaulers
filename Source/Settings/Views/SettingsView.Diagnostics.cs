@@ -46,6 +46,7 @@ namespace OverHaulers
                 {
                     if (settings.devStressTestAllFauna)
                     {
+                        // BREAKPOINT ANCHOR: Full Catalogue Stress-Test Sweep Trigger
                         // Full catalogue sweep across ALL species on enable
                         SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: false, "OverHaulers_Log_Calibration_Context_FullCatalogue".Translate().ToString());
                     }

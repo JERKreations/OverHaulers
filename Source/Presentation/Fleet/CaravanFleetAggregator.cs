@@ -13,13 +13,13 @@ namespace OverHaulers
     /// </summary>
     public static class CaravanFleetAggregator
     {
-        #region 1. SCRATCH STORAGE (Main-Thread Only)
+        #region 1. [VIEW-05-A] SCRATCH STORAGE (Main-Thread Only)
 
         private static readonly StringBuilder pooledFleetReportBuilder = new StringBuilder(2048);
 
         #endregion
 
-        #region 2. SINGLE-PASS FLEET AGGREGATION
+        #region 2. [VIEW-05-B] SINGLE-PASS FLEET AGGREGATION
 
         /// <summary>
         /// Compiles a summary of the caravan fleet's mass capacity from a list of transferable pawns.
@@ -142,7 +142,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. FLEET SUMMARY EXPLANATION BUILDER
+        #region 3. [VIEW-05-C] FLEET SUMMARY EXPLANATION BUILDER
 
         /// <summary>
         /// Builds a textual explanation of the caravan fleet's mass capacity summary for display in the InfoCard overlay.
@@ -169,6 +169,7 @@ namespace OverHaulers
                 pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
 
                 // 3. Standout Performers: Net vs Gross with Smart Collapse
+                // BREAKPOINT ANCHOR: Standout Performer Smart Collapse (Net vs Gross)
                 bool hasNet = summary.TopNetContributor != null;
                 bool hasGross = summary.TopGrossContributor != null;
 

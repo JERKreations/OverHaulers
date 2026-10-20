@@ -141,9 +141,6 @@ namespace OverHaulers
         /// </summary>
         public const bool DevStressTestAllFauna = false;
 
-        [System.Obsolete("Use DevStressTestAllFauna instead.")]
-        public const bool DevAllowNonPackSpeciesInLivePlay = DevStressTestAllFauna;
-
         // Report metrics interval in hours. This defines how frequently diagnostic metrics are reported.
         public const int ReportMetricsIntervalHours = 0;
         public const int ReportMetricsIntervalHoursMin = 0;
@@ -195,7 +192,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 11. ENGINE & PERFORMANCE INVARIANTS
+        #region 11. [SEC-11] ENGINE & PERFORMANCE INVARIANTS
 
         // Minimum fast path ticks and dynamic cache expiry floor (5 ticks = ~0.08s at 1x speed).
         public const int DefaultCacheMinFastPathTicks = 5;

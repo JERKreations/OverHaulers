@@ -6,17 +6,30 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [PASS-01] UNIFIED INGRESS TRANSLATION & TOPOLOGICAL SWEEP SOLVER
+    /// [PASS-01] UNIFIED INGRESS TRANSLATION &amp; TOPOLOGICAL SWEEP SOLVER
     /// Single source of truth translating Pawn HediffSets onto contiguous SoA workspace arrays.
+    /// Executes unified graph sweeps to handle bionic efficiency inheritance, missing part cascading,
+    /// and normalized injury health fractions with zero heap allocations.
     /// Resides under Source/Core/Solvers/.
     /// </summary>
+    /// <remarks>
+    /// ARCHITECTURAL DESIGN RATIONALE (ZERO-ALLOCATION INGRESS PIPELINE):
+    /// Ingress executes in two deterministic stages:
+    /// 1. Stage 1 (Hediff Translation): Sweeps live HediffSet, mapping direct wounds, added parts, and organ implants
+    ///    into primitive SoA lanes (HealthFractions, EfficiencyRatings, AthleticEfficiencies, and Flags bitmasks).
+    ///    Cold metadata (Def references) is only recorded when explicitly requested for UI presentation.
+    /// 2. Stage 2 (Topological Sweeps):
+    ///    - Sweep 1: Normalizes direct injury HP loss against part maximum health.
+    ///    - Sweep 2: Propagates state top-down in topological depth order. When a parent part is bionic, child limbs
+    ///      inherit the bionic efficiency rating, while non-limb internal parts are safely neutralized.
+    /// </remarks>
     public static class AnatomicalIngressSolver
     {
         // Detailed-model ingress only runs on the main thread (MassCapacitySolver -> PawnDataRegistry cache-miss path).
         private static readonly List<PawnCapacityUtility.CapacityImpactor> pooledImpactors =
             new List<PawnCapacityUtility.CapacityImpactor>(16);
 
-        #region 1. PUBLIC INGRESS ENTRY POINT
+        #region 1. [PASS-01] PUBLIC INGRESS ENTRY POINT
 
         /// <summary>
         /// [PASS-01] Translates a Pawn's live hediff set into the workspace and executes unified graph sweeps.
@@ -45,7 +58,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. STAGE 1: HEDIFF TRANSLATION
+        #region 2. [PASS-01-A] STAGE 1: HEDIFF TRANSLATION
 
         /// <summary>
         /// Translates a pawn's live hediff set into the anatomical workspace, updating part states, efficiencies, and systemic ailments.
@@ -208,7 +221,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. STAGE 2: TOPOLOGICAL GRAPH SWEEPS
+        #region 3. [PASS-01-B] STAGE 2: TOPOLOGICAL GRAPH SWEEPS
 
         /// <summary>
         /// Finalizes the topological sweeps of the anatomical workspace, updating part states and efficiencies based on the pawn's current condition.
@@ -272,6 +285,7 @@ namespace OverHaulers
             // =========================================================================
             // Sweep 2: Unified Top-Down Graph State Propagation
             // =========================================================================
+            // BREAKPOINT ANCHOR: Top-Down Graph State Propagation (Prosthetic & Amputation Inheritance)
             for (int d = 0; d < partCount; d++)
             {
                 int i = depthSorted != null ? depthSorted[d] : d;
