@@ -59,24 +59,19 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Verifies that packing two floats into one 64-bit word and unpacking them returns the original values, including extremes.
+        /// Verifies that writing and reading various floating-point offsets (including extremes and negative values) returns exact bit-level values.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
         private static void CheckPackUnpack(SelfCheckContext ctx)
         {
-            float[][] samples =
-            {
-                new[] { 0f, 1f },
-                new[] { -12.5f, 0.75f },
-                new[] { 123456.78f, 0.0001f },
-                new[] { float.MaxValue, float.MinValue }
-            };
+            SnapshotTable table = new SnapshotTable(TestCapacity, forwardTelemetry: false, enableDynamicScaling: false);
+            float[] samples = { 0f, -12.5f, 123456.78f, -0.0001f, 0.001f, 9999.99f };
 
             for (int i = 0; i < samples.Length; i++)
             {
-                SnapshotTable.Unpack(SnapshotTable.Pack(samples[i][0], samples[i][1]), out float offset, out float multiplier);
-                Expect.Equal(samples[i][0], offset, "offset of sample " + i);
-                Expect.Equal(samples[i][1], multiplier, "multiplier of sample " + i);
+                int id = 500 + i;
+                table.WriteState(id, samples[i]);
+                Expect.Equal(samples[i], table.GetOffsetThreadSafe(id), "stored float offset for id " + id);
             }
         }
 
@@ -89,13 +84,11 @@ namespace OverHaulers
             SnapshotTable table = new SnapshotTable(TestCapacity);
 
             Expect.Equal(0f, table.GetOffsetThreadSafe(42), "offset of unknown pawn");
-            Expect.Equal(1f, table.GetMultiplierThreadSafe(42), "multiplier of unknown pawn");
 
-            table.WriteState(0, 5f, 2f);
-            table.WriteState(-7, 5f, 2f);
+            table.WriteState(0, 5f);
+            table.WriteState(-7, 5f);
             Expect.Equal(0, table.OccupiedSlotsCount, "occupancy after writing non-positive IDs");
             Expect.Equal(0f, table.GetOffsetThreadSafe(-7), "offset of negative ID");
-            Expect.Equal(1f, table.GetMultiplierThreadSafe(-7), "multiplier of negative ID");
             Expect.True(!table.Evict(-7), "evicting a negative ID must report false");
         }
 
@@ -107,18 +100,17 @@ namespace OverHaulers
         {
             SnapshotTable table = new SnapshotTable(TestCapacity);
 
-            table.WriteState(10, 7.5f, 1.25f);
+            table.WriteState(10, 7.5f);
             Expect.Equal(7.5f, table.GetOffsetThreadSafe(10), "offset after write");
-            Expect.Equal(1.25f, table.GetMultiplierThreadSafe(10), "multiplier after write");
             Expect.Equal(1, table.OccupiedSlotsCount, "occupancy after first write");
 
-            table.WriteState(10, -3f, 0.5f);
+            table.WriteState(10, -3f);
             Expect.Equal(-3f, table.GetOffsetThreadSafe(10), "offset after overwrite");
-            Expect.Equal(0.5f, table.GetMultiplierThreadSafe(10), "multiplier after overwrite");
             Expect.Equal(1, table.OccupiedSlotsCount, "overwrite must not grow occupancy");
 
-            table.WriteState(11, 4f, 0f);
-            Expect.Equal(1f, table.GetMultiplierThreadSafe(11), "non-positive stored multiplier must read as neutral");
+            table.WriteState(11, 4f);
+            Expect.Equal(4f, table.GetOffsetThreadSafe(11), "offset for distinct key");
+            Expect.Equal(2, table.OccupiedSlotsCount, "occupancy after second distinct write");
         }
 
         /// <summary>
@@ -129,13 +121,13 @@ namespace OverHaulers
         {
             SnapshotTable table = new SnapshotTable(TestCapacity);
 
-            table.WriteState(20, 1f, 1f);
+            table.WriteState(20, 1f);
             Expect.True(table.Evict(20), "evicting a present key must report true");
             Expect.Equal(0f, table.GetOffsetThreadSafe(20), "offset after eviction");
             Expect.Equal(0, table.OccupiedSlotsCount, "occupancy after eviction");
             Expect.True(!table.Evict(20), "evicting a missing key must report false");
 
-            for (int id = 1; id <= 50; id++) table.WriteState(id, id, 1f);
+            for (int id = 1; id <= 50; id++) table.WriteState(id, id);
             table.Reset();
             Expect.Equal(0, table.OccupiedSlotsCount, "occupancy after reset");
             Expect.Equal(0f, table.GetOffsetThreadSafe(25), "offset after reset");
@@ -154,7 +146,7 @@ namespace OverHaulers
             for (int victim = 0; victim < ids.Count; victim++)
             {
                 table.Reset();
-                for (int i = 0; i < ids.Count; i++) table.WriteState(ids[i], ids[i], 2f);
+                for (int i = 0; i < ids.Count; i++) table.WriteState(ids[i], ids[i]);
 
                 Expect.True(table.Evict(ids[victim]), "evicting cluster member " + victim);
 
@@ -197,7 +189,7 @@ namespace OverHaulers
                 {
                     float value = 1 + rng.Next(1000);
                     model[id] = value;
-                    table.WriteState(id, value, value + 0.5f);
+                    table.WriteState(id, value);
                 }
 
                 for (int p = 0; p < universe.Count; p++)
@@ -205,7 +197,6 @@ namespace OverHaulers
                     int probe = universe[p];
                     bool present = model.TryGetValue(probe, out float stored);
                     Expect.Equal(present ? stored : 0f, table.GetOffsetThreadSafe(probe), "step " + step + ": offset of " + probe);
-                    Expect.Equal(present ? stored + 0.5f : 1f, table.GetMultiplierThreadSafe(probe), "step " + step + ": multiplier of " + probe);
                 }
 
                 Expect.Equal(model.Count, table.OccupiedSlotsCount, "step " + step + ": occupancy");
@@ -223,7 +214,7 @@ namespace OverHaulers
             int overflow = 4;
             List<int> ids = IdsForSlot(table, 50, window + overflow);
 
-            for (int i = 0; i < ids.Count; i++) table.WriteState(ids[i], ids[i], 1f);
+            for (int i = 0; i < ids.Count; i++) table.WriteState(ids[i], ids[i]);
 
             Expect.Equal((float)ids[ids.Count - 1], table.GetOffsetThreadSafe(ids[ids.Count - 1]), "newest key must always be readable");
             Expect.Equal(window, table.OccupiedSlotsCount, "occupancy must stay capped at the probe window");
@@ -265,8 +256,7 @@ namespace OverHaulers
                         {
                             int id = ids[i];
                             float offset = table.GetOffsetThreadSafe(id);
-                            float multiplier = table.GetMultiplierThreadSafe(id);
-                            if ((offset != 0f && offset != id) || (multiplier != 1f && multiplier != id))
+                            if (offset != 0f && offset != id)
                             {
                                 Interlocked.Increment(ref violations);
                             }
@@ -287,7 +277,7 @@ namespace OverHaulers
             {
                 int id = ids[rng.Next(ids.Count)];
                 if (rng.Next(3) == 0) table.Evict(id);
-                else table.WriteState(id, id, id);
+                else table.WriteState(id, id);
                 cycles++;
             }
 
@@ -315,7 +305,7 @@ namespace OverHaulers
             // Write 170 items (exceeding 256 * 0.65 = 166.4 items)
             for (int i = 1; i <= 170; i++)
             {
-                table.WriteState(i, (float)i, 1f);
+                table.WriteState(i, (float)i);
             }
 
             Expect.Equal(512, table.Capacity, "table must expand to 512 slots after crossing 65% occupancy");

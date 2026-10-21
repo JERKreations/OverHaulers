@@ -23,7 +23,8 @@ namespace OverHaulers
         private static string[][] benchmarkSolverRows;
         private static string[] benchmarkRampHeaders;
         private static string[][] benchmarkRampRows;
-        private static string benchmarkSnapshotLine = string.Empty;
+        private static string benchmarkSnapshotBaselineLine = string.Empty;
+        private static string benchmarkSnapshotSurgeLine = string.Empty;
         private static string[] benchmarkSnapshotHeaders;
         private static string[][] benchmarkSnapshotRows;
 
@@ -118,18 +119,28 @@ namespace OverHaulers
         {
             if (!SnapshotTableBenchmark.HasResults)
             {
-                benchmarkSnapshotLine = string.Empty;
+                benchmarkSnapshotBaselineLine = string.Empty;
+                benchmarkSnapshotSurgeLine = string.Empty;
                 benchmarkSnapshotHeaders = new string[0];
                 benchmarkSnapshotRows = new string[0][];
                 return;
             }
 
             SnapshotReadResult read = SnapshotTableBenchmark.ReadResult;
-            benchmarkSnapshotLine = "OverHaulers_Benchmark_TableSingle".Translate(
-                read.HitNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
-                read.MissNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
-                read.PawnCount,
-                read.TableCapacity).ToString();
+            SnapshotTierMetrics baseTier = read.Baseline;
+            SnapshotTierMetrics surgeTier = read.Surge;
+
+            benchmarkSnapshotBaselineLine = "OverHaulers_Benchmark_TableBaseline".Translate(
+                baseTier.HitNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
+                baseTier.MissNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
+                baseTier.PawnCount,
+                baseTier.TableCapacity).ToString();
+
+            benchmarkSnapshotSurgeLine = "OverHaulers_Benchmark_TableSurge".Translate(
+                surgeTier.HitNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
+                surgeTier.MissNanoseconds.ToString("F1", CultureInfo.InvariantCulture),
+                surgeTier.PawnCount,
+                surgeTier.TableCapacity).ToString();
 
             benchmarkSnapshotHeaders = new[]
             {
@@ -390,7 +401,10 @@ namespace OverHaulers
             Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), SettingsViewUtilities.CachedText("OverHaulers_Benchmark_TableHeader"));
             localY += BenchmarkRowHeight;
 
-            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkSnapshotLine);
+            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkSnapshotBaselineLine);
+            localY += BenchmarkRowHeight;
+
+            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkSnapshotSurgeLine);
             localY += BenchmarkRowHeight + 2f;
 
             GUI.color = SettingsViewUtilities.DescriptionTextColor;

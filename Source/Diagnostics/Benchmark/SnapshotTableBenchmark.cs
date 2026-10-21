@@ -9,18 +9,34 @@ namespace OverHaulers
     #region 1. [DIAG-03] SNAPSHOT BENCHMARK DATA MODELS
 
     /// <summary>
-    /// Single-thread read cost of the lock-free snapshot table.
+    /// [DIAG-03] Single-thread read latency metrics for a specific snapshot table capacity tier.
     /// </summary>
-    public sealed class SnapshotReadResult
+    public struct SnapshotTierMetrics
     {
         /// <summary>Number of pawns resident in the table during the measurement.</summary>
         public int PawnCount;
-        /// <summary>Slot count of the benchmarked table.</summary>
+        /// <summary>Slot count of the table tier.</summary>
         public int TableCapacity;
         /// <summary>Median cost of reading a resident pawn on one thread, in nanoseconds (includes loop overhead).</summary>
         public double HitNanoseconds;
         /// <summary>Median cost of reading an absent pawn on one thread, in nanoseconds (includes loop overhead).</summary>
         public double MissNanoseconds;
+
+        /// <summary>Current load factor percentage in the range 0 to 100.</summary>
+        public double LoadFactorPercent => TableCapacity > 0 ? (100.0 * PawnCount / TableCapacity) : 0.0;
+    }
+
+    /// <summary>
+    /// [DIAG-03] Multi-tier single-thread read latency results for the lock-free snapshot table.
+    /// Evaluates both L1-resident colony baselines (512 slots) and L2-resident high-load surges (4096 slots).
+    /// </summary>
+    public sealed class SnapshotReadResult
+    {
+        /// <summary>Tier 1 metrics representing standard colony play (512 slots, 100% L1 Data Cache resident).</summary>
+        public SnapshotTierMetrics Baseline;
+
+        /// <summary>Tier 2 metrics representing extreme high-fauna surges (4096 slots, L2 resident).</summary>
+        public SnapshotTierMetrics Surge;
     }
 
     /// <summary>
@@ -46,22 +62,26 @@ namespace OverHaulers
 
     /// <summary>
     /// [DIAG-03] Snapshot table benchmark stage. Measures the lock-free table used by background pathfinding threads
-    /// against a private <see cref="SnapshotTable"/> instance, so live caravan mass capacity data is never touched.
+    /// against a private <see cref="SnapshotTable"/> instance across both L1 colony baselines and L2 scaled surges.
     /// Driven one time slice per frame by <see cref="BenchmarkRunner"/>; reader threads run continuously in the background
-    /// while the main thread acts as the single writer, exactly as in play.
+    /// while the main thread acts as the single writer.
     /// Resides under Source/Diagnostics/Benchmark/.
     /// </summary>
     public static class SnapshotTableBenchmark
     {
         #region 2. CONFIGURATION & PUBLIC STATE
 
-        private const int ResidentPawnCount = 1500;
-        private const int ReadBatchSize = 50000;
-        private const int ReadBatchCount = 40;
+        // Population Tiers
+        private const int BaselinePawnCount = 100;
+        private const int SurgePawnCount = 1500;
+
+        // Calibrated Read Batches (20 batches of 25,000 = 500,000 reads per phase)
+        private const int ReadBatchSize = 25000;
+        private const int ReadBatchCount = 20;
         private const double SliceBudgetMs = 6.0;
         private const int MissIdBase = 900000;
 
-        // A busy frame of invalidation-driven re-solves, versus a writer with no pause at all (artificial worst case).
+        // Contention Scenarios
         private const int PacedWritesPerFrame = 16;
         private const double PacedDurationMs = 400.0;
         private const double SaturatingDurationMs = 250.0;
@@ -69,14 +89,14 @@ namespace OverHaulers
         private const int MaxReaderThreads = 4;
         private const int ReaderStopTimeoutMs = 2000;
 
-        /// <summary>Single-thread read cost of the last completed run; null until measured.</summary>
+        /// <summary>Multi-tier read cost of the last completed run; null until measured.</summary>
         public static SnapshotReadResult ReadResult { get; private set; }
         public static readonly List<SnapshotContentionResult> ContentionResults = new List<SnapshotContentionResult>(2);
 
         /// <summary>Overall progress of this stage in the range 0 to 1.</summary>
         public static float Progress01 { get; private set; }
 
-        /// <summary>True once a run has recorded both the single-thread read cost and at least one contended scenario.</summary>
+        /// <summary>True once a run has recorded both read costs and contention scenarios.</summary>
         public static bool HasResults => ReadResult != null && ContentionResults.Count > 0;
 
         #endregion
@@ -84,20 +104,23 @@ namespace OverHaulers
         #region 3. STATE MACHINE FIELDS
 
         /// <summary>
-        /// Phases of the snapshot table benchmark, in execution order.
+        /// Phases of the two-tier snapshot table benchmark in execution order.
         /// </summary>
         private enum Phase
         {
             Idle,
-            ReadHits,
-            ReadMisses,
+            BaselineReadHits,
+            BaselineReadMisses,
+            PopulateSurge,
+            SurgeReadHits,
+            SurgeReadMisses,
             ContendedPaced,
             ContendedSaturating,
             Done
         }
 
         /// <summary>
-        /// One background reader. Each worker owns its stop flag so a worker that outlives an aborted run can never be revived by a later run.
+        /// One background reader running tight read loops until stop is requested.
         /// </summary>
         private sealed class ReaderWorker
         {
@@ -106,9 +129,7 @@ namespace OverHaulers
             private readonly int startIndex;
 
             public volatile bool StopRequested;
-            /// <summary>Total reads performed by this worker; written when its thread ends.</summary>
             public long Reads;
-            /// <summary>Sum of the values read, so the reads cannot be optimised away; written when its thread ends.</summary>
             public float SinkValue;
 
             public ReaderWorker(SnapshotTable table, int[] ids, int startIndex)
@@ -118,9 +139,6 @@ namespace OverHaulers
                 this.startIndex = startIndex;
             }
 
-            /// <summary>
-            /// Thread entry point: reads resident pawns in a tight loop until a stop is requested.
-            /// </summary>
             public void Run()
             {
                 long localReads = 0;
@@ -144,12 +162,26 @@ namespace OverHaulers
 
         private static Phase phase = Phase.Idle;
         private static SnapshotTable table;
-        private static int[] hitIds;
-        private static int[] missIds;
+
+        // Baseline ID pools
+        private static int[] baselineHitIds;
+        private static int[] baselineMissIds;
+
+        // Surge ID pools
+        private static int[] surgeHitIds;
+        private static int[] surgeMissIds;
+
         private static double[] batchNanoseconds;
         private static int batchesDone;
         private static int readCursor;
-        private static double pendingHitNanoseconds;
+
+        // Pending latency captures
+        private static double pendingBaselineHitNs;
+        private static double pendingBaselineMissNs;
+        private static int capturedBaselineCapacity;
+
+        private static double pendingSurgeHitNs;
+
         private static Random writerRandom;
         private static long writerOperations;
 
@@ -157,7 +189,6 @@ namespace OverHaulers
         private static Thread[] readerThreads;
         private static Stopwatch scenarioWatch;
 
-        // Accumulates every read value so the optimiser cannot eliminate the timed reads as dead code.
         private static float optimiserDefeatSink;
 
         #endregion
@@ -180,28 +211,42 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Prepares a fresh run: builds a private table pre-populated with a realistic resident pawn population.
+        /// Prepares a fresh run: initializes a 512-slot table with a realistic baseline colony population (100 pawns).
         /// </summary>
         public static void Begin()
         {
             Abort();
             ClearResults();
 
-            table = new SnapshotTable(SnapshotTable.DefaultCapacity);
-            hitIds = new int[ResidentPawnCount];
-            missIds = new int[ResidentPawnCount];
+            // Start with dynamic scaling enabled from default 512 capacity
+            table = new SnapshotTable(SnapshotTable.DefaultCapacity, forwardTelemetry: false, enableDynamicScaling: true);
 
-            // Sequential-ish IDs with gaps, like real Thing IDs; the miss set is guaranteed absent from the table.
-            for (int i = 0; i < ResidentPawnCount; i++)
+            baselineHitIds = new int[BaselinePawnCount];
+            baselineMissIds = new int[BaselinePawnCount];
+
+            // 1. Populate Tier 1 Baseline (100 pawns, sits inside 512 slots / 4 KB L1 cache)
+            for (int i = 0; i < BaselinePawnCount; i++)
             {
-                hitIds[i] = 1000 + i * 7;
-                missIds[i] = MissIdBase + i * 13;
-                table.WriteState(hitIds[i], i, 1f);
+                baselineHitIds[i] = 1000 + i * 7;
+                baselineMissIds[i] = MissIdBase + i * 13;
+                table.WriteState(baselineHitIds[i], (float)i);
+            }
+
+            capturedBaselineCapacity = table.Capacity;
+
+            // Prepare Tier 2 Surge arrays
+            surgeHitIds = new int[SurgePawnCount];
+            surgeMissIds = new int[SurgePawnCount];
+
+            for (int i = 0; i < SurgePawnCount; i++)
+            {
+                surgeHitIds[i] = 1000 + i * 7;
+                surgeMissIds[i] = MissIdBase + i * 13;
             }
 
             batchNanoseconds = new double[ReadBatchCount];
             writerRandom = new Random(2024);
-            BeginPhase(Phase.ReadHits);
+            BeginPhase(Phase.BaselineReadHits);
         }
 
         /// <summary>
@@ -222,28 +267,68 @@ namespace OverHaulers
         {
             switch (phase)
             {
-                case Phase.ReadHits:
-                    if (RunReadBatches(hitIds))
+                // --- TIER 1: BASELINE COLONY (L1 CACHE) ---
+                case Phase.BaselineReadHits:
+                    if (RunReadBatches(baselineHitIds))
                     {
-                        pendingHitNanoseconds = MedianOfBatches();
-                        BeginPhase(Phase.ReadMisses);
+                        pendingBaselineHitNs = MedianOfBatches();
+                        BeginPhase(Phase.BaselineReadMisses);
                     }
                     break;
 
-                case Phase.ReadMisses:
-                    if (RunReadBatches(missIds))
+                case Phase.BaselineReadMisses:
+                    if (RunReadBatches(baselineMissIds))
+                    {
+                        pendingBaselineMissNs = MedianOfBatches();
+                        BeginPhase(Phase.PopulateSurge);
+                    }
+                    break;
+
+                // --- TRANSITION: DYNAMIC SCALE-UP (512 -> 4096) ---
+                case Phase.PopulateSurge:
+                    // Populate remaining pawns up to 1,500, triggering dynamic power-of-two expansions
+                    for (int i = BaselinePawnCount; i < SurgePawnCount; i++)
+                    {
+                        table.WriteState(surgeHitIds[i], (float)i);
+                    }
+                    BeginPhase(Phase.SurgeReadHits);
+                    break;
+
+                // --- TIER 2: SURGE POPULATION (L2 CACHE) ---
+                case Phase.SurgeReadHits:
+                    if (RunReadBatches(surgeHitIds))
+                    {
+                        pendingSurgeHitNs = MedianOfBatches();
+                        BeginPhase(Phase.SurgeReadMisses);
+                    }
+                    break;
+
+                case Phase.SurgeReadMisses:
+                    if (RunReadBatches(surgeMissIds))
                     {
                         ReadResult = new SnapshotReadResult
                         {
-                            PawnCount = ResidentPawnCount,
-                            TableCapacity = table.Capacity,
-                            HitNanoseconds = pendingHitNanoseconds,
-                            MissNanoseconds = MedianOfBatches()
+                            Baseline = new SnapshotTierMetrics
+                            {
+                                PawnCount = BaselinePawnCount,
+                                TableCapacity = capturedBaselineCapacity,
+                                HitNanoseconds = pendingBaselineHitNs,
+                                MissNanoseconds = pendingBaselineMissNs
+                            },
+                            Surge = new SnapshotTierMetrics
+                            {
+                                PawnCount = SurgePawnCount,
+                                TableCapacity = table.Capacity,
+                                HitNanoseconds = pendingSurgeHitNs,
+                                MissNanoseconds = MedianOfBatches()
+                            }
                         };
+
                         StartContendedScenario(Phase.ContendedPaced);
                     }
                     break;
 
+                // --- CONTENTION SCENARIOS ---
                 case Phase.ContendedPaced:
                     if (StepContendedScenario(PacedWritesPerFrame, PacedDurationMs))
                     {
@@ -308,12 +393,12 @@ namespace OverHaulers
 
             readCursor = cursor;
             optimiserDefeatSink += sink;
-            UpdateProgress((float)batchesDone / ReadBatchCount);
+            UpdateProgressByBatches();
             return batchesDone >= ReadBatchCount;
         }
 
         /// <summary>
-        /// Returns the median per-read time of the completed read batches. Sorts the batch buffer in place.
+        /// Returns the median per-read time of the completed read batches.
         /// </summary>
         /// <returns>The median time of one read, in nanoseconds.</returns>
         private static double MedianOfBatches()
@@ -342,7 +427,7 @@ namespace OverHaulers
 
             for (int r = 0; r < count; r++)
             {
-                workers[r] = new ReaderWorker(table, hitIds, r * (hitIds.Length / count));
+                workers[r] = new ReaderWorker(table, surgeHitIds, r * (surgeHitIds.Length / count));
                 readerThreads[r] = new Thread(workers[r].Run)
                 {
                     IsBackground = true,
@@ -396,17 +481,18 @@ namespace OverHaulers
                 while (Stopwatch.GetTimestamp() - sliceStart < budgetTicks);
             }
 
-            UpdateProgress((float)(elapsedMs / durationMs));
+            float baseProgress = phase == Phase.ContendedPaced ? 0.40f : 0.70f;
+            float phaseWeight = phase == Phase.ContendedPaced ? 0.30f : 0.30f;
+            Progress01 = baseProgress + (float)(elapsedMs / durationMs) * phaseWeight;
             return false;
         }
 
         /// <summary>
-        /// One writer operation: normally an in-place update of a resident pawn, occasionally an eviction followed by a re-insert
-        /// (a pawn leaving and returning), mirroring the operations the live registry performs.
+        /// One writer operation: in-place updates, occasional evictions, and re-insertions.
         /// </summary>
         private static void PerformWriterOperation()
         {
-            int id = hitIds[writerRandom.Next(hitIds.Length)];
+            int id = surgeHitIds[writerRandom.Next(surgeHitIds.Length)];
             float value = writerOperations & 1023;
 
             if (writerRandom.Next(EvictOneInEveryNOps) == 0)
@@ -414,7 +500,7 @@ namespace OverHaulers
                 table.Evict(id);
             }
 
-            table.WriteState(id, value, 1f);
+            table.WriteState(id, value);
             writerOperations++;
         }
 
@@ -440,7 +526,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Signals every reader to stop, waits for them and returns the total reads they performed. Safe to call when nothing is running.
+        /// Signals every reader to stop, waits for them and returns the total reads they performed.
         /// </summary>
         private static long StopReaders()
         {
@@ -474,19 +560,18 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Maps progress within the current phase onto the overall 0 to 1 progress of this stage.
+        /// Maps progress across the read batch phases onto the overall 0 to 1 progress bar.
         /// </summary>
-        /// <param name="fractionOfPhase">Progress within the current phase, clamped to 0 to 1.</param>
-        private static void UpdateProgress(float fractionOfPhase)
+        private static void UpdateProgressByBatches()
         {
-            float clamped = fractionOfPhase < 0f ? 0f : (fractionOfPhase > 1f ? 1f : fractionOfPhase);
-
+            float fraction = (float)batchesDone / ReadBatchCount;
             switch (phase)
             {
-                case Phase.ReadHits: Progress01 = 0.10f * clamped; break;
-                case Phase.ReadMisses: Progress01 = 0.10f + 0.10f * clamped; break;
-                case Phase.ContendedPaced: Progress01 = 0.20f + 0.40f * clamped; break;
-                case Phase.ContendedSaturating: Progress01 = 0.60f + 0.40f * clamped; break;
+                case Phase.BaselineReadHits: Progress01 = 0.00f + fraction * 0.10f; break;
+                case Phase.BaselineReadMisses: Progress01 = 0.10f + fraction * 0.10f; break;
+                case Phase.PopulateSurge: Progress01 = 0.20f; break;
+                case Phase.SurgeReadHits: Progress01 = 0.20f + fraction * 0.10f; break;
+                case Phase.SurgeReadMisses: Progress01 = 0.30f + fraction * 0.10f; break;
             }
         }
 
@@ -495,20 +580,25 @@ namespace OverHaulers
         #region 7. REPORT GENERATION
 
         /// <summary>
-        /// Appends the snapshot table section to an exported benchmark report. No-op when no results exist.
+        /// Appends the multi-tier snapshot table section to an exported benchmark report.
         /// </summary>
         /// <param name="report">The report being built.</param>
         public static void AppendReport(StringBuilder report)
         {
             if (!HasResults) return;
 
-            double loadPercent = 100.0 * ReadResult.PawnCount / ReadResult.TableCapacity;
+            SnapshotTierMetrics baseTier = ReadResult.Baseline;
+            SnapshotTierMetrics surgeTier = ReadResult.Surge;
 
             report.AppendLine("-- Snapshot table (lock-free reads used by background threads) --");
-            report.AppendLine("Table: " + ReadResult.TableCapacity + " slots (dynamic 512-8192, max " + SnapshotTable.MaxProbeSteps + " probes), " 
-                + ReadResult.PawnCount + " pawns resident (" + BenchmarkRunner.FormatInvariant(loadPercent, "F0") + "% load)");
-            report.AppendLine("Single-thread read: " + BenchmarkRunner.FormatInvariant(ReadResult.HitNanoseconds, "F1") + " ns (hit), "
-                + BenchmarkRunner.FormatInvariant(ReadResult.MissNanoseconds, "F1") + " ns (miss), including loop overhead");
+            report.AppendLine("Colony baseline (L1 cache, " + baseTier.TableCapacity + " slots, " + baseTier.PawnCount + " pawns):   "
+                + BenchmarkRunner.FormatInvariant(baseTier.HitNanoseconds, "F1") + " ns (hit), "
+                + BenchmarkRunner.FormatInvariant(baseTier.MissNanoseconds, "F1") + " ns (miss) ["
+                + BenchmarkRunner.FormatInvariant(baseTier.LoadFactorPercent, "F0") + "% load]");
+            report.AppendLine("High-load surge (L2 cache, " + surgeTier.TableCapacity + " slots, " + surgeTier.PawnCount + " pawns):  "
+                + BenchmarkRunner.FormatInvariant(surgeTier.HitNanoseconds, "F1") + " ns (hit), "
+                + BenchmarkRunner.FormatInvariant(surgeTier.MissNanoseconds, "F1") + " ns (miss) ["
+                + BenchmarkRunner.FormatInvariant(surgeTier.LoadFactorPercent, "F0") + "% load]");
             report.AppendLine(string.Format("{0} | {1} | {2} | {3} | {4} | {5}",
                 DiagnosticExportUtility.PadOrTruncate("Scenario", 32), "Readers", "     Reads/s", "   Writes/s", "Retry %", "Timeout %"));
 

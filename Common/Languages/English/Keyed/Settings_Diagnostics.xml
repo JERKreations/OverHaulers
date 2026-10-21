@@ -73,8 +73,9 @@
   <OverHaulers_Benchmark_Notes>Percentages are shares of a 60 fps frame (16.7 ms). Normal play uses cached results, which are far cheaper than a from-scratch solve; a full re-solve only follows health, gear or settings changes. "GC runs" should be 0. Compare runs on the same machine rather than across different ones.</OverHaulers_Benchmark_Notes>
 
   <!-- Snapshot table results -->
-  <OverHaulers_Benchmark_TableHeader>Background snapshot table (lock-free reads used by pathfinding threads)</OverHaulers_Benchmark_TableHeader>
-  <OverHaulers_Benchmark_TableSingle>Single-thread read: {0} ns (hit), {1} ns (miss) - {2} pawns resident in a {3}-slot table</OverHaulers_Benchmark_TableSingle>
+  <OverHaulers_Benchmark_TableHeader>Background snapshot table (lock-free reads used by background threads)</OverHaulers_Benchmark_TableHeader>
+  <OverHaulers_Benchmark_TableBaseline>Colony baseline (L1 cache): {0} ns (hit), {1} ns (miss) - {2} pawns resident in a {3}-slot table (4 KB)</OverHaulers_Benchmark_TableBaseline>
+  <OverHaulers_Benchmark_TableSurge>High-load surge (L2 cache): {0} ns (hit), {1} ns (miss) - {2} pawns resident in a {3}-slot table (32 KB)</OverHaulers_Benchmark_TableSurge>
   <OverHaulers_Benchmark_TableColScenario>Scenario</OverHaulers_Benchmark_TableColScenario>
   <OverHaulers_Benchmark_TableColReaders>Readers</OverHaulers_Benchmark_TableColReaders>
   <OverHaulers_Benchmark_TableColReads>Reads/s</OverHaulers_Benchmark_TableColReads>

@@ -663,7 +663,7 @@ namespace OverHaulers
             node.IsStale = false;
 
             // Publish state atomically to the background snapshot table for pathfinding threads
-            MassSnapshotCache.WriteState(pawn.thingIDNumber, result.SolvedOffset, result.TotalMultiplier);
+            MassSnapshotCache.WriteState(pawn.thingIDNumber, result.SolvedOffset);
 
             PerformanceTelemetry.IncrementCacheMisses();
         }

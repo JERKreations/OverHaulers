@@ -5,14 +5,9 @@ namespace OverHaulers
     /// <summary>
     /// [CACHE-03] CONCURRENT MASS SNAPSHOT REGISTRY (LIVE INSTANCE FACADE)
     /// Static entry point over the single live <see cref="SnapshotTable"/> mapping active pawn IDs to Caravan Mass Capacity (kg)
-    /// primitive snapshots. Guarantees atomic, linearizable, zero-allocation reads for RimWorld background pathfinding threads.
-    /// All behaviour lives in <see cref="SnapshotTable"/>; this class only fixes the capacity, enables telemetry forwarding and
-    /// keeps the original static API stable for the rest of the mod. Resides under Source/Core/Registry/.
+    /// physical offsets. Guarantees atomic, linearizable, zero-allocation reads for background pathfinding threads.
+    /// Resides under Source/Core/Registry/.
     /// </summary>
-    /// <remarks>
-    /// The full architectural design rationale (zero-lock atomic concurrency, bit-cast struct union, backward-shift deletion with a
-    /// SeqLock, multiplicative hashing, dynamic L1 scaling and zero-contention telemetry) is documented on <see cref="SnapshotTable"/>/.
-    /// </remarks>
     public static class MassSnapshotCache
     {
         /// <summary>Current power-of-two capacity accommodating active simultaneous map populations.</summary>
@@ -32,39 +27,23 @@ namespace OverHaulers
         /// <summary>Current load factor percentage in the range 0 to 100.</summary>
         public static float OccupancyPercentage => liveTable.OccupancyPercentage;
 
-        /// <summary>
-        /// Packs a caravan mass capacity offset (kg) and a multiplier into one 64-bit word.
-        /// </summary>
-        /// <param name="offset">Offset in kg.</param>
-        /// <param name="multiplier">Total physical mass multiplier.</param>
-        /// <returns>The packed 64-bit word.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long Pack(float offset, float multiplier) => SnapshotTable.Pack(offset, multiplier);
-
-        /// <summary>
-        /// Unpacks a 64-bit word produced by <see cref="Pack"/>.
-        /// </summary>
-        /// <param name="packed">The packed word.</param>
-        /// <param name="offset">Extracted offset in kg.</param>
-        /// <param name="multiplier">Extracted multiplier.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Unpack(long packed, out float offset, out float multiplier) => SnapshotTable.Unpack(packed, out offset, out multiplier);
-
-        /// <summary>Safely retrieves the cached offset (kg) from any thread; 0 when not cached.</summary>
+        /// <summary>Safely retrieves the cached physical offset (kg) from any thread; 0 when not cached.</summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <returns>The physical offset in kg.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float GetOffsetThreadSafe(int pawnId) => liveTable.GetOffsetThreadSafe(pawnId);
 
-        /// <summary>Safely retrieves the cached multiplier from any thread; 1 when not cached.</summary>
+        /// <summary>Attempts to read the cached physical offset (kg) from any thread under optimistic SeqLock validation.</summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
-        /// <returns>The mass multiplier.</returns>
-        public static float GetMultiplierThreadSafe(int pawnId) => liveTable.GetMultiplierThreadSafe(pawnId);
+        /// <param name="offset">Outputs the cached physical offset in kg.</param>
+        /// <returns>True if cached and validated; false on miss or timeout.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryReadOffset(int pawnId, out float offset) => liveTable.TryReadOffset(pawnId, out offset);
 
-        /// <summary>Writes or updates a pawn's snapshot. Main thread only.</summary>
+        /// <summary>Writes or updates a pawn's physical offset (kg). Main thread only.</summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <param name="offset">The solved caravan mass capacity offset in kg.</param>
-        /// <param name="multiplier">The solved overall mass multiplier.</param>
-        public static void WriteState(int pawnId, float offset, float multiplier) => liveTable.WriteState(pawnId, offset, multiplier);
+        public static void WriteState(int pawnId, float offset) => liveTable.WriteState(pawnId, offset);
 
         /// <summary>Evicts a pawn's snapshot with backward-shift deletion. Main thread only.</summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>

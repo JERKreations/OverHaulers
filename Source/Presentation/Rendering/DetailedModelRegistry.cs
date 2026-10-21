@@ -100,7 +100,7 @@ namespace OverHaulers
                 entry.IsValid = true;
 
                 // Synchronize fresh solve to background snapshot cache for pathfinding threads
-                MassSnapshotCache.WriteState(pawnId, result.SolvedOffset, result.TotalMultiplier);
+                MassSnapshotCache.WriteState(pawnId, result.SolvedOffset);
 
                 return entry.Model;
             }
