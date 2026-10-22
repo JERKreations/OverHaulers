@@ -8,7 +8,8 @@ namespace OverHaulers
     /// <summary>
     /// [INT-SAFE-01] PERMANENT STATIC SAFETY GUARDS & MAIN-MENU FALLBACKS
     /// Statically hooks <see cref="Pawn.Kill"/>, <see cref="Pawn_HealthTracker.CheckForStateChange"/>,
-    /// <see cref="Pawn.HealthScale"/>, <see cref="StatWorker.GetValueUnfinalized"/>, and <see cref="Find"/> manager getters once at startup.
+    /// <see cref="Pawn.HealthScale"/>, <see cref="StatWorker.GetValueUnfinalized"/>,
+    /// <see cref="PawnCapacityUtility.CalculatePartEfficiency"/>, and <see cref="Find"/> manager getters once at startup.
     /// Provides zero-cost, branchless protection against two-way mod interference:
     /// <list type="bullet">
     ///   <item><description><b>Outward Protection:</b> Completely suppresses state changes and death handlers on <see cref="HeadlessPawnShell"/> instances via <see cref="Priority.First"/> prefixes, preventing foreign mods from observing unspawned pawns.</description></item>
@@ -81,6 +82,16 @@ namespace OverHaulers
             {
                 var target = AccessTools.Method(typeof(StatWorker), nameof(StatWorker.GetValueUnfinalized));
                 harmony.Patch(target, finalizer: OwnPatch(nameof(StatWorker_GetValueUnfinalized_Finalizer)));
+            });
+
+            // 6. Headless Part Efficiency Shield & Exception Neutralizer (Priority.Last)
+            Guarded("Safety.CalculatePartEfficiency", () =>
+            {
+                var target = AccessTools.Method(typeof(PawnCapacityUtility), nameof(PawnCapacityUtility.CalculatePartEfficiency));
+                harmony.Patch(
+                    target,
+                    postfix: OwnPatch(nameof(CalculatePartEfficiency_Postfix)),
+                    finalizer: OwnPatch(nameof(CalculatePartEfficiency_Finalizer)));
             });
         }
 
@@ -211,6 +222,57 @@ namespace OverHaulers
             }
             return __exception;
         }
+
+        /// <summary>
+        /// [INWARD SHIELD] Protects headless sandbox and dummy pawns from third-party limb training or degradation mods
+        /// (e.g. NewLimbsNeedsTraining) that zero out replacement limb efficiencies on unspawned/untracked entities.
+        /// Priority.Last guarantees execution after third-party postfixes to restore the rated biological efficiency.
+        /// </summary>
+        /// <param name="__result">The running efficiency result for the body part.</param>
+        /// <param name="diffSet">The pawn's active hediff set.</param>
+        /// <param name="part">The body part record being evaluated.</param>
+        /// <param name="ignoreAddedParts">Whether added parts are ignored.</param>
+        [HarmonyPriority(Priority.Last)]
+        private static void CalculatePartEfficiency_Postfix(
+            ref float __result,
+            HediffSet diffSet,
+            BodyPartRecord part,
+            bool ignoreAddedParts)
+        {
+            if (diffSet?.pawn != null && diffSet.pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
+            {
+                MedicalClassifier.RestoreHeadlessEfficiency(ref __result, diffSet, part, ignoreAddedParts, fallbackToNaturalHealth: false);
+            }
+        }
+
+        /// <summary>
+        /// [INWARD SHIELD] Neutralizes unhandled third-party exceptions inside <see cref="PawnCapacityUtility.CalculatePartEfficiency"/>
+        /// when evaluating headless sandbox or dummy pawns, guaranteeing baseline resolution and test bench simulations never crash.
+        /// Priority.Last guarantees this executes after all third-party prefixes, transpilers, and postfixes.
+        /// </summary>
+        /// <param name="__exception">The exception thrown by the original method or foreign patches, if any.</param>
+        /// <param name="__result">The running efficiency result for the body part.</param>
+        /// <param name="diffSet">The pawn's active hediff set.</param>
+        /// <param name="part">The body part record being evaluated.</param>
+        /// <param name="ignoreAddedParts">Whether added parts are ignored.</param>
+        /// <returns>Null if the exception was suppressed on a headless dummy; otherwise propagates the original exception.</returns>
+        [HarmonyPriority(Priority.Last)]
+        private static Exception CalculatePartEfficiency_Finalizer(
+            Exception __exception,
+            ref float __result,
+            HediffSet diffSet,
+            BodyPartRecord part,
+            bool ignoreAddedParts)
+        {
+            if (__exception != null && diffSet?.pawn != null && diffSet.pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
+            {
+                MedicalClassifier.RestoreHeadlessEfficiency(ref __result, diffSet, part, ignoreAddedParts, fallbackToNaturalHealth: true);
+                return null;
+            }
+            return __exception;
+        }
+
+        
 
         #endregion
     }

@@ -453,6 +453,120 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Evaluates the true runtime biological and prosthetic efficiency of a body part on an active pawn.
+        /// Captures third-party modifiers (NLNT training curves, Quality Bionics tiers, MSE2 modules)
+        /// while isolating physical HP wound fractions to prevent double-counting injuries in prosthetic offsets.
+        /// </summary>
+        /// <param name="pawn">The pawn being evaluated.</param>
+        /// <param name="part">The target body part record.</param>
+        /// <param name="defaultRatedEfficiency">The fallback rated XML efficiency if unmodded or in baseline calibration.</param>
+        /// <returns>The uninjured intrinsic efficiency rating of the artificial part.</returns>
+        public static float GetSafePartEfficiency(Pawn pawn, BodyPartRecord part, float defaultRatedEfficiency)
+        {
+            if (pawn == null || part == null || pawn.health?.hediffSet == null)
+            {
+                return defaultRatedEfficiency;
+            }
+
+            // Fast-path: When resolving species baseline calibration, unconditionally enforce rated XML efficiency
+            if (SpeciesBaselineCalibration.IsResolvingBaseline)
+            {
+                return defaultRatedEfficiency;
+            }
+
+            // Fast-path: Headless calibration dummies without a live source mirror rated XML potential
+            if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
+            {
+                return defaultRatedEfficiency;
+            }
+
+            try
+            {
+                // Query canonical engine efficiency (evaluates all active Harmony postfixes: NLNT, Quality Bionics, MSE2)
+                float vanillaEff = PawnCapacityUtility.CalculatePartEfficiency(pawn.health.hediffSet, part, ignoreAddedParts: false);
+
+                // CalculatePartEfficiency multiplies intrinsic rating by (currentHp / maxHp).
+                // Over Haulers isolates physical HP damage into HealthOffset [I].
+                // Therefore, divide out the health fraction to isolate the uninjured mechanistic/training rating:
+                float maxHp = part.def.GetMaxHealth(pawn);
+                if (maxHp > 0f)
+                {
+                    float curHp = pawn.health.hediffSet.GetPartHealth(part);
+                    float hpFraction = Math.Min(1f, Math.Max(0f, curHp / maxHp));
+
+                    if (hpFraction > 0.01f)
+                    {
+                        return vanillaEff / hpFraction;
+                    }
+                }
+
+                return vanillaEff;
+            }
+            catch (Exception ex)
+            {
+                if (UnityData.IsInMainThread)
+                {
+                    OHLog.Solver.Warn("GetSafePartEfficiency", ex, $"Failed to query live part efficiency for {part.def.defName}. Falling back to rated efficiency.");
+                }
+                return defaultRatedEfficiency;
+            }
+        }
+
+        /// <summary>
+        /// Core efficiency restoration helper for headless entities.
+        /// Handles rated prosthetic resolution and provides a clean fallback to natural part health if foreign code crashed.
+        /// </summary>
+        /// <param name="__result">The running efficiency result for the body part.</param>
+        /// <param name="diffSet">The pawn's active hediff set.</param>
+        /// <param name="part">The body part record being evaluated.</param>
+        /// <param name="ignoreAddedParts">Whether added parts are ignored.</param>
+        /// <param name="fallbackToNaturalHealth">Whether to fallback to natural health if no artificial part is found.</param>
+        public static void RestoreHeadlessEfficiency(
+            ref float __result,
+            HediffSet diffSet,
+            BodyPartRecord part,
+            bool ignoreAddedParts,
+            bool fallbackToNaturalHealth)
+        {
+            if (part == null || diffSet == null) return;
+
+            if (!ignoreAddedParts)
+            {
+                // Case 1: Part itself has an artificial replacement
+                Hediff_AddedPart addedPart = diffSet.GetFirstHediffMatchingPart<Hediff_AddedPart>(part);
+
+                // Case 2: An ancestor was replaced by an artificial part (e.g. bionic shoulder covering the arm)
+                if (addedPart == null)
+                {
+                    BodyPartRecord curr = part.parent;
+                    while (curr != null)
+                    {
+                        addedPart = diffSet.GetFirstHediffMatchingPart<Hediff_AddedPart>(curr);
+                        if (addedPart != null) break;
+                        curr = curr.parent;
+                    }
+                }
+
+                if (addedPart?.def?.addedPartProps != null)
+                {
+                    float ratedEfficiency = addedPart.def.addedPartProps.partEfficiency;
+                    float maxHp = Math.Max(1f, part.def.GetMaxHealth(diffSet.pawn));
+                    float healthFraction = Math.Min(1f, Math.Max(0f, diffSet.GetPartHealth(part) / maxHp));
+                    __result = ratedEfficiency * healthFraction;
+                    return;
+                }
+            }
+
+            // Fallback: If an unhandled third-party exception crashed before vanilla could calculate natural health
+            if (fallbackToNaturalHealth)
+            {
+                float maxHp = Math.Max(1f, part.def.GetMaxHealth(diffSet.pawn));
+                float healthFraction = Math.Min(1f, Math.Max(0f, diffSet.GetPartHealth(part) / maxHp));
+                __result = healthFraction;
+            }
+        }
+
+        /// <summary>
         /// Determines whether the specified pawn capacity is considered athletic.
         /// </summary>
         /// <param name="capacity">The pawn capacity to evaluate.</param>

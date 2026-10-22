@@ -46,6 +46,10 @@ namespace OverHaulers
         /// <summary>The test subject entry currently bound to this harness.</summary>
         protected TestSubjectEntry boundSubject;
 
+        /// <summary>Authentic live part efficiencies snapshotted from the source colonist upon binding.</summary>
+        protected readonly Dictionary<BodyPartRecord, float> livePartEfficiencies =
+            new Dictionary<BodyPartRecord, float>();
+
         /// <summary>Simulated replacement modifications (Prosthetics/Amputations/Trauma) indexed by target BodyPartRecord.</summary>
         public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas =
             new Dictionary<BodyPartRecord, SimulatedModification>();
@@ -106,6 +110,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Binds a test subject (live colonist or generic species) to the harness and builds an isolated sandbox pawn.
+        /// Snapshots authentic live part efficiencies directly from the live pawn if bound to an active colonist.
         /// </summary>
         /// <param name="subject">The test subject entry to blueprint.</param>
         public void BindSubject(TestSubjectEntry subject)
@@ -114,7 +119,24 @@ namespace OverHaulers
             sourcePawn = subject?.IsLivePawn == true ? subject.LivePawn : null;
 
             ClearModifications();
+            SnapshotLivePartEfficiencies();
             RebuildSandboxPawn();
+        }
+
+        /// <summary>Snapshots the genuine runtime part efficiencies from the authentic source colonist.</summary>
+        private void SnapshotLivePartEfficiencies()
+        {
+            livePartEfficiencies.Clear();
+            if (sourcePawn?.RaceProps?.body != null && sourcePawn.health?.hediffSet != null)
+            {
+                var allParts = sourcePawn.RaceProps.body.AllParts;
+                for (int i = 0; i < allParts.Count; i++)
+                {
+                    BodyPartRecord part = allParts[i];
+                    float defaultEff = 1.0f;
+                    livePartEfficiencies[part] = MedicalClassifier.GetSafePartEfficiency(sourcePawn, part, defaultEff);
+                }
+            }
         }
 
         /// <summary>Rebuilds the underlying headless pawn shell from the currently bound test subject.</summary>
@@ -137,6 +159,7 @@ namespace OverHaulers
         public void ResetToSource()
         {
             ClearModifications();
+            SnapshotLivePartEfficiencies();
             SyncHediffsFromSource();
         }
 
@@ -524,5 +547,107 @@ namespace OverHaulers
         }
 
         #endregion
+
+        #region 8. TEST BENCH DATA SOURCE & EVALUATION ACCESSORS
+
+        /// <summary>
+        /// Resolves the effective biological or prosthetic efficiency for a body part on the sandbox pawn.
+        /// Simulates rated surgical potential for user-applied procedures while preserving authentic live state for unmodified parts.
+        /// </summary>
+        public float GetEffectivePartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
+        {
+            if (part == null) return defaultRatedEfficiency;
+
+            // 1. If explicitly modified by a simulated operation in the harness, use simulated surgical potential
+            if (ReplacementDeltas.TryGetValue(part, out var mod))
+            {
+                return mod.Efficiency;
+            }
+
+            // 2. If unmodified and cloned from an active live colonist, return the authentic snapshotted live rating
+            if (livePartEfficiencies.TryGetValue(part, out float liveEff))
+            {
+                return liveEff;
+            }
+
+            // 3. Otherwise (clean species archetype), return rated biological potential
+            return defaultRatedEfficiency;
+        }
+
+        /// <summary>
+        /// Resolves the effective performance level for a systemic pawn capacity.
+        /// When unmodified, mirrors the authentic source colonist's capacities (e.g. 50% manipulation during limb training).
+        /// </summary>
+        public float GetEffectiveCapacityLevel(PawnCapacityDef capacity)
+        {
+            if (!HasModifications && sourcePawn != null)
+            {
+                return MedicalClassifier.GetCapacityLevel(sourcePawn, capacity);
+            }
+
+            return MedicalClassifier.GetCapacityLevel(headlessPawn, capacity);
+        }
+
+        /// <summary>
+        /// Creates an unboxed struct data source adapting this harness into the solver pipeline.
+        /// </summary>
+        public SandboxAnatomicalSource CreateDataSource()
+        {
+            return new SandboxAnatomicalSource(this);
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// [TEST-05] Specialized stack-allocated anatomical data source adapting the interactive sandbox harness.
+    /// Bridges unmodified live colonist snapshots and simulated surgical operations into the zero-allocation solver.
+    /// </summary>
+    public readonly struct SandboxAnatomicalSource : IAnatomicalDataSource
+    {
+        private readonly SandboxPawnHarness harness;
+
+        public SandboxAnatomicalSource(SandboxPawnHarness harness)
+        {
+            this.harness = harness;
+        }
+
+        public int EntityId => harness?.SandboxPawn?.thingIDNumber ?? 0;
+        public string EntityLabel => harness?.BoundSubject?.Label ?? "SandboxPawn";
+        public BodyDef BodyDef => harness?.BoundSubject?.BodyDef ?? harness?.SandboxPawn?.RaceProps?.body;
+        public float BaseBodySize => MedicalClassifier.GetSafeBodySize(harness?.SandboxPawn);
+        public bool IsValidBiologicalState => harness != null && harness.IsValid;
+
+        public float GetCapacityLevel(PawnCapacityDef capacity)
+        {
+            return harness != null ? harness.GetEffectiveCapacityLevel(capacity) : 1.0f;
+        }
+
+        public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
+        {
+            return harness != null ? harness.GetEffectivePartEfficiency(part, defaultRatedEfficiency) : defaultRatedEfficiency;
+        }
+
+        public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
+        {
+            if (harness == null) return;
+
+            // When no simulated operations are applied, ingress authentic live hediffs directly from source
+            Pawn targetPawn = (!harness.HasModifications && harness.SourcePawn != null)
+                ? harness.SourcePawn
+                : harness.SandboxPawn;
+
+            List<Hediff> safeHediffs = targetPawn?.health?.hediffSet?.hediffs;
+            if (safeHediffs != null)
+            {
+                AnatomicalIngressSolver.IngressLivePawnPathology(targetPawn, safeHediffs, workspace, populateColdMetadata, this);
+            }
+        }
+
+        public float ResolveBaselineCapacity()
+        {
+            if (harness?.SandboxPawn == null) return 0f;
+            return SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
+        }
     }
 }

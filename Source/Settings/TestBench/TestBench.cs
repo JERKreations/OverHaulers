@@ -234,13 +234,14 @@ namespace OverHaulers
                 if (subject?.BodyDef == null || !Harness.IsValid) return string.Empty;
 
                 // =========================================================================
-                // Unified Ingress: Evaluates directly against the Headless Sandbox Pawn
+                // Unified Ingress: Evaluates via SandboxAnatomicalSource
+                // Reflects authentic live colonist state when unmodified; reflects rated surgical potential when modified.
                 // =========================================================================
-                IAnatomicalDataSource dataSource = new PawnAnatomicalSource(Harness.SandboxPawn);
+                SandboxAnatomicalSource dataSource = Harness.CreateDataSource();
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
                 MassCapacityEvaluationResult result = ViewProjection.InspectAndProject(
-                    new PawnAnatomicalSource(Harness.SandboxPawn), speciesBaseline, cachedModel);
+                    dataSource, speciesBaseline, cachedModel);
 
                 lastCalculatedDelta = result.SolvedOffset;
                 lastCalculatedFinalMass = result.FinalCapacity;

@@ -38,19 +38,18 @@ namespace OverHaulers
         /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
         /// <param name="workspace">The anatomical workspace to be updated.</param>
         /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
-        /// <remarks>
-        /// This method is intended to be called on the main thread and assumes that the provided hediffs are safe for translation.
-        /// </remarks>
+        /// <param name="source">Optional anatomical data source providing contextual part efficiencies.</param>
         public static void IngressLivePawnPathology(
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
-            bool populateColdMetadata)
+            bool populateColdMetadata,
+            IAnatomicalDataSource source = null)
         {
             if (pawn == null || safeHediffs == null || workspace == null) return;
 
             // Stage 1: Hediff Pathology Stamping & Systemic Ailment Extraction
-            StampLiveHediffs(pawn, safeHediffs, workspace, populateColdMetadata);
+            StampLiveHediffs(pawn, safeHediffs, workspace, populateColdMetadata, source);
 
             // Stage 2: Unified Topological Graph Sweeps
             FinalizeTopologicalSweeps(pawn, workspace, populateColdMetadata);
@@ -67,14 +66,17 @@ namespace OverHaulers
         /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
         /// <param name="workspace">The anatomical workspace to be updated.</param>
         /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
+        /// <param name="source">Optional anatomical data source providing contextual part efficiencies.</param>
         /// <remarks>
-        /// This method is intended to be called on the main thread and assumes that the provided hediffs are safe for translation.
+        /// If the source is provided, it will be used to resolve part efficiencies and capacity levels, otherwise the pawn's live data
+        ///  will be used.
         /// </remarks>
         private static void StampLiveHediffs(
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
-            bool populateColdMetadata)
+            bool populateColdMetadata,
+            IAnatomicalDataSource source)
         {
             int partCount = workspace.PartCount;
             float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
@@ -87,7 +89,10 @@ namespace OverHaulers
             var athEffs = workspace.AthleticEfficiencies;
             var coldStates = workspace.PartStatesColdArray;
 
-            float consciousness = MedicalClassifier.GetCapacityLevel(pawn, PawnCapacityDefOf.Consciousness);
+            float consciousness = source != null 
+                ? source.GetCapacityLevel(PawnCapacityDefOf.Consciousness) 
+                : MedicalClassifier.GetCapacityLevel(pawn, PawnCapacityDefOf.Consciousness);
+
             workspace.CachedConsciousness = consciousness;
             bool consciousnessIsDropped = consciousness < 1.0f - SettingsDefaults.EfficiencyEpsilon;
 
@@ -128,9 +133,7 @@ namespace OverHaulers
                 Hediff hediff = safeHediffs[i];
                 if (hediff?.def == null) continue;
 
-                // =========================================================================
                 // Branch A: Whole-Body Systemic Hediffs (Part == null)
-                // =========================================================================
                 if (hediff.Part == null)
                 {
                     if (populateColdMetadata && MedicalClassifier.IsActivePathologyOrSubstance(hediff, consciousnessIsDropped))
@@ -140,9 +143,7 @@ namespace OverHaulers
                     continue;
                 }
 
-                // =========================================================================
                 // Branch B: Part-Specific Hediffs (Part != null)
-                // =========================================================================
                 int partIndex = workspace.GetPartIndex(hediff.Part);
                 if (partIndex < 0 || partIndex >= partCount) continue;
 
@@ -154,14 +155,18 @@ namespace OverHaulers
                     workspace.SetFlag(partIndex, PartFlags.IsMissing, true);
                     healths[partIndex] = 0f;
                 }
-                // 2. Added Artificial Part (Bionic / Prosthetic / Utility Limb) - Unconditional Ingress
+                // 2. Added Artificial Part (Bionic / Prosthetic / Utility Limb) - Query live uninjured efficiency
                 else if (hediff is Hediff_AddedPart addedPart)
                 {
-                    float efficiency = addedPart.def?.addedPartProps?.partEfficiency ?? 1.0f;
+                    float ratedEfficiency = addedPart.def?.addedPartProps?.partEfficiency ?? 1.0f;
+                    float liveEfficiency = source != null
+                        ? source.GetPartEfficiency(hediff.Part, ratedEfficiency)
+                        : MedicalClassifier.GetSafePartEfficiency(pawn, hediff.Part, ratedEfficiency);
+
                     ImplantCharacteristics characteristics = MedicalClassifier.EvaluateHediffCapacities(addedPart.def);
 
                     workspace.SetFlag(partIndex, PartFlags.HasAddedPart, true);
-                    effs[partIndex] = efficiency;
+                    effs[partIndex] = liveEfficiency;
 
                     // Ingress each added part
                     if (characteristics.AffectsAthletics)

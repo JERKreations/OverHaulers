@@ -76,6 +76,17 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Resolves the intrinsic biological or prosthetic efficiency of a specific body part on the live pawn.
+        /// </summary>
+        /// <param name="part">The body part record to evaluate.</param>
+        /// <param name="defaultRatedEfficiency">The fallback rated XML efficiency if unmodded.</param>
+        /// <returns>The uninjured runtime efficiency rating.</returns>
+        public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
+        {
+            return MedicalClassifier.GetSafePartEfficiency(pawn, part, defaultRatedEfficiency);
+        }
+
+        /// <summary>
         /// Populates the specified anatomical workspace with the pawn's pathology data, including wounds, diseases, and prosthetic modifications.
         /// </summary>
         /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
@@ -85,7 +96,7 @@ namespace OverHaulers
             List<Hediff> safeHediffs = pawn?.health?.hediffSet?.hediffs;
             if (safeHediffs != null)
             {
-                AnatomicalIngressSolver.IngressLivePawnPathology(pawn, safeHediffs, workspace, populateColdMetadata);
+                AnatomicalIngressSolver.IngressLivePawnPathology(pawn, safeHediffs, workspace, populateColdMetadata, this);
             }
         }
 

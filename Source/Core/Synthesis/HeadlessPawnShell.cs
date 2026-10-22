@@ -94,6 +94,7 @@ namespace OverHaulers
             {
                 headlessPawn.health?.hediffSet?.Clear();
                 headlessPawn.health?.capacities?.Clear();
+                headlessPawn.abilities?.abilities?.Clear();
                 headlessPawn = null;
             }
             sourcePawn = null;
@@ -150,11 +151,13 @@ namespace OverHaulers
                     headlessPawn.SetFactionDirect(sourcePawn.Faction);
                 }
 
-                // 4. Targeted Trackers
+                // 4. Targeted Trackers; direct instantiation to avoid ThingMaker/ID assignment.
                 headlessPawn.health = new Pawn_HealthTracker(headlessPawn);
                 headlessPawn.ageTracker = new Pawn_AgeTracker(headlessPawn);
                 headlessPawn.apparel = new Pawn_ApparelTracker(headlessPawn);
                 headlessPawn.equipment = new Pawn_EquipmentTracker(headlessPawn);
+                headlessPawn.abilities = new Pawn_AbilityTracker(headlessPawn);
+                headlessPawn.skills = new Pawn_SkillTracker(headlessPawn);
 
                 try
                 {
@@ -218,42 +221,49 @@ namespace OverHaulers
 
                 if (ModsConfig.BiotechActive && headlessPawn.genes == null)
                 {
-                    headlessPawn.genes = new Pawn_GeneTracker(headlessPawn);
-
-                    if (raceDef.race != null && raceDef.race.Humanlike)
+                    try
                     {
-                        if (sourcePawn?.genes != null)
-                        {
-                            headlessPawn.genes.SetXenotypeDirect(sourcePawn.genes.Xenotype);
+                        headlessPawn.genes = new Pawn_GeneTracker(headlessPawn);
 
-                            for (int i = 0; i < sourcePawn.genes.Endogenes.Count; i++)
+                        if (raceDef.race != null && raceDef.race.Humanlike)
+                        {
+                            if (sourcePawn?.genes != null)
                             {
-                                GeneDef gene = sourcePawn.genes.Endogenes[i].def;
+                                headlessPawn.genes.SetXenotypeDirect(sourcePawn.genes.Xenotype);
+
+                                for (int i = 0; i < sourcePawn.genes.Endogenes.Count; i++)
+                                {
+                                    GeneDef gene = sourcePawn.genes.Endogenes[i].def;
+                                    if (!headlessPawn.genes.HasActiveGene(gene))
+                                    {
+                                        headlessPawn.genes.AddGene(gene, xenogene: false);
+                                    }
+                                }
+                                for (int i = 0; i < sourcePawn.genes.Xenogenes.Count; i++)
+                                {
+                                    GeneDef gene = sourcePawn.genes.Xenogenes[i].def;
+                                    if (!headlessPawn.genes.HasActiveGene(gene))
+                                    {
+                                        headlessPawn.genes.AddGene(gene, xenogene: true);
+                                    }
+                                }
+                            }
+                        }
+                        else if (sourcePawn?.genes != null)
+                        {
+                            for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
+                            {
+                                GeneDef gene = sourcePawn.genes.GenesListForReading[i].def;
                                 if (!headlessPawn.genes.HasActiveGene(gene))
                                 {
                                     headlessPawn.genes.AddGene(gene, xenogene: false);
                                 }
                             }
-                            for (int i = 0; i < sourcePawn.genes.Xenogenes.Count; i++)
-                            {
-                                GeneDef gene = sourcePawn.genes.Xenogenes[i].def;
-                                if (!headlessPawn.genes.HasActiveGene(gene))
-                                {
-                                    headlessPawn.genes.AddGene(gene, xenogene: true);
-                                }
-                            }
                         }
                     }
-                    else if (sourcePawn?.genes != null)
+                    catch (Exception ex)
                     {
-                        for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
-                        {
-                            GeneDef gene = sourcePawn.genes.GenesListForReading[i].def;
-                            if (!headlessPawn.genes.HasActiveGene(gene))
-                            {
-                                headlessPawn.genes.AddGene(gene, xenogene: false);
-                            }
-                        }
+                        OHLog.Integration.Warn("HeadlessPawnShell:BiotechGenes", ex, $"Failed to synthesize Biotech genes for {raceDef.defName}.");
                     }
                 }
 
@@ -313,6 +323,15 @@ namespace OverHaulers
                             if (cloneHediff != null)
                             {
                                 cloneHediff.Severity = src.Severity;
+                                cloneHediff.ageTicks = src.ageTicks;
+
+                                // Copy internal comp states (ticks, progress, adaptation) from source to clone, ignoring the base
+                                // HediffComp.parent pointer.
+                                if (src is HediffWithComps srcComps && cloneHediff is HediffWithComps cloneComps)
+                                {
+                                    CopyCompStates(srcComps, cloneComps);
+                                }
+
                                 headlessPawn.health.AddHediff(cloneHediff);
                             }
                         }
@@ -414,6 +433,44 @@ namespace OverHaulers
             }
 
             return DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist") ?? DefDatabase<PawnKindDef>.AllDefsListForReading?.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Copies internal comp fields (ticks, progress, adaptation) from a source hediff to a cloned hediff.
+        /// Ignores the base HediffComp.parent pointer to maintain proper ownership.
+        /// </summary>
+        /// <param name="src">The source HediffWithComps from which to copy internal comp states.</param>
+        /// <param name="dest">The destination HediffWithComps to which internal comp states are copied.</param>
+        protected static void CopyCompStates(HediffWithComps src, HediffWithComps dest)
+        {
+            if (src?.comps == null || dest?.comps == null) return;
+
+            for (int i = 0; i < src.comps.Count; i++)
+            {
+                HediffComp sc = src.comps[i];
+                if (sc == null) continue;
+
+                Type scType = sc.GetType();
+                HediffComp dc = dest.comps.Find(c => c != null && c.GetType() == scType);
+                if (dc == null) continue;
+
+                Type currType = scType;
+                while (currType != null && currType != typeof(HediffComp) && currType != typeof(object))
+                {
+                    FieldInfo[] fields = currType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    for (int f = 0; f < fields.Length; f++)
+                    {
+                        FieldInfo fi = fields[f];
+                        if (fi.IsLiteral || fi.IsInitOnly) continue;
+                        try
+                        {
+                            fi.SetValue(dc, fi.GetValue(sc));
+                        }
+                        catch { }
+                    }
+                    currType = currType.BaseType;
+                }
+            }
         }
 
         #endregion

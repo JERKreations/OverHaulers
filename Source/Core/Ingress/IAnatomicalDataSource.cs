@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-01] Ingress contract isolating mathematical solvers and topology compilers
     /// from live RimWorld Pawn entity reference mutations.
-    /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource, BoxedDataSourceWrapper).
+    /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource, SandboxAnatomicalSource, BoxedDataSourceWrapper).
     /// Resides under Source/Core/Ingress/.
     /// </summary>
     public interface IAnatomicalDataSource
@@ -39,6 +39,14 @@ namespace OverHaulers
         /// <param name="capacity">The pawn capacity to evaluate.</param>
         /// <returns>The biological performance level of the specified pawn capacity, ranging from 0.0 to 1.0+.</returns>
         float GetCapacityLevel(PawnCapacityDef capacity);
+
+        /// <summary>
+        /// Resolves the intrinsic biological or prosthetic efficiency rating of a specific body part.
+        /// </summary>
+        /// <param name="part">The body part record to evaluate.</param>
+        /// <param name="defaultRatedEfficiency">The fallback rated XML efficiency if unmodded.</param>
+        /// <returns>The uninjured efficiency rating (e.g. 0.25 for training, 1.25 for standard bionic, 1.35 for masterwork).</returns>
+        float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency);
 
         /// <summary>
         /// Translates pathology, wounds, and prosthetic modifications into workspace arrays.
@@ -82,6 +90,11 @@ namespace OverHaulers
         public float GetCapacityLevel(PawnCapacityDef capacity)
         {
             return inner != null ? inner.GetCapacityLevel(capacity) : 1.0f;
+        }
+
+        public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
+        {
+            return inner != null ? inner.GetPartEfficiency(part, defaultRatedEfficiency) : defaultRatedEfficiency;
         }
 
         public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
