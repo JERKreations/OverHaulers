@@ -85,7 +85,7 @@ namespace OverHaulers
                 __result = MassCapacitySolver.EnforceSafetyFloorForPawn(__result, p);
                 if (explanation != null)
                 {
-                    SyncExplanationCapacity(explanation, p, __result);
+                    SyncFormationCapacityEntry(explanation, p, __result);
                 }
                 return;
             }
@@ -102,7 +102,7 @@ namespace OverHaulers
 
             // EXPLANATION SYNC: If caller provided an explanation StringBuilder (e.g. CollectionsMassCalculator),
             // replace vanilla's pre-postfix baseline entry with the true final capacity.
-            if (explanation != null) SyncExplanationCapacity(explanation, p, __result);
+            if (explanation != null) SyncFormationCapacityEntry(explanation, p, __result);
         }
 
         /// <summary>
@@ -118,86 +118,103 @@ namespace OverHaulers
         #region 4. [INT-CAP-04] STRING EXPLANATION SYNCHRONIZATION HELPERS
 
         /// <summary>
-        /// Synchronizes vanilla's explanation StringBuilder entry for the pawn with the true post-offset mass capacity.
-        /// Non-destructively replaces only the numeric mass token on the pawn's entry line, preserving any
-        /// preceding or subsequent entries appended by vanilla or third-party mods.
+        /// Non-destructively synchronizes vanilla's inline explanation text with Over Haulers' solved mass value.
+        /// Uses a two-stage backward label search and forward separator scan to remain resilient against third-party
+        /// formatting, custom indentation bullets, and text-color prefixes without heap allocations.
         /// </summary>
-        /// <param name="explanation">The StringBuilder containing the explanation text.</param>
-        /// <param name="p">The pawn whose capacity is being synchronized.</param>
-        /// <param name="finalCapacity">The final mass capacity value to insert into the explanation.</param>
-        private static void SyncExplanationCapacity(StringBuilder explanation, Pawn p, float finalCapacity)
+        /// <param name="explanation">The explanation StringBuilder being populated by vanilla.</param>
+        /// <param name="p">The pawn whose entry was just appended.</param>
+        /// <param name="finalCapacity">The final solved caravan mass capacity.</param>
+        private static void SyncFormationCapacityEntry(StringBuilder explanation, Pawn p, float finalCapacity)
         {
             if (explanation == null || p == null) return;
 
-            string label = p.LabelShortCap;
-            if (string.IsNullOrEmpty(label)) return;
+            string label = p.LabelShortCap.ToString();
+            int labelIdx = LastIndexOfSubstring(explanation, label);
+            if (labelIdx == -1) return;
 
-            int lastIdx = LastIndexOfPawnPrefix(explanation, label);
-            if (lastIdx >= 0)
+            // Scan forward from the end of the label to locate the colon separator ':'
+            // Bounded window prevents runaway scanning across unrelated lines
+            int colonIdx = -1;
+            int maxScan = Math.Min(explanation.Length, labelIdx + label.Length + 12);
+
+            for (int i = labelIdx + label.Length; i < maxScan; i++)
             {
-                int prefixLen = 4 + label.Length + 2; // "  - " + label + ": "
-                int valueStart = lastIdx + prefixLen;
-
-                // Find the end of the current line to preserve any trailing lines or third-party annotations
-                int valueEnd = valueStart;
-                int sbLen = explanation.Length;
-                while (valueEnd < sbLen && explanation[valueEnd] != '\r' && explanation[valueEnd] != '\n')
+                if (explanation[i] == ':')
                 {
-                    valueEnd++;
+                    colonIdx = i;
+                    break;
                 }
-
-                explanation.Remove(valueStart, valueEnd - valueStart);
-                explanation.Insert(valueStart, finalCapacity.ToStringMassOffset());
             }
+
+            if (colonIdx == -1) return;
+
+            // Advance past the colon and any trailing whitespace to pinpoint the start of the numeric value
+            int valueStart = colonIdx + 1;
+            while (valueStart < explanation.Length && explanation[valueStart] == ' ')
+            {
+                valueStart++;
+            }
+
+            if (valueStart >= explanation.Length) return;
+
+            int lineEnd = IndexOfLineEnd(explanation, valueStart);
+            string formattedValue = finalCapacity.ToStringMassOffset();
+
+            explanation.Remove(valueStart, lineEnd - valueStart);
+            explanation.Insert(valueStart, formattedValue);
         }
 
         /// <summary>
-        /// Finds the last character index of the vanilla entry prefix ("  - " + label + ": ")
-        /// within the explanation StringBuilder.
+        /// Performs an allocation-free reverse search through the StringBuilder for a target substring.
         /// </summary>
-        /// <param name="sb">The StringBuilder containing the explanation text.</param>
-        /// <param name="label">The label of the pawn to search for.</param>
-        /// <returns>The last character index of the pawn prefix, or -1 if not found.</returns>
-        private static int LastIndexOfPawnPrefix(StringBuilder sb, string label)
+        /// <param name="sb">The StringBuilder to search within.</param>
+        /// <param name="target">The substring to search for.</param>
+        /// <returns>The index of the last occurrence of the target substring, or -1 if not found.</returns>
+        private static int LastIndexOfSubstring(StringBuilder sb, string target)
         {
-            if (sb == null || string.IsNullOrEmpty(label)) return -1;
+            if (sb == null || string.IsNullOrEmpty(target) || sb.Length < target.Length) return -1;
 
-            // Prefix layout: "  - " (4 chars) + label + ": " (2 chars)
-            int prefixLen = 4 + label.Length + 2;
-            int sbLen = sb.Length;
-            if (sbLen < prefixLen) return -1;
+            int targetLen = target.Length;
+            int startIdx = sb.Length - targetLen;
 
-            for (int i = sbLen - prefixLen; i >= 0; i--)
+            for (int i = startIdx; i >= 0; i--)
             {
-                // Quick pre-filter on initial bullet indentation and trailing colon-space
-                if (sb[i] != ' ' || sb[i + 1] != ' ' || sb[i + 2] != '-' || sb[i + 3] != ' ')
-                {
-                    continue;
-                }
-
-                if (sb[i + 4 + label.Length] != ':' || sb[i + 5 + label.Length] != ' ')
-                {
-                    continue;
-                }
-
-                // Verify label characters
                 bool match = true;
-                for (int j = 0; j < label.Length; j++)
+                for (int j = 0; j < targetLen; j++)
                 {
-                    if (sb[i + 4 + j] != label[j])
+                    if (sb[i + j] != target[j])
                     {
                         match = false;
                         break;
                     }
                 }
 
-                if (match)
+                if (match) return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Scans forward from a startIndex in the StringBuilder to find the nearest newline character or end of buffer.
+        /// </summary>
+        /// <param name="sb">The StringBuilder to search within.</param>
+        /// <param name="startIndex">The index to start scanning from.</param>
+        /// <returns>The index of the nearest newline character or the end of the buffer if none is found.</returns>
+        private static int IndexOfLineEnd(StringBuilder sb, int startIndex)
+        {
+            if (sb == null) return 0;
+
+            for (int i = startIndex; i < sb.Length; i++)
+            {
+                if (sb[i] == '\r' || sb[i] == '\n')
                 {
                     return i;
                 }
             }
 
-            return -1;
+            return sb.Length;
         }
 
         #endregion

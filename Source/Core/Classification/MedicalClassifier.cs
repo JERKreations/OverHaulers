@@ -99,20 +99,32 @@ namespace OverHaulers
         private static readonly ConcurrentDictionary<HediffStage, bool> stageImpactCache =
             new ConcurrentDictionary<HediffStage, bool>();
 
-        /// <summary>Cache for known broken BodySize pawn IDs to avoid repeated exception handling.</summary>
+        /// <summary>Fixed-capacity circular ring buffer tracking pawns with broken third-party BodySize getters.</summary>
         /// <remarks>
-        /// Harmony postfixes on Pawn.BodySize (e.g. broken gene mods) tend to fail deterministically for a
-        /// given pawn every time, not intermittently - cache the failure so we pay the exception cost once.
+        /// Replaces unbounded ConcurrentDictionary to enforce a zero-allocation, 256-byte maximum footprint.
+        /// Thread-safe via hardware-atomic 32-bit integer reads and circular Interlocked indexing.
         /// </remarks>
-        private static readonly ConcurrentDictionary<int, byte> knownBrokenBodySizePawnIds = new ConcurrentDictionary<int, byte>();
+        private const int BrokenBodySizeRingCapacity = 64;
+        private const int BrokenBodySizeRingMask = BrokenBodySizeRingCapacity - 1;
+        private static readonly int[] brokenBodySizeRing = new int[BrokenBodySizeRingCapacity];
+        private static int brokenBodySizeHead = 0;
+        private static volatile int hasBrokenBodySize = 0;
 
         /// <summary>Cache for metabolic organs to avoid repeated lookups.</summary>
         private static HashSet<BodyPartDef> metabolicOrgans = new HashSet<BodyPartDef>();
+
         /// <summary>Cache for vital organ source tags to avoid repeated lookups.</summary>
         private static HashSet<BodyPartTagDef> vitalOrganSourceTags = new HashSet<BodyPartTagDef>();
+
         /// <summary>Indicates whether the metabolic organ cache has been initialized.</summary>
         private static bool metabolicInitialized = false;
 
+        /// <summary>
+        /// Factory method for creating <see cref="HediffFlags"/> based on a given <see cref="HediffDef"/> and type.
+        /// </summary>
+        /// <param name="d">The hediff definition to evaluate.</param>
+        /// <param name="type">The type associated with the hediff.</param>
+        /// <returns>A <see cref="HediffFlags"/> value representing the characteristics of the hediff.</returns>
         private static readonly Func<HediffDef, Type, HediffFlags> flagFactory = (d, type) =>
         {
             HediffFlags flags = HediffFlags.None;
@@ -428,7 +440,8 @@ namespace OverHaulers
                 return raceFallback * lifeStageFactor;
             }
 
-            if (knownBrokenBodySizePawnIds.ContainsKey(pawn.thingIDNumber))
+            // 1-Cycle Fast-Path: If no pawn in the session has ever thrown a BodySize exception, bypass immediately
+            if (IsKnownBrokenBodySize(pawn.thingIDNumber))
             {
                 return raceFallback;
             }
@@ -439,8 +452,8 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                // Mark this pawn ID as having a broken body size getter to avoid repeated exceptions.
-                knownBrokenBodySizePawnIds.TryAdd(pawn.thingIDNumber, 0);
+                // Record into the bounded circular buffer to avoid repeated exception handling
+                RecordBrokenBodySize(pawn.thingIDNumber);
 
                 if (UnityData.IsInMainThread)
                 {
@@ -450,6 +463,38 @@ namespace OverHaulers
             }
 
             return raceFallback;
+        }
+
+        /// <summary>
+        /// Fast-path lookup checking if a pawn ID is registered in the bounded broken-body-size ring buffer.
+        /// </summary>
+        /// <param name="thingId">The pawn's unique thing ID to check against the broken-body-size buffer.</param>
+        private static bool IsKnownBrokenBodySize(int thingId)
+        {
+            if (hasBrokenBodySize == 0 || thingId == 0) return false;
+
+            for (int i = 0; i < BrokenBodySizeRingCapacity; i++)
+            {
+                if (Volatile.Read(ref brokenBodySizeRing[i]) == thingId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Inserts a pawn ID into the circular ring buffer using atomic indexing.
+        /// </summary>
+        /// <param name="thingId">The pawn's unique thing ID to insert into the broken-body-size buffer.</param>
+        private static void RecordBrokenBodySize(int thingId)
+        {
+            if (thingId == 0) return;
+
+            int slot = Interlocked.Increment(ref brokenBodySizeHead) & BrokenBodySizeRingMask;
+            Volatile.Write(ref brokenBodySizeRing[slot], thingId);
+            hasBrokenBodySize = 1;
         }
 
         /// <summary>
@@ -783,8 +828,11 @@ namespace OverHaulers
             implantCache.Clear();
             physiologicallyImpactfulStatCache.Clear();
             stageImpactCache.Clear();
-            knownBrokenBodySizePawnIds.Clear();
-            
+
+            Array.Clear(brokenBodySizeRing, 0, BrokenBodySizeRingCapacity);
+            brokenBodySizeHead = 0;
+            hasBrokenBodySize = 0;
+
             metabolicInitialized = false;
             InitializeMetabolicOrgans();
         }

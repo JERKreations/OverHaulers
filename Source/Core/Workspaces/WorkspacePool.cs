@@ -17,6 +17,12 @@ namespace OverHaulers
         public const int MaxWorkspacePoolDepth = 4;
 
         /// <summary>
+        /// Threshold count of registered workspace references before triggering an automatic dead reference sweep.
+        /// Prevents weak reference accumulation from transient worker threads without per-tick overhead.
+        /// </summary>
+        public const int DynamicCleanupWatermark = 16;
+
+        /// <summary>
         /// Lightweight IDisposable lease wrapper for <see cref="AnatomicalWorkspace"/>
         /// to guarantee deterministic release via C# using blocks without boxing.
         /// </summary>
@@ -110,6 +116,10 @@ namespace OverHaulers
                     lock (syncRoot)
                     {
                         allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
+                        if (allWorkspaces.Count > DynamicCleanupWatermark)
+                        {
+                            SweepDeadReferencesLocked();
+                        }
                     }
                 }
 
@@ -119,8 +129,8 @@ namespace OverHaulers
                 return ws;
             }
 
-            // Safety fallback if depth is exceeded: allocate an unpooled fallback workspace
-            // without incrementing poolIndex so the pooled stack pointer remains uncorrupted.
+            // Safety fallback if depth is exceeded: allocate an unpooled fallback workspace instance without incrementing poolIndex
+            // so the pooled stack pointer remains uncorrupted.
             OHLog.Solver.Warn("WorkspacePool", null, 
                 $"Workspace pool depth exceeded ({poolIndex + 1} > {MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
 
@@ -132,10 +142,15 @@ namespace OverHaulers
             lock (syncRoot)
             {
                 allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(unpooledWs));
+                if (allWorkspaces.Count > DynamicCleanupWatermark)
+                {
+                    SweepDeadReferencesLocked();
+                }
             }
 
             return unpooledWs;
         }
+
 
         /// <summary>
         /// Releases and clears a previously acquired <see cref="AnatomicalWorkspace"/>,
@@ -174,21 +189,16 @@ namespace OverHaulers
         #region 5. GARBAGE SWEEP & LIFECYCLE MANAGEMENT
 
         /// <summary>
-        /// Scans the static reference collection and sweeps dead ThreadStatic pointers out of memory.
-        /// Invoked periodically from the main-thread out-of-band registry cleanup loop to prevent memory leaks.
+        /// Internal sweep executing strictly within an existing syncRoot lock.
+        /// Prunes collected ThreadStatic workspace references in-place from back to front.
         /// </summary>
-        public static void CleanDeadReferences()
+        private static void SweepDeadReferencesLocked()
         {
-            // BREAKPOINT ANCHOR: Weak Reference Eviction Sweep Lock
-            lock (syncRoot)
+            for (int i = allWorkspaces.Count - 1; i >= 0; i--)
             {
-                // Sweep backward to safely prune invalid target wrappers in-place
-                for (int i = allWorkspaces.Count - 1; i >= 0; i--)
+                if (!allWorkspaces[i].TryGetTarget(out _))
                 {
-                    if (!allWorkspaces[i].TryGetTarget(out _))
-                    {
-                        allWorkspaces.RemoveAt(i);
-                    }
+                    allWorkspaces.RemoveAt(i);
                 }
             }
         }

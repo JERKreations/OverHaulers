@@ -622,7 +622,8 @@ namespace OverHaulers
                             }
 
                             staleKeysScratch.Clear();
-                            WorkspacePool.CleanDeadReferences();
+                            // WorkspacePool.CleanDeadReferences();
+                            // WorkspacePool is now autonomously self-cleaning via DynamicCleanupWatermark
                         }
                     }
                     finally

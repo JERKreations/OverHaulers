@@ -5,7 +5,7 @@
   <!-- [VIEW-05] CARAVAN FLEET BIOMECHANICAL SUMMARY (WORLD & DIALOG TOOLTIPS)   -->
   <!-- ========================================================================= -->
   <OverHaulers_Fleet_Header>Caravan Physical: {0}x ({1})</OverHaulers_Fleet_Header>
-  <OverHaulers_Fleet_Total>• Total: {0}</OverHaulers_Fleet_Total>
+  <OverHaulers_Fleet_Total>• Physical Total: {0}</OverHaulers_Fleet_Total>
 
   <!-- Standout Performer Headers (Net vs Gross + Collapsed) -->
   <OverHaulers_Fleet_TopContributorNet>• Top Asset (Net): {0}</OverHaulers_Fleet_TopContributorNet>
