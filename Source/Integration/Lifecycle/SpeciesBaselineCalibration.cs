@@ -367,6 +367,27 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Ensures species baseline mass capacity calibrations have been executed.
+        /// If uninitialized, executes a batch sweep across caravan-capable species.
+        /// Thread-safe and idempotent; executes in 1 CPU cycle once calibrated.
+        /// </summary>
+        public static void EnsureInitialized()
+        {
+            if (speciesCache.Count > 0) return;
+
+            lock (calibrationLock)
+            {
+                if (speciesCache.Count > 0) return;
+
+                string context = Current.ProgramState == ProgramState.Playing
+                    ? "OverHaulers_Log_Calibration_Context_WorldLoad".Translate().ToString()
+                    : "Test Bench";
+
+                RunBatchSweep(onlyCaravanCapable: true, context);
+            }
+        }
+
+        /// <summary>
         /// Runs a timed batch sweep across species ThingDefs and prints a single consolidated checkpoint report.
         /// </summary>
         /// <param name="onlyCaravanCapable">If true, only caravan-capable species will be included in the batch sweep.</param>

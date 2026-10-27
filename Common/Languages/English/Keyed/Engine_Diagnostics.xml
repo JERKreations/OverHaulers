@@ -31,21 +31,48 @@
   <OverHaulers_Log_Snapshot_ScaledUp>[Over Haulers] Snapshot table scaled up: {0} ➔ {1} slots (Occupancy: {2}/{0}, Load: {3}%).</OverHaulers_Log_Snapshot_ScaledUp>
   <OverHaulers_Log_Snapshot_Contracted>[Over Haulers] Snapshot table contracted: {0} ➔ {1} slots (Occupancy: {2}/{0}, Load: {3}%).</OverHaulers_Log_Snapshot_Contracted>
   <OverHaulers_Log_Snapshot_Flushed>[Over Haulers] Snapshot table flushed: Cleared {0} active entries, restored capacity to {1} slots.</OverHaulers_Log_Snapshot_Flushed>
+  <OverHaulers_Log_Presentation_ScaledUp>[Over Haulers] Presentation model cache dynamically expanded: {0} ➔ {1} slots due to active UI working-set contention ({2} recycles in burst window).</OverHaulers_Log_Presentation_ScaledUp>
+  <OverHaulers_Log_Presentation_Flushed>[Over Haulers] Presentation model cache flushed: Purged {0} cached visual models, restored baseline capacity to {1} slots.</OverHaulers_Log_Presentation_Flushed>
 
   <!-- ========================================================================= -->
   <!-- 5. WORLD & SESSION LIFECYCLE CHECKPOINTS                                  -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_World_Reset>[Over Haulers] World session initialized. Resetting runtime registries and thread-local workspaces, preserving pre-compiled static topologies.</OverHaulers_Log_World_Reset>
   <OverHaulers_Log_Lifecycle_FullRecompileComplete>[Over Haulers] Full runtime recompilation complete ({0} ms): All skeletal topologies, medical catalogs, and test subjects refreshed.</OverHaulers_Log_Lifecycle_FullRecompileComplete>
 
   <!-- ========================================================================= -->
-  <!-- 6. PERFORMANCE TELEMETRY & REPORT BUFFERS                                 -->
+  <!-- 6. UNIFIED ACTIVITY JOURNAL HEADERS & BULLETS                             -->
+  <!-- ========================================================================= -->
+  <OverHaulers_Journal_BootstrapHeader>ENGINE BOOTSTRAP COMPLETE ({0} ms)</OverHaulers_Journal_BootstrapHeader>
+  <OverHaulers_Journal_WorldSessionHeader>WORLD SESSION INITIALIZED</OverHaulers_Journal_WorldSessionHeader>
+  <OverHaulers_Journal_RecompileHeader>RUNTIME RECOMPILATION COMPLETE ({0} ms)</OverHaulers_Journal_RecompileHeader>
+  <OverHaulers_Journal_TestBenchHeader>TEST BENCH INITIALIZED ({0} ms)</OverHaulers_Journal_TestBenchHeader>
+
+  <OverHaulers_Journal_HarmonyInitialized>Harmony Compatibility: {0} engine hooks applied ({1} ms, one-time)</OverHaulers_Journal_HarmonyInitialized>
+  <OverHaulers_Journal_ExternalPatchesDetected>External Patches: Detected C# patch(es) on MassUtility.Capacity from: {0}</OverHaulers_Journal_ExternalPatchesDetected>
+  <OverHaulers_Journal_StatPresentationBound>Stat Integration: Adopted '{0}' (Owner: {1}, Suffix: '{2}')</OverHaulers_Journal_StatPresentationBound>
+  <OverHaulers_Journal_SnapshotInitialized>Atomic Registry: Initialized {0} L1 slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4})</OverHaulers_Journal_SnapshotInitialized>
+
+  <OverHaulers_Journal_TopologyPreserved>Skeletal Topologies: {0} species verified (preserved from startup)</OverHaulers_Journal_TopologyPreserved>
+  <OverHaulers_Journal_TopologyCompiled>Skeletal Topologies: {0} species compiled ({1} ms, Max: {2} {3} parts, Depth: {4})</OverHaulers_Journal_TopologyCompiled>
+
+  <OverHaulers_Journal_CalibrationSweep>Baseline Calibration: {0} Pristine | {1} Testing Fallback | {2} Live Rescue | {3} Emergency ({4} ms)</OverHaulers_Journal_CalibrationSweep>
+  <OverHaulers_Journal_CalibrationRescueLive>Rescued {0} species baseline(s) from spawned live pawn(s): {1}</OverHaulers_Journal_CalibrationRescueLive>
+  <OverHaulers_Journal_CalibrationPendingNotice>Notice: {0} caravan-capable species operating on temporary benchmarks pending live comps: {1}</OverHaulers_Journal_CalibrationPendingNotice>
+
+  <OverHaulers_Journal_SnapshotReset>Atomic Registry: Initialized to {0} L1 slots (Cleared {1} stale entries)</OverHaulers_Journal_SnapshotReset>
+  <OverHaulers_Journal_PresentationReset>Presentation Cache: Purged {0} cached visual models (Restored to {1} slots)</OverHaulers_Journal_PresentationReset>
+  <OverHaulers_Journal_MedicalCatalog>Medical Catalog: Indexed {0} replacements, {1} implants, {2} stimulants ({3} ms)</OverHaulers_Journal_MedicalCatalog>
+  <OverHaulers_Journal_ActivePawnsWarmedUp>Population Warmup: Pre-cached {0} active caravan-capable pawns</OverHaulers_Journal_ActivePawnsWarmedUp>
+
+  <!-- ========================================================================= -->
+  <!-- 7. PERFORMANCE TELEMETRY & REPORT BUFFERS                                 -->
   <!-- ========================================================================= -->
   <OverHaulers_Log_PerformanceReportHeader><![CDATA[[Over Haulers] ==== PERFORMANCE & CACHE METRICS REPORT (Last {0} Hours) ====]]></OverHaulers_Log_PerformanceReportHeader>
   <OverHaulers_Log_PerformanceReport_Queries>  • Total Registry Queries: {0} (Main Thread: {1} | Background Worker Threads: {2})</OverHaulers_Log_PerformanceReport_Queries>
   <OverHaulers_Log_PerformanceReport_Cache>  • Cache Hit Efficiency: {0}% (Hits: {1} | Recalculations: {2})</OverHaulers_Log_PerformanceReport_Cache>
   <OverHaulers_Log_PerformanceReport_CacheDetailed>  • Cache Hit Efficiency: Total {0}% | Main {1}% (Hits: {2} | Recalcs: {3}) | Background {4}% (Hits: {5} | Misses: {6})</OverHaulers_Log_PerformanceReport_CacheDetailed>
-  
+  <OverHaulers_Log_PerformanceReport_PresentationDetailed>  • Presentation UI Cache: {0}/{1} in rotation | Hits: {2} ({3}%) | Misses: {4} | Recycles: {5}</OverHaulers_Log_PerformanceReport_PresentationDetailed>
+
   <!-- Snapshot Table & Probing Health -->
   <OverHaulers_Log_PerformanceReport_SnapshotHealth>  • Snapshot Table Health: Main {0} | Snapshot {1}/{2} ({3}% load) | Avg Probe: {4} | Peak Depth: {5}/{6} | Displacements: {7}</OverHaulers_Log_PerformanceReport_SnapshotHealth>
   <OverHaulers_Log_PerformanceReport_SnapshotContention>    - SeqLock Concurrency: {0} reader retries | {1} timeouts</OverHaulers_Log_PerformanceReport_SnapshotContention>

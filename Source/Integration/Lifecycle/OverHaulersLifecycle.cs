@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using RimWorld;
@@ -22,14 +23,39 @@ namespace OverHaulers
         /// <summary>True once the post-load deferred baseline calibration sweep has finished.</summary>
         public static bool IsCalibrationSweepDone { get; internal set; }
 
+        /// <summary>
+        /// Initializes the Over Haulers lifecycle driver, mounts the persistent Unity GameObject, subscribes to cache events, and triggers
+        ///  the deterministic bootstrap sequence.
+        /// Invoked automatically by the Unity engine at startup due to the <see cref="StaticConstructorOnStartup"/> attribute.
+        /// Ensures that all necessary subsystems and compatibility layers are initialized before any gameplay logic executes.
+        /// </summary>
         static OverHaulersLifecycle()
         {
+            // 1. Mount persistent lifecycle driver GameObject into Unity engine
             GameObject host = new GameObject("OverHaulers_Lifecycle");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<OverHaulersLifecycleDriver>();
 
             // Subscribe to Core cache flush events to automatically re-warm colony pawns
             PawnDataRegistry.OnCacheCleared += HandleCacheCleared;
+
+            // 2. Begin timed bootstrap sequence
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_BootstrapHeader".Translate("...").ToString());
+
+            // DETERMINISTIC BOOTSTRAP SEQUENCE:
+            // 1. Stat Adoption & Harmony Compatibility Layer
+            HarmonySetup.EnsureInitialized();
+
+            // 2. Static Skeletons
+            TopologyLayoutCompiler.EnsureInitialized();
+
+            // 3. Atomic Snapshot Registry
+            MassSnapshotCache.EnsureInitialized();
+
+            watch.Stop();
+            OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_BootstrapHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
+            OHLog.ActivityJournal.Dispatch();
         }
 
         /// <summary>
@@ -58,29 +84,38 @@ namespace OverHaulers
             BenchmarkRunner.Cancel();
             SelfCheckRunner.Cancel();
 
+            // Open Recompile Activity Journal
+            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_RecompileHeader".Translate("...").ToString());
+
             // 1. Flush Core caches, medical classifier caches, and UI layout typography
             PawnDataRegistry.ClearAllCaches();
             DetailedModelRegistry.Clear();
             InfoCardOverlay.ClearCache();
             MedicalClassifier.ClearStaticCaches();
 
-            // 2. Invalidate and freshly compile all species skeletal topologies
+            // 2. Invalidate and recompile all skeletal topologies (routes bullet #1)
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
 
-            // 3. Reset and re-run baseline calibration sweep
+            // 3. Reset and re-run baseline calibration sweep (routes bullet #2)
             SpeciesBaselineCalibration.Reset();
             string context = !string.IsNullOrEmpty(sweepContext)
                 ? sweepContext
                 : "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, context);
 
-            // 4. Mark calibration ready and proactively re-warm all active pawns
+            // 4. Re-index medical surgery and implant catalog (routes bullet #3)
+            MedicalRecipeCatalog.ClearAndReinitialize();
+
+            // 5. Mark calibration ready and proactively re-warm all active pawns
             IsCalibrationSweepDone = true;
             WarmupActivePawns();
 
             watch.Stop();
-            OHLog.Lifecycle.FullRecompilationCompleted(watch.Elapsed.TotalMilliseconds);
+
+            // Update headline with final total duration and dispatch unified report
+            OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_RecompileHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
+            OHLog.ActivityJournal.Dispatch();
         }
 
         /// <summary>
@@ -92,41 +127,55 @@ namespace OverHaulers
             // Early exit if the integration pipeline is not initialized or game is not playing
             if (!IntegrationPipeline.IsInitialized || Current.ProgramState != ProgramState.Playing) return;
 
-            // Sweep Map Pawns
-            if (Find.Maps != null)
+            int warmedCount = 0;
+
+            try
             {
-                for (int m = 0; m < Find.Maps.Count; m++)
+                // Sweep Map Pawns
+                if (Find.Maps != null)
                 {
-                    Map map = Find.Maps[m];
-                    if (map?.mapPawns == null) continue;
-
-                    IReadOnlyList<Pawn> pawns = map.mapPawns.AllPawnsSpawned;
-                    if (pawns == null) continue;
-
-                    for (int p = 0; p < pawns.Count; p++)
+                    for (int m = 0; m < Find.Maps.Count; m++)
                     {
-                        EvaluatePawnForWarmup(pawns[p]);
+                        Map map = Find.Maps[m];
+                        if (map?.mapPawns == null) continue;
+
+                        IReadOnlyList<Pawn> pawns = map.mapPawns.AllPawnsSpawned;
+                        if (pawns == null) continue;
+
+                        for (int p = 0; p < pawns.Count; p++)
+                        {
+                            if (EvaluatePawnForWarmup(pawns[p])) warmedCount++;
+                        }
                     }
+                }
+
+                // Sweep World Caravans
+                if (Find.WorldObjects?.Caravans != null)
+                {
+                    List<Caravan> caravans = Find.WorldObjects.Caravans;
+                    for (int c = 0; c < caravans.Count; c++)
+                    {
+                        Caravan caravan = caravans[c];
+                        if (caravan?.PawnsListForReading == null) continue;
+
+                        IReadOnlyList<Pawn> pawns = caravan.PawnsListForReading;
+                        if (pawns == null) continue;
+
+                        for (int p = 0; p < pawns.Count; p++)
+                        {
+                            if (EvaluatePawnForWarmup(pawns[p])) warmedCount++;
+                        }
+                    }
+                }
+
+                if (warmedCount > 0 && OHLog.ActivityJournal.IsActive)
+                {
+                    OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_ActivePawnsWarmedUp".Translate(warmedCount).ToString());
                 }
             }
-
-            // Sweep World Caravans
-            if (Find.WorldObjects?.Caravans != null)
+            catch (Exception ex)
             {
-                List<Caravan> caravans = Find.WorldObjects.Caravans;
-                for (int c = 0; c < caravans.Count; c++)
-                {
-                    Caravan caravan = caravans[c];
-                    if (caravan?.PawnsListForReading == null) continue;
-
-                    IReadOnlyList<Pawn> pawns = caravan.PawnsListForReading;
-                    if (pawns == null) continue;
-
-                    for (int p = 0; p < pawns.Count; p++)
-                    {
-                        EvaluatePawnForWarmup(pawns[p]);
-                    }
-                }
+                OHLog.Lifecycle.Warn("WarmupActivePawns", ex, "Failed to warm up active player pawns.");
             }
         }
 
@@ -134,14 +183,17 @@ namespace OverHaulers
         /// Evaluates a pawn for warmup, seating it in PawnDataRegistry and MassSnapshotCache.
         /// </summary>
         /// <param name="pawn">The pawn to evaluate for warmup.</param>
+        /// <returns>True if the pawn was valid and evaluated; false otherwise.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void EvaluatePawnForWarmup(Pawn pawn)
+        private static bool EvaluatePawnForWarmup(Pawn pawn)
         {
             if (pawn != null && !pawn.Dead && !pawn.Suspended && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 PawnDataRegistry.GetOffset(pawn, baseline);
+                return true;
             }
+            return false;
         }
     }
 
@@ -185,7 +237,11 @@ namespace OverHaulers
             // so a session is never started while a save is still being loaded.
             if (Current.ProgramState != ProgramState.Playing)
             {
-                trackedGame = null;
+                if (trackedGame != null)
+                {
+                    TeardownSession();
+                    trackedGame = null;
+                }
                 return;
             }
 
@@ -211,6 +267,21 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Flushes runtime caches and discards pending journal sessions when exiting to the Main Menu.
+        /// </summary>
+        private void TeardownSession()
+        {
+            BenchmarkRunner.Cancel();
+            SelfCheckRunner.Cancel();
+            OHLog.ActivityJournal.Discard();
+
+            PawnDataRegistry.ClearAllCaches();
+            DetailedModelRegistry.Clear();
+            InfoCardOverlay.ClearCache();
+            SpeciesBaselineCalibration.Reset();
+        }
+
+        /// <summary>
         /// Resets all runtime state for a freshly started or loaded game session.
         /// </summary>
         private void BeginSession(int currentTick)
@@ -221,22 +292,42 @@ namespace OverHaulers
             lastReportTick = -1;
             OverHaulersLifecycle.IsCalibrationSweepDone = false;
 
+            // Open the multi-tick World Session Journal
+            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_WorldSessionHeader".Translate().ToString());
+
             // 1. Clear all cached pawn data, presentation models, and UI layout typography
+            int snapshotPurged = MassSnapshotCache.OccupiedSlotsCount;
             PawnDataRegistry.ClearAllCaches();
+            OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_SnapshotReset".Translate(
+                MassSnapshotCache.TableCapacity, 
+                snapshotPurged
+            ).ToString());
+
+            int presPurged = DetailedModelRegistry.ActiveEntryCount;
             DetailedModelRegistry.Clear();
             InfoCardOverlay.ClearCache();
+            if (presPurged > 0)
+            {
+                OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_PresentationReset".Translate(
+                    presPurged, 
+                    DetailedModelRegistry.DefaultBaseCapacity
+                ).ToString());
+            }
 
-            // 2. Freshly compile all species skeletal topologies (un-locked across save loads)
-            TopologyLayoutCompiler.InvalidateAllTopologies();
+            // 2. Preserve static topologies (idempotent: does NOT recompile if already initialized at boot!)
             TopologyLayoutCompiler.EnsureInitialized();
+            OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_TopologyPreserved".Translate(
+                TopologyLayoutCompiler.CompiledTemplateCount
+            ).ToString());
 
-            // 3. Reset dynamic baseline calibrations (batch sweep is deferred - see MaybeRunDeferredCalibrationSweep)
+            // 3. Reset dynamic baseline calibrations (batch sweep will run at Tick 10 and finish the journal)
             SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = currentTick;
 
-            // 4. Reset the lifecycle log
-            OHLog.Lifecycle.WorldLoadedReset();
+            // Register deferred calibration ticket and dispatch (waits until Tick 10 before printing)
+            OHLog.ActivityJournal.RegisterDeferredOperation("Calibration");
+            OHLog.ActivityJournal.Dispatch();
         }
 
         /// <summary>
@@ -255,11 +346,14 @@ namespace OverHaulers
 
             OverHaulersLifecycle.IsCalibrationSweepDone = true;
 
-            // BATCH PRE-CALIBRATION SWEEP: Pre-calibrate caravan species ThingDefs in one fast sweep
+            // BATCH PRE-CALIBRATION SWEEP: Automatically routes bullet into active ActivityJournal
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "OverHaulers_Log_Calibration_Context_WorldLoad".Translate().ToString());
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
             OverHaulersLifecycle.WarmupActivePawns();
+
+            // BREAKPOINT ANCHOR: Complete deferred calibration operation (triggers atomic report emission)
+            OHLog.ActivityJournal.CompleteDeferredOperation("Calibration");
         }
 
         /// <summary>

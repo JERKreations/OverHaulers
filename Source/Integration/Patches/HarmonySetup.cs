@@ -9,7 +9,6 @@ namespace OverHaulers
     /// and third-party compatibility bridges across modular partial domains.
     /// Resides under Source/Integration/Patches/.
     /// </summary>
-    [StaticConstructorOnStartup]
     public static partial class HarmonySetup
     {
         #region 1. STATIC STATE & HARMONY INSTANCE
@@ -21,39 +20,29 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. LIFECYCLE & STATIC CONSTRUCTOR
-
-        static HarmonySetup()
-        {
-            InitializeCompatibilityLayer();
-        }
-
-        #endregion
-
-        #region 3. MASTER COMPATIBILITY INITIALIZATION PIPELINE
+        #region 2. LIFECYCLE & INITIALIZATION ENTRY POINT
 
         /// <summary>
-        /// Initializes the compatibility layer for the OverHaulers mod, setting up Harmony patches and integration pipelines.
-        /// Ensures that all necessary hooks and safety measures are applied before the mod becomes active.
+        /// [INT-01] Explicitly initializes the master Harmony compatibility layer, patches, and integration pipeline.
+        /// Invoked deterministically by <see cref="OverHaulersLifecycle"/> during engine bootstrap.
+        /// Thread-safe and idempotent; executes in 1 CPU cycle once initialized.
         /// </summary>
-        private static void InitializeCompatibilityLayer()
+        public static void EnsureInitialized()
         {
-            if (isCompatibilityInitialized)
-            {
-                OHLog.Integration.Warn("HarmonySetup", null, $"InitializeCompatibilityLayer called more than once! Duplicate call intercepted from:\n{new System.Diagnostics.StackTrace(1, true)}");
-                return;
-            }
+            if (isCompatibilityInitialized) return;
             isCompatibilityInitialized = true;
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
 
             HarmonyInstance = new Harmony("com.overhaulers.mod");
 
-            // 1. Reactive invalidation patches (Pawn health, apparel, equipment, death, despawn)
+            // 1. Reactive invalidation patches (Pawn health, gene mutations, death, despawn)
             InstallInvalidationPatches(HarmonyInstance);
 
             // 2. Presentation and UI overlay patches (InfoCard labels, caravan inspector bars)
             InstallPresentationPatches(HarmonyInstance);
 
-            // 3. Third-party mod integration and compatibility bridges
+            // 3. Third-party mod integration and compatibility bridges (Must run before capacity patches)
             Guarded("IntegrationPipeline.Initialize", () => IntegrationPipeline.Initialize(HarmonyInstance));
 
             // 4. Native MassUtility.Capacity direct postfix bridge
@@ -64,11 +53,23 @@ namespace OverHaulers
 
             // 6. Permanent branchless safety shields and main-menu fallbacks
             Guarded("Safety.InstallPermanentShields", () => InstallPermanentSafetyShields(HarmonyInstance));
+
+            // Count total unique methods patched by this Harmony instance
+            int patchedMethodCount = 0;
+            var patchedMethods = HarmonyInstance.GetPatchedMethods();
+            if (patchedMethods != null)
+            {
+                foreach (var _ in patchedMethods) patchedMethodCount++;
+            }
+
+            watch.Stop();
+
+            OHLog.Integration.HarmonyInitialized(watch.Elapsed.TotalMilliseconds, patchedMethodCount);
         }
 
         #endregion
 
-        #region 4. PRIVATE GUARDED EXECUTION & REFLECTION HELPERS
+        #region 3. PRIVATE GUARDED EXECUTION & REFLECTION HELPERS
 
         /// <summary>
         /// Runs a single patch installation step, logging (rather than propagating) any failure so that

@@ -133,6 +133,11 @@ namespace OverHaulers
         public static double LastCompileDurationMs { get; private set; } = 0.0;
 
         /// <summary>
+        /// Total count of successfully compiled, validated species skeletal topology templates currently resident in cache.
+        /// </summary>
+        public static int CompiledTemplateCount => speciesTopologyCache.Count;
+
+        /// <summary>
         /// Ensures that all loaded species BodyDefs are compiled into flat, immutable templates.
         /// Thread-safe and re-entrant: if already compiled, returns immediately.
         /// </summary>

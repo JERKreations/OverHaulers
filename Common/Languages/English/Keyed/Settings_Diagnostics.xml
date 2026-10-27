@@ -28,6 +28,9 @@
   <OverHaulers_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_LogSnapshotTableMetrics>
   <OverHaulers_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 512-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_LogSnapshotTableMetrics_Desc>
 
+  <OverHaulers_LogPresentationMetrics>Presentation UI Cache</OverHaulers_LogPresentationMetrics>
+  <OverHaulers_LogPresentationMetrics_Desc>Logs active visual model rotation count, hit efficiency, and node recycling metrics for the presentation layer (DetailedModelRegistry).</OverHaulers_LogPresentationMetrics_Desc>
+
   <OverHaulers_LogLifecycleMetrics>Lifecycle &amp; Invalidation Events</OverHaulers_LogLifecycleMetrics>
   <OverHaulers_LogLifecycleMetrics_Desc>Reports reactive cache invalidations, combat burst damage debouncer efficiency, and active pawn lifecycle purges.</OverHaulers_LogLifecycleMetrics_Desc>
 

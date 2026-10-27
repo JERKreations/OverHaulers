@@ -1,8 +1,100 @@
+using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace OverHaulers
 {
+    #region 1. [DIAG-01] TELEMETRY SNAPSHOT DATA MODEL
+
+    /// <summary>
+    /// [DIAG-01] Immutable snapshot of aggregated performance metrics across a reporting interval.
+    /// Passed by readonly reference (in) to guarantee zero GC heap allocations during report assembly.
+    /// </summary>
+    public readonly struct TelemetrySnapshot
+    {
+        public readonly int ElapsedHours;
+        public readonly int TotalQueries;
+        public readonly int MainQueries;
+        public readonly int BgQueries;
+        public readonly float MainHitRatio;
+        public readonly int Hits;
+        public readonly int Misses;
+        public readonly float BgHitRatio;
+        public readonly int BgHits;
+        public readonly int BgMisses;
+        public readonly float TotalHitRatio;
+        public readonly int Invalidations;
+        public readonly int CulledInvalidations;
+        public readonly float DebounceEfficiency;
+        public readonly int Evictions;
+        public readonly int MainCacheCount;
+        public readonly int SnapshotOccupied;
+        public readonly int TableCapacity;
+        public readonly float AvgProbeDepth;
+        public readonly int PeakProbe;
+        public readonly int MaxProbeSteps;
+        public readonly int Displacements;
+        public readonly int Retries;
+        public readonly int Timeouts;
+        public readonly int ActiveWorkspaces;
+        public readonly int PresentationActiveCount;
+        public readonly int PresentationCapacity;
+        public readonly int PresentationHits;
+        public readonly int PresentationMisses;
+        public readonly float PresentationHitRatio;
+        public readonly int PresentationRecycles;
+
+        public TelemetrySnapshot(
+            int elapsedHours,
+            int totalQueries, int mainQueries, int bgQueries,
+            float mainHitRatio, int hits, int misses,
+            float bgHitRatio, int bgHits, int bgMisses,
+            float totalHitRatio,
+            int invalidations, int culledInvalidations, float debounceEfficiency, int evictions,
+            int mainCacheCount, int snapshotOccupied, int tableCapacity,
+            float avgProbeDepth, int peakProbe, int maxProbeSteps, int displacements,
+            int retries, int timeouts,
+            int activeWorkspaces,
+            int presentationActiveCount, int presentationCapacity,
+            int presentationHits, int presentationMisses, float presentationHitRatio,
+            int presentationRecycles)
+        {
+            ElapsedHours = elapsedHours;
+            TotalQueries = totalQueries;
+            MainQueries = mainQueries;
+            BgQueries = bgQueries;
+            MainHitRatio = mainHitRatio;
+            Hits = hits;
+            Misses = misses;
+            BgHitRatio = bgHitRatio;
+            BgHits = bgHits;
+            BgMisses = bgMisses;
+            TotalHitRatio = totalHitRatio;
+            Invalidations = invalidations;
+            CulledInvalidations = culledInvalidations;
+            DebounceEfficiency = debounceEfficiency;
+            Evictions = evictions;
+            MainCacheCount = mainCacheCount;
+            SnapshotOccupied = snapshotOccupied;
+            TableCapacity = tableCapacity;
+            AvgProbeDepth = avgProbeDepth;
+            PeakProbe = peakProbe;
+            MaxProbeSteps = maxProbeSteps;
+            Displacements = displacements;
+            Retries = retries;
+            Timeouts = timeouts;
+            ActiveWorkspaces = activeWorkspaces;
+            PresentationActiveCount = presentationActiveCount;
+            PresentationCapacity = presentationCapacity;
+            PresentationHits = presentationHits;
+            PresentationMisses = presentationMisses;
+            PresentationHitRatio = presentationHitRatio;
+            PresentationRecycles = presentationRecycles;
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// [DIAG-01] PERFORMANCE TELEMETRY REGISTRY
     /// Central registry tracking performance queries, cache hits, invalidation events, 
@@ -37,11 +129,23 @@ namespace OverHaulers
         private static int readerRetries = 0;
         private static int readerTimeouts = 0;
 
+        // Presentation layer metrics (injected via downward delegates to preserve layer directionality)
+        private static int presentationHits = 0;
+        private static int presentationMisses = 0;
+        private static int presentationRecycles = 0;
+
+        /// <summary>Provider delegate retrieving active entry count from the presentation layer.</summary>
+        public static Func<int> GetPresentationActiveCount;
+
+        /// <summary>Provider delegate retrieving active capacity from the presentation layer.</summary>
+        public static Func<int> GetPresentationCapacity;
+
         // Gating flags synchronized against Settings
         private static bool isTelemetryActive = false;
         private static bool isCacheMetricsActive = false;
         private static bool isSnapshotMetricsActive = false;
         private static bool isLifecycleMetricsActive = false;
+        private static bool isPresentationMetricsActive = false;
 
         /// <summary>Indicates whether any performance telemetry logging is active.</summary>
         public static bool IsActive => isTelemetryActive;
@@ -54,6 +158,9 @@ namespace OverHaulers
 
         /// <summary>Indicates whether lifecycle and invalidation tracking is active.</summary>
         public static bool IsLifecycleMetricsActive => isLifecycleMetricsActive;
+
+        /// <summary>Indicates whether presentation model cache tracking is active.</summary>
+        public static bool IsPresentationMetricsActive => isPresentationMetricsActive;
 
         /// <summary>
         /// Synchronizes telemetry active flags against current ModSettings to ensure zero-cost branching.
@@ -68,6 +175,7 @@ namespace OverHaulers
                 isCacheMetricsActive = false;
                 isSnapshotMetricsActive = false;
                 isLifecycleMetricsActive = false;
+                isPresentationMetricsActive = false;
                 return;
             }
 
@@ -75,6 +183,7 @@ namespace OverHaulers
             isCacheMetricsActive = settings.logCacheMetrics || settings.logQueryMetrics;
             isSnapshotMetricsActive = settings.logSnapshotTableMetrics;
             isLifecycleMetricsActive = settings.logLifecycleMetrics;
+            isPresentationMetricsActive = settings.logPresentationMetrics;
         }
 
         #endregion
@@ -115,6 +224,33 @@ namespace OverHaulers
         public static void IncrementBackgroundMiss()
         {
             if (isTelemetryActive) Interlocked.Increment(ref backgroundMisses);
+        }
+
+        /// <summary>
+        /// Increments the presentation visual model cache hit counter on the main thread.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void RecordPresentationHit()
+        {
+            if (isPresentationMetricsActive) presentationHits++;
+        }
+
+        /// <summary>
+        /// Increments the presentation visual model cache miss counter on the main thread.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void RecordPresentationMiss()
+        {
+            if (isPresentationMetricsActive) presentationMisses++;
+        }
+
+        /// <summary>
+        /// Increments the presentation visual model LRU node recycle counter on the main thread.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void RecordPresentationRecycle()
+        {
+            if (isPresentationMetricsActive) presentationRecycles++;
         }
 
         #endregion
@@ -235,6 +371,15 @@ namespace OverHaulers
             int displacements = probeDisplacements;
             probeDisplacements = 0;
 
+            int presHits = presentationHits;
+            presentationHits = 0;
+
+            int presMisses = presentationMisses;
+            presentationMisses = 0;
+
+            int presRecycles = presentationRecycles;
+            presentationRecycles = 0;
+
             // 2. Atomic counter reset for off-thread background workers
             int bgHits = Interlocked.Exchange(ref backgroundHits, 0);
             int bgMisses = Interlocked.Exchange(ref backgroundMisses, 0);
@@ -259,6 +404,15 @@ namespace OverHaulers
                 ? ((float)totalHits / totalQueries) * 100f 
                 : 100f;
 
+            // Presentation ratio aggregation
+            int presQueries = presHits + presMisses;
+            float presHitRatio = presQueries > 0
+                ? ((float)presHits / presQueries) * 100f
+                : 100f;
+
+            int presActive = GetPresentationActiveCount != null ? GetPresentationActiveCount() : 0;
+            int presCap = GetPresentationCapacity != null ? GetPresentationCapacity() : 0;
+
             // 4. Debounce Efficiency Calculation
             int totalInvalEvents = invs + culledInvs;
             float debounceEfficiency = totalInvalEvents > 0 
@@ -275,7 +429,7 @@ namespace OverHaulers
             int snapshotOccupied = MassSnapshotCache.OccupiedSlotsCount;
 
             // 6. Dispatch to centralized localized diagnostic reporter
-            OHLog.Performance.DispatchCumulativeReport(
+            var snapshot = new TelemetrySnapshot(
                 elapsedHours,
                 // Query Metrics
                 totalQueries, mainQueries, bgQueries,
@@ -290,8 +444,12 @@ namespace OverHaulers
                 avgProbeDepth, peakProbe, MassSnapshotCache.MaxProbeSteps, displacements,
                 retries, timeouts,
                 // Pooled Workspaces
-                activeWorkspaces
+                activeWorkspaces,
+                // Presentation UI Model Cache
+                presActive, presCap, presHits, presMisses, presHitRatio, presRecycles
             );
+
+            OHLog.Performance.DispatchCumulativeReport(in snapshot);
         }
 
         #endregion

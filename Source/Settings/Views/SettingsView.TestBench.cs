@@ -47,6 +47,10 @@ namespace OverHaulers
         /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
         public static void DrawTestBenchSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
+            // GUI Entry Point Anchor: Ensures catalogs and calibrations are initialized on Frame 1,
+            // even if TestBench was the remembered active tab from a previous session.
+            TestBench.EnsureInitialized();
+
             Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_TestBench", ref currentY, fallbackEstimate: 560f);
             float startY = inner.y;
             float localY = inner.y;

@@ -150,10 +150,11 @@ namespace OverHaulers
         public const bool LogQueryMetrics = true;
         public const bool LogCacheMetrics = true;
         public const bool LogSnapshotTableMetrics = true;
+        public const bool LogPresentationMetrics = true;
         public const bool LogLifecycleMetrics = true;
         public const bool LogWorkspaceMetrics = true;
-        public const bool LogSafetyFloorClamps = false;
-        public const bool LogPawnEvictions = false;
+        public const bool LogSafetyFloorClamps = true;
+        public const bool LogPawnEvictions = true;
         
         // Timeframe in hours for considering pawn evictions. This defines the window within which pawn evictions are evaluated.
         public const int PawnEvictionTimeframeHours = 24;

@@ -147,6 +147,7 @@ namespace OverHaulers
         public bool logQueryMetrics = SettingsDefaults.LogQueryMetrics;
         public bool logCacheMetrics = SettingsDefaults.LogCacheMetrics;
         public bool logSnapshotTableMetrics = SettingsDefaults.LogSnapshotTableMetrics;
+        public bool logPresentationMetrics = SettingsDefaults.LogPresentationMetrics;
         public bool logLifecycleMetrics = SettingsDefaults.LogLifecycleMetrics;
         public bool logWorkspaceMetrics = SettingsDefaults.LogWorkspaceMetrics;
         public bool logSafetyFloorClamps = SettingsDefaults.LogSafetyFloorClamps;
@@ -413,6 +414,7 @@ namespace OverHaulers
             logQueryMetrics = SettingsDefaults.LogQueryMetrics;
             logCacheMetrics = SettingsDefaults.LogCacheMetrics;
             logSnapshotTableMetrics = SettingsDefaults.LogSnapshotTableMetrics;
+            logPresentationMetrics = SettingsDefaults.LogPresentationMetrics;
             logLifecycleMetrics = SettingsDefaults.LogLifecycleMetrics;
             logWorkspaceMetrics = SettingsDefaults.LogWorkspaceMetrics;
             logSafetyFloorClamps = SettingsDefaults.LogSafetyFloorClamps;
@@ -525,6 +527,7 @@ namespace OverHaulers
             Scribe_Values.Look(ref logQueryMetrics, "logQueryMetrics", SettingsDefaults.LogQueryMetrics);
             Scribe_Values.Look(ref logCacheMetrics, "logCacheMetrics", SettingsDefaults.LogCacheMetrics);
             Scribe_Values.Look(ref logSnapshotTableMetrics, "logSnapshotTableMetrics", SettingsDefaults.LogSnapshotTableMetrics);
+            Scribe_Values.Look(ref logPresentationMetrics, "logPresentationMetrics", SettingsDefaults.LogPresentationMetrics);
             Scribe_Values.Look(ref logLifecycleMetrics, "logLifecycleMetrics", SettingsDefaults.LogLifecycleMetrics);
             Scribe_Values.Look(ref logWorkspaceMetrics, "logWorkspaceMetrics", SettingsDefaults.LogWorkspaceMetrics);
             Scribe_Values.Look(ref logSafetyFloorClamps, "logSafetyFloorClamps", SettingsDefaults.LogSafetyFloorClamps);

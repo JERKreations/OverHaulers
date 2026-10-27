@@ -21,6 +21,12 @@ namespace OverHaulers
 
         private static readonly SnapshotTable liveTable = new SnapshotTable(SnapshotTable.DefaultCapacity, forwardTelemetry: true);
 
+        static MassSnapshotCache()
+        {
+            // Explicit static constructor removes the CIL 'beforefieldinit' flag,
+            // guaranteeing liveTable is only allocated when EnsureInitialized() is invoked.
+        }
+
         /// <summary>Exact count of occupied, non-zero slots currently residing in the live table.</summary>
         public static int OccupiedSlotsCount => liveTable.OccupiedSlotsCount;
 
@@ -52,5 +58,27 @@ namespace OverHaulers
 
         /// <summary>Flushes the live table on save load or world reset. Main thread only.</summary>
         public static void Reset() => liveTable.Reset();
+
+        /// <summary>Ensures that the atomic snapshot table is initialized and ready for use. Main thread only.</summary>
+        private static bool isInitialized = false;
+
+        /// <summary>
+        /// Explicitly primes and allocates the atomic snapshot table during engine bootstrap.
+        /// Idempotent; records initialization telemetry on first execution. Main thread only.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureInitialized()
+        {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            OHLog.Performance.SnapshotTableInitialized(
+                TableCapacity,
+                dynamic: true,
+                SnapshotTable.MinCapacity,
+                SnapshotTable.MaxCapacity,
+                MaxProbeSteps
+            );
+        }
     }
 }

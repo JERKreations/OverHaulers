@@ -1,6 +1,6 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Verse;
 
@@ -10,11 +10,13 @@ namespace OverHaulers
     /// [VIEW-04] UNIFIED SINGLE-LABEL STAT DRAWER WITH SYNCHRONOUS ICON STAMPING
     /// Renders stat explanations using a single native Widgets.Label call to preserve
     /// exact vanilla height, font descender clearance, and hyperlink positioning.
-    /// Utilizes a zero-allocation DOD LRU layout cache to prevent OnGUI string manipulation GC spikes.
+    /// Utilizes a true zero-allocation doubly-linked LRU layout cache with node recycling
+    /// to eliminate OnGUI string manipulation and IMGUI layout GC spikes.
+    /// Resides under Source/Presentation/Rendering/.
     /// </summary>
     public static class InfoCardOverlay
     {
-        #region 1. CONSTANTS, CONTEXT GATE & CACHE DATA STRUCTURES
+        #region 1. CONSTANTS, CONTEXT GATE & MODELS
 
         /// <summary>The sentinel tag used to identify OverHaulers stat report labels within the game's UI.</summary>
         public const string TagSentinel = "[OVERHAULERS_STATDEFCARD]";
@@ -24,6 +26,9 @@ namespace OverHaulers
         public const string TagAthletic = "[A]";
         public const string TagInjury = "[I]";
 
+        /// <summary>Maximum layout cache entries retained before steady-state LRU recycling begins.</summary>
+        private const int MaxCacheCapacity = 128;
+
         [ThreadStatic]
         private static int infoCardDepth;
 
@@ -32,15 +37,6 @@ namespace OverHaulers
         /// True only while an in-game InfoCard (StatsReportUtility) is actively drawing.
         /// </summary>
         public static bool IsRenderingInfoCard => infoCardDepth > 0;
-
-        /// <summary>Pushes an active InfoCard rendering context.</summary>
-        public static void PushInfoCardContext() => infoCardDepth++;
-
-        /// <summary>Pops an active InfoCard rendering context.</summary>
-        public static void PopInfoCardContext()
-        {
-            if (infoCardDepth > 0) infoCardDepth--;
-        }
 
         /// <summary>
         /// The key used to cache overlay layout data based on the full text, rectangle width, scale percent, and active UI scale.
@@ -52,6 +48,13 @@ namespace OverHaulers
             public readonly float ScalePercent;
             public readonly float UiScale;
 
+            /// <summary>
+            /// Initializes a new overlay cache key with the specified full text, rectangle width, scale percent, and UI scale.
+            /// </summary>
+            /// <param name="text">The full text of the overlay.</param>
+            /// <param name="width">The width of the rectangle.</param>
+            /// <param name="scale">The scale percent.</param>
+            /// <param name="uiScale">The active UI scale.</param>
             public OverlayCacheKey(string text, float width, float scale, float uiScale)
             {
                 FullText = text;
@@ -60,14 +63,19 @@ namespace OverHaulers
                 UiScale = uiScale;
             }
 
-            public bool Equals(OverlayCacheKey other) => 
-                RectWidth == other.RectWidth && 
-                ScalePercent == other.ScalePercent && 
+            /// <summary>Returns true if this overlay cache key is equal to another.</summary>
+            public bool Equals(OverlayCacheKey other) =>
+                RectWidth == other.RectWidth &&
+                ScalePercent == other.ScalePercent &&
                 UiScale == other.UiScale &&
                 FullText == other.FullText;
 
+            /// <summary>Returns true if this overlay cache key is equal to another object.</summary>
             public override bool Equals(object obj) => obj is OverlayCacheKey other && Equals(other);
 
+            /// <summary>
+            /// Returns a hash code for the overlay cache key, combining the full text, rectangle width, scale percent, and UI scale.
+            /// </summary>
             public override int GetHashCode()
             {
                 unchecked
@@ -83,15 +91,6 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [VIEW-04] Flushes the IMGUI overlay typography layout cache.
-        /// Invoked when UI scale changes, caches are flushed, or game transitions occur.
-        /// </summary>
-        public static void ClearCache()
-        {
-            layoutCache.Clear();
-        }
-
-        /// <summary>
         /// Represents a cached command for rendering an icon within the overlay, including its type, position, and size.
         /// </summary>
         private struct CachedIconCommand
@@ -103,30 +102,179 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Represents the cached overlay data, including the printable text and the list of icon commands.
+        /// [VIEW-04] Intrusive doubly-linked LRU cache node holding pre-calculated layout data and recycled icon command buffers.
         /// </summary>
-        private class CachedOverlayData
+        private sealed class LruCacheNode
         {
+            public OverlayCacheKey Key;
             public string PrintableText;
             public readonly List<CachedIconCommand> Icons = new List<CachedIconCommand>(8);
+            public LruCacheNode Prev;
+            public LruCacheNode Next;
         }
-
-        /// <summary>The cache storing overlay layout data keyed by the overlay cache key.</summary>
-        private static readonly Dictionary<OverlayCacheKey, CachedOverlayData> layoutCache = 
-            new Dictionary<OverlayCacheKey, CachedOverlayData>(64);
-
-        /// <summary>The pooled line buffer used to minimize memory allocations when processing overlay text.</summary>
-        private static readonly List<string> pooledLineBuffer = new List<string>(64);
 
         #endregion
 
-        #region 2. HARMONY PREFIX ON WIDGETS.LABEL
+        #region 2. LRU CACHE ENGINE & NODE POOL
+
+        /// <summary>Maximum number of cache nodes to retain in the LRU cache and node pool.</summary>
+        private static readonly Dictionary<OverlayCacheKey, LruCacheNode> lruLookup =
+            new Dictionary<OverlayCacheKey, LruCacheNode>(MaxCacheCapacity);
+
+        /// <summary>Pool of reusable LRU cache nodes to minimize allocations.</summary>
+        private static readonly Stack<LruCacheNode> nodePool =
+            new Stack<LruCacheNode>(MaxCacheCapacity);
+
+        /// <summary>Buffer for pooling lines of text to minimize allocations during layout calculations.</summary>
+        private static readonly List<string> pooledLineBuffer =
+            new List<string>(64);
+
+        /// <summary>Head of the LRU linked list, representing the most recently used cache node.</summary>
+        private static LruCacheNode lruHead;
+
+        /// <summary>Tail of the LRU linked list, representing the least recently used cache node.</summary>
+        private static LruCacheNode lruTail;
+
+        /// <summary>Pushes an active InfoCard rendering context.</summary>
+        public static void PushInfoCardContext() => infoCardDepth++;
+
+        /// <summary>Pops an active InfoCard rendering context.</summary>
+        public static void PopInfoCardContext()
+        {
+            if (infoCardDepth > 0) infoCardDepth--;
+        }
+
+        /// <summary>
+        /// [VIEW-04] Flushes the IMGUI overlay typography layout cache and recycles active nodes into the node pool.
+        /// Invoked when UI scale changes, caches are flushed, or game transitions occur.
+        /// </summary>
+        public static void ClearCache()
+        {
+            LruCacheNode curr = lruHead;
+            while (curr != null)
+            {
+                LruCacheNode next = curr.Next;
+                curr.Prev = null;
+                curr.Next = null;
+                curr.PrintableText = null;
+                curr.Icons.Clear();
+                if (nodePool.Count < MaxCacheCapacity)
+                {
+                    nodePool.Push(curr);
+                }
+                curr = next;
+            }
+
+            lruLookup.Clear();
+            lruHead = null;
+            lruTail = null;
+        }
+
+        /// <summary>
+        /// Obtains or constructs layout data via O(1) LRU promotion and recycled node eviction.
+        /// Guarantees zero node/list allocations in steady-state rendering.
+        /// </summary>
+        /// <param name="key">The cache key identifying the layout node.</param>
+        /// <param name="fullText">The full text containing potential icon tags.</param>
+        /// <param name="rectWidth">The width of the rectangle for text layout calculations.</param>
+        /// <param name="scalePercent">The scale percent to apply to icon sizes and offsets.</param>
+        /// <returns>The layout node corresponding to the specified cache key and layout parameters.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static LruCacheNode GetOrCreateLayoutNode(in OverlayCacheKey key, string fullText, float rectWidth, float scalePercent)
+        {
+            // BREAKPOINT ANCHOR: LRU Cache Hit & Head Promotion
+            if (lruLookup.TryGetValue(key, out LruCacheNode existingNode))
+            {
+                PromoteToHead(existingNode);
+                return existingNode;
+            }
+
+            // BREAKPOINT ANCHOR: Steady-State Node Eviction / Recycling
+            LruCacheNode targetNode;
+            if (lruLookup.Count >= MaxCacheCapacity && lruTail != null)
+            {
+                targetNode = lruTail;
+                DetachNode(targetNode);
+                lruLookup.Remove(targetNode.Key);
+                targetNode.Icons.Clear();
+            }
+            else if (nodePool.Count > 0)
+            {
+                targetNode = nodePool.Pop();
+                targetNode.Icons.Clear();
+            }
+            else
+            {
+                targetNode = new LruCacheNode();
+            }
+
+            targetNode.Key = key;
+            PopulateLayoutData(targetNode, fullText, rectWidth, scalePercent);
+
+            AttachAtHead(targetNode);
+            lruLookup[key] = targetNode;
+            return targetNode;
+        }
+
+        /// <summary>
+        /// Promotes the specified cache node to the head of the LRU linked list, indicating recent usage.
+        /// </summary>
+        /// <param name="node">The cache node to promote to the head of the LRU linked list.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void PromoteToHead(LruCacheNode node)
+        {
+            if (node == lruHead) return;
+            DetachNode(node);
+            AttachAtHead(node);
+        }
+
+        /// <summary>
+        /// Detaches the specified cache node from the LRU linked list.
+        /// </summary>
+        /// <param name="node">The cache node to detach from the LRU linked list.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void DetachNode(LruCacheNode node)
+        {
+            if (node.Prev != null) node.Prev.Next = node.Next;
+            else lruHead = node.Next;
+
+            if (node.Next != null) node.Next.Prev = node.Prev;
+            else lruTail = node.Prev;
+
+            node.Prev = null;
+            node.Next = null;
+        }
+
+        /// <summary>
+        /// Populates the layout data for the specified cache node based on the provided text and layout parameters.
+        /// </summary>
+        /// <param name="node">The cache node to populate with layout data.</param>
+        /// <param name="fullText">The full text containing potential icon tags.</param>
+        /// <param name="rectWidth">The width of the rectangle for text layout calculations.</param>
+        /// <param name="scalePercent">The scale percent to apply to icon sizes and offsets.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void AttachAtHead(LruCacheNode node)
+        {
+            node.Prev = null;
+            node.Next = lruHead;
+
+            if (lruHead != null) lruHead.Prev = node;
+            lruHead = node;
+
+            if (lruTail == null) lruTail = node;
+        }
+
+        #endregion
+
+        #region 3. HARMONY PREFIX ON WIDGETS.LABEL
 
         /// <summary>
         /// [VIEW-04] Scoped Harmony Prefix intercepting Widgets.Label.
         /// Bails out in 1 CPU cycle during all normal gameplay.
         /// Activates only when an in-game InfoCard stat report is actively drawing.
         /// </summary>
+        /// <param name="rect">The rectangle within which the label is to be drawn.</param>
+        /// <param name="label">The label text to be rendered.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Prefix(Rect rect, string label)
         {
@@ -161,12 +309,14 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. UNIFIED ZERO-ALLOCATION RENDER ENGINE
+        #region 4. UNIFIED ZERO-ALLOCATION RENDER ENGINE
 
         /// <summary>
         /// [VIEW-04] Draws unified stat explanation labels and stamps bionic/athletic/injury icons over space gaps.
-        /// Queries a pre-calculated layout cache to guarantee 0 GC allocations per frame.
+        /// Queries an intrusive recycled LRU cache to guarantee 0 GC allocations per frame in steady state.
         /// </summary>
+        /// <param name="rect">The rectangle within which to draw the label and icons.</param>
+        /// <param name="fullText">The full text to render, potentially containing icon tags.</param>
         public static void DrawUnifiedExplanationLabel(Rect rect, string fullText)
         {
             GameFont originalFont = Text.Font;
@@ -179,25 +329,19 @@ namespace OverHaulers
                 float currentUiScale = Prefs.UIScale;
                 OverlayCacheKey cacheKey = new OverlayCacheKey(fullText, rect.width, scalePercent, currentUiScale);
 
-                // 1. CACHE LOOKUP (O(1) zero-allocation fetch)
-                if (!layoutCache.TryGetValue(cacheKey, out CachedOverlayData cachedData))
-                {
-                    // Evict cache to prevent memory creep over extended play sessions
-                    if (layoutCache.Count > 128) layoutCache.Clear();
-
-                    cachedData = BuildLayoutCache(fullText, rect.width, scalePercent);
-                    layoutCache[cacheKey] = cachedData;
-                }
+                // 1. O(1) LRU FETCH WITH STEADY-STATE NODE RECYCLING
+                LruCacheNode cachedNode = GetOrCreateLayoutNode(cacheKey, fullText, rect.width, scalePercent);
 
                 // 2. RENDER BASE TEXT
-                Widgets.Label(rect, cachedData.PrintableText);
+                Widgets.Label(rect, cachedNode.PrintableText);
 
                 // 3. RENDER ICONS DIRECTLY FROM PRE-CALCULATED COORDINATES
                 GUI.color = Color.white; // Explicitly restore white to bypass IMGUI alpha culling
 
-                for (int i = 0; i < cachedData.Icons.Count; i++)
+                List<CachedIconCommand> icons = cachedNode.Icons;
+                for (int i = 0; i < icons.Count; i++)
                 {
-                    CachedIconCommand cmd = cachedData.Icons[i];
+                    CachedIconCommand cmd = icons[i];
                     Texture2D tex = null;
 
                     if (cmd.IconType == 'P') tex = Textures.ProstheticIcon;
@@ -225,19 +369,22 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. CACHE BUILDER (Executes ONLY on Cache Miss)
+        #region 5. CACHE BUILDER & TYPOGRAPHY PRIMITIVES
 
         /// <summary>
-        /// Builds the printable string and pre-calculates the exact pixel coordinates for all icons.
+        /// Populates the printable string and pre-calculates the exact pixel coordinates for all icons into a recycled node.
         /// Preserves the fragile Unity word-wrapping pitch and font descender clearance mathematically.
         /// </summary>
-        private static CachedOverlayData BuildLayoutCache(string fullText, float rectWidth, float scalePercent)
+        /// <param name="node">The cache node to populate with layout data.</param>
+        /// <param name="fullText">The full text containing potential icon tags.</param>
+        /// <param name="rectWidth">The width of the rectangle for text layout calculations.</param>
+        /// <param name="scalePercent">The scale percent to apply to icon sizes and offsets.</param>
+        private static void PopulateLayoutData(LruCacheNode node, string fullText, float rectWidth, float scalePercent)
         {
-            CachedOverlayData data = new CachedOverlayData();
             string tagReplacement = GetTagReplacement(scalePercent);
 
             string cleanText = fullText.Replace(TagSentinel, "");
-            data.PrintableText = cleanText
+            node.PrintableText = cleanText
                 .Replace(TagProsthetic, tagReplacement)
                 .Replace(TagAthletic, tagReplacement)
                 .Replace(TagInjury, tagReplacement);
@@ -269,21 +416,19 @@ namespace OverHaulers
                     if (line.Contains(TagProsthetic) || line.Contains(TagAthletic) || line.Contains(TagInjury))
                     {
                         float targetY = relativeY + iconOffsetYBase;
-                        if (line.Contains(TagProsthetic)) ExtractIconCommand('P', TagProsthetic, line, tagReplacement, iconSize, targetY, data.Icons);
-                        if (line.Contains(TagAthletic)) ExtractIconCommand('A', TagAthletic, line, tagReplacement, iconSize, targetY, data.Icons);
-                        if (line.Contains(TagInjury)) ExtractIconCommand('I', TagInjury, line, tagReplacement, iconSize, targetY, data.Icons);
+                        if (line.Contains(TagProsthetic)) ExtractIconCommand('P', TagProsthetic, line, tagReplacement, iconSize, targetY, node.Icons);
+                        if (line.Contains(TagAthletic)) ExtractIconCommand('A', TagAthletic, line, tagReplacement, iconSize, targetY, node.Icons);
+                        if (line.Contains(TagInjury)) ExtractIconCommand('I', TagInjury, line, tagReplacement, iconSize, targetY, node.Icons);
                     }
 
                     // Calculate visual rows wrapped
                     float measuredLineWidth = string.IsNullOrEmpty(line) ? 0f : Text.CalcSize(line).x;
-                    int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f) 
-                        ? Mathf.Max(1, Mathf.CeilToInt(measuredLineWidth / rectWidth)) 
+                    int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f)
+                        ? Mathf.Max(1, Mathf.CeilToInt(measuredLineWidth / rectWidth))
                         : 1;
 
                     relativeY += (lineVisualRows * exactFontPitch);
                 }
-
-                return data;
             }
             finally
             {
@@ -324,9 +469,9 @@ namespace OverHaulers
         /// <returns>The appropriate tag replacement string based on the scale percent.</returns>
         private static string GetTagReplacement(float scalePercent)
         {
-            if (scalePercent > 1.05f) return "     "; 
-            if (scalePercent > 0.85f) return "    ";  
-            return "   ";                             
+            if (scalePercent > 1.05f) return "     ";
+            if (scalePercent > 0.85f) return "    ";
+            return "   ";
         }
 
         /// <summary>

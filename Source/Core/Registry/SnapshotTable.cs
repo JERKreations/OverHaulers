@@ -9,7 +9,7 @@ namespace OverHaulers
     /// Instance implementation of the atomic registry mapping pawn IDs to Caravan Mass Capacity (kg) physical offsets.
     /// Operates as a dynamic power-of-two open-addressing table (initializing at 512 slots / 4 KB, exactly one memory page, L1 resident)
     /// storing aligned 32-bit float offsets. Implements Backward-Shift Deletion (Algorithm R) synchronized via a lock-free
-    /// Sequence Counter (SeqLock) and Read-Copy-Update (RCU) local array snapshotting.
+    /// Sequence Counter (SeqLock) and Read-Copy-Update (RCU) atomic compound buffer snapshotting.
     /// Guarantees atomic, linearizable, zero-allocation reads for background pathfinding threads.
     /// Resides under Source/Core/Registry/.
     /// </summary>
@@ -18,9 +18,9 @@ namespace OverHaulers
     /// 1. Dynamic L1-Resident Sizing: Starts at 512 slots (4 KB), residing entirely within the CPU's L1 Data Cache for
     ///    sub-nanosecond read latency. Scales dynamically (512 &lt;-&gt; 8192) based on load factor watermarks.
     /// 2. Cache-Aligned Linear Probing (16 Steps): Max linear probe depth is bounded to 16 steps, aligning with a 64-byte L1 cache line fetch.
-    /// 3. RCU Local Reference Capture: Readers snapshot local array references and derive their bitwise mask directly from
-    ///    the array instance length inside the optimistic SeqLock attempt, mathematically preventing IndexOutOfRangeException
-    ///    during concurrent resize operations without locks.
+    /// 3. RCU Compound Buffer Capture: Parallel arrays and their bitwise mask are encapsulated within an immutable TableBuffer instance.
+    ///    Readers snapshot this compound reference via an atomic Volatile.Read, mathematically preventing length mismatches,
+    ///    uninitialized element reads, and IndexOutOfRangeException during concurrent resizes on weak-memory architectures (ARM64).
     /// 4. Direct 32-Bit Float Reads: Reads and writes to aligned 32-bit floats are hardware-atomic on x86 and ARM.
     /// 5. Backward-Shift Deletion (Algorithm R) &amp; SeqLock: Traditional open-addressing uses "tombstones" which degrade search performance.
     ///    Backward-shift deletion physically slides displaced cluster keys backward to fill the vacuum, keeping probe chains compact.
@@ -32,7 +32,7 @@ namespace OverHaulers
     /// </remarks>
     public sealed class SnapshotTable
     {
-        #region 1. CONSTANTS
+        #region 1. CONSTANTS & NESTED DATA MODELS
 
         /// <summary>Default initial slot count of the live table, accommodating active simultaneous map populations (512 slots / 4 KB, 100% L1 Data Cache resident).</summary>
         public const int DefaultCapacity = 512;
@@ -58,19 +58,44 @@ namespace OverHaulers
         /// <summary>Load factor threshold triggering power-of-two contraction with wide hysteresis (25% occupancy).</summary>
         private const float LowWatermarkRatio = 0.25f;
 
+        /// <summary>
+        /// [CACHE-03] Immutable compound array buffer holding parallel pawn ID and offset arrays.
+        /// Enables atomic single-pointer publication (RCU) across dynamic table resizes, guaranteeing
+        /// identical array lengths and eliminating torn-reference race conditions.
+        /// </summary>
+        private sealed class TableBuffer
+        {
+            public readonly int Capacity;
+            public readonly uint Mask;
+            public readonly int[] PawnIds;
+            public readonly float[] Offsets;
+
+            public TableBuffer(int capacity)
+            {
+                this.Capacity = capacity;
+                this.Mask = (uint)(capacity - 1);
+                this.PawnIds = new int[capacity];
+                this.Offsets = new float[capacity];
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void Clear()
+            {
+                Array.Clear(this.PawnIds, 0, this.Capacity);
+                Array.Clear(this.Offsets, 0, this.Capacity);
+            }
+        }
+
         #endregion
 
         #region 2. INSTANCE FIELDS & BACKING STATE
 
-        private int capacity;
-        private uint mask;
         private readonly int minConfiguredCapacity;
         private readonly bool dynamicScalingEnabled;
         private readonly bool forwardTelemetry;
 
-        // Parallel contiguous arrays resident in L1/L2 CPU cache (reassigned atomically during resize)
-        private int[] slotPawnIds;
-        private float[] slotOffsets;
+        // Atomic compound array buffer resident in L1/L2 CPU cache (reassigned atomically via Volatile.Write during resize)
+        private TableBuffer activeBuffer;
 
         // Sequence counter for optimistic concurrency: Even = stable; Odd = writer mutation in flight.
         private int tableVersion;
@@ -91,13 +116,20 @@ namespace OverHaulers
         #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
 
         /// <summary>Slot count of this table.</summary>
-        public int Capacity => capacity;
+        public int Capacity => Volatile.Read(ref activeBuffer).Capacity;
 
         /// <summary>Retrieves the exact count of occupied, non-zero slots currently residing in the atomic table.</summary>
         public int OccupiedSlotsCount => Volatile.Read(ref occupiedSlots);
 
         /// <summary>Current load factor percentage in the range 0 to 100.</summary>
-        public float OccupancyPercentage => capacity > 0 ? ((float)OccupiedSlotsCount / capacity) * 100f : 0f;
+        public float OccupancyPercentage
+        {
+            get
+            {
+                int cap = Volatile.Read(ref activeBuffer).Capacity;
+                return cap > 0 ? ((float)OccupiedSlotsCount / cap) * 100f : 0f;
+            }
+        }
 
         /// <summary>Number of reader retries caused by concurrent writer mutations since creation or the last <see cref="ResetCounters"/>.</summary>
         public long ReaderRetries => Interlocked.Read(ref readerRetries);
@@ -125,18 +157,10 @@ namespace OverHaulers
                 throw new ArgumentException("Capacity must be a power of two and at least " + (MaxProbeSteps * 2) + ".", nameof(capacity));
             }
 
-            this.capacity = capacity;
-            this.mask = (uint)(capacity - 1);
             this.minConfiguredCapacity = capacity;
             this.forwardTelemetry = forwardTelemetry;
             this.dynamicScalingEnabled = enableDynamicScaling;
-            this.slotPawnIds = new int[capacity];
-            this.slotOffsets = new float[capacity];
-
-            if (forwardTelemetry)
-            {
-                OHLog.Performance.SnapshotTableInitialized(capacity, enableDynamicScaling, minConfiguredCapacity, MaxCapacity, MaxProbeSteps);
-            }
+            this.activeBuffer = new TableBuffer(capacity);
         }
 
         /// <summary>
@@ -151,18 +175,15 @@ namespace OverHaulers
             try
             {
                 int clearedEntries = occupiedSlots;
+                TableBuffer current = Volatile.Read(ref this.activeBuffer);
 
-                if (dynamicScalingEnabled && capacity > minConfiguredCapacity)
+                if (dynamicScalingEnabled && current.Capacity > minConfiguredCapacity)
                 {
-                    capacity = minConfiguredCapacity;
-                    mask = (uint)(minConfiguredCapacity - 1);
-                    slotPawnIds = new int[minConfiguredCapacity];
-                    slotOffsets = new float[minConfiguredCapacity];
+                    Volatile.Write(ref this.activeBuffer, new TableBuffer(minConfiguredCapacity));
                 }
                 else
                 {
-                    Array.Clear(slotPawnIds, 0, capacity);
-                    Array.Clear(slotOffsets, 0, capacity);
+                    current.Clear();
                 }
 
                 occupiedSlots = 0;
@@ -170,7 +191,7 @@ namespace OverHaulers
 
                 if (forwardTelemetry && clearedEntries > 0)
                 {
-                    OHLog.Performance.SnapshotTableFlushed(clearedEntries, capacity);
+                    OHLog.Performance.SnapshotTableFlushed(clearedEntries, Volatile.Read(ref this.activeBuffer).Capacity);
                 }
             }
             finally
@@ -208,12 +229,19 @@ namespace OverHaulers
 
             try
             {
-                if (dynamicScalingEnabled && capacity < MaxCapacity && (occupiedSlots + 1) >= (int)(capacity * HighWatermarkRatio))
+                TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
+
+                if (dynamicScalingEnabled && buffer.Capacity < MaxCapacity && (occupiedSlots + 1) >= (int)(buffer.Capacity * HighWatermarkRatio))
                 {
-                    ResizeInternal(capacity << 1);
+                    ResizeInternal(buffer.Capacity << 1);
+                    buffer = Volatile.Read(ref this.activeBuffer);
                 }
 
-                uint baseSlot = GetNaturalSlot(pawnId);
+                int[] ids = buffer.PawnIds;
+                float[] offsets = buffer.Offsets;
+                uint mask = buffer.Mask;
+
+                uint baseSlot = ((uint)pawnId * HashMultiplier) & mask;
                 int targetSlot = -1;
                 int probeStepsTaken = 0;
                 bool isNewInsertion = false;
@@ -221,7 +249,7 @@ namespace OverHaulers
                 for (uint i = 0; i < MaxProbeSteps; i++)
                 {
                     uint slot = (baseSlot + i) & mask;
-                    int candidateId = slotPawnIds[slot];
+                    int candidateId = ids[slot];
 
                     if (candidateId == pawnId)
                     {
@@ -245,7 +273,7 @@ namespace OverHaulers
                     targetSlot = (int)baseSlot;
                     probeStepsTaken = MaxProbeSteps;
 
-                    if (slotPawnIds[targetSlot] == 0)
+                    if (ids[targetSlot] == 0)
                     {
                         isNewInsertion = true;
                     }
@@ -263,8 +291,8 @@ namespace OverHaulers
                     occupiedSlots++;
                 }
 
-                slotOffsets[targetSlot] = offset;
-                Volatile.Write(ref slotPawnIds[targetSlot], pawnId);
+                offsets[targetSlot] = offset;
+                Volatile.Write(ref ids[targetSlot], pawnId);
 
                 CheckHighWaterDiagnostics();
             }
@@ -290,10 +318,11 @@ namespace OverHaulers
             try
             {
                 bool evicted = EvictInternal(pawnId);
+                TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
 
-                if (evicted && dynamicScalingEnabled && capacity > minConfiguredCapacity && occupiedSlots <= (int)(capacity * LowWatermarkRatio))
+                if (evicted && dynamicScalingEnabled && buffer.Capacity > minConfiguredCapacity && occupiedSlots <= (int)(buffer.Capacity * LowWatermarkRatio))
                 {
-                    ResizeInternal(capacity >> 1);
+                    ResizeInternal(buffer.Capacity >> 1);
                 }
 
                 return evicted;
@@ -306,7 +335,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CACHE-03] Single canonical lock-free read path: probes the table under an optimistic SeqLock window and returns
-        /// the physical capacity offset (kg) of a pawn. Employs RCU local reference snapshotting to eliminate bounds faults.
+        /// the physical capacity offset (kg) of a pawn. Employs RCU compound buffer snapshotting to eliminate bounds faults.
         /// </summary>
         /// <param name="pawnId">The target pawn's unique ID; must be positive.</param>
         /// <param name="offset">The physical capacity offset in kg when found; 0 otherwise.</param>
@@ -330,10 +359,11 @@ namespace OverHaulers
                     continue;
                 }
 
-                // RCU Local Reference Capture: derive local mask strictly from the array instance length
-                int[] ids = this.slotPawnIds;
-                float[] offsets = this.slotOffsets;
-                uint localMask = (uint)(ids.Length - 1);
+                // RCU Compound Buffer Capture: single atomic pointer load guarantees identical array generation and length
+                TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
+                int[] ids = buffer.PawnIds;
+                float[] offsets = buffer.Offsets;
+                uint localMask = buffer.Mask;
 
                 uint baseSlot = ((uint)pawnId * HashMultiplier) & localMask;
                 float candidateOffset = 0f;
@@ -384,6 +414,10 @@ namespace OverHaulers
             return false;
         }
 
+        #endregion
+
+        #region 6. SECONDARY ENTRY POINTS & DIAGNOSTIC SLOTS
+
         /// <summary>
         /// [CACHE-03] Safely retrieves the cached Caravan Mass Capacity offset (kg) from any thread.
         /// Fully lock-free, zero-allocation, and linearizable via optimistic SeqLock reads.
@@ -405,26 +439,31 @@ namespace OverHaulers
         /// <returns>The natural (root) slot index of the ID.</returns>
         public int NaturalSlotOf(int pawnId)
         {
-            return (int)GetNaturalSlot(pawnId);
+            return (int)(((uint)pawnId * HashMultiplier) & Volatile.Read(ref activeBuffer).Mask);
         }
 
         #endregion
 
-        #region 6. ALGORITHMIC CLUSTER SWEEPS (ALGORITHM R) & RESIZE
+        #region 7. ALGORITHMIC CLUSTER SWEEPS (ALGORITHM R) & RESIZE
 
         /// <summary>
         /// Internal implementation of backward-shift deletion (Algorithm R) for evicting a pawn entry from the table.
         /// </summary>
         private bool EvictInternal(int pawnId)
         {
-            uint baseSlot = GetNaturalSlot(pawnId);
+            TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
+            int[] ids = buffer.PawnIds;
+            float[] offsets = buffer.Offsets;
+            uint mask = buffer.Mask;
+
+            uint baseSlot = ((uint)pawnId * HashMultiplier) & mask;
             int targetSlot = -1;
 
             // Step 1: Locate the target slot within the bounded probe chain
             for (uint i = 0; i < MaxProbeSteps; i++)
             {
                 uint slot = (baseSlot + i) & mask;
-                int candidateId = slotPawnIds[slot];
+                int candidateId = ids[slot];
 
                 if (candidateId == pawnId)
                 {
@@ -447,21 +486,21 @@ namespace OverHaulers
 
             while (true)
             {
-                int candidateId = slotPawnIds[scanSlot];
+                int candidateId = ids[scanSlot];
                 if (candidateId == 0) break;
 
                 uint probeDistance = (scanSlot - emptySlot) & mask;
                 if (probeDistance >= MaxProbeSteps) break;
 
-                uint naturalHash = GetNaturalSlot(candidateId);
+                uint naturalHash = ((uint)candidateId * HashMultiplier) & mask;
 
                 uint distToEmpty = (emptySlot - naturalHash) & mask;
                 uint distToCurrent = (scanSlot - naturalHash) & mask;
 
                 if (distToEmpty < distToCurrent)
                 {
-                    slotOffsets[emptySlot] = slotOffsets[scanSlot];
-                    slotPawnIds[emptySlot] = candidateId;
+                    offsets[emptySlot] = offsets[scanSlot];
+                    ids[emptySlot] = candidateId;
 
                     emptySlot = scanSlot;
                 }
@@ -470,8 +509,8 @@ namespace OverHaulers
             }
 
             // Step 3: Zero out the terminal vacant slot and decrement active occupancy
-            slotPawnIds[emptySlot] = 0;
-            slotOffsets[emptySlot] = 0f;
+            ids[emptySlot] = 0;
+            offsets[emptySlot] = 0f;
 
             if (occupiedSlots > 0)
             {
@@ -483,19 +522,24 @@ namespace OverHaulers
 
         /// <summary>
         /// Reallocates parallel contiguous primitive arrays and rehashes existing entries under the active SeqLock mutation window.
+        /// Publishes the new buffer atomically via a single Volatile.Write barrier.
         /// </summary>
+        /// <param name="newCapacity">The new capacity to resize the table to. Must be a power of two and within configured bounds.</param>
         private void ResizeInternal(int newCapacity)
         {
-            if (newCapacity < minConfiguredCapacity || newCapacity > MaxCapacity || newCapacity == capacity) return;
+            TableBuffer oldBuffer = Volatile.Read(ref this.activeBuffer);
+            int oldCapacity = oldBuffer.Capacity;
+
+            if (newCapacity < minConfiguredCapacity || newCapacity > MaxCapacity || newCapacity == oldCapacity) return;
             if ((newCapacity & (newCapacity - 1)) != 0) return;
 
-            int[] oldPawnIds = this.slotPawnIds;
-            float[] oldOffsets = this.slotOffsets;
-            int oldCapacity = this.capacity;
+            int[] oldPawnIds = oldBuffer.PawnIds;
+            float[] oldOffsets = oldBuffer.Offsets;
 
-            int[] newPawnIds = new int[newCapacity];
-            float[] newOffsets = new float[newCapacity];
-            uint newMask = (uint)(newCapacity - 1);
+            TableBuffer newBuffer = new TableBuffer(newCapacity);
+            int[] newPawnIds = newBuffer.PawnIds;
+            float[] newOffsets = newBuffer.Offsets;
+            uint newMask = newBuffer.Mask;
             int rehashedCount = 0;
 
             for (int i = 0; i < oldCapacity; i++)
@@ -520,10 +564,7 @@ namespace OverHaulers
             }
 
             int oldOccupancy = this.occupiedSlots;
-            this.slotPawnIds = newPawnIds;
-            this.slotOffsets = newOffsets;
-            this.capacity = newCapacity;
-            this.mask = newMask;
+            Volatile.Write(ref this.activeBuffer, newBuffer);
             this.occupiedSlots = rehashedCount;
 
             if (forwardTelemetry)
@@ -545,7 +586,9 @@ namespace OverHaulers
         /// </summary>
         private void CheckHighWaterDiagnostics()
         {
-            if (capacity >= MaxCapacity && occupiedSlots >= (int)(capacity * 0.75f))
+            TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
+            int cap = buffer.Capacity;
+            if (cap >= MaxCapacity && occupiedSlots >= (int)(cap * 0.75f))
             {
                 if (!hasLoggedHighWaterWarning)
                 {
@@ -554,7 +597,7 @@ namespace OverHaulers
                         $"Dynamic SnapshotTable reached maximum capacity ({MaxCapacity}) with high load factor ({(OccupancyPercentage):F1}%). Probing depth may increase.");
                 }
             }
-            else if (hasLoggedHighWaterWarning && occupiedSlots < (int)(capacity * 0.60f))
+            else if (hasLoggedHighWaterWarning && occupiedSlots < (int)(cap * 0.60f))
             {
                 hasLoggedHighWaterWarning = false;
             }
@@ -562,7 +605,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 7. HASHING PRIMITIVES & PRIVATE HELPERS
+        #region 8. HASHING PRIMITIVES & PRIVATE HELPERS
 
         /// <summary>
         /// Short exponential spin so a reader that collided with an in-flight writer does not burn all of its retries instantly.
@@ -571,15 +614,6 @@ namespace OverHaulers
         private static void BackOffBeforeRetry(int retry)
         {
             Thread.SpinWait(32 << Math.Min(retry, 6));
-        }
-
-        /// <summary>
-        /// Applies multiplicative hashing to uniformly diffuse sequential pawn IDs across the power-of-two table.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint GetNaturalSlot(int pawnId)
-        {
-            return ((uint)pawnId * HashMultiplier) & mask;
         }
 
         #endregion

@@ -144,7 +144,16 @@ namespace OverHaulers
                         localY, highlight: isResetHovered
                     );
 
-                    // 4. Lifecycle & Debounce Events
+                    // 4. Presentation UI Model Cache
+                    localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
+                        inner,
+                        "OverHaulers_LogPresentationMetrics".Translate().ToString(),
+                        ref settings.logPresentationMetrics,
+                        "OverHaulers_LogPresentationMetrics_Desc".Translate().ToString(),
+                        localY, highlight: isResetHovered
+                    );
+
+                    // 5. Lifecycle & Debounce Events
                     localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
                         "OverHaulers_LogLifecycleMetrics".Translate().ToString(),
@@ -153,7 +162,7 @@ namespace OverHaulers
                         localY, highlight: isResetHovered
                     );
 
-                    // 5. Pooled Workspaces
+                    // 6. Pooled Workspaces
                     localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
                         "OverHaulers_LogWorkspaceMetrics".Translate().ToString(),
@@ -162,7 +171,7 @@ namespace OverHaulers
                         localY, highlight: isResetHovered
                     );
 
-                    // 6. Safety Floor Clamps
+                    // 7. Safety Floor Clamps
                     localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
                         "OverHaulers_LogSafetyFloorClamps".Translate().ToString(),
@@ -171,7 +180,7 @@ namespace OverHaulers
                         localY, highlight: isResetHovered
                     );
 
-                    // 7. Evicted Pawn IDs
+                    // 8. Evicted Pawn IDs
                     localY = SettingsViewUtilities.DrawCheckboxRowWithDescriptionDirect(
                         inner,
                         "OverHaulers_LogPawnEvictions".Translate().ToString(),

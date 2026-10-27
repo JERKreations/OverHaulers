@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using RimWorld;
 using Verse;
@@ -44,7 +45,6 @@ namespace OverHaulers
                 if (activeHarness == null)
                 {
                     activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
-                    MedicalRecipeCatalog.EnsureInitialized();
                 }
 
                 return activeHarness;
@@ -61,6 +61,55 @@ namespace OverHaulers
 
         private static readonly StringBuilder pooledXRayBuilder = new StringBuilder(2048);
 
+        private static bool isInitialized = false;
+
+        /// <summary>
+        /// [TEST-02] Ensures the Test Bench orchestrator, medical recipe catalog, test subject registry,
+        /// and species baseline calibrations are fully initialized and bound.
+        /// Idempotent; executes in 1 CPU cycle once initialized.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureInitialized()
+        {
+            if (isInitialized) return;
+            InitializeInternal();
+        }
+
+        /// <summary>
+        /// Initializes the internal state of the Test Bench, including the active harness and subject.
+        /// Records the initialization duration in the activity journal for performance tracking.
+        /// </summary>
+        private static void InitializeInternal()
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_TestBenchHeader".Translate("...").ToString());
+
+            TopologyLayoutCompiler.EnsureInitialized();
+            SpeciesBaselineCalibration.EnsureInitialized();
+            MedicalRecipeCatalog.EnsureInitialized();
+            TestSubjectRegistry.EnsureCacheInitialized();
+
+            if (activeSubject == null)
+            {
+                activeSubject = TestSubjectRegistry.GetDefaultSubject();
+            }
+
+            if (activeHarness == null)
+            {
+                activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
+                if (activeSubject != null)
+                {
+                    activeHarness.BindSubject(activeSubject);
+                }
+            }
+
+            isInitialized = true;
+            watch.Stop();
+
+            OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_TestBenchHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
+            OHLog.ActivityJournal.Dispatch();
+        }
+
         /// <summary>
         /// Gets or sets the currently active test subject entry for the Test Bench.
         /// </summary>
@@ -68,15 +117,12 @@ namespace OverHaulers
         {
             get
             {
-                if (activeSubject == null)
-                {
-                    activeSubject = TestSubjectRegistry.GetDefaultSubject();
-                    Harness.BindSubject(activeSubject);
-                }
+                EnsureInitialized();
                 return activeSubject;
             }
             set
             {
+                EnsureInitialized();
                 if (activeSubject != value)
                 {
                     activeSubject = value;
@@ -102,7 +148,6 @@ namespace OverHaulers
             activeGroupingDimension = GroupingDimension.Mod;
             activeViewMode = TestBenchViewMode.InfoCard;
 
-            MedicalRecipeCatalog.EnsureInitialized();
             TestSubjectEntry defaultSubject = TestSubjectRegistry.GetDefaultSubject();
             activeSubject = defaultSubject;
 
@@ -129,11 +174,10 @@ namespace OverHaulers
             bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
             string context = "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
 
-            // 1. Hot-recompile Core and Integration engines (Topologies, Calibrations, Caches)
+            // 1. Hot-recompile Core, Integration, and TestBench catalogs (Topologies, Calibrations, Surgeries, Caches)
             OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan, context);
 
-            // 2. Refresh Test Bench medical recipes and subjects from active DefDatabase
-            MedicalRecipeCatalog.ClearAndReinitialize();
+            // 2. Re-index subject entries
             TestSubjectRegistry.ClearCache();
             TestSubjectRegistry.EnsureCacheInitialized();
 
@@ -154,8 +198,14 @@ namespace OverHaulers
             }
             else
             {
-                ActiveSubject = TestSubjectRegistry.GetDefaultSubject();
+                activeSubject = TestSubjectRegistry.GetDefaultSubject();
+                if (activeSubject != null)
+                {
+                    Harness.BindSubject(activeSubject);
+                }
             }
+
+            isInitialized = true;
 
             // 4. Flush UI layout caches and mark Test Bench dirty for immediate recalculation
             SettingsViewUtilities.ClearInputBuffers();
@@ -228,8 +278,6 @@ namespace OverHaulers
 
             try
             {
-                TopologyLayoutCompiler.EnsureInitialized();
-
                 TestSubjectEntry subject = ActiveSubject;
                 if (subject?.BodyDef == null || !Harness.IsValid) return string.Empty;
 
