@@ -243,7 +243,7 @@ namespace OverHaulers
 
                 PartCounts partCounts = template.Counts;
                 SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
-                    biologicalBaseline, partCounts, OverHaulers.settings, capacitySnapshot);
+                    biologicalBaseline, partCounts, MassCapacitySolver.ActiveConfiguration, in capacitySnapshot);
 
                 massModel.CapacityLevels[0] = capacitySnapshot.Breathing;
                 massModel.CapacityLevels[1] = capacitySnapshot.BloodPumping;

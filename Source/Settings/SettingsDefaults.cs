@@ -216,6 +216,63 @@ namespace OverHaulers
         // World load calibration delay in ticks. This is the delay before performing calibration after the world is loaded.
         public const int WorldLoadCalibrationDelayTicks = 120;
 
+        #region 11A. DOWNWARD SOLVER SNAPSHOT FACTORY
+
+        /// <summary>
+        /// Creates a baseline <see cref="SolverConfiguration"/> snapshot using default constant values.
+        /// Acts as the single source of truth for unconfigured or reset solver baselines.
+        /// Downward dependency flow: SettingsDefaults -> Core.
+        /// </summary>
+        public static SolverConfiguration CreateDefaultSolverConfiguration()
+        {
+            return new SolverConfiguration(
+                MassCapacityFloor,
+                EnableProsthetics,
+                EnableAthletics,
+                EnablePartHealth,
+                CompatibilitySafetyFloor,
+                AthleticScaling,
+                AthleticImpactConstant,
+                ProstheticScaling,
+                ProstheticImpactConstant,
+                TorsoAxialBias,
+                TorsoHpSensitivity,
+                LimbDepthDecayFactor,
+                TorsoPositiveBreathing, TorsoPositiveBlood, TorsoPositiveMoving, TorsoPositiveManipulation,
+                ArmPositiveBreathing,   ArmPositiveBlood,   ArmPositiveMoving,   ArmPositiveManipulation,
+                LegPositiveBreathing,   LegPositiveBlood,   LegPositiveMoving,   LegPositiveManipulation,
+                TorsoDeficitBreathing,  TorsoDeficitBlood,  TorsoDeficitMoving,  TorsoDeficitManipulation,
+                ArmDeficitBreathing,    ArmDeficitBlood,    ArmDeficitMoving,    ArmDeficitManipulation,
+                LegDeficitBreathing,    LegDeficitBlood,    LegDeficitMoving,    LegDeficitManipulation,
+                AnatomyWeightTorso,     AnatomyWeightArm,   AnatomyWeightLeg
+            );
+        }
+
+        /// <summary>
+        /// Creates a baseline <see cref="RuntimeConfiguration"/> snapshot using tuned default constant values.
+        /// Acts as the single source of truth for unconfigured or reset infrastructure baselines.
+        /// Downward dependency flow: SettingsDefaults -> Core.
+        /// </summary>
+        public static RuntimeConfiguration CreateDefaultRuntimeConfiguration()
+        {
+            return new RuntimeConfiguration(
+                pawnEvictionTimeframeTicks: PawnEvictionTimeframeHours * 2500,
+                devStressTestAllFauna: DevStressTestAllFauna,
+                reportMetricsIntervalHours: ReportMetricsIntervalHours,
+                logCache: LogCacheMetrics,
+                logQuery: LogQueryMetrics,
+                logSnapshot: LogSnapshotTableMetrics,
+                logLifecycle: LogLifecycleMetrics,
+                logPresentation: LogPresentationMetrics,
+                minFastPathTicks: DefaultCacheMinFastPathTicks,
+                cacheCleanupInterval: CacheCleanupInterval,
+                dynamicExpiryScaleK: DynamicCacheExpiryScaleK,
+                efficiencyEpsilon: EfficiencyEpsilon
+            );
+        }
+
+        #endregion
+
         #endregion
     }
 }

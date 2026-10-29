@@ -37,8 +37,9 @@ namespace OverHaulers
             float torsoRelativeWeightSum)
         {
             int partCount = bodyDef.AllParts.Count;
-            float decayFactor = OverHaulers.settings?.limbDepthDecayFactor ?? SettingsDefaults.LimbDepthDecayFactor;
-            float hpSensitivity = OverHaulers.settings?.torsoHpSensitivity ?? SettingsDefaults.TorsoHpSensitivity;
+            ref readonly SolverConfiguration config = ref MassCapacitySolver.ActiveConfiguration;
+            float decayFactor = config.LimbDepthDecayFactor;
+            float hpSensitivity = config.TorsoHpSensitivity;
 
             #region 1A. Long Serial Chain vs Geometric Decay Selection
 
@@ -137,9 +138,9 @@ namespace OverHaulers
             float manipRootFactor = 1.0f / (totalManipRoots <= 1 ? 1.0f : (float)totalManipRoots);
             float movingRootFactor = 1.0f / (totalMovingRoots <= 1 ? 1.0f : (float)totalMovingRoots);
 
-            float budgetTorso = OverHaulers.settings?.anatomyWeightTorso ?? SettingsDefaults.AnatomyWeightTorso;
-            float budgetManip = OverHaulers.settings?.anatomyWeightArm ?? SettingsDefaults.AnatomyWeightArm;
-            float budgetMove = OverHaulers.settings?.anatomyWeightLeg ?? SettingsDefaults.AnatomyWeightLeg;
+            float budgetTorso = config.BudgetCorePart;
+            float budgetManip = config.BudgetManipulationPart;
+            float budgetMove = config.BudgetMovingPart;
 
             // Redistribute manipulation and moving budgets if the archetype lacks corresponding roots
             if (totalManipRoots == 0 && budgetManip > 0f)

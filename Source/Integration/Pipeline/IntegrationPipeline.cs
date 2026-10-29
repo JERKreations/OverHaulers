@@ -36,7 +36,22 @@ namespace OverHaulers
         public const string PresentationKeyXmlPrefix = "XML:";
         public const string PresentationKeyCilPrefix = "CIL:";
 
-        public static StatDef ActiveMassCapacityStat { get; private set; }
+        private static StatDef activeMassCapacityStat;
+
+        /// <summary>
+        /// The currently adopted mass capacity StatDef used for presentation and inspection.
+        /// When assigned, pushes the stat downward into MedicalClassifier to preserve downward layer directionality.
+        /// </summary>
+        public static StatDef ActiveMassCapacityStat
+        {
+            get => activeMassCapacityStat;
+            private set
+            {
+                activeMassCapacityStat = value;
+                MedicalClassifier.ActiveMassCapacityStat = value;
+            }
+        }
+
         public static bool IsForeignStatAdopted { get; private set; }
         public static string ActiveStatOwner { get; private set; } = "Native";
         public static bool IsInitialized => isInitialized;

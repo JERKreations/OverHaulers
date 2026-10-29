@@ -15,6 +15,9 @@ namespace OverHaulers
     {
         #region 1. CONTIGUOUS SoA PARALLEL ARRAYS
 
+        /// <summary>Default initial slot capacity for anatomical workspaces.</summary>
+        public const int DefaultWorkspaceCapacity = 64;
+
         // Parallel float streams for mathematical solver passes
         private float[] healthFractions;
         private float[] efficiencyRatings;
@@ -193,13 +196,7 @@ namespace OverHaulers
                 partStatesColdArray[i].Reset();
             }
 
-            int coldLength = partStatesColdArray.Length;
-            for (int i = count; i < coldLength; i++)
-            {
-                partStatesColdArray[i].Reset();
-            }
-
-            // Reset systemic ailments collection
+            systemicAilments.Clear();
             CachedConsciousness = -1f;
         }
 

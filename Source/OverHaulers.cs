@@ -19,7 +19,7 @@ namespace OverHaulers
         {
             ContentPack = content;
             settings = GetSettings<Settings>();
-            PerformanceTelemetry.SyncSettingsState();
+            settings?.PushConfigurationToCore();
         }
 
         #endregion
@@ -35,9 +35,9 @@ namespace OverHaulers
             
             BenchmarkRunner.Cancel();
             SelfCheckRunner.Cancel();
+            settings?.PushConfigurationToCore();
             PawnDataRegistry.MarkAllStale();
             MedicalClassifier.ClearStaticCaches();
-            PerformanceTelemetry.SyncSettingsState();
         }
 
         /// <summary>

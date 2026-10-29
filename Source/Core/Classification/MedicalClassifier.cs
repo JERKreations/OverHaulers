@@ -715,6 +715,26 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>The currently active mass capacity stat adopted from the Integration layer.</summary>
+        private static StatDef activeMassCapacityStat;
+
+        /// <summary>
+        /// Active adopted caravan mass capacity stat pushed downward from the Integration layer.
+        /// Automatically purges cached evaluation results when a new stat is adopted.
+        /// </summary>
+        public static StatDef ActiveMassCapacityStat
+        {
+            get => activeMassCapacityStat;
+            set
+            {
+                if (activeMassCapacityStat != value)
+                {
+                    activeMassCapacityStat = value;
+                    physiologicallyImpactfulStatCache.Clear();
+                }
+            }
+        }
+
         /// <summary>
         /// Heuristically evaluates whether an external vanilla or modded <see cref="StatDef"/> governs physical locomotion,
         /// item stack hauling limits, pawn body weight, or caravan payload mass capacity.
@@ -733,7 +753,7 @@ namespace OverHaulers
 
             return physiologicallyImpactfulStatCache.GetOrAdd(stat, s =>
             {
-                StatDef activeStat = IntegrationPipeline.ActiveMassCapacityStat;
+                StatDef activeStat = ActiveMassCapacityStat;
 
                 if (s == StatDefOf.MoveSpeed || 
                     s == StatDefOf.CarryingCapacity || 

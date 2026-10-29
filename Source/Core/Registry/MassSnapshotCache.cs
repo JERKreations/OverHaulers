@@ -3,23 +3,26 @@ using System.Runtime.CompilerServices;
 namespace OverHaulers
 {
     /// <summary>
-    /// [CACHE-03] CONCURRENT MASS SNAPSHOT REGISTRY (LIVE INSTANCE FACADE)
-    /// Static entry point over the single live <see cref="SnapshotTable"/> mapping active pawn IDs to Caravan Mass Capacity (kg)
+    /// [CACHE-02] CONCURRENT MASS SNAPSHOT REGISTRY (LIVE INSTANCE FACADE)
+    /// Static entry point over the single live <see cref="SnapshotTable"/> mapping active pawn IDs to Caravan Mass Capacity
     /// physical offsets. Guarantees atomic, linearizable, zero-allocation reads for background pathfinding threads.
-    /// Resides under Source/Core/Registry/.
+    /// Resides strictly under Source/Core/Registry/.
     /// </summary>
     public static class MassSnapshotCache
     {
-        /// <summary>Current power-of-two capacity accommodating active simultaneous map populations.</summary>
-        public static int TableCapacity => liveTable.Capacity;
-
-        /// <summary>Fast bitwise modulo mask (TableCapacity - 1).</summary>
-        public static int TableMask => liveTable.Capacity - 1;
+        #region 1. CONSTANTS
 
         /// <summary>Maximum linear probe depth before replacing the root hash bucket.</summary>
         public const int MaxProbeSteps = SnapshotTable.MaxProbeSteps;
 
+        #endregion
+
+        #region 2. STATIC STATE & BACKING INSTANCE
+
         private static readonly SnapshotTable liveTable = new SnapshotTable(SnapshotTable.DefaultCapacity, forwardTelemetry: true);
+
+        /// <summary>Tracks whether the atomic snapshot table has been primed during engine bootstrap.</summary>
+        private static bool isInitialized = false;
 
         static MassSnapshotCache()
         {
@@ -27,11 +30,51 @@ namespace OverHaulers
             // guaranteeing liveTable is only allocated when EnsureInitialized() is invoked.
         }
 
+        #endregion
+
+        #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
+
+        /// <summary>Current power-of-two capacity accommodating active simultaneous map populations.</summary>
+        public static int TableCapacity => liveTable.Capacity;
+
+        /// <summary>Fast bitwise modulo mask (TableCapacity - 1).</summary>
+        public static int TableMask => liveTable.Capacity - 1;
+
         /// <summary>Exact count of occupied, non-zero slots currently residing in the live table.</summary>
         public static int OccupiedSlotsCount => liveTable.OccupiedSlotsCount;
 
         /// <summary>Current load factor percentage in the range 0 to 100.</summary>
         public static float OccupancyPercentage => liveTable.OccupancyPercentage;
+
+        #endregion
+
+        #region 4. LIFECYCLE & INITIALIZATION
+
+        /// <summary>
+        /// Explicitly primes and allocates the atomic snapshot table during engine bootstrap.
+        /// Idempotent; records initialization telemetry on first execution. Main thread only.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureInitialized()
+        {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            OHLog.Performance.SnapshotTableInitialized(
+                TableCapacity,
+                dynamic: true,
+                SnapshotTable.MinCapacity,
+                SnapshotTable.MaxCapacity,
+                MaxProbeSteps
+            );
+        }
+
+        /// <summary>Flushes the live table on save load or world reset. Main thread only.</summary>
+        public static void Reset() => liveTable.Reset();
+
+        #endregion
+
+        #region 5. PUBLIC CANONICAL READ & MUTATION API
 
         /// <summary>Safely retrieves the cached physical offset (kg) from any thread; 0 when not cached.</summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
@@ -56,29 +99,6 @@ namespace OverHaulers
         /// <returns>True if evicted; false otherwise.</returns>
         public static bool Evict(int pawnId) => liveTable.Evict(pawnId);
 
-        /// <summary>Flushes the live table on save load or world reset. Main thread only.</summary>
-        public static void Reset() => liveTable.Reset();
-
-        /// <summary>Ensures that the atomic snapshot table is initialized and ready for use. Main thread only.</summary>
-        private static bool isInitialized = false;
-
-        /// <summary>
-        /// Explicitly primes and allocates the atomic snapshot table during engine bootstrap.
-        /// Idempotent; records initialization telemetry on first execution. Main thread only.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void EnsureInitialized()
-        {
-            if (isInitialized) return;
-            isInitialized = true;
-
-            OHLog.Performance.SnapshotTableInitialized(
-                TableCapacity,
-                dynamic: true,
-                SnapshotTable.MinCapacity,
-                SnapshotTable.MaxCapacity,
-                MaxProbeSteps
-            );
-        }
+        #endregion
     }
 }

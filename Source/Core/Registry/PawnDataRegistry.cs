@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
@@ -29,8 +30,7 @@ namespace OverHaulers
         private static readonly List<int> staleKeysScratch = new List<int>(256);
 
         // Queue of invalidation requests raised off the main thread (e.g. background comps), drained on the next main tick
-        private static readonly System.Collections.Concurrent.ConcurrentQueue<int> deferredInvalidations =
-            new System.Collections.Concurrent.ConcurrentQueue<int>();
+        private static readonly ConcurrentQueue<int> deferredInvalidations = new ConcurrentQueue<int>();
         private static int deferredInvalidationCount = 0;
 
         // Tracks the most recent tick captured on the main thread for expiry math and maintenance intervals
@@ -44,7 +44,10 @@ namespace OverHaulers
 
         // Cached population count and base TTL to avoid redundant Mathf.Sqrt calculations when population is stable
         private static int cachedActiveCount = -1;
-        private static int cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
+        private static int cachedExpiryBase = 5;
+
+        // Downward configuration snapshot pushed from Settings (SSoT initialized from SettingsDefaults)
+        private static RuntimeConfiguration activeRuntimeConfig = SettingsDefaults.CreateDefaultRuntimeConfiguration();
 
         // Re-entrancy guard preventing infinite recursion when external stat workers query mass within a mass calculation
         [ThreadStatic]
@@ -52,18 +55,22 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PROPERTIES & DOWNWARD EVENTS
+        #region 3. DOWNWARD CONFIGURATION & EVENTS
 
         /// <summary>
-        /// [CACHE-01] Downward notification event fired on the main thread when a specific pawn entity is evicted from Core caches.
-        /// Consumed by Presentation layers (e.g. DetailedModelRegistry) to maintain strict downward layer directionality.
+        /// Updates the active runtime infrastructure configuration snapshot.
+        /// Downward entry point invoked by Settings upon load, save, or slider mutation.
         /// </summary>
-        public static event Action<int> OnPawnEvicted;
+        /// <param name="newConfig">The new runtime infrastructure configuration struct snapshot.</param>
+        public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
+        {
+            activeRuntimeConfig = newConfig;
+            cachedExpiryBase = newConfig.MinFastPathTicks;
+            PerformanceTelemetry.Configure(in newConfig);
+        }
 
-        /// <summary>
-        /// [CACHE-01] Downward notification event fired on the main thread when all pawn data caches are cleared.
-        /// </summary>
-        public static event Action OnCacheCleared;
+        /// <summary>Gets a read-only reference to the active runtime configuration.</summary>
+        public static ref readonly RuntimeConfiguration ActiveConfiguration => ref activeRuntimeConfig;
 
         /// <summary>
         /// Retrieves the exact count of active cached pawns residing in the main-thread registry.
@@ -74,6 +81,16 @@ namespace OverHaulers
         /// Retrieves the most recent game tick captured on the main thread.
         /// </summary>
         public static int CurrentTick => lastCapturedMainThreadTick;
+
+        /// <summary>
+        /// [CACHE-01] Downward notification event fired on the main thread when all pawn data caches are cleared.
+        /// </summary>
+        public static event Action OnCacheCleared;
+
+        /// <summary>
+        /// [CACHE-01] Downward notification event fired on the main thread when a specific pawn entity is evicted from Core caches.
+        /// </summary>
+        public static event Action<int> OnPawnEvicted;
 
         #endregion
 
@@ -96,7 +113,7 @@ namespace OverHaulers
 
             System.Threading.Interlocked.Exchange(ref deferredInvalidationCount, 0);
             cachedActiveCount = -1;
-            cachedExpiryBase = SettingsDefaults.DefaultCacheMinFastPathTicks;
+            cachedExpiryBase = activeRuntimeConfig.MinFastPathTicks;
             lastCapturedMainThreadTick = 0;
             lastCleanupTick = 0;
             currentEvaluatingPawnId = 0;
@@ -134,9 +151,13 @@ namespace OverHaulers
         /// <summary>
         /// Marks every cached pawn entry stale across the registry without flushing background snapshots.
         /// Used when global balance settings mutate so values recalculate lazily on demand.
+        /// Safely no-ops during startup when the cache is empty.
         /// </summary>
         public static void MarkAllStale()
         {
+            // During startup or before any game is loaded, no cached pawn entries exist
+            if (capacityCache.Count == 0) return;
+
             AssertMainThread("Cache Stale Sweep");
 
             foreach (var keyValuePair in capacityCache)
@@ -345,7 +366,7 @@ namespace OverHaulers
 
                 if (elapsedTicks >= 0)
                 {
-                    if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
+                    if (elapsedTicks < activeRuntimeConfig.MinFastPathTicks ||
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
                         PerformanceTelemetry.IncrementCacheHits();
@@ -382,7 +403,7 @@ namespace OverHaulers
 
                 if (elapsedTicks >= 0)
                 {
-                    if (elapsedTicks < SettingsDefaults.DefaultCacheMinFastPathTicks ||
+                    if (elapsedTicks < activeRuntimeConfig.MinFastPathTicks ||
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
                         PerformanceTelemetry.IncrementCacheHits();
@@ -451,8 +472,7 @@ namespace OverHaulers
         {
             if (pawn == null) return false;
 
-            Settings settings = OverHaulers.settings;
-            if (settings != null && settings.devStressTestAllFauna)
+            if (activeRuntimeConfig.DevStressTestAllFauna)
             {
                 return true;
             }
@@ -588,7 +608,7 @@ namespace OverHaulers
         /// <param name="currentTick">The current game tick.</param>
         private static void MaybeCleanupCache(int currentTick)
         {
-            int interval = SettingsDefaults.CacheCleanupInterval;
+            int interval = activeRuntimeConfig.CacheCleanupInterval;
 
             if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
             {
@@ -601,9 +621,7 @@ namespace OverHaulers
                             AssertMainThread("Registry Cleanup");
                             lastCleanupTick = currentTick;
 
-                            int longTermInactivityThreshold = OverHaulers.settings != null 
-                                ? OverHaulers.settings.PawnEvictionTimeframeTicks 
-                                : SettingsDefaults.PawnEvictionTimeframeHours * GenDate.TicksPerHour;
+                            int longTermInactivityThreshold = activeRuntimeConfig.PawnEvictionTimeframeTicks;
 
                             staleKeysScratch.Clear();
 
@@ -622,8 +640,6 @@ namespace OverHaulers
                             }
 
                             staleKeysScratch.Clear();
-                            // WorkspacePool.CleanDeadReferences();
-                            // WorkspacePool is now autonomously self-cleaning via DynamicCleanupWatermark
                         }
                     }
                     finally
@@ -682,13 +698,13 @@ namespace OverHaulers
         {
             if (node == null) return false;
 
-            if (Math.Abs(node.BaselineCapacity - baselineCapacity) >= SettingsDefaults.EfficiencyEpsilon)
+            if (Math.Abs(node.BaselineCapacity - baselineCapacity) >= activeRuntimeConfig.EfficiencyEpsilon)
             {
                 node.IsStale = true;
             }
 
             int age = currentTick - calculatedTick;
-            return age >= 0 && age < SettingsDefaults.DefaultCacheMinFastPathTicks && !node.IsStale;
+            return age >= 0 && age < activeRuntimeConfig.MinFastPathTicks && !node.IsStale;
         }
 
         #endregion
@@ -705,8 +721,8 @@ namespace OverHaulers
         private static int GetCacheExpiryDuration(int pawnId)
         {
             int activeCount = capacityCache.Count;
-            int floor = SettingsDefaults.DefaultCacheMinFastPathTicks;
-            int scaleK = SettingsDefaults.DynamicCacheExpiryScaleK;
+            int floor = activeRuntimeConfig.MinFastPathTicks;
+            int scaleK = activeRuntimeConfig.DynamicExpiryScaleK;
 
             if (activeCount != cachedActiveCount)
             {

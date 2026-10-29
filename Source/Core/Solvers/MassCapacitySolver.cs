@@ -163,13 +163,32 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [SOLV-03] PUBLIC CANONICAL SOLVER API
+        #region 3. [SOLV-03] STATIC CONFIGURATION & CANONICAL SOLVER API
+
+        /// <summary>
+        /// Thread-safe active configuration snapshot pushed from the Settings layer.
+        /// Eliminates upward dependencies on Settings.
+        /// </summary>
+        private static SolverConfiguration activeConfig = SettingsDefaults.CreateDefaultSolverConfiguration();
+
+        /// <summary>
+        /// Updates the active solver configuration snapshot.
+        /// Single canonical entry point for push configuration from higher layers.
+        /// </summary>
+        /// <param name="newConfig">The new solver configuration struct snapshot.</param>
+        public static void UpdateConfiguration(in SolverConfiguration newConfig)
+        {
+            activeConfig = newConfig;
+        }
+
+        /// <summary>Gets a read-only reference to the active solver configuration.</summary>
+        public static ref readonly SolverConfiguration ActiveConfiguration => ref activeConfig;
 
         /// <summary>
         /// [SOLV-03] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.
         /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure strict C# 7.3 compatibility.
         /// Encapsulates the thread-local workspace lease completely within its execution scope using <see cref="WorkspacePool.WorkspaceLease"/>.
-        /// Consumes <see cref="OverHaulers.settings"/> directly as the single source of truth for runtime configuration.
+        /// Consumes active configuration pushed from Settings as the single source of truth for runtime configuration.
         /// </summary>
         /// <typeparam name="TSource">The concrete anatomical data source struct type implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
         /// <param name="source">The anatomical data source representing the pawn.</param>
@@ -246,7 +265,7 @@ namespace OverHaulers
         /// <returns>The clamped final capacity in kilograms, ensuring it meets the minimum threshold.</returns>
         public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
         {
-            if (OverHaulers.settings != null && !OverHaulers.settings.compatibilitySafetyFloor)
+            if (!activeConfig.CompatibilitySafetyFloor)
             {
                 return finalCapacity;
             }
@@ -271,7 +290,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
         {
-            if (finalCapacity < MinimumAllowedCapacityKg)
+            if (finalCapacity < MinimumAllowedCapacityKg && activeConfig.CompatibilitySafetyFloor)
             {
                 string targetLabel = pawn != null
                     ? (UnityData.IsInMainThread ? pawn.LabelShortCap.ToString() : pawn.def?.label ?? "Pawn")
@@ -325,9 +344,9 @@ namespace OverHaulers
                 ? workspace.CachedConsciousness
                 : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
 
-            // Instantiate systemic evaluation context
+            // Instantiate systemic evaluation context from active configuration snapshot
             SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
-                biologicalBaseline, partCounts, OverHaulers.settings, snapshot);
+                biologicalBaseline, partCounts, in activeConfig, in snapshot);
 
             // BREAKPOINT ANCHOR: Execute canonical numerical pipeline
             return SolveInternal(workspace, in context, biologicalBaseline, source.EntityLabel);
@@ -355,19 +374,13 @@ namespace OverHaulers
             // The net biological delta: positive boosts minus clamped deficits
             float netBiologicalOffset = totalPositiveBoosts - deficits.TotalClampedDeficit;
 
-            // Normalize workspace calculated totals with the exact matching deficits
-            NormalizeWorkspaceCalculatedTotals(workspace, in deficits);
-
-            // Extract summary breakdown metrics directly from contiguous arrays
-            float prostheticBoost = 0f;
-            float healthDeficit = 0f;
-            float athleticOffset = 0f;
-            for (int i = 0; i < workspace.PartCount; i++)
-            {
-                if (workspace.CalculatedProsthetics[i] > 0f) prostheticBoost += workspace.CalculatedProsthetics[i];
-                if (workspace.CalculatedHealths[i] < 0f) healthDeficit += workspace.CalculatedHealths[i];
-                athleticOffset += workspace.CalculatedAthletics[i];
-            }
+            // Normalize workspace calculated totals and aggregate summary breakdown metrics in a single streaming loop
+            NormalizeAndAggregateMetrics(
+                workspace,
+                in deficits,
+                out float prostheticBoost,
+                out float healthDeficit,
+                out float athleticOffset);
 
             float finalCapacity = EnforceSafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel);
             float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
@@ -383,6 +396,55 @@ namespace OverHaulers
                 athleticOffset,
                 isAtSafetyFloor
             );
+        }
+
+        /// <summary>
+        /// Normalizes calculated totals and aggregates breakdown metrics in a single contiguous memory pass.
+        /// Eliminates a redundant array traversal across active workspace slots.
+        /// </summary>
+        private static void NormalizeAndAggregateMetrics(
+            AnatomicalWorkspace workspace,
+            in RegionalDeficits deficits,
+            out float prostheticBoost,
+            out float healthDeficit,
+            out float athleticOffset)
+        {
+            int partCount = workspace.PartCount;
+
+            var calcProsthetics = workspace.CalculatedProsthetics;
+            var calcAthletics = workspace.CalculatedAthletics;
+            var calcHealths = workspace.CalculatedHealths;
+            var calcTotals = workspace.CalculatedTotals;
+            PartType[] partTypes = workspace.PartTypes;
+
+            prostheticBoost = 0f;
+            healthDeficit = 0f;
+            athleticOffset = 0f;
+
+            for (int i = 0; i < partCount; i++)
+            {
+                PartType type = partTypes[i];
+                float ratio = deficits.GetRatio(type);
+
+                float finalProsthetic = calcProsthetics[i];
+                if (finalProsthetic < 0f) finalProsthetic *= ratio;
+
+                float finalAthletic = calcAthletics[i];
+                if (finalAthletic < 0f) finalAthletic *= ratio;
+
+                float finalHealth = calcHealths[i];
+                if (finalHealth < 0f) finalHealth *= ratio;
+
+                calcProsthetics[i] = finalProsthetic;
+                calcAthletics[i] = finalAthletic;
+                calcHealths[i] = finalHealth;
+
+                calcTotals[i] = finalProsthetic + finalAthletic + finalHealth;
+
+                if (finalProsthetic > 0f) prostheticBoost += finalProsthetic;
+                if (finalHealth < 0f) healthDeficit += finalHealth;
+                athleticOffset += finalAthletic;
+            }
         }
 
         /// <summary>

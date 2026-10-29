@@ -104,19 +104,16 @@ namespace OverHaulers
 
         /// <summary>
         /// Single centralized endpoint invoked whenever any slider, input box, or toggle mutates in settings.
-        /// Flushes the TestBench dirty cache, clears precompiled topology layouts, and marks runtime pawn caches stale
-        /// (background snapshots keep serving their last solved values until each pawn is re-solved).
+        /// Immediately pushes the active configuration struct to Core solvers, flushes the TestBench dirty cache,
+        /// clears precompiled topology layouts, and marks runtime pawn caches stale.
         /// </summary>
-        /// <remarks>
-        /// This method should be called whenever any setting is changed to ensure that all dependent systems are updated accordingly.
-        /// </remarks>
         public static void OnSettingMutated()
         {
+            OverHaulers.settings?.PushConfigurationToCore();
             TestBench.MarkDirty();
             TopologyLayoutCompiler.InvalidateAllTopologies();
             PawnDataRegistry.MarkAllStale();
             DetailedModelRegistry.Clear();
-            PerformanceTelemetry.SyncSettingsState();
         }
 
         #endregion

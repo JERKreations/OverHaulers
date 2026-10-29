@@ -163,13 +163,13 @@ namespace OverHaulers
         public static bool IsPresentationMetricsActive => isPresentationMetricsActive;
 
         /// <summary>
-        /// Synchronizes telemetry active flags against current ModSettings to ensure zero-cost branching.
-        /// Invoked on mod startup, save load, and setting mutations.
+        /// Configures telemetry active flags pushed downward via <see cref="RuntimeConfiguration"/>.
+        /// Preserves strict downward layer directionality (Core never references Settings).
         /// </summary>
-        public static void SyncSettingsState()
+        /// <param name="config">The immutable runtime infrastructure configuration snapshot.</param>
+        public static void Configure(in RuntimeConfiguration config)
         {
-            var settings = OverHaulers.settings;
-            if (settings == null || settings.reportMetricsIntervalHours <= 0)
+            if (config.ReportMetricsIntervalHours <= 0)
             {
                 isTelemetryActive = false;
                 isCacheMetricsActive = false;
@@ -180,10 +180,10 @@ namespace OverHaulers
             }
 
             isTelemetryActive = true;
-            isCacheMetricsActive = settings.logCacheMetrics || settings.logQueryMetrics;
-            isSnapshotMetricsActive = settings.logSnapshotTableMetrics;
-            isLifecycleMetricsActive = settings.logLifecycleMetrics;
-            isPresentationMetricsActive = settings.logPresentationMetrics;
+            isCacheMetricsActive = config.LogCacheMetrics || config.LogQueryMetrics;
+            isSnapshotMetricsActive = config.LogSnapshotTableMetrics;
+            isLifecycleMetricsActive = config.LogLifecycleMetrics;
+            isPresentationMetricsActive = config.LogPresentationMetrics;
         }
 
         #endregion

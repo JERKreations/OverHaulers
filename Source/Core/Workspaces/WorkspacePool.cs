@@ -58,9 +58,9 @@ namespace OverHaulers
         [ThreadStatic]
         private static AnatomicalWorkspace[] threadWorkspaces;
 
-        /// <summary>Thread-local lease stack index.</summary>
+        /// <summary>Thread-local bitmask tracking leased workspace slots in constant time.</summary>
         [ThreadStatic]
-        private static int poolIndex;
+        private static uint allocatedSlotMask;
 
         /// <summary>Synchronization root for cross-thread tracking and mass invalidation.</summary>
         private static readonly object syncRoot = new object();
@@ -89,8 +89,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Retrieves or instantiates a clean thread-local <see cref="AnatomicalWorkspace"/> instance.
-        /// Supports re-entrant leases up to <see cref="MaxWorkspacePoolDepth"/> levels.
-        /// If depth is exceeded, allocates an unpooled standalone instance without corrupting poolIndex.
+        /// Finds the first unallocated slot in constant time using a bitmask.
         /// </summary>
         /// <returns>A cleared and ready-to-use <see cref="AnatomicalWorkspace"/>.</returns>
         internal static AnatomicalWorkspace GetWorkspaceInternal()
@@ -100,42 +99,42 @@ namespace OverHaulers
                 threadWorkspaces = new AnatomicalWorkspace[MaxWorkspacePoolDepth];
             }
 
-            if (poolIndex < MaxWorkspacePoolDepth)
+            for (int i = 0; i < MaxWorkspacePoolDepth; i++)
             {
-                int index = poolIndex++;
-                AnatomicalWorkspace ws = threadWorkspaces[index];
-                if (ws == null || ws.IsNullified)
+                uint mask = 1u << i;
+                if ((allocatedSlotMask & mask) == 0)
                 {
-                    int settingsCapacity = SettingsDefaults.DefaultWorkspaceCapacity; 
-                    int globalMaxLayout = TopologyLayoutCompiler.globalMaxPartCount;
-                    int initialCapacity = Math.Max(settingsCapacity, globalMaxLayout);
-
-                    ws = new AnatomicalWorkspace(initialCapacity);
-                    threadWorkspaces[index] = ws;
-
-                    lock (syncRoot)
+                    allocatedSlotMask |= mask;
+                    AnatomicalWorkspace ws = threadWorkspaces[i];
+                    if (ws == null)
                     {
-                        allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
-                        if (allWorkspaces.Count > DynamicCleanupWatermark)
+                        int fallbackCapacity = Math.Max(AnatomicalWorkspace.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);
+                        ws = new AnatomicalWorkspace(fallbackCapacity);
+                        threadWorkspaces[i] = ws;
+
+                        lock (syncRoot)
                         {
-                            SweepDeadReferencesLocked();
+                            allWorkspaces.Add(new System.WeakReference<AnatomicalWorkspace>(ws));
+                            if (allWorkspaces.Count > DynamicCleanupWatermark)
+                            {
+                                SweepDeadReferencesLocked();
+                            }
                         }
                     }
-                }
 
-                ws.Clear();
-                ws.ActiveLeaseSlot = index;
-                ws.IsLeased = true;
-                return ws;
+                    ws.Clear();
+                    ws.ActiveLeaseSlot = i;
+                    ws.IsLeased = true;
+                    return ws;
+                }
             }
 
-            // Safety fallback if depth is exceeded: allocate an unpooled fallback workspace instance without incrementing poolIndex
-            // so the pooled stack pointer remains uncorrupted.
+            // Pool depth exceeded: allocate an unpooled fallback workspace instance
             OHLog.Solver.Warn("WorkspacePool", null, 
-                $"Workspace pool depth exceeded ({poolIndex + 1} > {MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
+                $"Workspace pool depth exceeded ({MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
 
-            int fallbackCapacity = Math.Max(SettingsDefaults.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);
-            AnatomicalWorkspace unpooledWs = new AnatomicalWorkspace(fallbackCapacity);
+            int capacity = Math.Max(AnatomicalWorkspace.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);
+            AnatomicalWorkspace unpooledWs = new AnatomicalWorkspace(capacity);
             unpooledWs.ActiveLeaseSlot = -1;
             unpooledWs.IsLeased = true;
 
@@ -151,11 +150,9 @@ namespace OverHaulers
             return unpooledWs;
         }
 
-
         /// <summary>
-        /// Releases and clears a previously acquired <see cref="AnatomicalWorkspace"/>,
-        /// validating LIFO stack integrity and restoring the thread-local pool lease index.
-        /// Completely idempotent: ignores unleased or already released instances.
+        /// Releases a leased workspace and clears its bitmask reservation.
+        /// Completely safe against out-of-order disposals.
         /// </summary>
         /// <param name="workspace">The workspace instance to release.</param>
         internal static void ReleaseWorkspace(AnatomicalWorkspace workspace)
@@ -165,22 +162,9 @@ namespace OverHaulers
             int slot = workspace.ActiveLeaseSlot;
             workspace.Clear(); // Sets IsLeased = false and ActiveLeaseSlot = -1
 
-            // Unpooled fallback workspaces do not occupy pool slots; return without modifying poolIndex
-            if (slot < 0) return;
-
-            // Pooled workspace release: enforce LIFO stack invariant
-            if (poolIndex > 0)
+            if (slot >= 0 && slot < MaxWorkspacePoolDepth)
             {
-                if (poolIndex - 1 != slot)
-                {
-                    OHLog.Solver.Warn("WorkspacePool", null, 
-                        $"Out-of-order workspace release detected (expected slot {poolIndex - 1}, released {slot}). Repairing stack pointer.");
-                    poolIndex = slot;
-                }
-                else
-                {
-                    poolIndex--;
-                }
+                allocatedSlotMask &= ~(1u << slot);
             }
         }
 
@@ -221,7 +205,7 @@ namespace OverHaulers
                 allWorkspaces.Clear();
             }
 
-            poolIndex = 0;
+            allocatedSlotMask = 0;
             threadWorkspaces = null;
         }
 

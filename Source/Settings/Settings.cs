@@ -234,6 +234,66 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Projects the active mutable settings into an immutable <see cref="SolverConfiguration"/> value struct.
+        /// </summary>
+        public SolverConfiguration ToSolverConfiguration()
+        {
+            return new SolverConfiguration(
+                massCapacityFloor,
+                enableProsthetics,
+                enableAthletics,
+                enablePartHealth,
+                compatibilitySafetyFloor,
+                athleticScaling,
+                athleticImpactConstant,
+                prostheticScaling,
+                prostheticImpactConstant,
+                torsoAxialBias,
+                torsoHpSensitivity,
+                limbDepthDecayFactor,
+                torsoPositiveBreathing, torsoPositiveBlood, torsoPositiveMoving, torsoPositiveManipulation,
+                armPositiveBreathing,   armPositiveBlood,   armPositiveMoving,   armPositiveManipulation,
+                legPositiveBreathing,   legPositiveBlood,   legPositiveMoving,   legPositiveManipulation,
+                torsoDeficitBreathing,  torsoDeficitBlood,  torsoDeficitMoving,  torsoDeficitManipulation,
+                armDeficitBreathing,    armDeficitBlood,    armDeficitMoving,    armDeficitManipulation,
+                legDeficitBreathing,    legDeficitBlood,    legDeficitMoving,    legDeficitManipulation,
+                anatomyWeightTorso,     anatomyWeightArm,   anatomyWeightLeg
+            );
+        }
+
+        /// <summary>
+        /// Projects active infrastructure, eviction timeframe, and telemetry toggles
+        /// into an immutable <see cref="RuntimeConfiguration"/> value struct.
+        /// </summary>
+        public RuntimeConfiguration ToRuntimeConfiguration()
+        {
+            return new RuntimeConfiguration(
+                pawnEvictionTimeframeTicks: PawnEvictionTimeframeTicks,
+                devStressTestAllFauna: devStressTestAllFauna,
+                reportMetricsIntervalHours: reportMetricsIntervalHours,
+                logCache: logCacheMetrics,
+                logQuery: logQueryMetrics,
+                logSnapshot: logSnapshotTableMetrics,
+                logLifecycle: logLifecycleMetrics,
+                logPresentation: logPresentationMetrics,
+                minFastPathTicks: SettingsDefaults.DefaultCacheMinFastPathTicks,
+                cacheCleanupInterval: SettingsDefaults.CacheCleanupInterval,
+                dynamicExpiryScaleK: SettingsDefaults.DynamicCacheExpiryScaleK,
+                efficiencyEpsilon: SettingsDefaults.EfficiencyEpsilon
+            );
+        }
+
+        /// <summary>
+        /// Atomically pushes both solver balancing and runtime infrastructure configurations to the computational Core engine.
+        /// Thread-safe: can be invoked from any thread (including async mod initialization and Scribe loading).
+        /// </summary>
+        public void PushConfigurationToCore()
+        {
+            MassCapacitySolver.UpdateConfiguration(ToSolverConfiguration());
+            PawnDataRegistry.UpdateConfiguration(ToRuntimeConfiguration());
+        }
+
         #endregion
 
         #region 14. TAGGED SECTION RESET ROUTINES
@@ -534,10 +594,12 @@ namespace OverHaulers
             Scribe_Values.Look(ref logPawnEvictions, "logPawnEvictions", SettingsDefaults.LogPawnEvictions);
             Scribe_Values.Look(ref pawnEvictionTimeframeHours, "pawnEvictionTimeframeHours", SettingsDefaults.PawnEvictionTimeframeHours);
 
-            // Values are fully populated at this point when loading; guard against hand-edited or corrupted settings files.
+            // Values are fully populated at this point when loading; guard against hand-edited or corrupted settings files and ensure
+            // the configuration is pushed to the core systems.
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 SanitizeLoadedValues();
+                PushConfigurationToCore();
             }
         }
 

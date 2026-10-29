@@ -152,15 +152,10 @@ namespace OverHaulers
             // Child buffer, offsets, and counts populated.
             #endregion
 
-            #region 1C. DepthSortedIndices (Parent-Before-Child Execution)
+            #region 1C. CanonicalDisplayIndices (Zero-Allocation Natural Anatomical Sort)
 
-            // Initialize depth-sorted indices to the natural order.
-            for (int i = 0; i < template.DepthSortedIndices.Length; i++)
-            {
-                template.DepthSortedIndices[i] = i;
-            }
-
-            // Calculate the skeletal depth for each part.
+            // Skeletal depths are computed in Pass01 during cranial traversal.
+            // Build canonical display indices using a 64-bit packed composite key to eliminate lambda closures.
             int[] skeletalDepths = new int[partCount];
             for (int i = 0; i < partCount; i++)
             {
@@ -168,26 +163,19 @@ namespace OverHaulers
                 skeletalDepths[i] = parentIdx != -1 ? skeletalDepths[parentIdx] + 1 : 0;
             }
 
-            // Sort the depth-sorted indices based on skeletal depth without allocating a lambda closure.
-            int[] depthKeys = (int[])skeletalDepths.Clone();
-            Array.Sort(depthKeys, template.DepthSortedIndices);
-
-            // Depth-sorted indices populated.
-            #endregion
-
-            #region 1D. CanonicalDisplayIndices (Natural Anatomical Sort)
-
-            // Build canonical display indices based on anatomical sort and skeletal depth.
             BuildCanonicalDisplayIndices(template, resolvedTypes, skeletalDepths);
+
             #endregion
         }
 
         /// <summary>
-        /// Builds the canonical display indices for the given template based on anatomical sort and skeletal depth.
+        /// Builds canonical display indices using a 64-bit composite key sort.
+        /// Zero heap allocations: eliminates compiler-generated delegate/closure classes.
+        /// Key layout: (Priority << 32) | (Depth << 16) | SlotIndex
         /// </summary>
-        /// <param name="template">The species topology template.</param>
-        /// <param name="resolvedTypes">The resolved part types for each part.</param>
-        /// <param name="skeletalDepths">The skeletal depth for each part.</param>
+        /// <param name="template">The species topology template to populate canonical display indices for.</param>
+        /// <param name="resolvedTypes">Array of resolved part types corresponding to each part index.</param>
+        /// <param name="skeletalDepths">Array of skeletal depths for each part index.</param>
         private static void BuildCanonicalDisplayIndices(
             SpeciesTopologyTemplate template, 
             PartType[] resolvedTypes, 
@@ -195,25 +183,19 @@ namespace OverHaulers
         {
             int partCount = template.PartCount;
             int[] canonical = new int[partCount];
+            long[] sortKeys = new long[partCount];
 
-            for (int i = 0; i < partCount; i++) canonical[i] = i;
-
-            // Sort parts canonically based on anatomical priority and skeletal depth.
-            Array.Sort(canonical, (a, b) =>
+            for (int i = 0; i < partCount; i++)
             {
-                int priorityA = GetAnatomicalSortPriority(resolvedTypes[a]);
-                int priorityB = GetAnatomicalSortPriority(resolvedTypes[b]);
+                canonical[i] = i;
+                long priority = (long)GetAnatomicalSortPriority(resolvedTypes[i]);
+                long depth = (long)skeletalDepths[i];
+                sortKeys[i] = (priority << 32) | (depth << 16) | (long)i;
+            }
 
-                int pCompare = priorityA.CompareTo(priorityB);
-                if (pCompare != 0) return pCompare;
+            // Zero-allocation primitive sort via Mono's native quicksort
+            Array.Sort(sortKeys, canonical);
 
-                int dCompare = skeletalDepths[a].CompareTo(skeletalDepths[b]);
-                if (dCompare != 0) return dCompare;
-
-                return a.CompareTo(b);
-            });
-
-            // Assign the sorted canonical indices to the template.
             template.CanonicalDisplayIndices = canonical;
         }
 

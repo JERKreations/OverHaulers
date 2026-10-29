@@ -49,6 +49,13 @@ namespace OverHaulers
         float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency);
 
         /// <summary>
+        /// Resolves the maximum health points for a body part on the target entity.
+        /// </summary>
+        /// <param name="part">The body part record to evaluate.</param>
+        /// <returns>The maximum health points for the specified body part.</returns>
+        float GetPartMaxHealth(BodyPartRecord part);
+
+        /// <summary>
         /// Translates pathology, wounds, and prosthetic modifications into workspace arrays.
         /// </summary>
         /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
@@ -95,6 +102,11 @@ namespace OverHaulers
         public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
             return inner != null ? inner.GetPartEfficiency(part, defaultRatedEfficiency) : defaultRatedEfficiency;
+        }
+
+        public float GetPartMaxHealth(BodyPartRecord part)
+        {
+            return inner != null ? inner.GetPartMaxHealth(part) : 1.0f;
         }
 
         public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)

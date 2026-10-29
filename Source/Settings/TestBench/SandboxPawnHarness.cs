@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
 
@@ -605,27 +606,76 @@ namespace OverHaulers
     /// </summary>
     public readonly struct SandboxAnatomicalSource : IAnatomicalDataSource
     {
+        #region 1. FIELDS & CONSTRUCTOR
+
         private readonly SandboxPawnHarness harness;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public SandboxAnatomicalSource(SandboxPawnHarness harness)
         {
             this.harness = harness;
         }
 
-        public int EntityId => harness?.SandboxPawn?.thingIDNumber ?? 0;
-        public string EntityLabel => harness?.BoundSubject?.Label ?? "SandboxPawn";
-        public BodyDef BodyDef => harness?.BoundSubject?.BodyDef ?? harness?.SandboxPawn?.RaceProps?.body;
-        public float BaseBodySize => MedicalClassifier.GetSafeBodySize(harness?.SandboxPawn);
-        public bool IsValidBiologicalState => harness != null && harness.IsValid;
+        #endregion
 
+        #region 2. PROPERTIES & ENCAPSULATED ACCESSORS
+
+        public int EntityId
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => harness?.SandboxPawn?.thingIDNumber ?? 0;
+        }
+
+        public string EntityLabel => harness?.BoundSubject?.Label ?? "SandboxPawn";
+
+        public BodyDef BodyDef
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => harness?.BoundSubject?.BodyDef ?? harness?.SandboxPawn?.RaceProps?.body;
+        }
+
+        public float BaseBodySize
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => MedicalClassifier.GetSafeBodySize(harness?.SandboxPawn);
+        }
+
+        public bool IsValidBiologicalState
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => harness != null && harness.IsValid;
+        }
+
+        #endregion
+
+        #region 3. INGRESS & CAPACITY METHODS
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetCapacityLevel(PawnCapacityDef capacity)
         {
             return harness != null ? harness.GetEffectiveCapacityLevel(capacity) : 1.0f;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
             return harness != null ? harness.GetEffectivePartEfficiency(part, defaultRatedEfficiency) : defaultRatedEfficiency;
+        }
+
+        /// <summary>
+        /// Resolves the maximum health points for a body part on the sandbox pawn or source colonist.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetPartMaxHealth(BodyPartRecord part)
+        {
+            if (part == null || harness == null) return 1.0f;
+
+            Pawn targetPawn = (!harness.HasModifications && harness.SourcePawn != null)
+                ? harness.SourcePawn
+                : harness.SandboxPawn;
+
+            if (targetPawn == null) return 1.0f;
+            return part.def.GetMaxHealth(targetPawn);
         }
 
         public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
@@ -644,10 +694,13 @@ namespace OverHaulers
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float ResolveBaselineCapacity()
         {
             if (harness?.SandboxPawn == null) return 0f;
             return SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
         }
+
+        #endregion
     }
 }

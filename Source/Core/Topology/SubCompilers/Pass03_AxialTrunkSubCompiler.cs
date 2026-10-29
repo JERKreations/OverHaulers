@@ -128,8 +128,9 @@ namespace OverHaulers
 
             #region 1C. Biomechanical HP Density Weight Calculation
 
-            float axialBias = OverHaulers.settings?.torsoAxialBias ?? SettingsDefaults.TorsoAxialBias;
-            float hpSensitivity = OverHaulers.settings?.torsoHpSensitivity ?? SettingsDefaults.TorsoHpSensitivity;
+            ref readonly SolverConfiguration config = ref MassCapacitySolver.ActiveConfiguration;
+            float axialBias = config.TorsoAxialBias;
+            float hpSensitivity = config.TorsoHpSensitivity;
 
             float remainingBudget = 1.0f - axialBias;
             float anchorWeightRole = hasAnchorBridges ? (remainingBudget * 0.60f) : 0f;
