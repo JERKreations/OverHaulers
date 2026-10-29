@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -103,8 +104,9 @@ namespace OverHaulers
 
                 PawnDataRegistry.Invalidate(pawnId);
             }
-            catch
+            catch (Exception ex)
             {
+                OHLog.Integration.Warn("ProcessInvalidationGate", ex, $"Failed to process invalidation for pawn ID {pawn.thingIDNumber}.");
             }
         }
 
@@ -118,7 +120,7 @@ namespace OverHaulers
         /// <summary>[INT-INVAL-03] Postfix hook for Pawn_GeneTracker.Notify_GenesChanged.</summary>
         private static void Notify_GenesChanged_Postfix(Pawn_GeneTracker __instance)
         {
-            if (__instance != null && __instance.pawn != null)
+            if (__instance?.pawn != null)
             {
                 ProcessInvalidationGate(__instance.pawn);
             }
@@ -140,14 +142,15 @@ namespace OverHaulers
                     PawnDataRegistry.EvictCacheEntry(__instance.thingIDNumber);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                OHLog.Integration.Warn("Notify_PawnKilled_Postfix", ex, $"Failed to evict dead pawn ID {__instance.thingIDNumber}.");
             }
         }
 
         /// <summary>
-        /// [INT-INVAL-03] Postfix hook for Pawn.DeSpawn. Immediately evicts non-colonist pawns (fleeing raiders, departing visitors, wild animals)
-        /// from capacity registries to rapidly deflate the cache population and snap dynamic TTL back to baseline after raids.
+        /// [INT-INVAL-03] Postfix hook for Pawn.DeSpawn. Immediately evicts non-colonist pawns
+        /// from capacity registries to rapidly deflate the cache population after raids.
         /// </summary>
         private static void Notify_PawnDeSpawned_Postfix(Pawn __instance)
         {
@@ -165,8 +168,9 @@ namespace OverHaulers
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                OHLog.Integration.Warn("Notify_PawnDeSpawned_Postfix", ex, $"Failed to evict despawned pawn ID {__instance.thingIDNumber}.");
             }
         }
 

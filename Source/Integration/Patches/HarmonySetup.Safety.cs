@@ -206,6 +206,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [INWARD SHIELD] Catches and neutralizes third-party postfix crashes during species baseline evaluation.
+        /// Captures the exception message for SpeciesBaselineCalibration before suppressing the console crash.
         /// </summary>
         /// <param name="__exception">The exception thrown by the original method, if any.</param>
         /// <param name="req">The stat request being evaluated.</param>
@@ -217,6 +218,8 @@ namespace OverHaulers
             {
                 if (req.HasThing && req.Thing is Pawn dummy && dummy.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
                 {
+                    SpeciesBaselineCalibration.LastCalibrationException = __exception.Message;
+                    __result = 0f;
                     return null;
                 }
             }

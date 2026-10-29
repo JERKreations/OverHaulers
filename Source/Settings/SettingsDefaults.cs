@@ -256,7 +256,7 @@ namespace OverHaulers
         public static RuntimeConfiguration CreateDefaultRuntimeConfiguration()
         {
             return new RuntimeConfiguration(
-                pawnEvictionTimeframeTicks: PawnEvictionTimeframeHours * 2500,
+                pawnEvictionTimeframeTicks: PawnEvictionTimeframeHours * RimWorld.GenDate.TicksPerHour,
                 devStressTestAllFauna: DevStressTestAllFauna,
                 reportMetricsIntervalHours: ReportMetricsIntervalHours,
                 logCache: LogCacheMetrics,

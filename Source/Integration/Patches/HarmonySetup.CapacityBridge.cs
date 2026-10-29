@@ -118,51 +118,75 @@ namespace OverHaulers
         #region 4. [INT-CAP-04] STRING EXPLANATION SYNCHRONIZATION HELPERS
 
         /// <summary>
-        /// Non-destructively synchronizes vanilla's inline explanation text with Over Haulers' solved mass value.
-        /// Uses a two-stage backward label search and forward separator scan to remain resilient against third-party
-        /// formatting, custom indentation bullets, and text-color prefixes without heap allocations.
+        /// Synchronizes the numeric capacity entry written into vanilla's caravan formation explanation buffer.
+        /// Scans character indices backwards directly within the StringBuilder without allocating intermediate strings.
         /// </summary>
         /// <param name="explanation">The explanation StringBuilder being populated by vanilla.</param>
-        /// <param name="p">The pawn whose entry was just appended.</param>
-        /// <param name="finalCapacity">The final solved caravan mass capacity.</param>
-        private static void SyncFormationCapacityEntry(StringBuilder explanation, Pawn p, float finalCapacity)
+        /// <param name="pawn">The pawn entity whose mass capacity was updated.</param>
+        /// <param name="finalCapacity">The solved final mass capacity in kilograms.</param>
+        private static void SyncFormationCapacityEntry(StringBuilder explanation, Pawn pawn, float finalCapacity)
         {
-            if (explanation == null || p == null) return;
+            if (explanation == null || pawn == null || explanation.Length == 0) return;
 
-            string label = p.LabelShortCap.ToString();
-            int labelIdx = LastIndexOfSubstring(explanation, label);
-            if (labelIdx == -1) return;
+            string pawnLabel = pawn.LabelShortCap.ToString();
+            int labelLen = pawnLabel.Length;
+            int sbLen = explanation.Length;
 
-            // Scan forward from the end of the label to locate the colon separator ':'
-            // Bounded window prevents runaway scanning across unrelated lines
-            int colonIdx = -1;
-            int maxScan = Math.Min(explanation.Length, labelIdx + label.Length + 12);
-
-            for (int i = labelIdx + label.Length; i < maxScan; i++)
+            // 1. Scan backwards to locate the pawn's label without allocating explanation.ToString()
+            int pawnIndex = -1;
+            for (int i = sbLen - labelLen; i >= 0; i--)
             {
-                if (explanation[i] == ':')
+                bool match = true;
+                for (int j = 0; j < labelLen; j++)
                 {
-                    colonIdx = i;
+                    if (char.ToUpperInvariant(explanation[i + j]) != char.ToUpperInvariant(pawnLabel[j]))
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match)
+                {
+                    pawnIndex = i;
                     break;
                 }
             }
 
-            if (colonIdx == -1) return;
+            if (pawnIndex < 0) return;
 
-            // Advance past the colon and any trailing whitespace to pinpoint the start of the numeric value
-            int valueStart = colonIdx + 1;
-            while (valueStart < explanation.Length && explanation[valueStart] == ' ')
+            // 2. Scan forward from the label to find the colon separator
+            int colonIndex = -1;
+            for (int i = pawnIndex + labelLen; i < sbLen; i++)
             {
-                valueStart++;
+                if (explanation[i] == ':')
+                {
+                    colonIndex = i;
+                    break;
+                }
+                if (explanation[i] == '\n') break;
             }
 
-            if (valueStart >= explanation.Length) return;
+            if (colonIndex < 0) return;
 
-            int lineEnd = IndexOfLineEnd(explanation, valueStart);
-            string formattedValue = finalCapacity.ToStringMassOffset();
+            // 3. Scan for the end of the line (or end of buffer)
+            int lineEndIndex = sbLen;
+            for (int i = colonIndex + 1; i < sbLen; i++)
+            {
+                if (explanation[i] == '\r' || explanation[i] == '\n')
+                {
+                    lineEndIndex = i;
+                    break;
+                }
+            }
 
-            explanation.Remove(valueStart, lineEnd - valueStart);
-            explanation.Insert(valueStart, formattedValue);
+            // 4. In-place replacement of the numeric substring
+            int oldLength = lineEndIndex - (colonIndex + 1);
+            if (oldLength > 0)
+            {
+                explanation.Remove(colonIndex + 1, oldLength);
+            }
+
+            explanation.Insert(colonIndex + 1, " " + finalCapacity.ToStringMassOffset());
         }
 
         /// <summary>

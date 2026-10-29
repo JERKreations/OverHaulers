@@ -63,8 +63,6 @@ namespace OverHaulers
         /// </summary>
         private static void HandleCacheCleared()
         {
-            InfoCardOverlay.ClearCache();
-
             if (Current.ProgramState == ProgramState.Playing && IsCalibrationSweepDone)
             {
                 WarmupActivePawns();
@@ -73,8 +71,8 @@ namespace OverHaulers
 
         /// <summary>
         /// [LIFE-02] Canonical lifecycle entry point for full runtime re-initialization and cache recompilation.
-        /// Orchestrates teardown and rebuilding of Core and Integration systems in strict topological order.
-        /// Consumed by the Test Bench without inverting downward layer directionality.
+        /// Orchestrates teardown and rebuilding of Core systems in strict topological order.
+        /// Decoupled from Presentation and Settings layers.
         /// </summary>
         /// <param name="onlyCaravanCapable">If true, filters species sweeps to caravan-capable fauna.</param>
         /// <param name="sweepContext">Human-readable label for the batch sweep summary log.</param>
@@ -87,24 +85,22 @@ namespace OverHaulers
             // Open Recompile Activity Journal
             OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_RecompileHeader".Translate("...").ToString());
 
-            // 1. Flush Core caches, medical classifier caches, and UI layout typography
+            // 1. Flush Core caches and medical classifier caches (triggers OnCacheCleared downward to Presentation)
             PawnDataRegistry.ClearAllCaches();
-            DetailedModelRegistry.Clear();
-            InfoCardOverlay.ClearCache();
             MedicalClassifier.ClearStaticCaches();
 
-            // 2. Invalidate and recompile all skeletal topologies (routes bullet #1)
+            // 2. Invalidate and recompile all skeletal topologies
             TopologyLayoutCompiler.InvalidateAllTopologies();
             TopologyLayoutCompiler.EnsureInitialized();
 
-            // 3. Reset and re-run baseline calibration sweep (routes bullet #2)
+            // 3. Reset and re-run baseline calibration sweep
             SpeciesBaselineCalibration.Reset();
             string context = !string.IsNullOrEmpty(sweepContext)
                 ? sweepContext
                 : "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, context);
 
-            // 4. Re-index medical surgery and implant catalog (routes bullet #3)
+            // 4. Re-index medical surgery and implant catalog
             MedicalRecipeCatalog.ClearAndReinitialize();
 
             // 5. Mark calibration ready and proactively re-warm all active pawns
@@ -358,6 +354,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Dispatches the periodic performance telemetry report when the configured interval has elapsed.
+        /// Reads interval directly from active Core runtime configuration snapshot.
         /// </summary>
         /// <param name="currentTick">The current game tick.</param>
         private void MaybeReportTelemetry(int currentTick)
@@ -367,17 +364,15 @@ namespace OverHaulers
                 lastReportTick = currentTick;
             }
 
-            int intervalTicks = OverHaulers.settings != null
-                ? OverHaulers.settings.ReportMetricsIntervalTicks
-                : SettingsDefaults.ReportMetricsIntervalHours * GenDate.TicksPerHour;
+            int intervalHours = PawnDataRegistry.ActiveConfiguration.ReportMetricsIntervalHours;
+            if (intervalHours <= 0) return;
 
-            if (intervalTicks <= 0) return;
+            int intervalTicks = intervalHours * GenDate.TicksPerHour; // 2500 is the default tick count per hour in RimWorld
 
             if (currentTick - lastReportTick >= intervalTicks || currentTick < lastReportTick)
             {
                 lastReportTick = currentTick;
-                int hours = OverHaulers.settings?.reportMetricsIntervalHours ?? SettingsDefaults.ReportMetricsIntervalHours;
-                PerformanceTelemetry.GenerateAndDispatchReport(hours);
+                PerformanceTelemetry.GenerateAndDispatchReport(intervalHours);
             }
         }
     }

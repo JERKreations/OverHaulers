@@ -80,7 +80,6 @@ namespace OverHaulers
 
             Initialize(HarmonySetup.HarmonyInstance);
             PawnDataRegistry.ClearAllCaches();
-            TestBench.MarkDirty();
         }
 
         /// <summary>

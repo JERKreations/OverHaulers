@@ -45,7 +45,11 @@ namespace OverHaulers
         /// <summary>
         /// Testing and emergency fallback baseline assumption (used for non-pack species in the Test Bench and true emergency failures).
         /// </summary>
-        public static float massCapacityScalarTestingAndFallbackOnly = 35f;
+        /// <remarks>
+        /// This value should ONLY exist within the context of testing or emergency fallback scenarios, and not be defined outside of
+        /// the controlled environment of the calibration engine itself.
+        /// </remarks>
+        public const float massCapacityScalarTestingAndFallbackOnly = 35f;
 
         #endregion
 
@@ -76,6 +80,9 @@ namespace OverHaulers
 
         [ThreadStatic]
         public static bool IsResolvingBaseline;
+
+        [ThreadStatic]
+        internal static string LastCalibrationException;
 
         #endregion
 
@@ -141,6 +148,7 @@ namespace OverHaulers
                         float cleanCapacity = 0f;
 
                         IsResolvingBaseline = true;
+                        LastCalibrationException = null;
                         try
                         {
                             cleanCapacity = MassUtility.Capacity(dummyPawn, null);
@@ -155,9 +163,16 @@ namespace OverHaulers
                             IsResolvingBaseline = false;
                         }
 
+                        // If a safety finalizer caught a third-party crash, retrieve its captured message
+                        if (!string.IsNullOrEmpty(LastCalibrationException))
+                        {
+                            errorDetail = LastCalibrationException;
+                            LastCalibrationException = null;
+                        }
+
                         float cleanBodySize = MedicalClassifier.GetSafeBodySize(dummyPawn);
 
-                        if (cleanCapacity > 0f && cleanBodySize > 0.01f)
+                        if (cleanCapacity > 0f && cleanBodySize > 0.01f && string.IsNullOrEmpty(errorDetail))
                         {
                             scalar = cleanCapacity / cleanBodySize;
                             return true;
