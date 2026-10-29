@@ -168,8 +168,8 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Presentation LRU Lookup & Validation
             if (presentationLookup.TryGetValue(pawnId, out PresentationCacheEntry entry) && entry.IsValid)
             {
-                bool baselineMatches = Math.Abs(entry.BaselineCapacity - baselineCapacity) < SettingsDefaults.EfficiencyEpsilon;
-                bool offsetMatches = Math.Abs(entry.SolvedOffset - coreFreshOffset) < SettingsDefaults.EfficiencyEpsilon;
+                bool baselineMatches = Math.Abs(entry.BaselineCapacity - baselineCapacity) < PawnDataRegistry.EfficiencyEpsilon;
+                bool offsetMatches = Math.Abs(entry.SolvedOffset - coreFreshOffset) < PawnDataRegistry.EfficiencyEpsilon;
 
                 if (coreIsFresh && baselineMatches && offsetMatches)
                 {

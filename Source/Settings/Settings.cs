@@ -279,19 +279,21 @@ namespace OverHaulers
                 logPresentation: logPresentationMetrics,
                 minFastPathTicks: SettingsDefaults.DefaultCacheMinFastPathTicks,
                 cacheCleanupInterval: SettingsDefaults.CacheCleanupInterval,
-                dynamicExpiryScaleK: SettingsDefaults.DynamicCacheExpiryScaleK,
-                efficiencyEpsilon: SettingsDefaults.EfficiencyEpsilon
+                dynamicExpiryScaleK: SettingsDefaults.DynamicCacheExpiryScaleK
             );
         }
 
         /// <summary>
-        /// Atomically pushes both solver balancing and runtime infrastructure configurations to the computational Core engine.
+        /// Atomically pushes both solver balancing and runtime infrastructure configurations to the computational Core engine,
+        /// and pushes active color palettes and icon scaling downward to the Presentation layer.
         /// Thread-safe: can be invoked from any thread (including async mod initialization and Scribe loading).
         /// </summary>
         public void PushConfigurationToCore()
         {
             MassCapacitySolver.UpdateConfiguration(ToSolverConfiguration());
             PawnDataRegistry.UpdateConfiguration(ToRuntimeConfiguration());
+            ReportFormatter.SetPalette(colorHealthy, colorCritical, colorBoosted, verboseBreakdown);
+            InfoCardOverlay.SetIconScale(iconScalePercent);
         }
 
         #endregion

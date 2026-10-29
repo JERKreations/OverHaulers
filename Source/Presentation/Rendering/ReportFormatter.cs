@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using RimWorld;
 using Verse;
@@ -18,6 +19,27 @@ namespace OverHaulers
 
         private const string Indent2 = "  ";
         private const string Indent4 = "    ";
+
+        /// <summary>Standard muted grey typography color for neutral/ignored part labels in tooltips.</summary>
+        public static readonly Color MutedTextColor = new Color(0.63f, 0.65f, 0.67f);
+
+        // Cached active presentation palette pushed downward from Settings
+        private static Color colorHealthy = SettingsDefaults.ColorHealthyDefault;
+        private static Color colorCritical = SettingsDefaults.ColorCriticalDefault;
+        private static Color colorBoosted = SettingsDefaults.ColorBoostedDefault;
+        private static bool isVerboseBreakdown = SettingsDefaults.VerboseBreakdown;
+
+        /// <summary>
+        /// Updates the active color palette and verbose formatting rules pushed downward from Settings.
+        /// Preserves strict downward layer directionality (Presentation never references Settings).
+        /// </summary>
+        public static void SetPalette(Color healthy, Color critical, Color boosted, bool verbose)
+        {
+            colorHealthy = healthy;
+            colorCritical = critical;
+            colorBoosted = boosted;
+            isVerboseBreakdown = verbose;
+        }
 
         private static readonly string[] CapacityTranslationKeys = new[]
         {
@@ -55,7 +77,7 @@ namespace OverHaulers
 
             try
             {
-                bool verbose = OverHaulers.settings?.verboseBreakdown ?? SettingsDefaults.VerboseBreakdown;
+                bool verbose = isVerboseBreakdown;
 
                 pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
 
@@ -103,7 +125,7 @@ namespace OverHaulers
             {
                 for (int i = 0; i < massModel.CapacityLevels.Length; i++)
                 {
-                    if (Math.Abs(massModel.CapacityLevels[i] - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+                    if (Math.Abs(massModel.CapacityLevels[i] - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                     {
                         hasAnyCapacities = true;
                         break;
@@ -188,7 +210,7 @@ namespace OverHaulers
                 PartViewNode part = massModel.EvaluatedParts[i];
 
                 // Skip unmodified parts unless verbose is true or the part has modified descendants
-                if (!verbose && Math.Abs(part.TotalOffset) < SettingsDefaults.EfficiencyEpsilon && !HasModifiedDescendants(part))
+                if (!verbose && Math.Abs(part.TotalOffset) < PawnDataRegistry.EfficiencyEpsilon && !HasModifiedDescendants(part))
                 {
                     continue;
                 }
@@ -198,7 +220,7 @@ namespace OverHaulers
                 builder.Append(part.Label);
 
                 // Append efficiency rating if the part has a prosthetic or if its efficiency rating deviates from 1.0 by more than the epsilon threshold
-                if (part.HasProsthetic || Math.Abs(part.EfficiencyRating - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+                if (part.HasProsthetic || Math.Abs(part.EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
                     builder.Append(" [");
                     string effStr = part.EfficiencyRating.ToStringPercent();
@@ -224,9 +246,9 @@ namespace OverHaulers
         /// <param name="verbose">Flag to force display even if no offsets are present.</param>
         private static void AppendGroupSubtotalRow(StringBuilder builder, PartViewNode part, bool verbose)
         {
-            bool hasProsthetic = Math.Abs(part.ProstheticOffset) >= SettingsDefaults.EfficiencyEpsilon;
-            bool hasAthletic = Math.Abs(part.AthleticOffset) >= SettingsDefaults.EfficiencyEpsilon;
-            bool hasHealth = Math.Abs(part.HealthOffset) >= SettingsDefaults.EfficiencyEpsilon;
+            bool hasProsthetic = Math.Abs(part.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
+            bool hasAthletic = Math.Abs(part.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
+            bool hasHealth = Math.Abs(part.HealthOffset) >= PawnDataRegistry.EfficiencyEpsilon;
 
             int activeFactors = (hasProsthetic ? 1 : 0) + (hasAthletic ? 1 : 0) + (hasHealth ? 1 : 0);
 
@@ -339,7 +361,7 @@ namespace OverHaulers
             builder.Append("- ");
             builder.Append(sub.Label);
 
-            bool isDamaged = sub.HealthFraction < 1.0f - SettingsDefaults.EfficiencyEpsilon;
+            bool isDamaged = sub.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon;
             bool hasProsthetic = sub.HasProsthetic;
             bool isMissing = sub.IsMissing;
             bool hasImplant = !string.IsNullOrEmpty(sub.AthleticImplantName);
@@ -368,7 +390,7 @@ namespace OverHaulers
                 {
                     // Renders as a neutral grey string
                     string ignoredLabel = "OverHaulers_MissingIgnored".Translate().ToString();
-                    builder.Append(ignoredLabel.Colorize(SettingsViewUtilities.DescriptionTextColor));
+                    builder.Append(ignoredLabel.Colorize(MutedTextColor));
                 }
                 else
                 {
@@ -439,7 +461,7 @@ namespace OverHaulers
         private static void AppendCapacityLine(StringBuilder builder, string translationKey, float value, bool verbose)
         {
             float difference = value - 1.0f;
-            bool isModified = Math.Abs(difference) >= SettingsDefaults.EfficiencyEpsilon;
+            bool isModified = Math.Abs(difference) >= PawnDataRegistry.EfficiencyEpsilon;
 
             if (isModified || verbose)
             {
@@ -463,28 +485,26 @@ namespace OverHaulers
 
         /// <summary>
         /// Determines the appropriate color for a medical value based on its magnitude.
+        /// Zero heap allocations and zero Settings null-checks via cached presentation palette.
         /// </summary>
         /// <param name="value">The medical value for which to determine the color.</param>
         /// <returns>The color corresponding to the specified medical value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Color GetMedicalColor(float value)
         {
-            Color healthy = OverHaulers.settings?.colorHealthy ?? SettingsDefaults.ColorHealthyDefault;
-            Color critical = OverHaulers.settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
-            Color boosted = OverHaulers.settings?.colorBoosted ?? SettingsDefaults.ColorBoostedDefault;
-
-            if (value >= 2.0f) return boosted;
+            if (value >= 2.0f) return colorBoosted;
             if (value > 1.0f)
             {
                 float t = (value - 1.0f) / 1.0f;
-                return Color.Lerp(healthy, boosted, t);
+                return Color.Lerp(colorHealthy, colorBoosted, t);
             }
             if (value >= 0.2f)
             {
                 float t = (value - 0.2f) / 0.8f;
-                return Color.Lerp(critical, healthy, t);
+                return Color.Lerp(colorCritical, colorHealthy, t);
             }
             
-            return critical;
+            return colorCritical;
         }
 
         /// <summary>
@@ -501,8 +521,8 @@ namespace OverHaulers
 
             bool matchesParent = parent.HasProsthetic && sub.HasProsthetic
                 && sub.ProstheticName == parent.ProstheticName
-                && Math.Abs(sub.EfficiencyRating - parent.EfficiencyRating) < SettingsDefaults.EfficiencyEpsilon
-                && (sub.IsInherited || Math.Abs(sub.HealthFraction - parent.HealthFraction) < SettingsDefaults.EfficiencyEpsilon)
+                && Math.Abs(sub.EfficiencyRating - parent.EfficiencyRating) < PawnDataRegistry.EfficiencyEpsilon
+                && (sub.IsInherited || Math.Abs(sub.HealthFraction - parent.HealthFraction) < PawnDataRegistry.EfficiencyEpsilon)
                 && sub.IsMissing == parent.IsMissing
                 && sub.AthleticImplantName == parent.AthleticImplantName
                 && sub.LocalAilmentName == parent.LocalAilmentName;

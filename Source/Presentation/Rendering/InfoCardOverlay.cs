@@ -135,6 +135,24 @@ namespace OverHaulers
         /// <summary>Tail of the LRU linked list, representing the least recently used cache node.</summary>
         private static LruCacheNode lruTail;
 
+        private static float cachedIconScalePercent = SettingsDefaults.IconScalePercent;
+
+        static InfoCardOverlay()
+        {
+            // Subscribe downward to Core cache clear events (Strict Downward Directionality)
+            PawnDataRegistry.OnCacheCleared += ClearCache;
+        }
+
+        /// <summary>
+        /// Updates the active icon scale percent pushed downward from Settings.
+        /// Preserves strict downward layer directionality.
+        /// </summary>
+        public static void SetIconScale(float scalePercent)
+        {
+            cachedIconScalePercent = scalePercent;
+            ClearCache();
+        }
+
         /// <summary>Pushes an active InfoCard rendering context.</summary>
         public static void PushInfoCardContext() => infoCardDepth++;
 
@@ -325,7 +343,7 @@ namespace OverHaulers
 
             try
             {
-                float scalePercent = OverHaulers.settings?.iconScalePercent ?? SettingsDefaults.IconScalePercent;
+                float scalePercent = cachedIconScalePercent;
                 float currentUiScale = Prefs.UIScale;
                 OverlayCacheKey cacheKey = new OverlayCacheKey(fullText, rect.width, scalePercent, currentUiScale);
 

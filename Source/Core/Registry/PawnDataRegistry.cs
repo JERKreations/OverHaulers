@@ -17,7 +17,17 @@ namespace OverHaulers
     {
         #region 1. CONSTANTS
 
+        /// <summary>
+        /// Maximum number of deferred invalidation requests that can be queued before backpressure is applied.
+        /// Helps prevent unbounded memory growth during high-frequency invalidation bursts.
+        /// </summary>
         private const int MaxDeferredInvalidations = 4096;
+
+        /// <summary>
+        /// Canonical floating-point tolerance threshold used across Core and Presentation to prevent fp rounding jitter.
+        /// SSoT for engine numerical tolerance.
+        /// </summary>
+        public const float EfficiencyEpsilon = 0.005f;
 
         #endregion
 
@@ -698,7 +708,7 @@ namespace OverHaulers
         {
             if (node == null) return false;
 
-            if (Math.Abs(node.BaselineCapacity - baselineCapacity) >= activeRuntimeConfig.EfficiencyEpsilon)
+            if (Math.Abs(node.BaselineCapacity - baselineCapacity) >= EfficiencyEpsilon)
             {
                 node.IsStale = true;
             }

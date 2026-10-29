@@ -85,7 +85,7 @@ namespace OverHaulers
 
         /// <summary>[VIEW-04] Evaluates whether this part deviates from organic baseline defaults in a mass-relevant way.</summary>
         public bool IsModified => IsMissing 
-            || (HasProsthetic && Math.Abs(EfficiencyRating - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+            || (HasProsthetic && Math.Abs(EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
             || HealthFraction < 1.0f 
             || !string.IsNullOrEmpty(AthleticImplantName) 
             || !string.IsNullOrEmpty(LocalAilmentName);

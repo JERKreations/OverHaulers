@@ -210,9 +210,6 @@ namespace OverHaulers
         // Default workspace capacity. This defines the initial capacity of the workspace used in performance-critical operations.
         public const int DefaultWorkspaceCapacity = 64;
 
-        // Efficiency epsilon for performance calculations. This small value is used to avoid division by zero and to maintain numerical stability.
-        public const float EfficiencyEpsilon = 0.005f;
-
         // World load calibration delay in ticks. This is the delay before performing calibration after the world is loaded.
         public const int WorldLoadCalibrationDelayTicks = 120;
 
@@ -266,8 +263,7 @@ namespace OverHaulers
                 logPresentation: LogPresentationMetrics,
                 minFastPathTicks: DefaultCacheMinFastPathTicks,
                 cacheCleanupInterval: CacheCleanupInterval,
-                dynamicExpiryScaleK: DynamicCacheExpiryScaleK,
-                efficiencyEpsilon: EfficiencyEpsilon
+                dynamicExpiryScaleK: DynamicCacheExpiryScaleK
             );
         }
 

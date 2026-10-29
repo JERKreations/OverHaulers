@@ -26,7 +26,6 @@ namespace OverHaulers
         public readonly int MinFastPathTicks;
         public readonly int CacheCleanupInterval;
         public readonly int DynamicExpiryScaleK;
-        public readonly float EfficiencyEpsilon;
 
         #endregion
 
@@ -43,8 +42,7 @@ namespace OverHaulers
             bool logPresentation,
             int minFastPathTicks,
             int cacheCleanupInterval,
-            int dynamicExpiryScaleK,
-            float efficiencyEpsilon)
+            int dynamicExpiryScaleK)
         {
             PawnEvictionTimeframeTicks = pawnEvictionTimeframeTicks;
             DevStressTestAllFauna = devStressTestAllFauna;
@@ -58,7 +56,6 @@ namespace OverHaulers
             MinFastPathTicks = minFastPathTicks;
             CacheCleanupInterval = cacheCleanupInterval;
             DynamicExpiryScaleK = dynamicExpiryScaleK;
-            EfficiencyEpsilon = efficiencyEpsilon;
         }
 
         #endregion

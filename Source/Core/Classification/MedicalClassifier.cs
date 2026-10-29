@@ -219,7 +219,7 @@ namespace OverHaulers
         /// <returns><c>true</c> if the stage has a significant impact; otherwise, <c>false</c>.</returns>
         private static readonly Func<HediffStage, bool> stageImpactFactory = (stage) =>
         {
-            if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+            if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
             {
                 return true;
             }
@@ -231,9 +231,9 @@ namespace OverHaulers
                     PawnCapacityModifier capMod = stage.capMods[i];
                     if (capMod != null && IsAthleticCapacity(capMod.capacity))
                     {
-                        if (Math.Abs(capMod.offset) >= SettingsDefaults.EfficiencyEpsilon ||
-                            Math.Abs(capMod.postFactor - 1.0f) >= SettingsDefaults.EfficiencyEpsilon ||
-                            Math.Abs(capMod.setMax - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+                        if (Math.Abs(capMod.offset) >= PawnDataRegistry.EfficiencyEpsilon ||
+                            Math.Abs(capMod.postFactor - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon ||
+                            Math.Abs(capMod.setMax - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                         {
                             return true;
                         }

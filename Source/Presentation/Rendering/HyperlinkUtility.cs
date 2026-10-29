@@ -35,6 +35,7 @@ namespace OverHaulers
 
             float baselineCapacity = PawnDataRegistry.ResolveBaseline(pawn);
             MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, baselineCapacity);
+
             if (detailedMassModel == null)
             {
                 return Array.Empty<Dialog_InfoCard.Hyperlink>();
@@ -51,14 +52,17 @@ namespace OverHaulers
                 for (int i = 0; i < activeHediffs.Count; i++)
                 {
                     Hediff hediff = activeHediffs[i];
+
                     if (hediff != null && hediff.Part != null && (hediff is Hediff_AddedPart || hediff is Hediff_Implant))
                     {
                         ThingDef spawnDef = hediff.def?.spawnThingOnRemoved;
+
                         if (spawnDef != null && template != null)
                         {
                             int partIndex = template.GetPartIndex(hediff.Part);
                             PartViewNode partModel = partIndex != -1 ? detailedMassModel.GetNodeForPartIndex(partIndex) : null;
-                            if (partModel != null && (partModel.IsOrgan || Math.Abs(partModel.TotalOffset) >= SettingsDefaults.EfficiencyEpsilon))
+
+                            if (partModel != null && (partModel.IsOrgan || Math.Abs(partModel.TotalOffset) >= PawnDataRegistry.EfficiencyEpsilon))
                             {
                                 if (pooledDeduplicator.Add(spawnDef))
                                 {

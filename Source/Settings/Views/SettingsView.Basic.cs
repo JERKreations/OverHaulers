@@ -51,7 +51,7 @@ namespace OverHaulers
 
                 // Row 3: Physical Deficits & Maximum Impact Floor (Unified Composite Row)
                 bool prevInjuryToggle = settings.enablePartHealth;
-                bool floorIsAtMax = settings.massCapacityFloor >= 1.00f - SettingsDefaults.EfficiencyEpsilon;
+                bool floorIsAtMax = settings.massCapacityFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon;
 
                 string floorReadout = "OverHaulers_DeficitsFloorReadout".Translate(settings.massCapacityFloor.ToStringPercent()).ToString();
 
@@ -73,7 +73,7 @@ namespace OverHaulers
                     settings.massCapacityFloor = 0.95f;
                 }
 
-                if (settings.massCapacityFloor >= 1.00f - SettingsDefaults.EfficiencyEpsilon && settings.enablePartHealth)
+                if (settings.massCapacityFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon && settings.enablePartHealth)
                 {
                     settings.enablePartHealth = false;
                 }

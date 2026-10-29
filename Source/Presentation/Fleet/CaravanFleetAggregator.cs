@@ -118,7 +118,7 @@ namespace OverHaulers
             }
 
             // 2. Net Evaluation: Highest positive physiological offset above baseline (The Biomechanical Champion)
-            if (netOffset > SettingsDefaults.EfficiencyEpsilon)
+            if (netOffset > PawnDataRegistry.EfficiencyEpsilon)
             {
                 if (summary.TopNetContributor == null || netOffset > summary.TopNetOffset)
                 {
@@ -129,7 +129,7 @@ namespace OverHaulers
             }
 
             // 3. Impairment Evaluation: Greatest net physiological deficit below baseline
-            if (netOffset < -SettingsDefaults.EfficiencyEpsilon)
+            if (netOffset < -PawnDataRegistry.EfficiencyEpsilon)
             {
                 if (summary.MostImpaired == null || netOffset < summary.MostImpairedNetOffset)
                 {
@@ -216,7 +216,7 @@ namespace OverHaulers
             float totalWithGear = MassUtility.Capacity(pawn, null);
             float gearOffset = totalWithGear - physicalValue;
 
-            if (gearOffset > SettingsDefaults.EfficiencyEpsilon)
+            if (gearOffset > PawnDataRegistry.EfficiencyEpsilon)
             {
                 sb.AppendLine("OverHaulers_Fleet_PerformerDetail_Gear".Translate(
                     physicalValue.ToStringMassOffset(),

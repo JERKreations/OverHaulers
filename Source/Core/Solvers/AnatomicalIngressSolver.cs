@@ -94,7 +94,7 @@ namespace OverHaulers
                 : MedicalClassifier.GetCapacityLevel(pawn, PawnCapacityDefOf.Consciousness);
 
             workspace.CachedConsciousness = consciousness;
-            bool consciousnessIsDropped = consciousness < 1.0f - SettingsDefaults.EfficiencyEpsilon;
+            bool consciousnessIsDropped = consciousness < 1.0f - PawnDataRegistry.EfficiencyEpsilon;
 
             // Ingress Native Consciousness Impactors at the translation boundary
             if (populateColdMetadata && consciousnessIsDropped && pawn.health?.hediffSet != null)
@@ -192,7 +192,7 @@ namespace OverHaulers
                     ImplantCharacteristics characteristics = MedicalClassifier.EvaluateHediffCapacities(implant.def);
 
                     // Ingress each organ/tissue implant
-                    if (characteristics.AffectsAthletics || Math.Abs(characteristics.EfficiencyModifier - 1.0f) >= SettingsDefaults.EfficiencyEpsilon)
+                    if (characteristics.AffectsAthletics || Math.Abs(characteristics.EfficiencyModifier - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                     {
                         workspace.SetFlag(partIndex, PartFlags.HasAthleticImplant, true);
                         athEffs[partIndex] = characteristics.EfficiencyModifier;

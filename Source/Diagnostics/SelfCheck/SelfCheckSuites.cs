@@ -533,7 +533,7 @@ namespace OverHaulers
                 wounded = SolveOnce(harness.SandboxPawn, baseline);
             }
 
-            Expect.True(wounded <= pristine + SettingsDefaults.EfficiencyEpsilon, "wounded offset " + wounded.ToString("F3") + " kg exceeds pristine offset " + pristine.ToString("F3") + " kg");
+            Expect.True(wounded <= pristine + PawnDataRegistry.EfficiencyEpsilon, "wounded offset " + wounded.ToString("F3") + " kg exceeds pristine offset " + pristine.ToString("F3") + " kg");
             ctx.Note("OverHaulers_SelfCheck_Note_WoundsNeverIncrease".Translate(subject.Label, pristine.ToStringMassOffset(), wounded.ToStringMassOffset()).ToString());
         }
 

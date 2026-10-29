@@ -450,7 +450,7 @@ namespace OverHaulers
                     tags.Add("Missing (0% HP)");
                 }
             }
-            else if (node.HealthFraction < 1.0f - SettingsDefaults.EfficiencyEpsilon)
+            else if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
             {
                 tags.Add($"HP: {(node.HealthFraction * 100f):F0}%");
             }
@@ -478,9 +478,9 @@ namespace OverHaulers
         {
             if (node == null) return string.Empty;
 
-            bool hasProsthetic = Math.Abs(node.ProstheticOffset) >= SettingsDefaults.EfficiencyEpsilon;
-            bool hasAthletic = Math.Abs(node.AthleticOffset) >= SettingsDefaults.EfficiencyEpsilon;
-            bool hasHealth = Math.Abs(node.HealthOffset) >= SettingsDefaults.EfficiencyEpsilon;
+            bool hasProsthetic = Math.Abs(node.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
+            bool hasAthletic = Math.Abs(node.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
+            bool hasHealth = Math.Abs(node.HealthOffset) >= PawnDataRegistry.EfficiencyEpsilon;
 
             if (!hasProsthetic && !hasAthletic && !hasHealth) return string.Empty;
 
@@ -530,7 +530,7 @@ namespace OverHaulers
                     attrBuilder.Append("isMissing=\"true\" ");
                     if (node.IsNeutralized) attrBuilder.Append("isNeutralized=\"true\" ");
                 }
-                else if (node.HealthFraction < 1.0f - SettingsDefaults.EfficiencyEpsilon)
+                else if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
                 {
                     attrBuilder.Append($"healthFraction=\"{node.HealthFraction:F2}\" ");
                 }
@@ -545,15 +545,15 @@ namespace OverHaulers
                     attrBuilder.Append($"ailment=\"{DiagnosticExportUtility.EscapeXml(node.LocalAilmentName)}\" ");
                 }
 
-                if (Math.Abs(node.ProstheticOffset) >= SettingsDefaults.EfficiencyEpsilon)
+                if (Math.Abs(node.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
                     attrBuilder.Append($"prostheticOffsetKg=\"{node.ProstheticOffset:F2}\" ");
                 }
-                if (Math.Abs(node.AthleticOffset) >= SettingsDefaults.EfficiencyEpsilon)
+                if (Math.Abs(node.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
                     attrBuilder.Append($"athleticOffsetKg=\"{node.AthleticOffset:F2}\" ");
                 }
-                if (Math.Abs(node.HealthOffset) >= SettingsDefaults.EfficiencyEpsilon)
+                if (Math.Abs(node.HealthOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
                     attrBuilder.Append($"healthOffsetKg=\"{node.HealthOffset:F2}\" ");
                 }

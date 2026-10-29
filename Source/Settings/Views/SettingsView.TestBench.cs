@@ -734,7 +734,7 @@ namespace OverHaulers
             }
 
             // 7. Live Colonist Authentic Wound
-            if (node.HealthFraction < 1.0f - SettingsDefaults.EfficiencyEpsilon)
+            if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
             {
                 labelColor = ReportFormatter.GetMedicalColor(node.HealthFraction);
                 return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, (node.HealthFraction * 100f).ToString("F0")).Colorize(labelColor);
