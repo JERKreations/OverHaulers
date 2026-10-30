@@ -85,7 +85,7 @@ namespace OverHaulers
         /// <summary>
         /// [VIEW-02-A] Canonical Presentation entry point executing full anatomical inspection and projecting
         /// the solved state into a visual <see cref="MassCapacityModel"/> hierarchy.
-        /// Resides strictly in Presentation, consuming Core via rented workspace leases.
+        /// Resides in Presentation, consuming Core via rented workspace leases.
         /// </summary>
         /// <typeparam name="TSource">The concrete anatomical data source struct type implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
         /// <param name="source">The anatomical data source providing biological metrics and def definitions.</param>

@@ -2,19 +2,19 @@
 <LanguageData>
 
   <!-- ========================================================================= -->
-  <!-- [VIEW-05] CARAVAN FLEET BIOMECHANICAL SUMMARY (WORLD & DIALOG TOOLTIPS)   -->
+  <!-- [VIEW-05] CARAVAN PHYSICAL SUMMARY (WORLD & DIALOG TOOLTIPS)              -->
   <!-- ========================================================================= -->
-  <OverHaulers_Fleet_Header>Caravan Physical: {0}x ({1})</OverHaulers_Fleet_Header>
-  <OverHaulers_Fleet_Total>• Physical Total: {0}</OverHaulers_Fleet_Total>
+  <OverHaulers_Caravan_Header>Caravan Physical: {0}x ({1})</OverHaulers_Caravan_Header>
+  <OverHaulers_Caravan_Total>• Physical Total: {0}</OverHaulers_Caravan_Total>
 
   <!-- Standout Performer Headers (Net vs Gross + Collapsed) -->
-  <OverHaulers_Fleet_TopContributorNet>• Top Asset (Net): {0}</OverHaulers_Fleet_TopContributorNet>
-  <OverHaulers_Fleet_TopContributorGross>• Top Asset (Gross): {0}</OverHaulers_Fleet_TopContributorGross>
-  <OverHaulers_Fleet_TopContributor>• Top Asset: {0}</OverHaulers_Fleet_TopContributor>
-  <OverHaulers_Fleet_MostImpaired>• Most Impaired: {0}</OverHaulers_Fleet_MostImpaired>
+  <OverHaulers_Caravan_TopContributorNet>• Top Asset (Net): {0}</OverHaulers_Caravan_TopContributorNet>
+  <OverHaulers_Caravan_TopContributorGross>• Top Asset (Gross): {0}</OverHaulers_Caravan_TopContributorGross>
+  <OverHaulers_Caravan_TopContributor>• Top Asset: {0}</OverHaulers_Caravan_TopContributor>
+  <OverHaulers_Caravan_MostImpaired>• Most Impaired: {0}</OverHaulers_Caravan_MostImpaired>
 
   <!-- Unified Symmetrical Performer Details -->
-  <OverHaulers_Fleet_PerformerDetail_Gear>  {0}, {1} gear</OverHaulers_Fleet_PerformerDetail_Gear>
-  <OverHaulers_Fleet_PerformerDetail>  {0}</OverHaulers_Fleet_PerformerDetail>
+  <OverHaulers_Caravan_PerformerDetail_Gear>  {0}, {1} gear</OverHaulers_Caravan_PerformerDetail_Gear>
+  <OverHaulers_Caravan_PerformerDetail>  {0}</OverHaulers_Caravan_PerformerDetail>
 
 </LanguageData>

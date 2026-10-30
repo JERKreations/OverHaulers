@@ -8,25 +8,28 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [LIFE-01] SAVE-FREE SESSION LIFECYCLE DRIVER
+    #region 1. [LIFE-01] SAVE-FREE SESSION LIFECYCLE BOOTSTRAPPER
 
     /// <summary>
     /// [LIFE-01] Bootstraps the lifecycle driver once at startup.
     /// Over Haulers deliberately has no WorldComponent/GameComponent: RimWorld records those by class name inside the save file
     /// and logs errors when the class is missing, which would make the mod impossible to remove mid-save cleanly.
     /// A persistent, scene-independent Unity object is used instead, so nothing of ours is ever written to a save.
-    /// Resides under Source/Integration/Lifecycle/.
+    /// Resides under Source/Integration/.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class OverHaulersLifecycle
     {
+        #region 1A. Static State & Properties
         /// <summary>True once the post-load deferred baseline calibration sweep has finished.</summary>
         public static bool IsCalibrationSweepDone { get; internal set; }
+        #endregion
 
+        #region 1B. Bootstrap Lifecycle
         /// <summary>
         /// Initializes the Over Haulers lifecycle driver, mounts the persistent Unity GameObject, subscribes to cache events, and triggers
-        ///  the deterministic bootstrap sequence.
-        /// Invoked automatically by the Unity engine at startup due to the <see cref="StaticConstructorOnStartup"/> attribute.
+        /// the deterministic bootstrap sequence.
+        /// Invoked automatically by the Unity engine at startup due to the <see cref=\"StaticConstructorOnStartup\"/> attribute.
         /// Ensures that all necessary subsystems and compatibility layers are initialized before any gameplay logic executes.
         /// </summary>
         static OverHaulersLifecycle()
@@ -68,7 +71,9 @@ namespace OverHaulers
                 WarmupActivePawns();
             }
         }
+        #endregion
 
+        #region 1C. Public Runtime Re-Initialization API
         /// <summary>
         /// [LIFE-02] Canonical lifecycle entry point for full runtime re-initialization and cache recompilation.
         /// Orchestrates teardown and rebuilding of Core systems in strict topological order.
@@ -113,7 +118,9 @@ namespace OverHaulers
             OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_RecompileHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
             OHLog.ActivityJournal.Dispatch();
         }
+        #endregion
 
+        #region 1D. Warmup Engine & Predicates
         /// <summary>
         /// [LIFE-03] Evaluates active caravan-capable pawns on maps and in caravans, pre-populating
         /// Core caches and the atomic snapshot table before pathfinding threads query them.
@@ -191,20 +198,28 @@ namespace OverHaulers
             }
             return false;
         }
+        #endregion
     }
+
+    #endregion
+
+    #region 2. [LIFE-02] SCENE-INDEPENDENT UNITY LIFECYCLE DRIVER
 
     /// <summary>
     /// Per-frame driver that detects game sessions (new game, load, return to menu) by tracking the identity of
-    /// <see cref="Current.Game"/>, initialises runtime state once per session and performs the periodic tick work
+    /// <see cref=\"Current.Game\"/>, initialises runtime state once per session and performs the periodic tick work
     /// (cache cleanup, deferred calibration sweep, telemetry reports). Holds runtime state only; persists nothing.
     /// </summary>
     public sealed class OverHaulersLifecycleDriver : MonoBehaviour
     {
+        #region 2A. Backing State
         private Game trackedGame;
         private int lastSeenTick = int.MinValue;
         private int lastReportTick = -1;
         private int coreInitializedTick = -1;
+        #endregion
 
+        #region 2B. Unity Callbacks
         /// <summary>
         /// Unity per-frame callback; runs one pump and keeps any failure from escaping into the engine loop.
         /// </summary>
@@ -214,12 +229,14 @@ namespace OverHaulers
             {
                 Pump();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 OHLog.Lifecycle.Warn("LifecycleDriver", ex, "Lifecycle driver update failed.");
             }
         }
+        #endregion
 
+        #region 2C. Session Pump & Dispatch
         /// <summary>
         /// Advances the benchmark and self-check time slices, detects session changes and performs the periodic tick work once a game is playing.
         /// </summary>
@@ -325,7 +342,9 @@ namespace OverHaulers
             OHLog.ActivityJournal.RegisterDeferredOperation("Calibration");
             OHLog.ActivityJournal.Dispatch();
         }
+        #endregion
 
+        #region 2D. Maintenance Drivers & Deferred Sweeps
         /// <summary>
         /// The initial calibration sweep is deferred a short while after a session starts.
         /// Some externally-patched caravan-capacity stat providers (e.g. third-party mod stats) build their own
@@ -354,8 +373,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Dispatches the periodic performance telemetry report when the configured interval has elapsed.
-        /// Reads interval directly from active Core runtime configuration snapshot.
-        /// </summary>
+        /// Reads interval directly from active Core runtime configuration snapshot.</summary>
         /// <param name="currentTick">The current game tick.</param>
         private void MaybeReportTelemetry(int currentTick)
         {
@@ -367,7 +385,7 @@ namespace OverHaulers
             int intervalHours = PawnDataRegistry.ActiveConfiguration.ReportMetricsIntervalHours;
             if (intervalHours <= 0) return;
 
-            int intervalTicks = intervalHours * GenDate.TicksPerHour; // 2500 is the default tick count per hour in RimWorld
+            int intervalTicks = intervalHours * GenDate.TicksPerHour;
 
             if (currentTick - lastReportTick >= intervalTicks || currentTick < lastReportTick)
             {
@@ -375,6 +393,7 @@ namespace OverHaulers
                 PerformanceTelemetry.GenerateAndDispatchReport(intervalHours);
             }
         }
+        #endregion
     }
 
     #endregion

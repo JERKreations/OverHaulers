@@ -36,7 +36,7 @@ namespace OverHaulers
     /// [SSoT] Centralized dynamic calibration engine.
     /// Manages species-specific baseline mass capacity scalars using a 3-Tier Fallback system: 
     /// Pristine Dummy Pawn -> Live Pawn Rescue -> Testing/Emergency Assumption.
-    /// Resides strictly under Source/Core/Calibration/.
+    /// Resides under Source/Core/Synthesis/.
     /// </summary>
     public static class SpeciesBaselineCalibration
     {

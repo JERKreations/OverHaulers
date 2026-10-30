@@ -31,7 +31,7 @@ namespace OverHaulers
             {
                 if (cachedCaravanHeaderPrefix == null)
                 {
-                    string raw = "OverHaulers_Fleet_Header".Translate().ToString();
+                    string raw = "OverHaulers_Caravan_Header".Translate().ToString();
                     int splitIdx = raw.IndexOf('{');
                     cachedCaravanHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
                 }

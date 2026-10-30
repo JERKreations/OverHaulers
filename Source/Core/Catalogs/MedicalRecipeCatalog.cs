@@ -44,7 +44,7 @@ namespace OverHaulers
     /// Pre-indexes all loaded vanilla and modded surgery recipes, artificial parts, implants, combat stimulants,
     /// and whole-body staged conditions (pregnancies, food poisoning, hangovers, withdrawals, mechanites).
     /// Provides zero-allocation $O(1)$ query tables for the interactive medical planner and diagnostic census tools.
-    /// Resides under Source/Settings/TestBench/.
+    /// Resides under Source/Core/Catalogs/.
     /// </summary>
     public static class MedicalRecipeCatalog
     {

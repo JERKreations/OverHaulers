@@ -15,7 +15,7 @@ namespace OverHaulers
     /// Canonical Single Source of Truth for ephemeral, unspawned Pawn instances.
     /// Allocates detached pawn shells bypassing PawnGenerator, WorldPawns, TaleRecorder, and Factions.
     /// Safe for execution both in-game and on the Main Menu via direct backing-field age and life-stage pinning.
-    /// Resides strictly under Source/Core/Synthesis/ with zero Presentation or UI dependencies.
+    /// Resides under Source/Core/Synthesis/ with zero Presentation or UI dependencies.
     /// </summary>
     public class HeadlessPawnShell : IDisposable
     {

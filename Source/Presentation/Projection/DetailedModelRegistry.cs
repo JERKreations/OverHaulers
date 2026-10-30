@@ -12,7 +12,7 @@ namespace OverHaulers
     /// isolate presentation tree generation and explanation caching from the high-frequency gameplay Core.
     /// Dynamically scales capacity (32 -> 1024) upon detecting high-velocity UI working-set contention.
     /// Guarantees 100% clean teardown on save unload with zero cross-session memory retention.
-    /// Resides under Source/Presentation/Rendering/.
+    /// Resides under Source/Presentation/Projection/.
     /// </summary>
     public static class DetailedModelRegistry
     {

@@ -16,7 +16,7 @@ namespace OverHaulers
     ///   <item><description><b>Inward Protection:</b> Catches third-party mod exceptions thrown during dummy pawn evaluation via <see cref="Priority.Last"/> Harmony Finalizers, neutralizing foreign errors.</description></item>
     ///   <item><description><b>Main-Menu Fallbacks:</b> Provides fallback managers when <see cref="Current.Game"/> is null, preventing NREs during Main Menu calibration.</description></item>
     /// </list>
-    /// Resides strictly under Source/Integration/Patches/.
+    /// Resides under Source/Integration/Patches/.
     /// </summary>
     public static partial class HarmonySetup
     {

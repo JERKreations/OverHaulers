@@ -60,7 +60,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [VIEW-04] Canonical Single Source of Truth (SSoT) entry point formatting the Caravan Mass Capacity breakdown.
-        /// Consumes <see cref="OverHaulers.settings"/> directly to determine verbose layout rules.
+        /// Consumes downward-pushed layout rules and palette configuration to preserve strict layer directionality.
         /// Thread-gated to the main thread with 0 bytes GC allocation via pooled scratch buffers.
         /// </summary>
         /// <param name="massModel">The populated mass capacity model to format.</param>

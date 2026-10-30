@@ -214,10 +214,10 @@ namespace OverHaulers
                 // 1. Header Banner
                 string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
                 string multStr = summary.CollectiveMultiplier.ToString("F2");
-                pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
+                pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_Header".Translate(multStr, netOffsetStr).ToString());
 
                 // 2. Physical Total
-                pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
+                pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
 
                 // 3. Standout Performers: Net vs Gross with Smart Collapse
                 // BREAKPOINT ANCHOR: Standout Performer Smart Collapse (Net vs Gross)
@@ -227,10 +227,10 @@ namespace OverHaulers
                 // Case A: Split - Top net gainer is different from top gross carrier (e.g. Augmented Colonist vs Pack Elephant)
                 if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
                 {
-                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
                     AppendPerformerDetail(pooledCaravanReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
 
-                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
                     AppendPerformerDetail(pooledCaravanReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
                 }
                 // Case B: Collapsed - Single standout asset (same pawn won both, or nobody has net augmentations)
@@ -239,14 +239,14 @@ namespace OverHaulers
                     Pawn topPawn = hasNet ? summary.TopNetContributor : summary.TopGrossContributor;
                     float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
 
-                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_TopContributor".Translate(topPawn.LabelShortCap).ToString());
                     AppendPerformerDetail(pooledCaravanReportBuilder, topPawn, topCapacity);
                 }
 
                 // 4. Most Impaired (Greatest Net Deficit)
                 if (summary.MostImpaired != null)
                 {
-                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
                     AppendPerformerDetail(pooledCaravanReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
                 }
 
@@ -269,14 +269,14 @@ namespace OverHaulers
 
             if (gearOffset > PawnDataRegistry.EfficiencyEpsilon)
             {
-                sb.AppendLine("OverHaulers_Fleet_PerformerDetail_Gear".Translate(
+                sb.AppendLine("OverHaulers_Caravan_PerformerDetail_Gear".Translate(
                     physicalValue.ToStringMassOffset(),
                     gearOffset.ToStringMassOffset()
                 ).ToString());
             }
             else
             {
-                sb.AppendLine("OverHaulers_Fleet_PerformerDetail".Translate(
+                sb.AppendLine("OverHaulers_Caravan_PerformerDetail".Translate(
                     physicalValue.ToStringMassOffset()
                 ).ToString());
             }

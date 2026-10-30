@@ -3,7 +3,7 @@ namespace OverHaulers
     /// <summary>
     /// [CORE-CONF-02] IMMUTABLE VALUE-TYPE RUNTIME & INFRASTRUCTURE CONFIGURATION
     /// Encapsulates engine infrastructure, cache lifecycle policies, fauna stress-testing,
-    /// and diagnostic telemetry toggles. Resides strictly under Source/Core/Data/.
+    /// and diagnostic telemetry toggles. Resides under Source/Core/Data/.
     /// Holds zero duplicate constants, preserving SettingsDefaults as the Single Source of Truth (SSoT).
     /// </summary>
     public readonly struct RuntimeConfiguration

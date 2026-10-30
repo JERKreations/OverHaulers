@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [TOPO-SUB-02] APPENDAGE TOPOLOGY SUB-COMPILER
     /// Stateless sub-compiler managing limb classification, dual-purpose appendages, and connective anchor reclamation.
-    /// Resides under Source/Core/Topology/SubCompilers/.
+    /// Resides under Source/Core/Topology/.
     /// </summary>
     public static class Pass02_AppendageSubCompiler
     {

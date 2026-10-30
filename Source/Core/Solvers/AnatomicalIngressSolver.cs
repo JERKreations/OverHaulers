@@ -25,11 +25,15 @@ namespace OverHaulers
     /// </remarks>
     public static class AnatomicalIngressSolver
     {
+        #region 1. STATIC SCRATCHPADS & POOLS
+
         // Detailed-model ingress only runs on the main thread (MassCapacitySolver -> PawnDataRegistry cache-miss path).
         private static readonly List<PawnCapacityUtility.CapacityImpactor> pooledImpactors =
             new List<PawnCapacityUtility.CapacityImpactor>(16);
 
-        #region 1. [PASS-01] PUBLIC INGRESS ENTRY POINT
+        #endregion
+
+        #region 2. [PASS-01] PUBLIC INGRESS ENTRY POINT
 
         /// <summary>
         /// [PASS-01] Translates a Pawn's live hediff set into the workspace and executes unified graph sweeps.
@@ -57,7 +61,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. [PASS-01-A] STAGE 1: HEDIFF TRANSLATION
+        #region 3. [PASS-01-A] STAGE 1: HEDIFF TRANSLATION
 
         /// <summary>
         /// Translates a pawn's live hediff set into the anatomical workspace, updating part states, efficiencies, and systemic ailments.
@@ -226,7 +230,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [PASS-01-B] STAGE 2: TOPOLOGICAL GRAPH SWEEPS
+        #region 4. [PASS-01-B] STAGE 2: TOPOLOGICAL GRAPH SWEEPS
 
         /// <summary>
         /// Finalizes the topological sweeps of the anatomical workspace, updating part states and efficiencies based on the pawn's current condition.

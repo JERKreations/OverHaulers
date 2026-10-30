@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -10,7 +9,7 @@ namespace OverHaulers
     /// [TOPO-SUB-04] APPENDAGE WEIGHT SUB-COMPILER
     /// Stateless sub-compiler managing long serial chain detection, geometric limb depth decay,
     /// branch weight summation, and 3-channel (Torso, Manipulation, Moving) budget normalization.
-    /// Resides under Source/Core/Topology/SubCompilers/.
+    /// Resides under Source/Core/Topology/.
     /// </summary>
     public static class Pass04_AppendageWeightSubCompiler
     {

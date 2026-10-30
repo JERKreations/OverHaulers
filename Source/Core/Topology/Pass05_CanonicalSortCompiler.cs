@@ -7,7 +7,7 @@ namespace OverHaulers
     /// [TOPO-SUB-05] CANONICAL SORT & FLAT JUMP-TABLE COMPILER
     /// Stateless sub-compiler building execution sweep indices, 1D stride ancestral jump matrices,
     /// flat child buffer spans, and the natural top-down CanonicalDisplayIndices permutation array.
-    /// Resides under Source/Core/Topology/SubCompilers/.
+    /// Resides under Source/Core/Topology/.
     /// </summary>
     public static class Pass05_CanonicalSortCompiler
     {

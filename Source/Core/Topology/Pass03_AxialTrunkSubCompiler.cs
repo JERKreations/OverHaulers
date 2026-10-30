@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [TOPO-SUB-03] AXIAL TRUNK TOPOLOGY SUB-COMPILER
     /// Stateless sub-compiler distributing structural load budgets across spinal columns, necks, pelves, and chest carapaces.
-    /// Resides under Source/Core/Topology/SubCompilers/.
+    /// Resides under Source/Core/Topology/.
     /// </summary>
     public static class Pass03_AxialTrunkSubCompiler
     {
