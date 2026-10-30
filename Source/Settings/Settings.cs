@@ -275,8 +275,11 @@ namespace OverHaulers
                 logCache: logCacheMetrics,
                 logQuery: logQueryMetrics,
                 logSnapshot: logSnapshotTableMetrics,
-                logLifecycle: logLifecycleMetrics,
                 logPresentation: logPresentationMetrics,
+                logLifecycle: logLifecycleMetrics,
+                logWorkspace: logWorkspaceMetrics,
+                logSafetyFloorClamps: logSafetyFloorClamps,
+                logPawnEvictions: logPawnEvictions,
                 minFastPathTicks: SettingsDefaults.DefaultCacheMinFastPathTicks,
                 cacheCleanupInterval: SettingsDefaults.CacheCleanupInterval,
                 dynamicExpiryScaleK: SettingsDefaults.DynamicCacheExpiryScaleK

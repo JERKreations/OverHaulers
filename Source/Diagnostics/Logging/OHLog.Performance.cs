@@ -33,6 +33,33 @@ namespace OverHaulers
             private static readonly StringBuilder pooledReportBuilder = new StringBuilder(1024);
             private static readonly object bufferLock = new object();
 
+            // Downward synchronized telemetry toggles (thread-safe, zero settings dereferencing)
+            private static volatile bool isLogPawnEvictionsActive = false;
+            private static volatile bool isLogSafetyFloorClampsActive = false;
+            private static volatile bool isLogQueryMetricsActive = false;
+            private static volatile bool isLogCacheMetricsActive = false;
+            private static volatile bool isLogPresentationMetricsActive = false;
+            private static volatile bool isLogSnapshotTableMetricsActive = false;
+            private static volatile bool isLogLifecycleMetricsActive = false;
+            private static volatile bool isLogWorkspaceMetricsActive = false;
+
+            /// <summary>
+            /// Configures performance logging flags pushed downward via <see cref="RuntimeConfiguration"/>.
+            /// Preserves strict downward layer directionality (Logging never references Settings).
+            /// </summary>
+            public static void Configure(in RuntimeConfiguration config)
+            {
+                bool enabled = config.ReportMetricsIntervalHours > 0;
+                isLogPawnEvictionsActive = enabled && config.LogPawnEvictions;
+                isLogSafetyFloorClampsActive = enabled && config.LogSafetyFloorClamps;
+                isLogQueryMetricsActive = enabled && config.LogQueryMetrics;
+                isLogCacheMetricsActive = enabled && config.LogCacheMetrics;
+                isLogPresentationMetricsActive = enabled && config.LogPresentationMetrics;
+                isLogSnapshotTableMetricsActive = enabled && config.LogSnapshotTableMetrics;
+                isLogLifecycleMetricsActive = enabled && config.LogLifecycleMetrics;
+                isLogWorkspaceMetricsActive = enabled && config.LogWorkspaceMetrics;
+            }
+
             /// <summary>
             /// Logs a warning message within the performance telemetry domain.
             /// </summary>
@@ -84,39 +111,37 @@ namespace OverHaulers
 
             /// <summary>
             /// Records the eviction of a pawn from the snapshot table, storing its unique ID for later reporting.
+            /// Thread-safe: checks active flag atomically without touching Settings.
             /// </summary>
             /// <param name="thingID">The unique ID of the evicted pawn.</param>
             public static void RecordPawnEvicted(int thingID)
             {
-                if (OverHaulers.settings == null) return;
-                if (OverHaulers.settings.reportMetricsIntervalHours > 0 && OverHaulers.settings.logPawnEvictions)
+                if (!isLogPawnEvictionsActive) return;
+
+                lock (bufferLock)
                 {
-                    lock (bufferLock)
-                    {
-                        pendingEvictedPawnIds.Add(thingID);
-                    }
+                    pendingEvictedPawnIds.Add(thingID);
                 }
             }
 
             /// <summary>
-            /// Records an instance where a pawn's mass was clamped to the safety floor, storing both the raw and clamped values.
+            /// Records an instance where a pawn's mass was clamped to the safety floor.
+            /// Thread-safe: safe to invoke from background pathfinding threads.
             /// </summary>
             /// <param name="pawnName">The name of the pawn whose mass was clamped.</param>
             /// <param name="rawMass">The original mass of the pawn before clamping.</param>
             /// <param name="clampedMass">The mass of the pawn after being clamped to the safety floor.</param>
             public static void RecordSafetyFloorClamped(string pawnName, float rawMass, float clampedMass)
             {
-                if (OverHaulers.settings == null) return;
-                if (OverHaulers.settings.reportMetricsIntervalHours > 0 && OverHaulers.settings.logSafetyFloorClamps)
+                if (!isLogSafetyFloorClampsActive) return;
+
+                lock (bufferLock)
                 {
-                    lock (bufferLock)
-                    {
-                        pendingClampedPawns[pawnName] = new SafetyClampRecord 
-                        { 
-                            RawMass = rawMass, 
-                            ClampedMass = clampedMass 
-                        };
-                    }
+                    pendingClampedPawns[pawnName] = new SafetyClampRecord 
+                    { 
+                        RawMass = rawMass, 
+                        ClampedMass = clampedMass 
+                    };
                 }
             }
 
@@ -151,7 +176,7 @@ namespace OverHaulers
                         pooledReportBuilder.Append("OverHaulers_Log_PerformanceReportHeader".Translate(s.ElapsedHours).ToString());
 
                         // 1. Query Metrics
-                        if (settings.logQueryMetrics)
+                        if (isLogQueryMetricsActive)
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Queries".Translate(
@@ -162,7 +187,7 @@ namespace OverHaulers
                         }
 
                         // 2. Cache Hit Efficiency
-                        if (settings.logCacheMetrics)
+                        if (isLogCacheMetricsActive)
                         {
                             pooledReportBuilder.AppendLine();
                             if (s.BgQueries > 0)
@@ -184,7 +209,7 @@ namespace OverHaulers
                         }
 
                         // 3. Presentation UI Model Cache
-                        if (settings.logPresentationMetrics && (s.PresentationHits > 0 || s.PresentationMisses > 0 || s.PresentationActiveCount > 0))
+                        if (isLogPresentationMetricsActive && (s.PresentationHits > 0 || s.PresentationMisses > 0 || s.PresentationActiveCount > 0))
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_PresentationDetailed".Translate(
@@ -198,7 +223,7 @@ namespace OverHaulers
                         }
 
                         // 4. Snapshot Table & Probing Health
-                        if (settings.logSnapshotTableMetrics)
+                        if (isLogSnapshotTableMetricsActive)
                         {
                             float loadPercent = s.TableCapacity > 0 ? ((float)s.SnapshotOccupied / s.TableCapacity) * 100f : 0f;
 
@@ -225,7 +250,7 @@ namespace OverHaulers
                         }
 
                         // 5. Lifecycle Events & Combat Debounce Efficacy
-                        if (settings.logLifecycleMetrics)
+                        if (isLogLifecycleMetricsActive)
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_LifeCycleDetailed".Translate(
@@ -237,14 +262,14 @@ namespace OverHaulers
                         }
 
                         // 6. Pooled Workspaces
-                        if (settings.logWorkspaceMetrics)
+                        if (isLogWorkspaceMetricsActive)
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_PerformanceReport_Workspaces".Translate(s.ActiveWorkspaces).ToString());
                         }
 
                         // 7. Safety Floor Clamps
-                        if (settings.logSafetyFloorClamps && pendingClampedPawns.Count > 0)
+                        if (isLogSafetyFloorClampsActive && pendingClampedPawns.Count > 0)
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampsHeader".Translate().ToString());
@@ -260,7 +285,7 @@ namespace OverHaulers
                         }
 
                         // 8. Evicted Pawn IDs
-                        if (settings.logPawnEvictions && pendingEvictedPawnIds.Count > 0)
+                        if (isLogPawnEvictionsActive && pendingEvictedPawnIds.Count > 0)
                         {
                             string idsFormatted = string.Join(", ", pendingEvictedPawnIds);
                             pooledReportBuilder.AppendLine();

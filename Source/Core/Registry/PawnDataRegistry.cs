@@ -77,6 +77,7 @@ namespace OverHaulers
             activeRuntimeConfig = newConfig;
             cachedExpiryBase = newConfig.MinFastPathTicks;
             PerformanceTelemetry.Configure(in newConfig);
+            OHLog.Performance.Configure(in newConfig);
         }
 
         /// <summary>Gets a read-only reference to the active runtime configuration.</summary>

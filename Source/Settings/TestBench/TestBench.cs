@@ -63,6 +63,12 @@ namespace OverHaulers
 
         private static bool isInitialized = false;
 
+        static TestBench()
+        {
+            // Downward event subscription: automatically invalidate preview whenever Core caches are flushed
+            PawnDataRegistry.OnCacheCleared += MarkDirty;
+        }
+
         /// <summary>
         /// [TEST-02] Ensures the Test Bench orchestrator, medical recipe catalog, test subject registry,
         /// and species baseline calibrations are fully initialized and bound.

@@ -18,7 +18,8 @@ namespace OverHaulers
         #region 1. [SOLV-01] CONSTANTS & FALLBACK METRICS
 
         /// <summary>
-        /// [SOLV-01] Absolute safety floor preventing negative or zero carrying capacity divisions.
+        /// [SOLV-01] Absolute safety floor preventing negative or zero carrying capacity divisions when
+        /// <see cref="Settings.compatibilitySafetyFloor"/> constraints are applied.
         /// </summary>
         public const float MinimumAllowedCapacityKg = 0.01f;
 

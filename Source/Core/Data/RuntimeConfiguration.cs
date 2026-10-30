@@ -19,8 +19,11 @@ namespace OverHaulers
         public readonly bool LogCacheMetrics;
         public readonly bool LogQueryMetrics;
         public readonly bool LogSnapshotTableMetrics;
-        public readonly bool LogLifecycleMetrics;
         public readonly bool LogPresentationMetrics;
+        public readonly bool LogLifecycleMetrics;
+        public readonly bool LogWorkspaceMetrics;
+        public readonly bool LogSafetyFloorClamps;
+        public readonly bool LogPawnEvictions;
 
         // Engine & Cache Invariants
         public readonly int MinFastPathTicks;
@@ -38,8 +41,11 @@ namespace OverHaulers
             bool logCache,
             bool logQuery,
             bool logSnapshot,
-            bool logLifecycle,
             bool logPresentation,
+            bool logLifecycle,
+            bool logWorkspace,
+            bool logSafetyFloorClamps,
+            bool logPawnEvictions,
             int minFastPathTicks,
             int cacheCleanupInterval,
             int dynamicExpiryScaleK)
@@ -50,8 +56,11 @@ namespace OverHaulers
             LogCacheMetrics = logCache;
             LogQueryMetrics = logQuery;
             LogSnapshotTableMetrics = logSnapshot;
-            LogLifecycleMetrics = logLifecycle;
             LogPresentationMetrics = logPresentation;
+            LogLifecycleMetrics = logLifecycle;
+            LogWorkspaceMetrics = logWorkspace;
+            LogSafetyFloorClamps = logSafetyFloorClamps;
+            LogPawnEvictions = logPawnEvictions;
 
             MinFastPathTicks = minFastPathTicks;
             CacheCleanupInterval = cacheCleanupInterval;

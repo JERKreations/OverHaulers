@@ -172,7 +172,7 @@ namespace OverHaulers
                 MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
                 // 1. Caravan Mass Capacity Progression Readout
-                float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
+                float finalMass = Math.Max(MassCapacitySolver.MinimumAllowedCapacityKg, cleanBaseline + massModel.Offset);
                 builder.AppendLine("CARAVAN MASS CAPACITY PROGRESSION:");
                 builder.AppendLine($"  Baseline: {cleanBaseline.ToStringMass()}  ➔  Final: {finalMass.ToStringMass()} (Offset: {massModel.Offset.ToStringMassOffset()}, Total Rating: {massModel.TotalMultiplier:F2}x)");
                 builder.AppendLine();
@@ -301,7 +301,7 @@ namespace OverHaulers
                 TestSubjectEntry evalSubject = ResolveEvaluationSubject(scope, subject, body, allPawnThings);
                 MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
-                float finalMass = Mathf.Max(0.01f, cleanBaseline + massModel.Offset);
+                float finalMass = Math.Max(MassCapacitySolver.MinimumAllowedCapacityKg, cleanBaseline + massModel.Offset);
                 builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline:F2}\" solvedOffsetKg=\"{massModel.Offset:F2}\" finalMassKg=\"{finalMass:F2}\" totalMultiplier=\"{massModel.TotalMultiplier:F2}\" />");
 
                 builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" consciousness=\"{massModel.CapacityLevels[4]:F2}\" />");

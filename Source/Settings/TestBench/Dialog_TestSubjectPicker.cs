@@ -232,7 +232,7 @@ namespace OverHaulers
             }
 
             // Add 16px of comfortable bottom padding so the last item never touches the window edge
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, Mathf.Max(rect.height, totalContentHeight + 16f));
+            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, Math.Max(rect.height, totalContentHeight + 16f));
             Widgets.BeginScrollView(rect, ref scrollPosition, viewRect);
 
             float curY = 4f;
@@ -334,7 +334,7 @@ namespace OverHaulers
                 float safeBodySize = MedicalClassifier.GetSafeBodySize(entry.LivePawn);
                 float baseMassCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(entry.LivePawn);
                 float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
-                float finalMass = Mathf.Max(0.01f, baseMassCapacity + currentOffset);
+                float finalMass = Math.Max(MassCapacitySolver.MinimumAllowedCapacityKg, baseMassCapacity + currentOffset);
                 return $"BodySize {safeBodySize:F1}x • {finalMass.ToStringMass()}";
             }
 
