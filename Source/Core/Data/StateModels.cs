@@ -3,7 +3,77 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [PASS-02] ATOMIC TOPOLOGICAL BITMASKS
+    #region 1. TOPOLOGICAL ENUMS & TAXONOMY
+
+    /// <summary>
+    /// [TOPO-01] Primary structural classification categories for skeletal body parts.
+    /// Governs regional budget assignment and bilateral symmetry grouping.
+    /// </summary>
+    public enum PartType
+    {
+        None = 0,
+        CorePart = 1,
+        ManipulationPart = 2,
+        MovingPart = 3,
+        HeadPart = 4,
+        DualLimb = 5
+    }
+
+    /// <summary>
+    /// [TOPO-01] Aggregate counts of structural bones, root limbs, dual limbs, and head features.
+    /// </summary>
+    public struct PartCounts
+    {
+        public int CoreParts;
+        public int ManipulationParts;
+        public int MovingParts;
+        public int DualLimbs;
+        public int HeadParts;
+
+        public int TotalManipulationRoots => ManipulationParts + DualLimbs;
+        public int TotalMovingRoots => MovingParts + DualLimbs;
+    }
+
+    /// <summary>
+    /// [TOPO-03] Biomechanical role assigned to a core trunk part during axial load distribution.
+    /// </summary>
+    public enum TorsoRole
+    {
+        Peripheral = 0,
+        AnchorBridge = 1,
+        AxialColumn = 2
+    }
+
+    /// <summary>
+    /// [TOPO-04] Which weighting curve a limb part's mass share was computed with (diagnostic-facing).
+    /// </summary>
+    public enum LimbWeightModel
+    {
+        NotApplicable = 0,
+        GeometricDecay = 1,
+        HpRatio = 2,
+        ExplicitOverride = 3
+    }
+
+    /// <summary>
+    /// [TOPO-SUB-02] Transient graph compilation struct tracking limb depth, root indices, and sibling counts.
+    /// </summary>
+    public struct PartTopologyInfo
+    {
+        public PartType Type;
+        public int ParentIndex;
+        public int RootPartIndex;
+        public int SiblingCount;
+        public int Depth;
+        public float UnnormalizedLimbWeight;
+        public float StaticWeightFactor;
+
+        public float SafeSiblingDivisor => SiblingCount <= 1 ? 1.0f : (float)SiblingCount;
+    }
+
+    #endregion
+
+    #region 2. [PASS-02] ATOMIC TOPOLOGICAL BITMASKS
 
     /// <summary>
     /// [PASS-02] Byte bitmask flags representing anatomical and pathological states in the SoA Flags buffer.
@@ -23,7 +93,7 @@ namespace OverHaulers
 
     #endregion
 
-    #region 2. COLD PRESENTATION METADATA (Biological Def References)
+    #region 3. COLD PRESENTATION METADATA (Biological Def References)
 
     /// <summary>
     /// Memory-aligned metadata storing biological HediffDef references per body part for UI presentation.
@@ -47,7 +117,7 @@ namespace OverHaulers
 
     #endregion
 
-    #region 3. CACHED MASS METRICS CONTAINER
+    #region 4. CACHED MASS METRICS CONTAINER
 
     /// <summary>
     /// Stores cached numerical mass capacity metrics for a pawn, including the last calculated offsets,
@@ -71,7 +141,7 @@ namespace OverHaulers
 
     #endregion
 
-    #region 4. DECOUPLED CAPACITY SNAPSHOT
+    #region 5. DECOUPLED CAPACITY SNAPSHOT
 
     /// <summary>
     /// Captures a snapshot of the pawn's biological capacity state at a given moment.
@@ -87,7 +157,7 @@ namespace OverHaulers
 
     #endregion
 
-    #region 5. MASS CAPACITY EVALUATION RESULT
+    #region 6. MASS CAPACITY EVALUATION RESULT
 
     /// <summary>
     /// Readonly value-type evaluation result containing all solved Caravan Mass Capacity metrics.

@@ -1,34 +1,85 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
-    /// <summary>
-    /// [VIEW-05] High-performance compiler and aggregator for Caravan Mass Capacity across multi-pawn fleets.
-    /// Performs single-pass evaluation across transferable pawns using native ToStringMass formatting.
-    /// </summary>
-    public static class CaravanFleetAggregator
-    {
-        #region 1. [VIEW-05-A] SCRATCH STORAGE (Main-Thread Only)
+    #region 1. [VIEW-05-A] CARAVAN SUMMARY DATA STRUCTURE
 
-        private static readonly StringBuilder pooledFleetReportBuilder = new StringBuilder(2048);
+    /// <summary>
+    /// [VIEW-05] Lightweight stack-allocated value structure containing aggregate caravan mass capacity metrics
+    /// across all pawns selected for an active caravan or transport pod launch session.
+    /// Resides under Source/Presentation/Rendering/.
+    /// </summary>
+    public struct CaravanSummary
+    {
+        /// <summary>Total baseline mass capacity of all pawns in the caravan.</summary>
+        public float TotalBaseline;
+
+        /// <summary>Total actual mass capacity of all pawns in the caravan.</summary>
+        public float TotalCapacity;
+
+        /// <summary>Total number of pawns in the caravan.</summary>
+        public int TotalPawnCount;
+
+        /// <summary>Pawn with the highest gross mass capacity in the caravan.</summary>
+        public Pawn TopGrossContributor;
+
+        /// <summary>Gross mass capacity of the top contributor.</summary>
+        public float TopGrossCapacity;
+
+        /// <summary>Pawn with the highest net contribution to the caravan's capacity.</summary>
+        public Pawn TopNetContributor;
+
+        /// <summary>Net offset of the top net contributor.</summary>
+        public float TopNetOffset;
+
+        /// <summary>Actual capacity of the top net contributor.</summary>
+        public float TopNetCapacity;
+
+        /// <summary>Pawn with the most impaired net contribution in the caravan.</summary>
+        public Pawn MostImpaired;
+
+        /// <summary>Net offset of the most impaired contributor.</summary>
+        public float MostImpairedNetOffset;
+
+        /// <summary>Actual capacity of the most impaired contributor.</summary>
+        public float MostImpairedCapacity;
+
+        /// <summary>Total net offset of the caravan's capacity.</summary>
+        public float TotalNetOffset => TotalCapacity - TotalBaseline;
+
+        /// <summary>Collective multiplier of the caravan's capacity relative to the baseline.</summary>
+        public float CollectiveMultiplier => TotalBaseline > 0f ? (TotalCapacity / TotalBaseline) : 1.0f;
+    }
+
+    #endregion
+
+    /// <summary>
+    /// [VIEW-05] High-performance compiler and aggregator for caravan and transport summaries.
+    /// Performs single-pass evaluation across transferable pawns using native ToStringMass formatting.
+    /// Resides under Source/Presentation/Rendering/.
+    /// </summary>
+    public static class CaravanAggregator
+    {
+        #region 2. [VIEW-05-B] SCRATCH STORAGE (Main-Thread Only)
+
+        private static readonly StringBuilder pooledCaravanReportBuilder = new StringBuilder(2048);
 
         #endregion
 
-        #region 2. [VIEW-05-B] SINGLE-PASS FLEET AGGREGATION
+        #region 3. [VIEW-05-B] SINGLE-PASS CARAVAN AGGREGATION
 
         /// <summary>
-        /// Compiles a summary of the caravan fleet's mass capacity from a list of transferable pawns.
+        /// Compiles a summary of the caravan's mass capacity from a list of transferable pawns.
         /// </summary>
         /// <param name="transferables">The list of transferable pawns to be aggregated.</param>
-        /// <returns>A CaravanFleetSummary containing the aggregated mass capacity information for the specified transferables.</returns>
-        public static CaravanFleetSummary CompileFromTransferables(List<TransferableOneWay> transferables)
+        /// <returns>A CaravanSummary containing the aggregated mass capacity information for the specified transferables.</returns>
+        public static CaravanSummary CompileFromTransferables(List<TransferableOneWay> transferables)
         {
-            CaravanFleetSummary summary = default;
+            CaravanSummary summary = default;
             if (transferables == null || transferables.Count == 0) return summary;
 
             for (int t = 0; t < transferables.Count; t++)
@@ -66,13 +117,13 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Compiles a summary of the caravan fleet's mass capacity from a list of pawns.
+        /// Compiles a summary of the caravan's mass capacity from a list of pawns.
         /// </summary>
         /// <param name="pawns">The list of pawns to be aggregated.</param>
-        /// <returns>A CaravanFleetSummary containing the aggregated mass capacity information for the specified pawns.</returns>
-        public static CaravanFleetSummary CompileFromPawns(List<Pawn> pawns)
+        /// <returns>A CaravanSummary containing the aggregated mass capacity information for the specified pawns.</returns>
+        public static CaravanSummary CompileFromPawns(List<Pawn> pawns)
         {
-            CaravanFleetSummary summary = default;
+            CaravanSummary summary = default;
             if (pawns == null || pawns.Count == 0) return summary;
 
             for (int i = 0; i < pawns.Count; i++)
@@ -88,12 +139,12 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Aggregates the mass capacity information of a single pawn into the provided caravan fleet summary.
+        /// Aggregates the mass capacity information of a single pawn into the provided caravan summary.
         /// Evaluates gross capacity alongside net delta offsets for true standout performer tracking.
         /// </summary>
         /// <param name="pawn">The pawn whose mass capacity information is to be aggregated.</param>
-        /// <param name="summary">The caravan fleet summary to which the pawn's mass capacity information will be added.</param>
-        private static void AggregatePawnIntoSummary(Pawn pawn, ref CaravanFleetSummary summary)
+        /// <param name="summary">The caravan summary to which the pawn's mass capacity information will be added.</param>
+        private static void AggregatePawnIntoSummary(Pawn pawn, ref CaravanSummary summary)
         {
             if (pawn == null) return;
 
@@ -142,31 +193,31 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [VIEW-05-C] FLEET SUMMARY EXPLANATION BUILDER
+        #region 4. [VIEW-05-C] CARAVAN SUMMARY EXPLANATION BUILDER
 
         /// <summary>
-        /// Builds a textual explanation of the caravan fleet's mass capacity summary for display in the InfoCard overlay.
+        /// Builds a textual explanation of the caravan's mass capacity summary for display in the hover tooltip summary.
         /// Formats into a vertically stacked presentation with smart Net/Gross performer collapse and symmetrical gear callouts.
         /// </summary>
-        /// <param name="summary">The caravan fleet summary to be explained.</param>
-        /// <returns>A string containing the formatted explanation of the caravan fleet's mass capacity summary.</returns>
-        public static string BuildFleetExplanation(in CaravanFleetSummary summary)
+        /// <param name="summary">The caravan summary to be explained.</param>
+        /// <returns>A string containing the formatted explanation of the caravan's mass capacity summary.</returns>
+        public static string BuildCaravanReport(in CaravanSummary summary)
         {
             if (!UnityData.IsInMainThread || summary.TotalPawnCount == 0) return string.Empty;
 
-            pooledFleetReportBuilder.Clear();
+            pooledCaravanReportBuilder.Clear();
 
             try
             {
-                pooledFleetReportBuilder.AppendLine(); // Visual spacer beneath vanilla's secondary "Mass capacity:" section header
+                pooledCaravanReportBuilder.AppendLine(); // Visual spacer beneath vanilla's secondary "Mass capacity:" section header
 
                 // 1. Header Banner
                 string netOffsetStr = summary.TotalNetOffset.ToStringMassOffset();
                 string multStr = summary.CollectiveMultiplier.ToString("F2");
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
+                pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_Header".Translate(multStr, netOffsetStr).ToString());
 
                 // 2. Physical Total
-                pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
+                pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
 
                 // 3. Standout Performers: Net vs Gross with Smart Collapse
                 // BREAKPOINT ANCHOR: Standout Performer Smart Collapse (Net vs Gross)
@@ -176,11 +227,11 @@ namespace OverHaulers
                 // Case A: Split - Top net gainer is different from top gross carrier (e.g. Augmented Colonist vs Pack Elephant)
                 if (hasNet && hasGross && summary.TopNetContributor != summary.TopGrossContributor)
                 {
-                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
-                    AppendPerformerDetail(pooledFleetReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorNet".Translate(summary.TopNetContributor.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledCaravanReportBuilder, summary.TopNetContributor, summary.TopNetCapacity);
 
-                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
-                    AppendPerformerDetail(pooledFleetReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributorGross".Translate(summary.TopGrossContributor.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledCaravanReportBuilder, summary.TopGrossContributor, summary.TopGrossCapacity);
                 }
                 // Case B: Collapsed - Single standout asset (same pawn won both, or nobody has net augmentations)
                 else if (hasGross)
@@ -188,22 +239,22 @@ namespace OverHaulers
                     Pawn topPawn = hasNet ? summary.TopNetContributor : summary.TopGrossContributor;
                     float topCapacity = hasNet ? summary.TopNetCapacity : summary.TopGrossCapacity;
 
-                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
-                    AppendPerformerDetail(pooledFleetReportBuilder, topPawn, topCapacity);
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_TopContributor".Translate(topPawn.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledCaravanReportBuilder, topPawn, topCapacity);
                 }
 
                 // 4. Most Impaired (Greatest Net Deficit)
                 if (summary.MostImpaired != null)
                 {
-                    pooledFleetReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
-                    AppendPerformerDetail(pooledFleetReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
+                    pooledCaravanReportBuilder.AppendLine("OverHaulers_Fleet_MostImpaired".Translate(summary.MostImpaired.LabelShortCap).ToString());
+                    AppendPerformerDetail(pooledCaravanReportBuilder, summary.MostImpaired, summary.MostImpairedCapacity);
                 }
 
-                return pooledFleetReportBuilder.ToString();
+                return pooledCaravanReportBuilder.ToString();
             }
             finally
             {
-                pooledFleetReportBuilder.Clear();
+                pooledCaravanReportBuilder.Clear();
             }
         }
 

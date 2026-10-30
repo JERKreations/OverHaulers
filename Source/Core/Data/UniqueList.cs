@@ -7,7 +7,7 @@ namespace OverHaulers
     /// [PASS-01 & VIEW-03] Thread-isolated, zero-allocation container pairing a <see cref="List{T}"/> with a <see cref="HashSet{T}"/> 
     /// to guarantee O(1) unique element insertions while maintaining linear index-based iteration order.
     /// Reuses backing buffers across reset cycles to guarantee 0 GC allocations during calculation passes.
-    /// Resides under Source/Core/.
+    /// Resides under Source/Core/Data/.
     /// </summary>
     /// <typeparam name="T">Value or reference type being tracked uniquely.</typeparam>
     public class UniqueList<T> : IReadOnlyList<T>

@@ -4,23 +4,6 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [TOPO-SUB-02] TRANSIENT GRAPH COMPILATION STRUCT
-
-    public struct PartTopologyInfo
-    {
-        public PartType Type;
-        public int ParentIndex;
-        public int RootPartIndex;
-        public int SiblingCount;
-        public int Depth;
-        public float UnnormalizedLimbWeight;
-        public float StaticWeightFactor;
-
-        public float SafeSiblingDivisor => SiblingCount <= 1 ? 1.0f : (float)SiblingCount;
-    }
-
-    #endregion
-
     /// <summary>
     /// [TOPO-SUB-02] APPENDAGE TOPOLOGY SUB-COMPILER
     /// Stateless sub-compiler managing limb classification, dual-purpose appendages, and connective anchor reclamation.
@@ -28,7 +11,7 @@ namespace OverHaulers
     /// </summary>
     public static class Pass02_AppendageSubCompiler
     {
-        #region 2. [TOPO-SUB-02] PASS 2: ANATOMICAL CLASSIFICATION & ROOT DISCOVERY
+        #region 1. [TOPO-SUB-02] PASS 2: ANATOMICAL CLASSIFICATION & ROOT DISCOVERY
 
         /// <summary>
         /// Compiles the anatomical classifications for each body part, determining limb types, dual-purpose appendages, and other structural roles.
@@ -53,7 +36,7 @@ namespace OverHaulers
             resolvedTypes = new PartType[partCount];
             counts = default;
 
-            #region 2A. Base Identification & Limb Tag Checks
+            #region 1A. Base Identification & Limb Tag Checks
 
             // Iterates through all body parts to perform initial classification and tagging based on coverage, mod extensions, and anatomical features.
             for (int i = 0; i < partCount; i++)
@@ -102,7 +85,7 @@ namespace OverHaulers
 
             #endregion
 
-            #region 2B. Bidirectional Branch Propagation
+            #region 1B. Bidirectional Branch Propagation
 
             // ANATOMICAL RATIONALE (THE UNTAGGED MODDED BONE PROBLEM):
             // In vanilla and many modded xenotypes, intermediate bones (like Forearm or Humerus) often lack 
@@ -151,7 +134,7 @@ namespace OverHaulers
 
             #endregion
 
-            #region 2C. Connective Anchor-Bridge Reclassification
+            #region 1C. Connective Anchor-Bridge Reclassification
 
             // Reclassifies parts that serve as connective anchors or bridges between major structural components, ensuring accurate representation of load-bearing elements.
             for (int i = 0; i < partCount; i++)
@@ -174,7 +157,7 @@ namespace OverHaulers
 
             #endregion
 
-            #region 2D. Root Counts & Primary Limb Capture
+            #region 1D. Root Counts & Primary Limb Capture
 
             // Tallies the number of root parts for each major category and captures the primary definitions for limbs, ensuring accurate
             // representation of the entity's appendage structure.
@@ -218,7 +201,7 @@ namespace OverHaulers
 
             #endregion
 
-            #region 2E. Branch Depths & Sibling Mapping
+            #region 1E. Branch Depths & Sibling Mapping
 
             // Constructs temporary topology information for each part, capturing depth, root indices, and initial sibling counts.
             // This information will later be used to determine sibling relationships and branch depths for appendage parts.

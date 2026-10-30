@@ -5,17 +5,6 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. TOPOLOGICAL ENUMS & TAXONOMY
-
-    public enum TorsoRole
-    {
-        Peripheral = 0,
-        AnchorBridge = 1,
-        AxialColumn = 2
-    }
-
-    #endregion
-
     /// <summary>
     /// [TOPO-01 to TOPO-03] TOPOLOGY LAYOUT COMPILER ORCHESTRATOR
     /// Thread-safe layout compiler orchestrating modular sub-compilers to pre-compute species <see cref="BodyDef"/> trees
@@ -31,7 +20,7 @@ namespace OverHaulers
     [StaticConstructorOnStartup]
     public static class TopologyLayoutCompiler
     {
-        #region 2. STATIC DEF POINTERS & CACHED TAGS
+        #region 1. STATIC DEF POINTERS & CACHED TAGS
 
         public static readonly HashSet<BodyPartTagDef> armTags = new HashSet<BodyPartTagDef>();
         public static readonly HashSet<BodyPartTagDef> legTags = new HashSet<BodyPartTagDef>();
@@ -113,7 +102,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. COMPILATION LIFECYCLE & CACHE MANAGEMENT
+        #region 2. COMPILATION LIFECYCLE & CACHE MANAGEMENT
 
         // Cache for compiled species topology templates.
         private static readonly ConcurrentDictionary<BodyDef, Lazy<SpeciesTopologyTemplate>> speciesTopologyCache = 
@@ -299,7 +288,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. REGIONAL BUDGET QUERY ENDPOINTS
+        #region 3. REGIONAL BUDGET QUERY ENDPOINTS
 
         /// <summary>
         /// Retrieves the weight budget for a specific body part within a given species topology template.
@@ -330,7 +319,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. ANATOMICAL PREDICATES
+        #region 4. ANATOMICAL PREDICATES
 
         /// <summary>
         /// Determines whether the specified body part belongs to the torso group.
@@ -395,7 +384,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. ORCHESTRATION PIPELINE
+        #region 5. ORCHESTRATION PIPELINE
 
         /// <summary>
         /// Builds a species topology template based on the specified body definition.

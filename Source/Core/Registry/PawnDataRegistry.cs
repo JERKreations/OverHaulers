@@ -291,34 +291,6 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Retrieves pre-computed fleet breakdown metrics for a pawn directly from cached vectors without allocating UI view models.
-        /// </summary>
-        /// <param name="pawn">The pawn entity being evaluated.</param>
-        /// <param name="baselineCapacity">The species baseline mass capacity in kilograms.</param>
-        /// <param name="prostheticBoost">Outputs the solved mass capacity boost from prosthetics in kg.</param>
-        /// <param name="healthDeficit">Outputs the solved mass capacity penalty from health deficits in kg.</param>
-        /// <param name="athleticOffset">Outputs the solved mass capacity offset from athletic implants in kg.</param>
-        /// <returns>True if metrics were successfully retrieved; otherwise, false.</returns>
-        public static bool TryGetFleetMetrics(Pawn pawn, float baselineCapacity, out float prostheticBoost, out float healthDeficit, out float athleticOffset)
-        {
-            prostheticBoost = 0f;
-            healthDeficit = 0f;
-            athleticOffset = 0f;
-
-            if (pawn == null || !CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread) return false;
-            GetOffset(pawn, baselineCapacity);
-
-            if (capacityCache.TryGetValue(pawn.thingIDNumber, out CachedMassData node))
-            {
-                prostheticBoost = node.ProstheticBoost;
-                healthDeficit = node.HealthDeficit;
-                athleticOffset = node.AthleticOffset;
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>
         /// Reactively invalidates a pawn's cache entry, marking it stale for lazy re-evaluation.
         /// Leaves the background snapshot table intact to serve continuous numbers until the main thread updates.
         /// Calls from background threads are safely enqueued and processed on the next main tick.

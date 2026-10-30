@@ -7,45 +7,20 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. MEDICAL TAXONOMY & ENUMS
+    #region 1. MEDICAL TAXONOMY & HEDIFF MODELS
 
-    public enum PartType
-    {
-        None = 0,
-        CorePart = 1,
-        ManipulationPart = 2,
-        MovingPart = 3,
-        HeadPart = 4,
-        DualLimb = 5
-    }
-
-    public struct PartCounts
-    {
-        public int CoreParts;
-        public int ManipulationParts;
-        public int MovingParts;
-        public int DualLimbs;
-        public int HeadParts;
-
-        public int TotalManipulationRoots => ManipulationParts + DualLimbs;
-        public int TotalMovingRoots => MovingParts + DualLimbs;
-    }
-
-    /// <summary>Which weighting curve a limb part's mass share was computed with (diagnostic-facing).</summary>
-    public enum LimbWeightModel
-    {
-        NotApplicable = 0,
-        GeometricDecay = 1,
-        HpRatio = 2,
-        ExplicitOverride = 3
-    }
-
+    /// <summary>
+    /// Evaluated runtime characteristics of an installed prosthetic or bionic implant.
+    /// </summary>
     public struct ImplantCharacteristics
     {
         public float EfficiencyModifier;
         public bool AffectsAthletics;
     }
 
+    /// <summary>
+    /// Categorical bitmask flags classifying hediff behavior and systemic impacts.
+    /// </summary>
     [Flags]
     public enum HediffFlags : byte
     {

@@ -22,20 +22,20 @@ namespace OverHaulers
         private static readonly AccessTools.FieldRef<Dialog_LoadTransporters, List<TransferableOneWay>> loadTransportersAccessor;
         private static readonly AccessTools.FieldRef<Dialog_SplitCaravan, List<TransferableOneWay>> splitCaravanAccessor;
 
-        private static string cachedFleetHeaderPrefix;
+        private static string cachedCaravanHeaderPrefix;
 
-        /// <summary>Retrieves the localized fleet header prefix substring preceding format arguments for deduplication detection.</summary>
-        private static string FleetHeaderPrefix
+        /// <summary>Retrieves the localized caravan header prefix substring preceding format arguments for deduplication detection.</summary>
+        private static string CaravanHeaderPrefix
         {
             get
             {
-                if (cachedFleetHeaderPrefix == null)
+                if (cachedCaravanHeaderPrefix == null)
                 {
                     string raw = "OverHaulers_Fleet_Header".Translate().ToString();
                     int splitIdx = raw.IndexOf('{');
-                    cachedFleetHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
+                    cachedCaravanHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;
                 }
-                return cachedFleetHeaderPrefix;
+                return cachedCaravanHeaderPrefix;
             }
         }
 
@@ -73,34 +73,33 @@ namespace OverHaulers
 
         /// <summary>
         /// Postfix hook on Caravan.MassCapacityExplanation.
-        /// Compiles and prepends the aggregate Caravan Fleet Summary directly onto the world map inspect panel tooltip.
+        /// Compiles and prepends the aggregate Caravan Summary directly onto the world map inspect panel tooltip.
         /// </summary>
         /// <param name="__instance">The caravan instance for which the mass capacity explanation is being generated.</param>
-        /// <param name="__result">The resulting mass capacity explanation string, which will be modified to include the fleet summary.</param>
+        /// <param name="__result">The resulting mass capacity explanation string, which will be modified to include the caravan summary.</param>
         public static void Caravan_MassCapacityExplanation_Postfix(Caravan __instance, ref string __result)
         {
             if (__instance?.PawnsListForReading == null || __instance.PawnsListForReading.Count == 0) return;
 
             try
             {
-                CaravanFleetSummary summary = CaravanFleetAggregator.CompileFromPawns(__instance.PawnsListForReading);
+                CaravanSummary summary = CaravanAggregator.CompileFromPawns(__instance.PawnsListForReading);
                 if (summary.TotalPawnCount == 0) return;
 
-                string fleetExplanation = CaravanFleetAggregator.BuildFleetExplanation(in summary);
-                if (string.IsNullOrEmpty(fleetExplanation)) return;
+                string caravanReport = CaravanAggregator.BuildCaravanReport(in summary);
+                if (string.IsNullOrEmpty(caravanReport)) return;
 
-                // Clean merge that strips the redundant "Mass capacity:" header from the vanilla explanation
-                __result = MergeFleetExplanation(fleetExplanation, __result);
+                __result = MergeCaravanExplanation(caravanReport, __result);
             }
             catch (Exception ex)
             {
-                OHLog.Presentation.Warn("Caravan_MassCapacityExplanation_Postfix", ex, "Failed to compile caravan fleet summary.");
+                OHLog.Presentation.Warn("Caravan_MassCapacityExplanation_Postfix", ex, "Failed to compile caravan summary.");
             }
         }
 
         /// <summary>
         /// Prefix hook on CaravanUIUtility.DrawCaravanInfo.
-        /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject fleet breakdowns.
+        /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject caravan breakdowns.
         /// </summary>
         /// <param name="info">The caravan info structure containing the mass capacity explanation to be potentially modified.</param>
         public static void DrawCaravanInfo_Prefix(ref CaravanUIUtility.CaravanInfo info)
@@ -108,7 +107,7 @@ namespace OverHaulers
             if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
 
             // BREAKPOINT ANCHOR: Fast O(1) Header Deduplication Gate
-            if (info.massCapacityExplanation.IndexOf(FleetHeaderPrefix, StringComparison.Ordinal) >= 0)
+            if (info.massCapacityExplanation.IndexOf(CaravanHeaderPrefix, StringComparison.Ordinal) >= 0)
             {
                 return;
             }
@@ -166,43 +165,42 @@ namespace OverHaulers
         /// Injects the compiled fleet summary into the provided mass capacity explanation string.
         /// </summary>
         /// <param name="transferables">The list of transferables (pawns and items) involved in the caravan or transport operation.</param>
-        /// <param name="explanation">The mass capacity explanation string to be modified with the fleet summary.</param>
+        /// <param name="explanation">The mass capacity explanation string to be modified with the caravan summary.</param>
         private static void InjectSummaryIntoExplanation(List<TransferableOneWay> transferables, ref string explanation)
         {
             try
             {
-                CaravanFleetSummary summary = CaravanFleetAggregator.CompileFromTransferables(transferables);
+                CaravanSummary summary = CaravanAggregator.CompileFromTransferables(transferables);
                 if (summary.TotalPawnCount == 0) return;
 
-                string fleetExplanation = CaravanFleetAggregator.BuildFleetExplanation(in summary);
-                if (string.IsNullOrEmpty(fleetExplanation)) return;
+                string caravanReport = CaravanAggregator.BuildCaravanReport(in summary);
+                if (string.IsNullOrEmpty(caravanReport)) return;
 
-                // Clean merge that strips the redundant "Mass capacity:" header from the vanilla explanation
-                explanation = MergeFleetExplanation(fleetExplanation, explanation);
+                explanation = MergeCaravanExplanation(caravanReport, explanation);
             }
             catch (Exception ex)
             {
-                OHLog.Presentation.Warn("InjectSummaryIntoExplanation", ex, "Failed to inject fleet summary into mass capacity explanation.");
+                OHLog.Presentation.Warn("InjectSummaryIntoExplanation", ex, "Failed to inject caravan summary into mass capacity explanation.");
             }
         }
 
         /// <summary>
-        /// Merges the OverHaulers fleet summary with the vanilla mass capacity breakdown.
+        /// Merges the OverHaulers caravan summary with the vanilla mass capacity breakdown.
         /// Preserves the vanilla breakdown and all third-party mod entries intact.
         /// </summary>
-        /// <param name="fleetExplanation">The OverHaulers fleet summary explanation string.</param>
+        /// <param name="caravanReport">The OverHaulers caravan summary explanation string.</param>
         /// <param name="vanillaExplanation">The original vanilla mass capacity explanation string.</param>
-        /// <returns>The merged explanation string combining both the fleet summary and the vanilla breakdown.</returns>
-        private static string MergeFleetExplanation(string fleetExplanation, string vanillaExplanation)
+        /// <returns>The merged explanation string combining both the caravan summary and the vanilla breakdown.</returns>
+        private static string MergeCaravanExplanation(string caravanReport, string vanillaExplanation)
         {
             if (string.IsNullOrEmpty(vanillaExplanation))
             {
-                return fleetExplanation;
+                return caravanReport;
             }
 
             string cleanVanilla = vanillaExplanation.Trim('\r', '\n');
 
-            return fleetExplanation + "\n" + cleanVanilla;
+            return caravanReport + "\n" + cleanVanilla;
         }
 
         #endregion
