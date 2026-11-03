@@ -47,9 +47,10 @@ namespace OverHaulers
                 try
                 {
                     float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
-                    float offset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
-                    val += offset;
-                    val = MassCapacitySolver.EnforceSafetyFloorForPawn(val, pawn);
+                    //float offset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
+
+                    val += PawnDataRegistry.GetOffset(pawn, bioBaseline);
+                    val = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(val, pawn);
                 }
                 finally
                 {
@@ -85,7 +86,12 @@ namespace OverHaulers
                 float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, bioBaseline);
                 
-                return detailedMassModel?.Explanation ?? string.Empty;
+                string explanation = detailedMassModel?.Explanation;
+                if (!string.IsNullOrEmpty(explanation))
+                {
+                    return "\n" + explanation; // headspace above the summary header.
+                }
+                return string.Empty;
             }
             return null;
         }

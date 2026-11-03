@@ -51,16 +51,16 @@ namespace OverHaulers
 
                 // Row 3: Physical Deficits & Maximum Impact Floor (Unified Composite Row)
                 bool prevInjuryToggle = settings.enablePartHealth;
-                bool floorIsAtMax = settings.massCapacityFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon;
+                bool floorIsAtMax = settings.configurablePercentileFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon;
 
-                string floorReadout = "OverHaulers_DeficitsFloorReadout".Translate(settings.massCapacityFloor.ToStringPercent()).ToString();
+                string floorReadout = "OverHaulers_DeficitsFloorReadout".Translate(settings.configurablePercentileFloor.ToStringPercent()).ToString();
 
                 localY = SettingsViewUtilities.DrawToggleSettingRowWithDescriptionDirect(
                     inner,
                     ref settings.enablePartHealth,
                     "OverHaulers_Deficits_Label".Translate().ToString(),
-                    ref settings.massCapacityFloor,
-                    SettingsDefaults.MassCapacityFloorMin, SettingsDefaults.MassCapacityFloorMax,
+                    ref settings.configurablePercentileFloor,
+                    SettingsDefaults.ConfigurablePercentileFloorMin, SettingsDefaults.ConfigurablePercentileFloorMax,
                     "OverHaulers_Deficits_Desc".Translate().ToString(),
                     localY,
                     highlight: isResetHovered,
@@ -70,10 +70,10 @@ namespace OverHaulers
                 // Safety Floor synchronizations
                 if (!prevInjuryToggle && settings.enablePartHealth && floorIsAtMax)
                 {
-                    settings.massCapacityFloor = 0.95f;
+                    settings.configurablePercentileFloor = 0.95f;
                 }
 
-                if (settings.massCapacityFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon && settings.enablePartHealth)
+                if (settings.configurablePercentileFloor >= 1.00f - PawnDataRegistry.EfficiencyEpsilon && settings.enablePartHealth)
                 {
                     settings.enablePartHealth = false;
                 }
@@ -82,7 +82,7 @@ namespace OverHaulers
                 localY = SettingsViewUtilities.DrawCheckboxRowDirect(
                     inner,
                     "OverHaulers_EnableGlobalSafetyFloor".Translate().ToString(),
-                    ref settings.compatibilitySafetyFloor,
+                    ref settings.enableHardCompatibilitySafetyFloor,
                     localY,
                     "OverHaulers_EnableGlobalSafetyFloor_Tooltip".Translate().ToString(),
                     isResetHovered

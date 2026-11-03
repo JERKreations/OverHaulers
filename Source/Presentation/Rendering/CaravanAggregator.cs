@@ -216,8 +216,8 @@ namespace OverHaulers
                 string multStr = summary.CollectiveMultiplier.ToString("F2");
                 pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_Header".Translate(multStr, netOffsetStr).ToString());
 
-                // 2. Physical Total
-                pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_Total".Translate(summary.TotalCapacity.ToStringMass()).ToString());
+                // 2. Physical Max Capacity
+                pooledCaravanReportBuilder.AppendLine("OverHaulers_Caravan_PhysicalMax".Translate(summary.TotalCapacity.ToStringMass()).ToString());
 
                 // 3. Standout Performers: Net vs Gross with Smart Collapse
                 // BREAKPOINT ANCHOR: Standout Performer Smart Collapse (Net vs Gross)

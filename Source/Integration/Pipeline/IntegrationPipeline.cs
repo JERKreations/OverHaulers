@@ -52,14 +52,43 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>Indicates whether a foreign mass capacity stat has been adopted for presentation.</summary>
         public static bool IsForeignStatAdopted { get; private set; }
+
+        /// <summary>The owner of the currently active mass capacity stat (e.g., "Native", "XML:ProfileName", "CIL:PatchName").</summary>
         public static string ActiveStatOwner { get; private set; } = "Native";
+
+        /// <summary>Short label for the host mod of the active profile.</summary>
+        public static string ActiveProfileHostLabelShort { get; private set; }
+
+        /// <summary>Indicates whether the active profile allows authoritative takeover of adopted stats.</summary>
+        public static bool ActiveProfileAllowsAuthoritativeTakeover { get; private set; }
+
+        /// <summary>Indicates whether authoritative takeover of adopted stats is currently active.</summary>
+        public static bool IsAuthoritativeTakeoverActive { get; private set; }
+
+        /// <summary>Indicates whether the active profile requires caravan formation explanation string synchronization.</summary>
+        public static bool ActiveProfileSyncFormationCapacity { get; private set; }
+
+        /// <summary>Indicates whether authoritative takeover of adopted stats is enabled in the current session.</summary>
+        private static List<PawnCapacityFactor> cachedRemovedCapacityFactors;
+
+        /// <summary>Indicates whether authoritative takeover of adopted stats is enabled in the current session.</summary>
+        private static List<StatDef> cachedRemovedStatFactors;
+
+        /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
         public static bool IsInitialized => isInitialized;
+
+        /// <summary>Indicates whether the integration pipeline has performed a scan during the current session.</summary>
         public static bool HasScannedThisSession { get; private set; } = false;
 
+        /// <summary>A list of all discovered patches relevant to mass capacity stat adoption.</summary>
         public static List<DiscoveredPatchInfo> DiscoveredPatches { get; } = new List<DiscoveredPatchInfo>();
 
+        /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
         private static bool isInitialized = false;
+
+        /// <summary>Keywords used to identify relevant mass capacity stats in external mods.</summary>
         private static readonly string[] StatKeywords = { "mass", "weight", "capacity", "caravan", "carry", "load", "pack" };
 
         #endregion
@@ -107,9 +136,9 @@ namespace OverHaulers
             else if (key.StartsWith(PresentationKeyXmlPrefix))
             {
                 string defName = key.Substring(PresentationKeyXmlPrefix.Length);
-                if (TryResolveXmlStatByDefName(defName, out string owner, out StatDef targetStat))
+                if (TryResolveXmlProfileByDefName(defName, out MassCapacityStatProfileDef profile, out StatDef targetStat))
                 {
-                    AdoptForeignStatPresentation(owner, targetStat, localizedSuffix);
+                    AdoptForeignStatPresentation(profile.label ?? profile.defName, targetStat, localizedSuffix, profile);
                 }
                 else
                 {
@@ -158,6 +187,10 @@ namespace OverHaulers
             ActiveMassCapacityStat = nativeStat;
             ActiveStatOwner = "Native";
             IsForeignStatAdopted = false;
+            ActiveProfileHostLabelShort = null;
+            ActiveProfileAllowsAuthoritativeTakeover = false;
+            IsAuthoritativeTakeoverActive = false;
+            ActiveProfileSyncFormationCapacity = false;
 
             OHLog.Integration.StatPresentationBound("Native", nativeStat?.defName ?? "OverHaulers_CaravanMassCapacity", localizedSuffix);
         }
@@ -169,7 +202,12 @@ namespace OverHaulers
         /// <param name="owner">The owner identifier or mod name associated with the foreign stat.</param>
         /// <param name="foreignStat">The foreign StatDef being adopted.</param>
         /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
-        private static void AdoptForeignStatPresentation(string owner, StatDef foreignStat, string localizedSuffix)
+        /// <param name="profile">The mass capacity stat profile associated with the foreign stat, if any.</param>
+        private static void AdoptForeignStatPresentation(
+            string owner,
+            StatDef foreignStat,
+            string localizedSuffix,
+            MassCapacityStatProfileDef profile = null)
         {
             if (foreignStat == null)
             {
@@ -178,6 +216,54 @@ namespace OverHaulers
             }
 
             CleanupAdoptedForeignStat();
+
+            ActiveProfileHostLabelShort = (profile != null && !string.IsNullOrEmpty(profile.hostLabelShort))
+                ? profile.hostLabelShort
+                : (!string.IsNullOrEmpty(owner) ? owner : "Host");
+
+            ActiveProfileAllowsAuthoritativeTakeover = profile != null && profile.allowAuthoritativeTakeover;
+            ActiveProfileSyncFormationCapacity = profile != null && profile.syncFormationCapacity;
+
+            bool shouldTakeOver = ActiveProfileAllowsAuthoritativeTakeover;
+
+            if (shouldTakeOver)
+            {
+                // 1. Surgical Capacity Factor Neutralization (e.g. Removing 'Moving' on CE)
+                if (profile.neutraliseCapacityFactors != null && profile.neutraliseCapacityFactors.Count > 0 && foreignStat.capacityFactors != null)
+                {
+                    cachedRemovedCapacityFactors = new List<PawnCapacityFactor>();
+                    for (int i = foreignStat.capacityFactors.Count - 1; i >= 0; i--)
+                    {
+                        PawnCapacityFactor factor = foreignStat.capacityFactors[i];
+                        if (factor.capacity != null && profile.neutraliseCapacityFactors.Contains(factor.capacity.defName))
+                        {
+                            cachedRemovedCapacityFactors.Add(factor);
+                            foreignStat.capacityFactors.RemoveAt(i);
+                        }
+                    }
+                }
+
+                // 2. Surgical Stat Factor Neutralization (e.g. BodySize)
+                if (profile.neutraliseStatFactors != null && profile.neutraliseStatFactors.Count > 0 && foreignStat.statFactors != null)
+                {
+                    cachedRemovedStatFactors = new List<StatDef>();
+                    for (int i = foreignStat.statFactors.Count - 1; i >= 0; i--)
+                    {
+                        StatDef factor = foreignStat.statFactors[i];
+                        if (factor != null && profile.neutraliseStatFactors.Contains(factor.defName))
+                        {
+                            cachedRemovedStatFactors.Add(factor);
+                            foreignStat.statFactors.RemoveAt(i);
+                        }
+                    }
+                }
+
+                IsAuthoritativeTakeoverActive = true;
+            }
+            else
+            {
+                IsAuthoritativeTakeoverActive = false;
+            }
 
             // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
             StatDef nativeStat = OverHaulersStatDefOf.OverHaulers_CaravanMassCapacity;
@@ -211,45 +297,24 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Automatically resolves the most appropriate presentation card.
-        /// Prioritizes declarative XML profiles, then CIL transpiler patches, falling back to Native.
+        /// Automatically resolves the most appropriate presentation card on boot.
+        /// Prioritizes declarative XML profiles, falling back to Native Standalone mode.
+        /// Dynamic CIL bytecode scanning is intentionally decoupled and only executes upon explicit player request.
         /// </summary>
         /// <param name="settings">The current settings object containing user preferences and configuration.</param>
         /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
         private static void ResolveAutoPresentation(Settings settings, string localizedSuffix)
         {
-            // Tier 1: Declarative XML Profiles (High-Speed O(1) Matching)
-            if (TryResolveHighestPriorityXmlStat(out string xmlOwner, out StatDef xmlStat))
+            // Tier 1: Declarative XML Profiles (High-Speed O(1) Matching, 100% verified safety)
+            if (TryResolveHighestPriorityXmlProfile(out MassCapacityStatProfileDef profile, out StatDef xmlStat))
             {
-                AdoptForeignStatPresentation(xmlOwner, xmlStat, localizedSuffix);
+                AdoptForeignStatPresentation(profile.label ?? profile.defName, xmlStat, localizedSuffix, profile);
                 return;
             }
 
-            // Tier 2: Dynamic Heuristic CIL Discovery (Fallback for unlisted mods)
-            EnsurePatchesInspected();
-
-            if (DiscoveredPatches.Count > 0)
-            {
-                List<string> modOwners = new List<string>(DiscoveredPatches.Count);
-                for (int i = 0; i < DiscoveredPatches.Count; i++)
-                {
-                    modOwners.Add(DiscoveredPatches[i].Owner);
-                }
-                OHLog.Integration.ExternalPatchesDetected(string.Join(", ", modOwners));
-
-                DiscoveredPatchInfo selectedPatch = SelectTargetPatch();
-                StatDef chosenStat = selectedPatch.TargetStat;
-
-                // Tier 2a: If a valid target stat is found within the discovered patch, adopt it for presentation.
-                if (chosenStat != null)
-                {
-                    string owner = !string.IsNullOrEmpty(selectedPatch.Owner) ? selectedPatch.Owner : chosenStat.defName;
-                    AdoptForeignStatPresentation(owner, chosenStat, localizedSuffix);
-                    return;
-                }
-            }
-
-            // Tier 3: Pure Vanilla Standalone Default
+            // Tier 2: Pure Vanilla Standalone Default
+            // Dynamic CIL scanning is strictly quarantined to on-demand player activation in Mod Settings
+            // to prevent unvetted third-party patches from hijacking presentation or causing .cctor landmines on boot.
             BindNativePresentation(localizedSuffix);
         }
 
@@ -272,7 +337,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Detaches MassCapacityStatPart from the currently adopted foreign stat.
+        /// Detaches MassCapacityStatPart from the currently adopted foreign stat
+        /// and restores any original capacity factors or stat factors that were neutralized during adoption.
         /// </summary>
         private static void CleanupAdoptedForeignStat()
         {
@@ -282,7 +348,33 @@ namespace OverHaulers
                 {
                     ActiveMassCapacityStat.parts.RemoveAll(p => p is MassCapacityStatPart);
                 }
+
+                // Restore any surgically neutralized capacityFactors
+                if (cachedRemovedCapacityFactors != null)
+                {
+                    if (ActiveMassCapacityStat.capacityFactors == null)
+                    {
+                        ActiveMassCapacityStat.capacityFactors = new List<PawnCapacityFactor>();
+                    }
+                    ActiveMassCapacityStat.capacityFactors.AddRange(cachedRemovedCapacityFactors);
+                    cachedRemovedCapacityFactors = null;
+                }
+
+                // Restore any surgically neutralized statFactors
+                if (cachedRemovedStatFactors != null)
+                {
+                    if (ActiveMassCapacityStat.statFactors == null)
+                    {
+                        ActiveMassCapacityStat.statFactors = new List<StatDef>();
+                    }
+                    ActiveMassCapacityStat.statFactors.AddRange(cachedRemovedStatFactors);
+                    cachedRemovedStatFactors = null;
+                }
             }
+
+            IsAuthoritativeTakeoverActive = false;
+            ActiveProfileAllowsAuthoritativeTakeover = false;
+            ActiveProfileSyncFormationCapacity = false;
         }
 
         /// <summary>
@@ -308,10 +400,12 @@ namespace OverHaulers
         /// </summary>
         /// <param name="owner">The resolved owner name of the profile definition.</param>
         /// <param name="stat">The resolved StatDef associated with the profile.</param>
+        /// <param name="hostLabelShort">The short label for the host mod, used in UI displays.</param>
+        /// <param name="hostDeltaScaling">Indicates whether host delta scaling is enabled for the resolved profile.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
-        public static bool TryResolveHighestPriorityXmlStat(out string owner, out StatDef stat)
+        public static bool TryResolveHighestPriorityXmlProfile(out MassCapacityStatProfileDef profile, out StatDef stat)
         {
-            owner = null;
+            profile = null;
             stat = null;
             List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
             if (allXmlProfiles == null || allXmlProfiles.Count == 0) return false;
@@ -324,7 +418,7 @@ namespace OverHaulers
             {
                 if (sortedProfiles[i].IsValidAndActive(out StatDef resolved))
                 {
-                    owner = sortedProfiles[i].label ?? sortedProfiles[i].defName;
+                    profile = sortedProfiles[i];
                     stat = resolved;
                     return true;
                 }
@@ -339,15 +433,16 @@ namespace OverHaulers
         /// <param name="defName">The name of the profile definition to resolve.</param>
         /// <param name="owner">The resolved owner name of the profile definition.</param>
         /// <param name="stat">The resolved StatDef associated with the profile.</param>
+        /// <param name="hostDeltaScaling">Indicates whether host delta scaling is enabled for the resolved profile.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
-        public static bool TryResolveXmlStatByDefName(string defName, out string owner, out StatDef stat)
+        public static bool TryResolveXmlProfileByDefName(string defName, out MassCapacityStatProfileDef profile, out StatDef stat)
         {
-            owner = null;
+            profile = null;
             stat = null;
             MassCapacityStatProfileDef def = DefDatabase<MassCapacityStatProfileDef>.GetNamedSilentFail(defName);
             if (def != null && def.IsValidAndActive(out StatDef resolved))
             {
-                owner = def.label ?? def.defName;
+                profile = def;
                 stat = resolved;
                 return true;
             }
@@ -508,63 +603,67 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Inspects the CIL instructions of the specified method to identify references to StatDef fields and adds them to the list of candidate stats.
+        /// Inspects the CIL instructions of the specified method to identify references to StatDef fields and adds them to the list
+        ///  of candidate stats.
+        /// Fully shielded against .cctor static constructor poisoning, DynamicMethods, and missing method bodies.
         /// </summary>
         /// <param name="method">The method whose CIL instructions are to be inspected.</param>
         /// <param name="candidates">The list of candidate StatDef instances to populate based on the inspection.</param>
         private static void InspectMethodCilForStats(MethodInfo method, List<StatDef> candidates)
         {
-            if (method == null) return;
+            if (!CanSafelyInspectMethod(method)) return;
 
             try
             {
+                // Check if this method is an iterator state machine transpiler (yield return)
+                InspectTranspilerStateMachineIfPresent(method, candidates);
+
                 List<CodeInstruction> instructions = PatchProcessor.GetCurrentInstructions(method);
                 if (instructions == null || instructions.Count == 0) return;
 
                 for (int i = 0; i < instructions.Count; i++)
                 {
-                    var instr = instructions[i];
+                    CodeInstruction instr = instructions[i];
                     if (instr?.operand == null) continue;
 
-                    // Skip any instructions that do not reference a static StatDef field, a string, or a StatDef instance directly.
+                    // Case 1: Static Field reference (e.g. ldsfld StatDefOf.CarryingCapacity)
                     if (instr.operand is FieldInfo fieldInfo && fieldInfo.IsStatic && typeof(StatDef).IsAssignableFrom(fieldInfo.FieldType))
                     {
                         StatDef resolvedStat = null;
 
                         // COMPATIBILITY SHIELD (.cctor STATIC CONSTRUCTOR LANDMINE):
-                        // In RimWorld, reading fieldInfo.GetValue(null) on an external mod's [DefOf] class
-                        // can prematurely trigger that class's static constructor (.cctor). If the third-party 
-                        // mod's static constructor expects certain state to be initialized, it will throw a fatal 
-                        // crash on boot.
-                        // 
-                        // Strategy A checks DefDatabase by field name first. This resolves 99% of modded DefOf fields 
-                        // without ever executing the foreign class's static constructor.
+                        // In RimWorld, invoking fieldInfo.GetValue(null) on an uninitialized foreign class forces
+                        // the CLR/Mono runtime to execute its static constructor (.cctor). If that foreign class
+                        // expects uninitialized game state, it throws an unhandled exception, permanently poisoning
+                        // the type for the lifetime of the process.
+                        //
+                        // Strategy: Resolve strictly by field name from DefDatabase<StatDef>.
+                        // If unresolved, only read via reflection if the type has NO static constructor (TypeInitializer == null).
                         if (!string.IsNullOrEmpty(fieldInfo.Name))
                         {
                             resolvedStat = DefDatabase<StatDef>.GetNamedSilentFail(fieldInfo.Name);
                         }
-                        // Strategy B falls back to direct field access if DefDatabase lookup fails. This may trigger the static constructor.
-                        if (resolvedStat == null)
+
+                        if (resolvedStat == null && fieldInfo.DeclaringType != null && fieldInfo.DeclaringType.TypeInitializer == null)
                         {
                             try
                             {
                                 resolvedStat = fieldInfo.GetValue(null) as StatDef;
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                string fieldName = $"{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}";
-                                OHLog.Integration.Warn("StatDefFieldResolution", ex, $"Failed to resolve field {fieldName}.");
+                                resolvedStat = null;
                             }
                         }
 
                         AddCandidateIfValid(resolvedStat, candidates);
                     }
-                    // If the instruction does not match any of the expected operand types, it is ignored.
+                    // Case 2: String operand representing a StatDef defName (e.g. ldstr "CaravanMassCapacity")
                     else if (instr.operand is string strOperand && !string.IsNullOrEmpty(strOperand))
                     {
                         AddCandidateIfValid(DefDatabase<StatDef>.GetNamedSilentFail(strOperand), candidates);
                     }
-                    // If the instruction is neither a field reference, string, nor StatDef, it is ignored.
+                    // Case 3: Direct StatDef object reference
                     else if (instr.operand is StatDef statDef)
                     {
                         AddCandidateIfValid(statDef, candidates);
@@ -575,6 +674,71 @@ namespace OverHaulers
             {
                 string methodName = method.DeclaringType != null ? $"{method.DeclaringType.FullName}.{method.Name}" : method.Name;
                 OHLog.Integration.Warn("CilMethodInspection", ex, $"Failed to inspect method {methodName}.");
+            }
+        }
+
+        /// <summary>
+        /// Pre-flight safety check determining whether a method can be safely disassembled by Harmony.
+        /// Shields against DynamicMethods, unmanaged extern stubs, and missing method bodies.
+        /// </summary>
+        /// <param name="method">The method candidate to evaluate.</param>
+        /// <returns>True if the method has a valid managed IL body and can be safely disassembled; false otherwise.</returns>
+        private static bool CanSafelyInspectMethod(MethodInfo method)
+        {
+            if (method == null || method.IsAbstract) return false;
+
+            // Shield against DynamicMethod without metadata tokens
+            if (method.DeclaringType == null) return false;
+            string typeName = method.GetType().FullName ?? string.Empty;
+            if (typeName.IndexOf("DynamicMethod", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+
+            try
+            {
+                // Verify the method actually contains managed IL bytes
+                MethodBody body = method.GetMethodBody();
+                return body != null && body.GetILAsByteArray() != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Detects if a Transpiler method was compiled as an iterator state machine (using yield return)
+        /// and inspects the compiler-generated MoveNext() method body where the actual CIL resides.
+        /// </summary>
+        /// <param name="method">The transpiler method being inspected.</param>
+        /// <param name="candidates">The list of candidate StatDefs to populate.</param>
+        private static void InspectTranspilerStateMachineIfPresent(MethodInfo method, List<StatDef> candidates)
+        {
+            if (method.DeclaringType == null) return;
+            if (!typeof(System.Collections.IEnumerable).IsAssignableFrom(method.ReturnType)) return;
+
+            Type[] nestedTypes = null;
+            try
+            {
+                nestedTypes = method.DeclaringType.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (nestedTypes == null || nestedTypes.Length == 0) return;
+
+            string expectedPrefix = $"<{method.Name}>";
+            for (int i = 0; i < nestedTypes.Length; i++)
+            {
+                Type nested = nestedTypes[i];
+                if (nested.Name.IndexOf(expectedPrefix, StringComparison.Ordinal) >= 0)
+                {
+                    MethodInfo moveNextMethod = nested.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+                    if (moveNextMethod != null && CanSafelyInspectMethod(moveNextMethod))
+                    {
+                        InspectMethodCilForStats(moveNextMethod, candidates);
+                    }
+                }
             }
         }
 

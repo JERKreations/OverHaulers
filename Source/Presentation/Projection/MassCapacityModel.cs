@@ -43,6 +43,18 @@ namespace OverHaulers
         /// <summary>[VIEW-01 to VIEW-04] Raw explanation string containing formatting tags.</summary>
         public string Explanation { get; set; }
 
+        /// <summary>[VIEW-01] Indicates whether the final capacity has hit the hard technical 0.01f emergency compatibility floor.</summary>
+        public bool IsAtHardCompatibilitySafetyFloor { get; set; }
+
+        /// <summary>[VIEW-01] Indicates whether the pawn's deficits were actively capped by the configurable percentile Deficit Floor.</summary>
+        public bool IsLimitedByConfigurablePercentileFloor { get; set; }
+
+        /// <summary>[VIEW-01] Configurable percentile deficit floor expressed as a percentage (e.g. 20%).</summary>
+        public float ConfigurablePercentileFloorPercent { get; set; }
+
+        /// <summary>[VIEW-01] Configurable percentile deficit floor expressed in absolute measurement (e.g. 8.0 kg).</summary>
+        public float ConfigurablePercentileFloorKg { get; set; }
+
         /// <summary>Direct flat lookup mapping compiled species part-index slots to their visual node models for O(1) info-card hyperlinks.</summary>
         private PartViewNode[] nodeByPartIndex = new PartViewNode[64];
 
@@ -81,12 +93,22 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>Resets the pool pointer without clearing allocated node buffers.</summary>
-        public void ResetPool()
+        /// <summary>Resets only the visual node pool cursor and lookup table without clearing model scalar metrics.</summary>
+        public void ResetNodePool()
         {
             poolIndex = 0;
             Array.Clear(nodeByPartIndex, 0, nodeByPartIndex.Length);
             Explanation = "";
+        }
+
+        /// <summary>Resets the pool pointer and clears all presentation metrics.</summary>
+        public void ResetPool()
+        {
+            ResetNodePool();
+            IsAtHardCompatibilitySafetyFloor = false;
+            IsLimitedByConfigurablePercentileFloor = false;
+            ConfigurablePercentileFloorPercent = 0f;
+            ConfigurablePercentileFloorKg = 0f;
         }
 
         /// <summary>

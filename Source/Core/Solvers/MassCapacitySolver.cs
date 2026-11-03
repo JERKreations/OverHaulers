@@ -18,10 +18,10 @@ namespace OverHaulers
         #region 1. [SOLV-01] CONSTANTS & FALLBACK METRICS
 
         /// <summary>
-        /// [SOLV-01] Absolute safety floor preventing negative or zero carrying capacity divisions when
-        /// <see cref="Settings.compatibilitySafetyFloor"/> constraints are applied.
+        /// [SOLV-01] Hard technical compatibility safety floor preventing negative or zero carrying capacity divisions.
+        /// Protects RimWorld caravan and hauling routines from division-by-zero crashes.
         /// </summary>
-        public const float MinimumAllowedCapacityKg = 0.01f;
+        public const float HardCompatibilitySafetyFloorKg = 0.01f;
 
         /// <summary>
         /// Default fallback Caravan Mass Capacity offset in kilograms (0.0 kg) returned during invalid biological states,
@@ -258,23 +258,23 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Ensures that the final calculated capacity does not fall below the configured safety floor.
-        /// Serves as the single canonical implementation for floor enforcement and telemetry recording.
+        /// Ensures that the final calculated capacity does not fall below the hard technical compatibility safety floor (0.01 kg).
+        /// Serves as the single canonical implementation for hard floor enforcement and telemetry recording.
         /// </summary>
         /// <param name="finalCapacity">The calculated final capacity in kilograms to be clamped.</param>
         /// <param name="targetLabel">The label of the target entity for diagnostic logging purposes.</param>
         /// <returns>The clamped final capacity in kilograms, ensuring it meets the minimum threshold.</returns>
-        public static float EnforceSafetyFloor(float finalCapacity, string targetLabel = "Pawn")
+        public static float EnforceHardCompatibilitySafetyFloor(float finalCapacity, string targetLabel = "Pawn")
         {
-            if (!activeConfig.CompatibilitySafetyFloor)
+            if (!activeConfig.EnableHardCompatibilitySafetyFloor)
             {
                 return finalCapacity;
             }
 
-            if (finalCapacity < MinimumAllowedCapacityKg)
+            if (finalCapacity < HardCompatibilitySafetyFloorKg)
             {
-                float clampedValue = MinimumAllowedCapacityKg;
-                OHLog.Performance.RecordSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
+                float clampedValue = HardCompatibilitySafetyFloorKg;
+                OHLog.Performance.RecordHardSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
                 return clampedValue;
             }
 
@@ -282,22 +282,22 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Evaluates and clamps the final capacity for a pawn against the safety floor.
-        /// Zero-allocation pass-through hand-off to <see cref="EnforceSafetyFloor"/>.
+        /// Evaluates and clamps the final capacity for a pawn against the hard technical compatibility safety floor.
+        /// Zero-allocation pass-through hand-off to <see cref="EnforceHardCompatibilitySafetyFloor"/>.
         /// </summary>
         /// <param name="finalCapacity">The calculated final caravan mass capacity in kilograms to be clamped.</param>
         /// <param name="pawn">The pawn entity being evaluated.</param>
         /// <returns>The clamped final capacity in kilograms.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float EnforceSafetyFloorForPawn(float finalCapacity, Pawn pawn)
+        public static float EnforceHardCompatibilitySafetyFloorForPawn(float finalCapacity, Pawn pawn)
         {
-            if (finalCapacity < MinimumAllowedCapacityKg && activeConfig.CompatibilitySafetyFloor)
+            if (finalCapacity < HardCompatibilitySafetyFloorKg && activeConfig.EnableHardCompatibilitySafetyFloor)
             {
                 string targetLabel = pawn != null
                     ? (UnityData.IsInMainThread ? pawn.LabelShortCap.ToString() : pawn.def?.label ?? "Pawn")
                     : "Pawn";
 
-                return EnforceSafetyFloor(finalCapacity, targetLabel);
+                return EnforceHardCompatibilitySafetyFloor(finalCapacity, targetLabel);
             }
 
             return finalCapacity;
@@ -363,7 +363,12 @@ namespace OverHaulers
             float biologicalBaseline,
             string entityLabel)
         {
-            float totalPlayableBudget = Math.Max(0f, biologicalBaseline - context.CapacityFloor);
+            // When Physical Deficits is disabled, the playable deficit budget is zeroed out,
+            // ensuring no negative penalties (wounds, missing limbs, sub-par prosthetics, or athletic strain)
+            // can reduce capacity below baseline. Positive prosthetic and athletic boosts remain fully active.
+            float totalPlayableBudget = context.EnablePartHealth
+                ? Math.Max(0f, biologicalBaseline - context.ConfigurablePercentileFloorKg)
+                : 0f;
 
             // PASS 03: Parallel vector calculations across contiguous SoA arrays (Smooth, unclamped)
             SolveRawPartOffsets(workspace, context, totalPlayableBudget);
@@ -383,9 +388,17 @@ namespace OverHaulers
                 out float healthDeficit,
                 out float athleticOffset);
 
-            float finalCapacity = EnforceSafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel);
+            float finalCapacity = EnforceHardCompatibilitySafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel);
             float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
-            bool isAtSafetyFloor = finalCapacity <= MinimumAllowedCapacityKg;
+
+            // 1. HARD COMPATIBILITY SAFETY FLOOR CHECK (0.01 kg emergency crash guard)
+            bool isAtHardCompatibilitySafetyFloor = finalCapacity <= HardCompatibilitySafetyFloorKg;
+
+            // 2. CONFIGURABLE PERCENTILE DEFICIT FLOOR CHECK (Gameplay slider, e.g. 20% or 50%)
+            float rawDeficitSum = deficits.RawCoreNegative + deficits.RawManipulationNegative + deficits.RawMovingNegative;
+            bool isLimitedByConfigurablePercentileFloor = context.ConfigurablePercentileFloorKg > 0f &&
+                ((rawDeficitSum > deficits.TotalClampedDeficit + 0.01f) ||
+                 (finalCapacity <= (context.ConfigurablePercentileFloorKg + 0.05f) && deficits.TotalClampedDeficit > 0f));
 
             return new MassCapacityEvaluationResult(
                 netBiologicalOffset,
@@ -395,7 +408,8 @@ namespace OverHaulers
                 prostheticBoost,
                 healthDeficit,
                 athleticOffset,
-                isAtSafetyFloor
+                isAtHardCompatibilitySafetyFloor,
+                isLimitedByConfigurablePercentileFloor
             );
         }
 

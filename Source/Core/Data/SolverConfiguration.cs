@@ -9,11 +9,11 @@ namespace OverHaulers
     {
         #region 1. INSTANCE FIELDS & IMMUTABLE BACKING STATE
 
-        public readonly float MassCapacityFloor;
+        public readonly float ConfigurablePercentileFloor;
         public readonly bool EnableProsthetics;
         public readonly bool EnableAthletics;
         public readonly bool EnablePartHealth;
-        public readonly bool CompatibilitySafetyFloor;
+        public readonly bool EnableHardCompatibilitySafetyFloor;
 
         public readonly float AthleticScaling;
         public readonly float AthleticImpactConstant;
@@ -63,11 +63,11 @@ namespace OverHaulers
         #region 2. LIFECYCLE: CONSTRUCTOR
 
         public SolverConfiguration(
-            float massCapacityFloor,
+            float configurablePercentileFloor,
             bool enableProsthetics,
             bool enableAthletics,
             bool enablePartHealth,
-            bool compatibilitySafetyFloor,
+            bool enableHardCompatibilitySafetyFloor,
             float athleticScaling,
             float athleticImpactConstant,
             float prostheticScaling,
@@ -83,11 +83,11 @@ namespace OverHaulers
             float legDefBreathe,   float legDefBlood,   float legDefMove,   float legDefManip,
             float budgetCore,      float budgetManip,   float budgetMove)
         {
-            MassCapacityFloor = massCapacityFloor;
+            ConfigurablePercentileFloor = configurablePercentileFloor;
             EnableProsthetics = enableProsthetics;
             EnableAthletics = enableAthletics;
             EnablePartHealth = enablePartHealth;
-            CompatibilitySafetyFloor = compatibilitySafetyFloor;
+            EnableHardCompatibilitySafetyFloor = enableHardCompatibilitySafetyFloor;
 
             AthleticScaling = athleticScaling;
             AthleticImpactConstant = athleticImpactConstant;

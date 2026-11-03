@@ -43,11 +43,11 @@ namespace OverHaulers
 
         private static readonly string[] CapacityTranslationKeys = new[]
         {
-            "OverHaulers_Breathing",
-            "OverHaulers_BloodPumping",
-            "OverHaulers_Moving",
-            "OverHaulers_Manipulation",
-            "OverHaulers_Consciousness"
+            "OverHaulers_InfoCard_Breathing",
+            "OverHaulers_InfoCard_BloodPumping",
+            "OverHaulers_InfoCard_Moving",
+            "OverHaulers_InfoCard_Manipulation",
+            "OverHaulers_InfoCard_Consciousness"
         };
 
         private static readonly StringBuilder pooledFinalReport = new StringBuilder(1024);
@@ -81,12 +81,21 @@ namespace OverHaulers
 
                 pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
 
-                // 1. OverHaulers Total Body Rating Line
+                // 1. OverHaulers Physical Rating Line
                 string totalMultValStr = massModel.TotalMultiplier.ToString("F2");
                 string signedOffsetValStr = massModel.Offset.ToStringMassOffset();
-                pooledFinalReport.AppendLine("OverHaulers_TotalBodyRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
+                pooledFinalReport.AppendLine("OverHaulers_InfoCard_PhysicalRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
 
-                // 2. Capacities, Impacts & Anatomical Breakdown
+                // 2. Minimum Floor Footnote (Unconditionally declared in muted grey)
+                if (massModel.ConfigurablePercentileFloorKg > 0f)
+                {
+                    string floorKgStr = massModel.ConfigurablePercentileFloorKg.ToStringMass();
+                    string floorPctStr = massModel.ConfigurablePercentileFloorPercent.ToString("F0");
+                    string floorNote = "OverHaulers_InfoCard_MinimumFloorNote".Translate(floorKgStr, floorPctStr).ToString();
+                    pooledFinalReport.AppendLine(floorNote.Colorize(MutedTextColor));
+                }
+
+                // 3. Capacities, Impacts & Anatomical Breakdown
                 AppendCapacities(pooledDetailsBuilder, massModel, verbose);
                 AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
                 AppendStructuralSections(pooledDetailsBuilder, massModel, verbose);
@@ -137,7 +146,7 @@ namespace OverHaulers
             {
                 builder.AppendLine();
                 builder.Append(Indent2);
-                builder.AppendLine("OverHaulers_CapacitiesHeader".Translate().ToString());
+                builder.AppendLine("OverHaulers_InfoCard_CapacitiesHeader".Translate().ToString());
                 for (int i = 0; i < CapacityTranslationKeys.Length; i++)
                 {
                     AppendCapacityLine(builder, CapacityTranslationKeys[i], massModel.CapacityLevels[i], verbose);
@@ -179,7 +188,7 @@ namespace OverHaulers
                 {
                     builder.AppendLine();
                     builder.Append(Indent2);
-                    builder.AppendLine("OverHaulers_AthleticImpactsHeader".Translate().ToString());
+                    builder.AppendLine("OverHaulers_InfoCard_ImpactsHeader".Translate().ToString());
                     if (hasAnyAthleticImpacts)
                     {
                         builder.Append(pooledListBuilder.ToString());
@@ -389,7 +398,7 @@ namespace OverHaulers
                 if (sub.IsNeutralized)
                 {
                     // Renders as a neutral grey string
-                    string ignoredLabel = "OverHaulers_MissingIgnored".Translate().ToString();
+                    string ignoredLabel = "OverHaulers_InfoCard_MissingIgnored".Translate().ToString();
                     builder.Append(ignoredLabel.Colorize(MutedTextColor));
                 }
                 else
@@ -480,7 +489,7 @@ namespace OverHaulers
         {
             if (part == null || string.IsNullOrEmpty(part.LocalAilmentName)) return;
 
-            builder.Append("OverHaulers_AilmentPrefix".Translate(part.LocalAilmentName.Colorize(part.LocalAilmentColor)).ToString());
+            builder.Append("OverHaulers_InfoCard_AilmentPrefix".Translate(part.LocalAilmentName.Colorize(part.LocalAilmentColor)).ToString());
         }
 
         /// <summary>

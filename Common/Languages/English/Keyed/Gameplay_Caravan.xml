@@ -5,7 +5,7 @@
   <!-- [VIEW-05] CARAVAN PHYSICAL SUMMARY (WORLD & DIALOG TOOLTIPS)              -->
   <!-- ========================================================================= -->
   <OverHaulers_Caravan_Header>Caravan Physical: {0}x ({1})</OverHaulers_Caravan_Header>
-  <OverHaulers_Caravan_Total>• Physical Total: {0}</OverHaulers_Caravan_Total>
+  <OverHaulers_Caravan_PhysicalMax>• Physical Max Capacity: {0}</OverHaulers_Caravan_PhysicalMax>
 
   <!-- Standout Performer Headers (Net vs Gross + Collapsed) -->
   <OverHaulers_Caravan_TopContributorNet>• Top Asset (Net): {0}</OverHaulers_Caravan_TopContributorNet>

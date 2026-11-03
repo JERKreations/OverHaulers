@@ -66,11 +66,20 @@ namespace OverHaulers
         private static void MassUtility_Capacity_Postfix(Pawn p, ref float __result, StringBuilder explanation)
         {
             if (p == null) return;
+            if (capacityCallDepth > 1) return;
 
-            // RE-ENTRANCY & ADOPTION SHIELD: If an external mod queries MassUtility.Capacity recursively,
-            // or if a foreign stat is adopted (which delivers the offset directly via MassCapacityStatPart.TransformValue),
-            // return the unmodified baseline to prevent double-counting.
-            if (capacityCallDepth > 1 || IntegrationPipeline.IsForeignStatAdopted) return;
+            // RE-ENTRANCY & ADOPTION SHIELD:
+            // When a foreign stat is adopted, numerical offset delivery is handled by MassCapacityStatPart.
+            // If the adopted profile explicitly declares syncFormationCapacity (e.g. Combat Extended),
+            // sanitize vanilla's explanation buffer before returning to clean up stale vanilla +35kg lines.
+            if (IntegrationPipeline.IsForeignStatAdopted)
+            {
+                if (IntegrationPipeline.ActiveProfileSyncFormationCapacity && explanation != null)
+                {
+                    SyncFormationCapacityEntry(explanation, p, __result);
+                }
+                return;
+            }
 
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
@@ -82,7 +91,7 @@ namespace OverHaulers
             if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
             {
                 __result += fastOffset;
-                __result = MassCapacitySolver.EnforceSafetyFloorForPawn(__result, p);
+                __result = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(__result, p);
                 if (explanation != null)
                 {
                     SyncFormationCapacityEntry(explanation, p, __result);
@@ -98,7 +107,7 @@ namespace OverHaulers
             __result += calculatedOffset;
 
             // EGRESS CLAMP: Guarantee the actual game result obeys the minimum safety floor
-            __result = MassCapacitySolver.EnforceSafetyFloorForPawn(__result, p);
+            __result = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(__result, p);
 
             // EXPLANATION SYNC: If caller provided an explanation StringBuilder (e.g. CollectionsMassCalculator),
             // replace vanilla's pre-postfix baseline entry with the true final capacity.

@@ -271,7 +271,7 @@ namespace OverHaulers
             if (!UnityData.IsInMainThread)
             {
                 float snapshotOffset = MassSnapshotCache.GetOffsetThreadSafe(pawn.thingIDNumber);
-                return MassCapacitySolver.EnforceSafetyFloorForPawn(baselineCapacity + snapshotOffset, pawn);
+                return MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(baselineCapacity + snapshotOffset, pawn);
             }
 
             GetOffset(pawn, baselineCapacity); // Ensures cache entry is evaluated and fresh
@@ -397,49 +397,6 @@ namespace OverHaulers
             }
 
             finalCapacity = 0f;
-            return false;
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the cached baseline Caravan Mass Capacity for a pawn if valid and fresh.
-        /// Returns false if the cache entry is marked stale, forcing a native baseline re-evaluation.
-        /// </summary>
-        /// <param name="thingID">The unique ThingIDNumber of the target pawn.</param>
-        /// <param name="baseline">Outputs the cached baseline mass capacity in kilograms if fresh; otherwise, 0.0f.</param>
-        /// <returns>True if a valid, fresh baseline was available; otherwise, false.</returns>
-        public static bool TryGetCachedBaseline(int thingID, out float baseline)
-        {
-            if (!UnityData.IsInMainThread) { baseline = 0f; return false; }
-
-            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
-            {
-                PerformanceTelemetry.IncrementCacheHits();
-                baseline = cachedNode.BaselineCapacity;
-                return true;
-            }
-
-            baseline = 0f;
-            return false;
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the cached Caravan Mass Capacity offset for a pawn if valid and fresh.
-        /// </summary>
-        /// <param name="thingID">The unique ThingIDNumber of the target pawn.</param>
-        /// <param name="offset">Outputs the cached capacity offset in kilograms if fresh; otherwise, 0.0f.</param>
-        /// <returns>True if a valid, fresh offset was available; otherwise, false.</returns>
-        public static bool TryGetCachedOffset(int thingID, out float offset)
-        {
-            if (!UnityData.IsInMainThread) { offset = 0f; return false; }
-
-            if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode) && !cachedNode.IsStale)
-            {
-                PerformanceTelemetry.IncrementCacheHits();
-                offset = cachedNode.Offset;
-                return true;
-            }
-
-            offset = 0f;
             return false;
         }
 

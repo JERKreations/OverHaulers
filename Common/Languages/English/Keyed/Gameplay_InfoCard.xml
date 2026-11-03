@@ -7,27 +7,30 @@
   <OverHaulers_StatLabel_Fallback>Caravan mass capacity</OverHaulers_StatLabel_Fallback>
   <OverHaulers_StatDesc_Fallback>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc_Fallback>
 
-  <OverHaulers_TotalBodyRating><![CDATA[<b>Total Body Rating ({0}x) {1}</b>]]></OverHaulers_TotalBodyRating>
+  <OverHaulers_InfoCard_PhysicalRating><![CDATA[<b>Physical Rating ({0}x) {1}</b>]]></OverHaulers_InfoCard_PhysicalRating>
+
+  <!-- Deficit Floor Footnote -->
+  <OverHaulers_InfoCard_MinimumFloorNote>  *Minimum floor: {0} ({1}% of base)</OverHaulers_InfoCard_MinimumFloorNote>
 
   <!-- Modifiers, Prefixes & Suffixes -->
-  <OverHaulers_AilmentPrefix> [ailment: {0}]</OverHaulers_AilmentPrefix>
-  <OverHaulers_MissingIgnored>Missing, ignored</OverHaulers_MissingIgnored>
+  <OverHaulers_InfoCard_AilmentPrefix> [ailment: {0}]</OverHaulers_InfoCard_AilmentPrefix>
+  <OverHaulers_InfoCard_MissingIgnored>Missing, ignored</OverHaulers_InfoCard_MissingIgnored>
 
   <!-- Athletic Capacities Sub-Card -->
-  <OverHaulers_CapacitiesHeader>Athletic Capacities:</OverHaulers_CapacitiesHeader>
-  <OverHaulers_Breathing>- Breathing: {0}</OverHaulers_Breathing>
-  <OverHaulers_BloodPumping>- Blood Pumping: {0}</OverHaulers_BloodPumping>
-  <OverHaulers_Moving>- Moving: {0}</OverHaulers_Moving>
-  <OverHaulers_Manipulation>- Manipulation: {0}</OverHaulers_Manipulation>
-  <OverHaulers_Consciousness>- Consciousness: {0}</OverHaulers_Consciousness>
+  <OverHaulers_InfoCard_CapacitiesHeader>Athletic Capacities:</OverHaulers_InfoCard_CapacitiesHeader>
+  <OverHaulers_InfoCard_Breathing>- Breathing: {0}</OverHaulers_InfoCard_Breathing>
+  <OverHaulers_InfoCard_BloodPumping>- Blood Pumping: {0}</OverHaulers_InfoCard_BloodPumping>
+  <OverHaulers_InfoCard_Moving>- Moving: {0}</OverHaulers_InfoCard_Moving>
+  <OverHaulers_InfoCard_Manipulation>- Manipulation: {0}</OverHaulers_InfoCard_Manipulation>
+  <OverHaulers_InfoCard_Consciousness>- Consciousness: {0}</OverHaulers_InfoCard_Consciousness>
 
   <!-- Systemic Conditions & Group Names -->
-  <OverHaulers_AthleticImpactsHeader>Athletic Impacts:</OverHaulers_AthleticImpactsHeader>
-  <OverHaulers_GroupDefName>{0} Group</OverHaulers_GroupDefName>
+  <OverHaulers_InfoCard_ImpactsHeader>Athletic Impacts:</OverHaulers_InfoCard_ImpactsHeader>
+  <OverHaulers_InfoCard_GroupDefName>{0} Group</OverHaulers_InfoCard_GroupDefName>
 
   <!-- Fallback Anatomical Groups, <bracketed> for clarity when used -->
-  <OverHaulers_GroupFallbackHead>&lt;Head&gt;</OverHaulers_GroupFallbackHead>
-  <OverHaulers_GroupFallbackTorso>&lt;Torso&gt;</OverHaulers_GroupFallbackTorso>
-  <OverHaulers_GroupDualLimbs>&lt;Dual-Limb&gt;</OverHaulers_GroupDualLimbs>
+  <OverHaulers_InfoCard_GroupFallbackHead>&lt;Head&gt;</OverHaulers_InfoCard_GroupFallbackHead>
+  <OverHaulers_InfoCard_GroupFallbackTorso>&lt;Torso&gt;</OverHaulers_InfoCard_GroupFallbackTorso>
+  <OverHaulers_InfoCard_GroupDualLimbs>&lt;Dual-Limb&gt;</OverHaulers_InfoCard_GroupDualLimbs>
 
 </LanguageData>

@@ -124,6 +124,12 @@ namespace OverHaulers
                     targetModel.Offset = result.SolvedOffset;
                     targetModel.FinalCapacity = result.FinalCapacity;
                     targetModel.TotalMultiplier = result.TotalMultiplier;
+                    targetModel.IsAtHardCompatibilitySafetyFloor = result.IsAtHardCompatibilitySafetyFloor;
+                    targetModel.IsLimitedByConfigurablePercentileFloor = result.IsLimitedByConfigurablePercentileFloor;
+
+                    float floorFactor = MassCapacitySolver.ActiveConfiguration.ConfigurablePercentileFloor;
+                    targetModel.ConfigurablePercentileFloorPercent = floorFactor * 100f;
+                    targetModel.ConfigurablePercentileFloorKg = baselineCapacity * floorFactor;
 
                     // BREAKPOINT ANCHOR: Build visual projection hierarchy while workspace is pinned
                     RebuildDetailedModelForSource(source, targetModel, result.SolvedOffset, baselineCapacity, workspace);
@@ -260,8 +266,9 @@ namespace OverHaulers
 
                 CategorizePartsFast(template, pooledCategorizedParts);
 
-                // Reset pooled node cursor and clear previously recorded ailments and evaluated parts.
-                massModel.ResetPool();
+                // Reset pooled node cursor and clear previously recorded ailments and evaluated parts
+                // without wiping out the scalar reconciliation metrics assigned by InspectAndProject.
+                massModel.ResetNodePool();
                 massModel.ClearAilments();
                 massModel.EvaluatedParts.Clear();
 
@@ -399,12 +406,12 @@ namespace OverHaulers
                 case PartType.HeadPart:
                     return template?.HeadPart != null 
                         ? template.HeadPart.LabelCap.ToString() 
-                        : "OverHaulers_GroupFallbackHead".Translate().ToString();
+                        : "OverHaulers_InfoCard_GroupFallbackHead".Translate().ToString();
 
                 case PartType.CorePart:
                     return template?.CorePart != null 
                         ? template.CorePart.LabelCap.ToString() 
-                        : "OverHaulers_GroupFallbackTorso".Translate().ToString();
+                        : "OverHaulers_InfoCard_GroupFallbackTorso".Translate().ToString();
 
                 case PartType.ManipulationPart:
                     return template?.PrimaryManipulationDef != null 
@@ -419,7 +426,7 @@ namespace OverHaulers
                 case PartType.DualLimb:
                     return template?.PrimaryDualDef != null 
                         ? template.PrimaryDualDef.LabelCap.ToString() 
-                        : "OverHaulers_GroupDualLimbs".Translate().ToString();
+                        : "OverHaulers_InfoCard_GroupDualLimbs".Translate().ToString();
 
                 default:
                     return string.Empty;
@@ -514,7 +521,7 @@ namespace OverHaulers
             float averagePartHealth = healthCount > 0 ? (healthSum / healthCount) : 1.0f;
 
             string groupName = GetGroupLabelCap(type, template);
-            string label = "OverHaulers_GroupDefName".Translate(groupName).ToString();
+            string label = "OverHaulers_InfoCard_GroupDefName".Translate(groupName).ToString();
 
             PartViewNode consolidatedWrapper = massModel.AcquireNode();
             consolidatedWrapper.Label = label;

@@ -24,7 +24,7 @@ namespace OverHaulers
         public float SnappedManipulation;
         public float SnappedConsciousness;
 
-        public float CapacityFloor;
+        public float ConfigurablePercentileFloorKg;
 
         // Regional Budgets
         public float BudgetCorePart;
@@ -138,7 +138,7 @@ namespace OverHaulers
             context.SnappedManipulation = snapshot.Manipulation;
             context.SnappedConsciousness = snapshot.Consciousness;
 
-            context.CapacityFloor = cleanBaseline * config.MassCapacityFloor;
+            context.ConfigurablePercentileFloorKg = cleanBaseline * config.ConfigurablePercentileFloor;
 
             context.EnableProsthetics = config.EnableProsthetics;
             context.EnableAthletics = config.EnableAthletics;

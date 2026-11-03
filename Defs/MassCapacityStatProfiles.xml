@@ -2,34 +2,39 @@
 <Defs>
 
   <!-- ========================================================================= -->
-  <!-- VANILLA EXPANDED FRAMEWORK (VEF) ADOPTION                                 -->
+  <!-- COMBAT EXTENDED (CE) CARRY WEIGHT ADOPTION PROFILE                        -->
   <!-- ========================================================================= -->
 
   <OverHaulers.MassCapacityStatProfileDef>
-    <defName>Profile_VanillaExpandedFramework</defName>
-    <label>Vanilla Expanded Framework</label>
-    <modPackageId>OskarPotocki.VanillaFactionsExpanded.Core</modPackageId>
-    <statDefName>VEF_MassCarryCapacity</statDefName>
-    <priority>100</priority>
+    <defName>OverHaulers_Profile_CE</defName>
+    <label>Combat Extended</label>
+    <modPackageId>ceteam.combatextended</modPackageId>
+    <statDefName>CarryWeight</statDefName>
+    <priority>200</priority>
+    <hostLabelShort>CE</hostLabelShort>
+    <!-- Allows authoritative control over Mass Capacity (CE CarryWeight) calculations -->
+    <allowAuthoritativeTakeover>true</allowAuthoritativeTakeover>
+    <!-- Neutralise and override specific capacity factors under authoritative takeover -->
+    <neutraliseCapacityFactors>
+      <li>Moving</li>
+    </neutraliseCapacityFactors>
+    <!-- Lets Over Haulers synchronize caravan/transport formation mass capacities -->
+    <syncFormationCapacity>true</syncFormationCapacity>
   </OverHaulers.MassCapacityStatProfileDef>
 
 
   <!-- ========================================================================= -->
-  <!-- SAMPLE TEMPLATE FOR OTHER MODDERS                                         -->
+  <!-- VANILLA EXPANDED FRAMEWORK (VEF) ADOPTION PROFILE                         -->
   <!-- ========================================================================= -->
-  <!--
-    Third-party modders can include a Def like this inside their own mod
-    
-    Using MayRequire="iClustaFlux.OverHaulers" ensures RimWorld only loads this block 
-    if OverHaulers is active:
 
-    <OverHaulers.MassCapacityStatProfileDef MayRequire="iClustaFlux.OverHaulers">
-      <defName>Profile_MyAwesomeMod</defName>
-      <label>My Awesome Caravan Mod</label>
-      <modPackageId>MyName.MyModId</modPackageId>
-      <statDefName>MyCustomCaravanCapacityStat</statDefName>
-      <priority>50</priority>
-    </OverHaulers.MassCapacityStatProfileDef>
-  -->
+  <OverHaulers.MassCapacityStatProfileDef>
+    <defName>OverHaulers_Profile_VEF</defName>
+    <label>Vanilla Expanded Framework</label>
+    <modPackageId>OskarPotocki.VanillaFactionsExpanded.Core</modPackageId>
+    <statDefName>VEF_MassCarryCapacity</statDefName>
+    <priority>100</priority>
+    <hostLabelShort>VEF</hostLabelShort>
+    <!-- VEF flat offsets do not require AuthoritativeTakeover, nor *Factor overrides -->
+  </OverHaulers.MassCapacityStatProfileDef>
 
 </Defs>

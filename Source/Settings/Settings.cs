@@ -37,9 +37,9 @@ namespace OverHaulers
 
         public float prostheticScaling = SettingsDefaults.ProstheticScaling;
         public float athleticScaling = SettingsDefaults.AthleticScaling;
-        public float massCapacityFloor = SettingsDefaults.MassCapacityFloor;
+        public float configurablePercentileFloor = SettingsDefaults.ConfigurablePercentileFloor;
 
-        public bool compatibilitySafetyFloor = SettingsDefaults.CompatibilitySafetyFloor;
+        public bool enableHardCompatibilitySafetyFloor = SettingsDefaults.EnableHardCompatibilitySafetyFloor;
 
         #endregion
 
@@ -113,8 +113,10 @@ namespace OverHaulers
 
         #region 10. [SEC-08] COMPATIBILITY & STAT ADOPTION FIELDS
 
+        /// <summary>Selected presentation key in the UI.</summary>
         public string selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
 
+        /// <summary>Resets compatibility-related settings to their default values.</summary>
         public void ResetCompatibility()
         {
             selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
@@ -240,11 +242,11 @@ namespace OverHaulers
         public SolverConfiguration ToSolverConfiguration()
         {
             return new SolverConfiguration(
-                massCapacityFloor,
+                configurablePercentileFloor,
                 enableProsthetics,
                 enableAthletics,
                 enablePartHealth,
-                compatibilitySafetyFloor,
+                enableHardCompatibilitySafetyFloor,
                 athleticScaling,
                 athleticImpactConstant,
                 prostheticScaling,
@@ -310,8 +312,8 @@ namespace OverHaulers
         {
             prostheticScaling = SettingsDefaults.ProstheticScaling;
             athleticScaling = SettingsDefaults.AthleticScaling;
-            massCapacityFloor = SettingsDefaults.MassCapacityFloor;
-            compatibilitySafetyFloor = SettingsDefaults.CompatibilitySafetyFloor;
+            configurablePercentileFloor = SettingsDefaults.ConfigurablePercentileFloor;
+            enableHardCompatibilitySafetyFloor = SettingsDefaults.EnableHardCompatibilitySafetyFloor;
             enableProsthetics = SettingsDefaults.EnableProsthetics;
             enableAthletics = SettingsDefaults.EnableAthletics;
             enablePartHealth = SettingsDefaults.EnablePartHealth;
@@ -525,8 +527,8 @@ namespace OverHaulers
             Scribe_Values.Look(ref enablePartHealth, "enablePartHealth", SettingsDefaults.EnablePartHealth);
             Scribe_Values.Look(ref prostheticScaling, "prostheticScaling", SettingsDefaults.ProstheticScaling);
             Scribe_Values.Look(ref athleticScaling, "athleticScaling", SettingsDefaults.AthleticScaling);
-            Scribe_Values.Look(ref massCapacityFloor, "massCapacityFloor", SettingsDefaults.MassCapacityFloor);
-            Scribe_Values.Look(ref compatibilitySafetyFloor, "compatibilitySafetyFloor", SettingsDefaults.CompatibilitySafetyFloor);
+            Scribe_Values.Look(ref configurablePercentileFloor, "configurablePercentileFloor", SettingsDefaults.ConfigurablePercentileFloor);
+            Scribe_Values.Look(ref enableHardCompatibilitySafetyFloor, "enableHardCompatibilitySafetyFloor", SettingsDefaults.EnableHardCompatibilitySafetyFloor);
 
             Scribe_Values.Look(ref iconScalePercent, "iconScalePercent", SettingsDefaults.IconScalePercent);
             Scribe_Values.Look(ref activePalettePreset, "activePalettePreset", SettingsDefaults.DefaultPalettePreset);
@@ -620,7 +622,7 @@ namespace OverHaulers
 
             prostheticScaling = Sane(prostheticScaling, SettingsDefaults.ProstheticScaling, SettingsDefaults.ProstheticScalingMin, SettingsDefaults.ProstheticScalingMax);
             athleticScaling = Sane(athleticScaling, SettingsDefaults.AthleticScaling, SettingsDefaults.AthleticScalingMin, SettingsDefaults.AthleticScalingMax);
-            massCapacityFloor = Sane(massCapacityFloor, SettingsDefaults.MassCapacityFloor, SettingsDefaults.MassCapacityFloorMin, SettingsDefaults.MassCapacityFloorMax);
+            configurablePercentileFloor = Sane(configurablePercentileFloor, SettingsDefaults.ConfigurablePercentileFloor, SettingsDefaults.ConfigurablePercentileFloorMin, SettingsDefaults.ConfigurablePercentileFloorMax);
 
             anatomyWeightTorso = SanePercent(anatomyWeightTorso, SettingsDefaults.AnatomyWeightTorso);
             anatomyWeightArm = SanePercent(anatomyWeightArm, SettingsDefaults.AnatomyWeightArm);

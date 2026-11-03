@@ -12,22 +12,22 @@ namespace OverHaulers
     {
         #region 1A. Instance Fields
 
-        /// <summary>The last calculated mass offset applied to the biological baseline in kilograms.</summary>
+        /// <summary>The last calculated mass offset applied to the biological baseline.</summary>
         public float Offset;
 
-        /// <summary>Fully clamped final Caravan Mass Capacity in kilograms (kg).</summary>
+        /// <summary>Fully clamped final Caravan Mass Capacity.</summary>
         public float FinalCapacity;
 
         /// <summary>Total multiplier applied to the biological baseline to obtain the final capacity.</summary>
         public float TotalMultiplier;
 
-        /// <summary>The boost to mass capacity provided by prosthetics in kilograms.</summary>
+        /// <summary>The boost to mass capacity provided by prosthetics.</summary>
         public float ProstheticBoost;
 
-        /// <summary>The reduction in mass capacity due to health deficits and wounds in kilograms.</summary>
+        /// <summary>The reduction in mass capacity due to health deficits and wounds.</summary>
         public float HealthDeficit;
 
-        /// <summary>The contribution to mass capacity from athletic implants and systemic coupling in kilograms.</summary>
+        /// <summary>The contribution to mass capacity from athletic implants and systemic coupling.</summary>
         public float AthleticOffset;
 
         /// <summary>Engine tick when this cached record was calculated.</summary>
@@ -36,7 +36,7 @@ namespace OverHaulers
         /// <summary>Timestamp of the last reactive invalidation pass (used for combat burst debounce).</summary>
         public int LastInvalidatedTick;
 
-        /// <summary>The clean biological baseline capacity for the pawn's mass in kilograms.</summary>
+        /// <summary>The clean biological baseline mass capacity for the pawn.</summary>
         public float BaselineCapacity;
 
         /// <summary>Flag indicating whether the cached evaluation is marked stale and requires recalculation.</summary>

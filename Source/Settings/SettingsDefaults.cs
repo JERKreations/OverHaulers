@@ -32,11 +32,11 @@ namespace OverHaulers
         public const float AthleticScalingMin = 0.1f;
         public const float AthleticScalingMax = 5.0f;
 
-        public const float MassCapacityFloor = 0.20f;
-        public const float MassCapacityFloorMin = 0.05f;
-        public const float MassCapacityFloorMax = 1.00f;
+        public const float ConfigurablePercentileFloor = 0.20f;
+        public const float ConfigurablePercentileFloorMin = 0.05f;
+        public const float ConfigurablePercentileFloorMax = 1.00f;
 
-        public const bool CompatibilitySafetyFloor = true;
+        public const bool EnableHardCompatibilitySafetyFloor = true;
 
         #endregion
 
@@ -125,6 +125,7 @@ namespace OverHaulers
 
         #region 8. [SEC-08] COMPATIBILITY & PIPELINE DRIVER DEFAULTS
 
+        /// <summary>Default key for the selected presentation mode in the UI.</summary>
         public const string DefaultSelectedPresentationKey = "AUTO";
 
         #endregion
@@ -223,11 +224,11 @@ namespace OverHaulers
         public static SolverConfiguration CreateDefaultSolverConfiguration()
         {
             return new SolverConfiguration(
-                MassCapacityFloor,
+                ConfigurablePercentileFloor,
                 EnableProsthetics,
                 EnableAthletics,
                 EnablePartHealth,
-                CompatibilitySafetyFloor,
+                EnableHardCompatibilitySafetyFloor,
                 AthleticScaling,
                 AthleticImpactConstant,
                 ProstheticScaling,
