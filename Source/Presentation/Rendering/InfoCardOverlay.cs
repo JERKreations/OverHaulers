@@ -376,7 +376,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Presentation.Warn("InfoCardOverlay", ex, "Failed to render info card overlay.");
+                OHLog.Warn("Presentation.InfoCardOverlay", ex, "Failed to render info card overlay.");
             }
             finally
             {

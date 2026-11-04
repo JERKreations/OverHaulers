@@ -262,7 +262,7 @@ namespace OverHaulers
                     }
                     catch (Exception ex)
                     {
-                        OHLog.Integration.Warn("HeadlessPawnShell:BiotechGenes", ex, $"Failed to synthesize Biotech genes for {raceDef.defName}.");
+                        OHLog.Warn("Solver.HeadlessPawnShell:BiotechGenes", ex, $"Failed to synthesize Biotech genes for {raceDef.defName}.");
                     }
                 }
 
@@ -275,7 +275,7 @@ namespace OverHaulers
                     }
                     catch (Exception ex)
                     {
-                        OHLog.Integration.Warn("HeadlessPawnShell:InitializeComps", ex, $"Failed to initialize comps for {raceDef.defName}.");
+                        OHLog.Warn("Solver.HeadlessPawnShell:InitializeComps", ex, $"Failed to initialize comps for {raceDef.defName}.");
                     }
                 }
 
@@ -284,7 +284,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("HeadlessPawnShell:RebuildPawnCore", ex, "Failed to allocate headless pawn shell.");
+                OHLog.Warn("Solver.HeadlessPawnShell:RebuildPawnCore", ex, "Failed to allocate headless pawn shell.");
                 Teardown();
             }
         }

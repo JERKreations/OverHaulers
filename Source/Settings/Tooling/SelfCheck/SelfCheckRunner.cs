@@ -253,7 +253,7 @@ namespace OverHaulers
             {
                 result.Outcome = SelfCheckOutcome.Failed;
                 result.Detail = "Unhandled " + ex.GetType().Name + ": " + ex.Message;
-                OHLog.TestBench.Warn("SelfCheck:" + check.NameKey, ex, "A self-check threw an unexpected exception.");
+                OHLog.Warn("TestBench.SelfCheck:" + check.NameKey, ex, "A self-check threw an unexpected exception.");
             }
 
             watch.Stop();

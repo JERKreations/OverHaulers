@@ -169,7 +169,7 @@ namespace OverHaulers
         /// <param name="config">The immutable runtime infrastructure configuration snapshot.</param>
         public static void Configure(in RuntimeConfiguration config)
         {
-            if (config.ReportMetricsIntervalHours <= 0)
+            if (!config.IsTelemetryEnabled)
             {
                 isTelemetryActive = false;
                 isCacheMetricsActive = false;
@@ -180,10 +180,10 @@ namespace OverHaulers
             }
 
             isTelemetryActive = true;
-            isCacheMetricsActive = config.LogCacheMetrics || config.LogQueryMetrics;
-            isSnapshotMetricsActive = config.LogSnapshotTableMetrics;
-            isLifecycleMetricsActive = config.LogLifecycleMetrics;
-            isPresentationMetricsActive = config.LogPresentationMetrics;
+            isCacheMetricsActive = config.CollectsCacheCounters;
+            isSnapshotMetricsActive = config.CollectsSnapshotCounters;
+            isLifecycleMetricsActive = config.CollectsLifecycleCounters;
+            isPresentationMetricsActive = config.CollectsPresentationCounters;
         }
 
         #endregion
@@ -449,7 +449,7 @@ namespace OverHaulers
                 presActive, presCap, presHits, presMisses, presHitRatio, presRecycles
             );
 
-            OHLog.Performance.DispatchCumulativeReport(in snapshot);
+            PerformanceReport.DispatchCumulativeReport(in snapshot);
         }
 
         #endregion

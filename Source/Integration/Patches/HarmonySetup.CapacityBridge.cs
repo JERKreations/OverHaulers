@@ -33,7 +33,7 @@ namespace OverHaulers
             MethodInfo targetMethod = AccessTools.Method(typeof(MassUtility), nameof(MassUtility.Capacity));
             if (targetMethod == null)
             {
-                OHLog.Error(LogDomain.Integration, "ApplyDirectCapacityPatch", null, "Failed to resolve MassUtility.Capacity method target.");
+                OHLog.Error("Integration.ApplyDirectCapacityPatch", null, "Failed to resolve MassUtility.Capacity method target.");
                 return;
             }
 

@@ -130,7 +130,7 @@ namespace OverHaulers
             }
 
             // Pool depth exceeded: allocate an unpooled fallback workspace instance
-            OHLog.Solver.Warn("WorkspacePool", null, 
+            OHLog.Warn("Solver.WorkspacePool", null, 
                 $"Workspace pool depth exceeded ({MaxWorkspacePoolDepth}). Allocated unpooled fallback workspace.");
 
             int capacity = Math.Max(AnatomicalWorkspace.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount);

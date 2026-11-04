@@ -261,7 +261,7 @@ namespace OverHaulers
 
             if (purgedCount > 0)
             {
-                OHLog.Presentation.CacheFlushed(purgedCount, DefaultBaseCapacity);
+                PresentationLogEvents.CacheFlushed(purgedCount, DefaultBaseCapacity);
             }
         }
 
@@ -303,7 +303,7 @@ namespace OverHaulers
                     velocityWindowStartTick = currentTick;
                     velocityRecycleCount = 0;
 
-                    OHLog.Presentation.CacheScaledUp(oldCap, activeCapacity, burstRecycles);
+                    PresentationLogEvents.CacheScaledUp(oldCap, activeCapacity, burstRecycles);
 
                     // Allocate one new entry to expand into the new capacity bracket
                     entry = new PresentationCacheEntry();

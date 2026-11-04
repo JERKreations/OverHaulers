@@ -147,7 +147,7 @@ namespace OverHaulers
                     LastCompileDurationMs = watch.Elapsed.TotalMilliseconds;
                     int totalSpecies = DefDatabase<BodyDef>.DefCount;
 
-                    OHLog.Topology.CompilationCompleted(
+                    CoreLogEvents.TopologyCompilationCompleted(
                         (float)LastCompileDurationMs,
                         totalSpecies,
                         globalMaxPartCount, 
@@ -157,7 +157,7 @@ namespace OverHaulers
                 }
                 catch (Exception ex)
                 {
-                    OHLog.Topology.Warn("EnsureInitialized", ex, "An error occurred during topology compilation.");
+                    OHLog.Warn("Topology.EnsureInitialized", ex, "An error occurred during topology compilation.");
                 }
                 finally
                 {
@@ -206,7 +206,7 @@ namespace OverHaulers
             // Real-time mutation guard: if a mod altered bodyDef.AllParts at runtime, re-compile dynamically
             if (!VerifyTemplateReferenceIntegrity(template, bodyDef))
             {
-                OHLog.Topology.Warn("GetOrCreateTopologyTemplate", null, $"Recompiling topology template for {bodyDef.defName} due to reference desync.");
+                OHLog.Warn("Topology.GetOrCreateTopologyTemplate", null, $"Recompiling topology template for {bodyDef.defName} due to reference desync.");
 
                 SpeciesTopologyTemplate freshTemplate = BuildSpeciesTopologyTemplate(bodyDef);
                 speciesTopologyCache[bodyDef] = new Lazy<SpeciesTopologyTemplate>(() => freshTemplate);
@@ -256,7 +256,7 @@ namespace OverHaulers
 
             if (speciesTopologyCache.TryRemove(bodyDef, out _))
             {
-                OHLog.Topology.TopologyInvalidated(bodyDef.defName ?? "Unknown");
+                CoreLogEvents.TopologyInvalidated(bodyDef.defName ?? "Unknown");
                 return true;
             }
 

@@ -543,7 +543,7 @@ namespace OverHaulers
                 {
                     if (!readerThreads[i].Join(ReaderStopTimeoutMs))
                     {
-                        OHLog.TestBench.Warn("SnapshotTableBenchmark", null, "A benchmark reader thread did not stop within " + ReaderStopTimeoutMs + " ms.");
+                        OHLog.Warn("TestBench.SnapshotTableBenchmark", null, "A benchmark reader thread did not stop within " + ReaderStopTimeoutMs + " ms.");
                     }
                 }
 

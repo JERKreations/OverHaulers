@@ -214,7 +214,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string sourceLabel = source.EntityLabel ?? "Unknown";
-                OHLog.Solver.Warn(sourceLabel, ex, "Failed to evaluate mass capacity for pawn.");
+                OHLog.Warn("Solver." + sourceLabel, ex, "Failed to evaluate mass capacity for pawn.");
                 return MassCapacityEvaluationResult.Fallback;
             }
         }
@@ -274,7 +274,7 @@ namespace OverHaulers
             if (finalCapacity < HardCompatibilitySafetyFloorKg)
             {
                 float clampedValue = HardCompatibilitySafetyFloorKg;
-                OHLog.Performance.RecordHardSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
+                PerformanceReport.RecordHardSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
                 return clampedValue;
             }
 

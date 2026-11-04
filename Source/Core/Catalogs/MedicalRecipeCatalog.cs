@@ -262,7 +262,7 @@ namespace OverHaulers
                 watch.Stop();
                 isInitialized = true;
 
-                OHLog.Integration.MedicalCatalogInitialized(
+                CoreLogEvents.MedicalCatalogInitialized(
                     (float)watch.Elapsed.TotalMilliseconds,
                     totalReplacementRecipes,
                     totalImplantRecipes,

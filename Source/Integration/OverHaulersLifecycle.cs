@@ -178,7 +178,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Lifecycle.Warn("WarmupActivePawns", ex, "Failed to warm up active player pawns.");
+                OHLog.Warn("Lifecycle.WarmupActivePawns", ex, "Failed to warm up active player pawns.");
             }
         }
 
@@ -231,7 +231,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Lifecycle.Warn("LifecycleDriver", ex, "Lifecycle driver update failed.");
+                OHLog.Warn("Lifecycle.LifecycleDriver", ex, "Lifecycle driver update failed.");
             }
         }
         #endregion

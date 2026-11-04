@@ -106,7 +106,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("ProcessInvalidationGate", ex, $"Failed to process invalidation for pawn ID {pawn.thingIDNumber}.");
+                OHLog.Warn("Integration.ProcessInvalidationGate", ex, $"Failed to process invalidation for pawn ID {pawn.thingIDNumber}.");
             }
         }
 
@@ -144,7 +144,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("Notify_PawnKilled_Postfix", ex, $"Failed to evict dead pawn ID {__instance.thingIDNumber}.");
+                OHLog.Warn("Integration.Notify_PawnKilled_Postfix", ex, $"Failed to evict dead pawn ID {__instance.thingIDNumber}.");
             }
         }
 
@@ -170,7 +170,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("Notify_PawnDeSpawned_Postfix", ex, $"Failed to evict despawned pawn ID {__instance.thingIDNumber}.");
+                OHLog.Warn("Integration.Notify_PawnDeSpawned_Postfix", ex, $"Failed to evict despawned pawn ID {__instance.thingIDNumber}.");
             }
         }
 

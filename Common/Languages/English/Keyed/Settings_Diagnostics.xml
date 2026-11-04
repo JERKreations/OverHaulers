@@ -101,12 +101,14 @@
   <OverHaulers_SelfCheck_Skip>SKIP</OverHaulers_SelfCheck_Skip>
 
   <!-- Self-check groups -->
+  <OverHaulers_SelfCheck_Group_Configuration>Configuration</OverHaulers_SelfCheck_Group_Configuration>
   <OverHaulers_SelfCheck_Group_SnapshotTable>Snapshot table</OverHaulers_SelfCheck_Group_SnapshotTable>
   <OverHaulers_SelfCheck_Group_Collections>Collections</OverHaulers_SelfCheck_Group_Collections>
   <OverHaulers_SelfCheck_Group_Topology>Topology</OverHaulers_SelfCheck_Group_Topology>
   <OverHaulers_SelfCheck_Group_Solver>Solver</OverHaulers_SelfCheck_Group_Solver>
 
   <!-- Self-check names -->
+  <OverHaulers_SelfCheck_Check_CoreDefaultsInRange>Every core default lies inside its Min/Max range</OverHaulers_SelfCheck_Check_CoreDefaultsInRange>
   <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
   <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
   <OverHaulers_SelfCheck_Check_WriteOverwriteRead>Write, overwrite and read back</OverHaulers_SelfCheck_Check_WriteOverwriteRead>

@@ -191,7 +191,7 @@ namespace OverHaulers
 
                 if (forwardTelemetry && clearedEntries > 0)
                 {
-                    OHLog.Performance.SnapshotTableFlushed(clearedEntries, Volatile.Read(ref this.activeBuffer).Capacity);
+                    PerformanceReport.SnapshotTableFlushed(clearedEntries, Volatile.Read(ref this.activeBuffer).Capacity);
                 }
             }
             finally
@@ -572,11 +572,11 @@ namespace OverHaulers
                 float load = oldCapacity > 0 ? ((float)oldOccupancy / oldCapacity) * 100f : 0f;
                 if (newCapacity > oldCapacity)
                 {
-                    OHLog.Performance.SnapshotTableScaledUp(oldCapacity, newCapacity, oldOccupancy, load);
+                    PerformanceReport.SnapshotTableScaledUp(oldCapacity, newCapacity, oldOccupancy, load);
                 }
                 else
                 {
-                    OHLog.Performance.SnapshotTableContracted(oldCapacity, newCapacity, oldOccupancy, load);
+                    PerformanceReport.SnapshotTableContracted(oldCapacity, newCapacity, oldOccupancy, load);
                 }
             }
         }
@@ -593,7 +593,7 @@ namespace OverHaulers
                 if (!hasLoggedHighWaterWarning)
                 {
                     hasLoggedHighWaterWarning = true;
-                    OHLog.Performance.Warn("SnapshotTable", null,
+                    OHLog.Warn("Performance.SnapshotTable", null,
                         $"Dynamic SnapshotTable reached maximum capacity ({MaxCapacity}) with high load factor ({(OccupancyPercentage):F1}%). Probing depth may increase.");
                 }
             }

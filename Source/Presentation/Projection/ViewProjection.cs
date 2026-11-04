@@ -140,7 +140,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string targetName = source.EntityLabel ?? "Unknown";
-                OHLog.Presentation.Warn("InfoCard", ex, $"Failed to inspect and project view for pawn {targetName}.");
+                OHLog.Warn("Presentation.InfoCard.Inspect", ex, $"Failed to inspect and project view for pawn {targetName}.");
                 targetModel?.ResetPool();
                 return MassCapacityEvaluationResult.Fallback;
             }
@@ -335,7 +335,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string targetName = source?.EntityLabel ?? "Unknown";
-                OHLog.Presentation.Warn("InfoCard", ex, $"Failed to project view for pawn {targetName}.");
+                OHLog.Warn("Presentation.InfoCard.Project", ex, $"Failed to project view for pawn {targetName}.");
             }
             finally
             {

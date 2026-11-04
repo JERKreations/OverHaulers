@@ -64,7 +64,7 @@ namespace OverHaulers
 
             watch.Stop();
 
-            OHLog.Integration.HarmonyInitialized(watch.Elapsed.TotalMilliseconds, patchedMethodCount);
+            IntegrationLogEvents.HarmonyInitialized(watch.Elapsed.TotalMilliseconds, patchedMethodCount);
         }
 
         #endregion
@@ -85,7 +85,7 @@ namespace OverHaulers
             }
             catch (System.Exception ex)
             {
-                OHLog.Integration.Warn("Patch:" + label, ex, $"Failed to install '{label}'. The feature it supports may be unavailable.");
+                OHLog.Warn("Integration.Patch:" + label, ex, $"Failed to install '{label}'. The feature it supports may be unavailable.");
             }
         }
 

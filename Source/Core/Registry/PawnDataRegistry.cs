@@ -86,7 +86,7 @@ namespace OverHaulers
         {
             activeRuntimeConfig = newConfig;
             PerformanceTelemetry.Configure(in newConfig);
-            OHLog.Performance.Configure(in newConfig);
+            PerformanceReport.Configure(in newConfig);
         }
 
         /// <summary>Gets a read-only reference to the active runtime configuration.</summary>
@@ -141,7 +141,7 @@ namespace OverHaulers
 
             MassSnapshotCache.Reset();
             WorkspacePool.ClearPools();
-            OHLog.Performance.ClearTraceBuffers();
+            PerformanceReport.ClearTraceBuffers();
 
             OnCacheCleared?.Invoke();
         }
@@ -162,7 +162,7 @@ namespace OverHaulers
             if (removedMain || removedGlobal)
             {
                 PerformanceTelemetry.IncrementEvictions();
-                OHLog.Performance.RecordPawnEvicted(thingID);
+                PerformanceReport.RecordPawnEvicted(thingID);
             }
 
             OnPawnEvicted?.Invoke(thingID);

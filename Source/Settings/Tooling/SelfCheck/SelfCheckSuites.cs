@@ -9,7 +9,7 @@ namespace OverHaulers
     /// <summary>
     /// [DIAG-04] The self-check catalogue. Add new checks to <see cref="RegisterAll"/>; a check passes by returning,
     /// fails by throwing (use <see cref="Expect"/>), and can opt out via <see cref="SelfCheckContext.Skip"/>.
-    /// Resides under Source/Diagnostics/SelfCheck/.
+    /// Resides under Source/Settings/Tooling/SelfCheck/.
     /// </summary>
     internal static class SelfCheckSuites
     {
@@ -18,6 +18,7 @@ namespace OverHaulers
         private const string GroupCollections = "OverHaulers_SelfCheck_Group_Collections";
         private const string GroupTopology = "OverHaulers_SelfCheck_Group_Topology";
         private const string GroupSolver = "OverHaulers_SelfCheck_Group_Solver";
+        private const string GroupConfiguration = "OverHaulers_SelfCheck_Group_Configuration";
 
         // Small power-of-two table so deliberate collisions are cheap to construct.
         private const int TestCapacity = 256;
@@ -28,6 +29,7 @@ namespace OverHaulers
         /// <param name="list">The queue the checks are appended to.</param>
         public static void RegisterAll(List<SelfCheckDef> list)
         {
+            list.Add(new SelfCheckDef(GroupConfiguration, "OverHaulers_SelfCheck_Check_CoreDefaultsInRange", CheckCoreDefaultsInRange));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_PackUnpack", CheckPackUnpack));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_NeutralDefaults", CheckNeutralDefaults));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_WriteOverwriteRead", CheckWriteOverwriteRead));
@@ -43,7 +45,69 @@ namespace OverHaulers
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_WoundsNeverIncrease", CheckWoundsNeverIncrease));
         }
 
-        #region 1. SNAPSHOT TABLE CHECKS
+        #region 1. CONFIGURATION CHECKS
+
+        /// <summary>Verifies one tunable's range is well-formed and its default lies inside it.</summary>
+        private static void ExpectDefaultInRange(string name, float value, float min, float max)
+        {
+            Expect.True(min < max, name + " range is inverted or empty (" + min + " to " + max + ")");
+            Expect.True(value >= min && value <= max, name + " default " + value + " lies outside its range " + min + " to " + max);
+        }
+
+        /// <summary>
+        /// Verifies that every <see cref="CoreDefaults"/> tunable default lies inside its own Min/Max range,
+        /// so a factory reset or an unconfigured baseline can never produce a value the sanitiser would clamp.
+        /// </summary>
+        /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        private static void CheckCoreDefaultsInRange(SelfCheckContext ctx)
+        {
+            ExpectDefaultInRange("ProstheticScaling", CoreDefaults.ProstheticScaling, CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax);
+            ExpectDefaultInRange("AthleticScaling", CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax);
+            ExpectDefaultInRange("ConfigurablePercentileFloor", CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax);
+            ExpectDefaultInRange("TorsoAxialBias", CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax);
+            ExpectDefaultInRange("TorsoHpSensitivity", CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax);
+            ExpectDefaultInRange("LimbDepthDecayFactor", CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax);
+            ExpectDefaultInRange("ProstheticImpactConstant", CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax);
+            ExpectDefaultInRange("AthleticImpactConstant", CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax);
+            ExpectDefaultInRange("ReportMetricsIntervalHours", CoreDefaults.ReportMetricsIntervalHours, CoreDefaults.ReportMetricsIntervalHoursMin, CoreDefaults.ReportMetricsIntervalHoursMax);
+            ExpectDefaultInRange("PawnEvictionTimeframeHours", CoreDefaults.PawnEvictionTimeframeHours, CoreDefaults.PawnEvictionTimeframeHoursMin, CoreDefaults.PawnEvictionTimeframeHoursMax);
+
+            float pMin = CoreDefaults.PercentageMin;
+            float pMax = CoreDefaults.PercentageMax;
+            ExpectDefaultInRange("AnatomyWeightTorso", CoreDefaults.AnatomyWeightTorso, pMin, pMax);
+            ExpectDefaultInRange("AnatomyWeightArm", CoreDefaults.AnatomyWeightArm, pMin, pMax);
+            ExpectDefaultInRange("AnatomyWeightLeg", CoreDefaults.AnatomyWeightLeg, pMin, pMax);
+
+            ExpectDefaultInRange("TorsoPositiveBreathing", CoreDefaults.TorsoPositiveBreathing, pMin, pMax);
+            ExpectDefaultInRange("TorsoPositiveBlood", CoreDefaults.TorsoPositiveBlood, pMin, pMax);
+            ExpectDefaultInRange("TorsoPositiveMoving", CoreDefaults.TorsoPositiveMoving, pMin, pMax);
+            ExpectDefaultInRange("TorsoPositiveManipulation", CoreDefaults.TorsoPositiveManipulation, pMin, pMax);
+            ExpectDefaultInRange("ArmPositiveBreathing", CoreDefaults.ArmPositiveBreathing, pMin, pMax);
+            ExpectDefaultInRange("ArmPositiveBlood", CoreDefaults.ArmPositiveBlood, pMin, pMax);
+            ExpectDefaultInRange("ArmPositiveMoving", CoreDefaults.ArmPositiveMoving, pMin, pMax);
+            ExpectDefaultInRange("ArmPositiveManipulation", CoreDefaults.ArmPositiveManipulation, pMin, pMax);
+            ExpectDefaultInRange("LegPositiveBreathing", CoreDefaults.LegPositiveBreathing, pMin, pMax);
+            ExpectDefaultInRange("LegPositiveBlood", CoreDefaults.LegPositiveBlood, pMin, pMax);
+            ExpectDefaultInRange("LegPositiveMoving", CoreDefaults.LegPositiveMoving, pMin, pMax);
+            ExpectDefaultInRange("LegPositiveManipulation", CoreDefaults.LegPositiveManipulation, pMin, pMax);
+
+            ExpectDefaultInRange("TorsoDeficitBreathing", CoreDefaults.TorsoDeficitBreathing, pMin, pMax);
+            ExpectDefaultInRange("TorsoDeficitBlood", CoreDefaults.TorsoDeficitBlood, pMin, pMax);
+            ExpectDefaultInRange("TorsoDeficitMoving", CoreDefaults.TorsoDeficitMoving, pMin, pMax);
+            ExpectDefaultInRange("TorsoDeficitManipulation", CoreDefaults.TorsoDeficitManipulation, pMin, pMax);
+            ExpectDefaultInRange("ArmDeficitBreathing", CoreDefaults.ArmDeficitBreathing, pMin, pMax);
+            ExpectDefaultInRange("ArmDeficitBlood", CoreDefaults.ArmDeficitBlood, pMin, pMax);
+            ExpectDefaultInRange("ArmDeficitMoving", CoreDefaults.ArmDeficitMoving, pMin, pMax);
+            ExpectDefaultInRange("ArmDeficitManipulation", CoreDefaults.ArmDeficitManipulation, pMin, pMax);
+            ExpectDefaultInRange("LegDeficitBreathing", CoreDefaults.LegDeficitBreathing, pMin, pMax);
+            ExpectDefaultInRange("LegDeficitBlood", CoreDefaults.LegDeficitBlood, pMin, pMax);
+            ExpectDefaultInRange("LegDeficitMoving", CoreDefaults.LegDeficitMoving, pMin, pMax);
+            ExpectDefaultInRange("LegDeficitManipulation", CoreDefaults.LegDeficitManipulation, pMin, pMax);
+        }
+
+        #endregion
+
+        #region 2. SNAPSHOT TABLE CHECKS
 
         /// <summary>Finds pawn IDs whose natural hash slot equals <paramref name="slot"/>, forcing deliberate collisions.</summary>
         private static List<int> IdsForSlot(SnapshotTable table, int slot, int count)
@@ -339,7 +403,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. COLLECTION CHECKS
+        #region 3. COLLECTION CHECKS
 
         /// <summary>
         /// Verifies the unique list rejects nulls and duplicates, preserves insertion order, merges, clears and enumerates correctly.
@@ -377,7 +441,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. TOPOLOGY CHECKS
+        #region 4. TOPOLOGY CHECKS
 
         /// <summary>
         /// Verifies that every compiled body template matches its body definition and has valid parent indices and static weight factors.
@@ -435,7 +499,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. SOLVER CHECKS
+        #region 5. SOLVER CHECKS
 
         /// <summary>
         /// Builds a sandbox harness bound to a subject, optionally with the representative wound set applied.

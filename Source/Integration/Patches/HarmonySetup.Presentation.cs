@@ -111,7 +111,7 @@ namespace OverHaulers
                     candidates += drawMethods[i].ToString() + "; ";
                 }
             }
-            OHLog.Integration.Warn("HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
+            OHLog.Warn("Integration.HarmonySetup", null, $"Failed to resolve CaravanUIUtility.DrawCaravanInfo matching 'info' parameter. Candidates: {(string.IsNullOrEmpty(candidates) ? "none" : candidates)}");
         }
 
         #endregion

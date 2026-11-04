@@ -47,21 +47,22 @@
   <OverHaulers_Journal_RecompileHeader>RUNTIME RECOMPILATION COMPLETE ({0} ms)</OverHaulers_Journal_RecompileHeader>
   <OverHaulers_Journal_TestBenchHeader>TEST BENCH INITIALIZED ({0} ms)</OverHaulers_Journal_TestBenchHeader>
 
-  <OverHaulers_Journal_HarmonyInitialized>Harmony Compatibility: {0} engine hooks applied ({1} ms, one-time)</OverHaulers_Journal_HarmonyInitialized>
+  <OverHaulers_Journal_HarmonyInitialized>Harmony Compatibility: {1} engine hooks applied ({0} ms, one-time)</OverHaulers_Journal_HarmonyInitialized>
+  <OverHaulers_Log_Integration_HarmonyInitialized>[Over Haulers] Harmony compatibility initialized ({0} ms, one-time): {1} engine hooks applied.</OverHaulers_Log_Integration_HarmonyInitialized>
   <OverHaulers_Journal_ExternalPatchesDetected>External Patches: Detected C# patch(es) on MassUtility.Capacity from: {0}</OverHaulers_Journal_ExternalPatchesDetected>
   <OverHaulers_Journal_StatPresentationBound>Stat Integration: Adopted '{0}' (Owner: {1}, Suffix: '{2}')</OverHaulers_Journal_StatPresentationBound>
   <OverHaulers_Journal_SnapshotInitialized>Atomic Registry: Initialized {0} L1 slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4})</OverHaulers_Journal_SnapshotInitialized>
 
   <OverHaulers_Journal_TopologyPreserved>Skeletal Topologies: {0} species verified (preserved from startup)</OverHaulers_Journal_TopologyPreserved>
-  <OverHaulers_Journal_TopologyCompiled>Skeletal Topologies: {0} species compiled ({1} ms, Max: {2} {3} parts, Depth: {4})</OverHaulers_Journal_TopologyCompiled>
+  <OverHaulers_Journal_TopologyCompiled>Skeletal Topologies: {1} species compiled ({0} ms, Max: {3} {2} parts, Depth: {4})</OverHaulers_Journal_TopologyCompiled>
 
-  <OverHaulers_Journal_CalibrationSweep>Baseline Calibration: {0} Pristine | {1} Testing Fallback | {2} Live Rescue | {3} Emergency ({4} ms)</OverHaulers_Journal_CalibrationSweep>
+  <OverHaulers_Journal_CalibrationSweep>Baseline Calibration: {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency ({0} ms)</OverHaulers_Journal_CalibrationSweep>
   <OverHaulers_Journal_CalibrationRescueLive>Rescued {0} species baseline(s) from spawned live pawn(s): {1}</OverHaulers_Journal_CalibrationRescueLive>
   <OverHaulers_Journal_CalibrationPendingNotice>Notice: {0} caravan-capable species operating on temporary benchmarks pending live comps: {1}</OverHaulers_Journal_CalibrationPendingNotice>
 
   <OverHaulers_Journal_SnapshotReset>Atomic Registry: Initialized to {0} L1 slots (Cleared {1} stale entries)</OverHaulers_Journal_SnapshotReset>
   <OverHaulers_Journal_PresentationReset>Presentation Cache: Purged {0} cached visual models (Restored to {1} slots)</OverHaulers_Journal_PresentationReset>
-  <OverHaulers_Journal_MedicalCatalog>Medical Catalog: Indexed {0} replacements, {1} implants, {2} stimulants ({3} ms)</OverHaulers_Journal_MedicalCatalog>
+  <OverHaulers_Journal_MedicalCatalog>Medical Catalog: Indexed {1} replacements, {2} implants, {3} stimulants ({0} ms)</OverHaulers_Journal_MedicalCatalog>
   <OverHaulers_Journal_ActivePawnsWarmedUp>Population Warmup: Pre-cached {0} active caravan-capable pawns</OverHaulers_Journal_ActivePawnsWarmedUp>
 
   <!-- ========================================================================= -->

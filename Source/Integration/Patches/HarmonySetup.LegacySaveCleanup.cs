@@ -30,7 +30,7 @@ namespace OverHaulers
             System.Reflection.MethodBase target = AccessTools.Method(typeof(World), "ExposeComponents");
             if (target == null)
             {
-                OHLog.Integration.Warn("LegacySaveCleanup", null, "Could not resolve World.ExposeComponents; legacy save nodes will log one-time errors.");
+                OHLog.Warn("Integration.LegacySaveCleanup", null, "Could not resolve World.ExposeComponents; legacy save nodes will log one-time errors.");
                 return;
             }
 

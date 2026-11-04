@@ -192,7 +192,7 @@ namespace OverHaulers
             IsAuthoritativeTakeoverActive = false;
             ActiveProfileSyncFormationCapacity = false;
 
-            OHLog.Integration.StatPresentationBound("Native", nativeStat?.defName ?? "OverHaulers_CaravanMassCapacity", localizedSuffix);
+            IntegrationLogEvents.StatPresentationBound("Native", nativeStat?.defName ?? "OverHaulers_CaravanMassCapacity", localizedSuffix);
         }
 
         /// <summary>
@@ -299,7 +299,7 @@ namespace OverHaulers
             ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
             IsForeignStatAdopted = true;
 
-            OHLog.Integration.StatPresentationBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
+            IntegrationLogEvents.StatPresentationBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
         }
 
         /// <summary>
@@ -390,7 +390,7 @@ namespace OverHaulers
         /// <param name="staleKey">The key representing the previously selected preference that is now considered stale.</param>
         private static void RecoverStalePreference(Settings settings, string staleKey)
         {
-            OHLog.Integration.StalePreferenceRecovered(staleKey);
+            IntegrationLogEvents.StalePreferenceRecovered(staleKey);
             if (settings != null)
             {
                 settings.selectedPresentationKey = PresentationKeyAuto;
@@ -679,7 +679,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string methodName = method.DeclaringType != null ? $"{method.DeclaringType.FullName}.{method.Name}" : method.Name;
-                OHLog.Integration.Warn("CilMethodInspection", ex, $"Failed to inspect method {methodName}.");
+                OHLog.Warn("Integration.CilMethodInspection", ex, $"Failed to inspect method {methodName}.");
             }
         }
 

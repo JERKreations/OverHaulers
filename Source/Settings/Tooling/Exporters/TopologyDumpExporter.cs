@@ -69,7 +69,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.TestBench.Warn("ExportTopologyDumpFailed", ex, "Failed to export topology dump.");
+                OHLog.Warn("TestBench.ExportTopologyDumpFailed", ex, "Failed to export topology dump.");
                 return null;
             }
         }

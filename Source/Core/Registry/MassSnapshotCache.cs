@@ -60,7 +60,7 @@ namespace OverHaulers
             if (isInitialized) return;
             isInitialized = true;
 
-            OHLog.Performance.SnapshotTableInitialized(
+            PerformanceReport.SnapshotTableInitialized(
                 TableCapacity,
                 dynamic: true,
                 SnapshotTable.MinCapacity,

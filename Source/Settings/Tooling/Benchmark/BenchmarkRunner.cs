@@ -217,7 +217,7 @@ namespace OverHaulers
                 State = BenchmarkState.Failed;
                 ErrorMessage = ex.Message;
                 CurrentLabel = string.Empty;
-                OHLog.TestBench.Warn("BenchmarkRunner", ex, "The benchmark failed and was aborted.");
+                OHLog.Warn("TestBench.BenchmarkRunner", ex, "The benchmark failed and was aborted.");
             }
         }
 

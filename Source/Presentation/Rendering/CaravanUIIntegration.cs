@@ -54,7 +54,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("CaravanUIIntegration", ex, "Failed to initialize load transporters accessor.");
+                OHLog.Warn("Presentation.CaravanUIIntegration", ex, "Failed to initialize load transporters accessor.");
             }
 
             try
@@ -63,7 +63,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("CaravanUIIntegration", ex, "Failed to initialize split caravan accessor.");
+                OHLog.Warn("Presentation.CaravanUIIntegration", ex, "Failed to initialize split caravan accessor.");
             }
         }
 
@@ -93,7 +93,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Presentation.Warn("Caravan_MassCapacityExplanation_Postfix", ex, "Failed to compile caravan summary.");
+                OHLog.Warn("Presentation.Caravan_MassCapacityExplanation_Postfix", ex, "Failed to compile caravan summary.");
             }
         }
 
@@ -180,7 +180,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Presentation.Warn("InjectSummaryIntoExplanation", ex, "Failed to inject caravan summary into mass capacity explanation.");
+                OHLog.Warn("Presentation.InjectSummaryIntoExplanation", ex, "Failed to inject caravan summary into mass capacity explanation.");
             }
         }
 

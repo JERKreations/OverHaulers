@@ -385,7 +385,7 @@ namespace OverHaulers
                 if (UnityData.IsInMainThread)
                 {
                     string safeName = pawn.def?.defName ?? "Pawn";
-                    OHLog.Solver.Warn("GetCapacityLevelFailed", ex, $"Failed to get capacity level for pawn {safeName} and capacity {capacity.defName}.");
+                    OHLog.Warn("Solver.GetCapacityLevelFailed", ex, $"Failed to get capacity level for pawn {safeName} and capacity {capacity.defName}.");
                 }
             }
             
@@ -433,7 +433,7 @@ namespace OverHaulers
                 if (UnityData.IsInMainThread)
                 {
                     string safeLabel = pawn.def?.label ?? "Pawn";
-                    OHLog.Integration.Warn("BodySizeAccess", ex, $"Failed to access body size for pawn ID {pawn.thingIDNumber}: {safeLabel}");
+                    OHLog.Warn("Integration.BodySizeAccess", ex, $"Failed to access body size for pawn ID {pawn.thingIDNumber}: {safeLabel}");
                 }
             }
 
@@ -526,7 +526,7 @@ namespace OverHaulers
             {
                 if (UnityData.IsInMainThread)
                 {
-                    OHLog.Solver.Warn("GetSafePartEfficiency", ex, $"Failed to query live part efficiency for {part.def.defName}. Falling back to rated efficiency.");
+                    OHLog.Warn("Solver.GetSafePartEfficiency", ex, $"Failed to query live part efficiency for {part.def.defName}. Falling back to rated efficiency.");
                 }
                 return defaultRatedEfficiency;
             }
@@ -808,7 +808,7 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                OHLog.Integration.Warn("MetabolicInitFailed", ex, "Failed to initialize metabolic organs.");
+                OHLog.Warn("Integration.MetabolicInitFailed", ex, "Failed to initialize metabolic organs.");
             }
         }
 
