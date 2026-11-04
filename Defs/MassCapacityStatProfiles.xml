@@ -18,9 +18,11 @@
     <neutraliseCapacityFactors>
       <li>Moving</li>
     </neutraliseCapacityFactors>
+    <!-- 
     <neutraliseStatFactors>
-      <li>bodySizeFactor</li>
+      <li>TESTING: Neutralisation of other factors to extend compatibility</li>
     </neutraliseStatFactors>
+    -->
     <!-- Lets Over Haulers synchronize caravan/transport formation mass capacities -->
     <syncFormationCapacity>true</syncFormationCapacity>
   </OverHaulers.MassCapacityStatProfileDef>
