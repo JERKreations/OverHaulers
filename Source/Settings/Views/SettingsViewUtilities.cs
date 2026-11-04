@@ -6,10 +6,10 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// Stateless GUI utility drawer providing specialized direct IMGUI layout widgets, auto-height measurement engines,
+    /// [SEC-00] Stateless GUI utility drawer providing specialized direct IMGUI layout widgets, auto-height measurement engines,
     /// focus-aware text buffers, accessibility color controls, and menu section drawers for the Mod Settings interface.
     /// Operates on direct Rect cursor math with 0 Listing_Standard overhead and a Zero-Allocation Control ID Cache.
-    /// Resides under Source/Presentation/.
+    /// Resides under Source/Settings/Views/.
     /// </summary>
     public static class SettingsViewUtilities
     {
@@ -23,18 +23,18 @@ namespace OverHaulers
         public static readonly Color DescriptionTextColor = new Color(0.63f, 0.65f, 0.67f);
         public static readonly Color DarkTargetHighlightColor = new Color(0f, 0f, 0f, 0.40f);
 
-        /// <summary>The player-selected "healthy / good" colour from the accessibility palette (default palette until settings load).</summary>
-        public static Color HealthyColor => OverHaulers.settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault;
-
-        /// <summary>The player-selected "critical / bad" colour from the accessibility palette (default palette until settings load).</summary>
-        public static Color CriticalColor => OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
-
         private static readonly Dictionary<string, string> activeInputBuffers = new Dictionary<string, string>(32);
         private static readonly Dictionary<string, float> sectionHeightCache = new Dictionary<string, float>(16);
 
         // BREAKPOINT ANCHOR: Deterministic Zero-Allocation Control ID Cache
         private static int currentControlIndex = 0;
         private static readonly List<string> cachedControlNames = new List<string>(128);
+
+        /// <summary>The player-selected "healthy / good" colour from the accessibility palette (default palette until settings load).</summary>
+        public static Color HealthyColor => OverHaulers.settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault;
+
+        /// <summary>The player-selected "critical / bad" colour from the accessibility palette (default palette until settings load).</summary>
+        public static Color CriticalColor => OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
 
         /// <summary>
         /// Resets the internal control index, preparing the zero-allocation control ID cache for a new GUI frame.

@@ -8,7 +8,7 @@ namespace OverHaulers
     /// <summary>
     /// Passive, read-only node structure representing a single body part in the compiled anatomical UI view tree.
     /// Stores pre-calculated caravan mass capacity offsets and colorized display labels for tooltips and inspect cards.
-    /// Annotated with [VIEW-XX] tags indicating layout section mapping.
+    /// Annotated with [VIEW-01]..[VIEW-04] tags indicating layout section mapping.
     /// </summary>
     public class PartViewNode
     {

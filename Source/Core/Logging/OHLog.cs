@@ -5,7 +5,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// Centralized, thread-safe, domain-agnostic logging engine for OverHaulers.
+    /// [DIAG-07] Centralized, thread-safe, domain-agnostic logging engine for OverHaulers.
     /// Callers identify themselves with a plain call-site string (convention: "Domain.Site", e.g. "Solver.WorkspacePool"),
     /// which doubles as the throttle key. Hardcoded error logs are throttled (max 3 prints per unique source),
     /// while informative events are routed through localized XML translation keys into the active
@@ -14,7 +14,7 @@ namespace OverHaulers
     /// </summary>
     public static partial class OHLog
     {
-        #region 1. DYNAMIC ATOMIC THROTTLING ENGINE
+        #region 1. [DIAG-07] DYNAMIC ATOMIC THROTTLING ENGINE
 
         public const int MaxWarnCutoff = 3;
         private static readonly ConcurrentDictionary<string, int> warnCounts = new ConcurrentDictionary<string, int>();

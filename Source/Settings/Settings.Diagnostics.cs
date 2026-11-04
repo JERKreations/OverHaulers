@@ -15,16 +15,6 @@ namespace OverHaulers
         /// </summary>
         public bool devStressTestAllFauna = CoreDefaults.DevStressTestAllFauna;
 
-        /// <summary>
-        /// Backwards-compatible alias for <see cref="devStressTestAllFauna"/>.
-        /// </summary>
-        [System.Obsolete("Use devStressTestAllFauna instead.")]
-        public bool devAllowNonPackSpeciesInLivePlay
-        {
-            get => devStressTestAllFauna;
-            set => devStressTestAllFauna = value;
-        }
-
         public int reportMetricsIntervalHours = CoreDefaults.ReportMetricsIntervalHours;
         public bool logQueryMetrics = CoreDefaults.LogQueryMetrics;
         public bool logCacheMetrics = CoreDefaults.LogCacheMetrics;
@@ -35,6 +25,16 @@ namespace OverHaulers
         public bool logSafetyFloorClamps = CoreDefaults.LogSafetyFloorClamps;
         public bool logPawnEvictions = CoreDefaults.LogPawnEvictions;
         public int pawnEvictionTimeframeHours = CoreDefaults.PawnEvictionTimeframeHours;
+
+        /// <summary>
+        /// Backwards-compatible alias for <see cref="devStressTestAllFauna"/>.
+        /// </summary>
+        [System.Obsolete("Use devStressTestAllFauna instead.")]
+        public bool devAllowNonPackSpeciesInLivePlay
+        {
+            get => devStressTestAllFauna;
+            set => devStressTestAllFauna = value;
+        }
 
         public int ReportMetricsIntervalTicks => reportMetricsIntervalHours * GenDate.TicksPerHour;
         public int PawnEvictionTimeframeTicks => pawnEvictionTimeframeHours * GenDate.TicksPerHour;

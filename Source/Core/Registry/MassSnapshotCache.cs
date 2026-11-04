@@ -24,12 +24,6 @@ namespace OverHaulers
         /// <summary>Tracks whether the atomic snapshot table has been primed during engine bootstrap.</summary>
         private static bool isInitialized = false;
 
-        static MassSnapshotCache()
-        {
-            // Explicit static constructor removes the CIL 'beforefieldinit' flag,
-            // guaranteeing liveTable is only allocated when EnsureInitialized() is invoked.
-        }
-
         #endregion
 
         #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
@@ -49,6 +43,12 @@ namespace OverHaulers
         #endregion
 
         #region 4. LIFECYCLE & INITIALIZATION
+
+        static MassSnapshotCache()
+        {
+            // Explicit static constructor removes the CIL 'beforefieldinit' flag,
+            // guaranteeing liveTable is only allocated when EnsureInitialized() is invoked.
+        }
 
         /// <summary>
         /// Explicitly primes and allocates the atomic snapshot table during engine bootstrap.

@@ -131,7 +131,7 @@ namespace OverHaulers
     /// [DIAG-04] In-game self-check. Verifies the mod's core algorithms and its integration with the loaded game data,
     /// on the real runtime and mod list. Checks that stress shared state (the snapshot table) run against private instances,
     /// so live caravan mass capacity data is never touched. One check runs per frame so the window never blocks for long.
-    /// Resides under Source/Diagnostics/SelfCheck/.
+    /// Resides under Source/Settings/Tooling/SelfCheck/.
     /// </summary>
     public static class SelfCheckRunner
     {

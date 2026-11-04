@@ -8,7 +8,7 @@ namespace OverHaulers
     #region 1. CALIBRATION TAXONOMY
 
     /// <summary>
-    /// [INT-CALIB-01] Explicit state of a species baseline calibration entry.
+    /// [CORE-SYNTH-03] Explicit state of a species baseline calibration entry.
     /// Completely replaces floating-point sentinel smuggling (-1f, -2f, -3f).
     /// </summary>
     public enum CalibrationStatus : byte
@@ -20,7 +20,7 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// [INT-CALIB-01] The specific resolution pathway that produced the baseline mass scalar.
+    /// [CORE-SYNTH-03] The specific resolution pathway that produced the baseline mass scalar.
     /// </summary>
     public enum CalibrationMethod : byte
     {

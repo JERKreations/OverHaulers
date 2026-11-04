@@ -33,6 +33,16 @@ namespace OverHaulers
 
         #region 2. STATIC STATE, LOCKS & BUFFERS
 
+        // Cache expiry invariants (engine-owned, not user-tunable).
+        // Fast-path floor and expiry base (5 ticks = ~0.08s at 1x speed).
+        private const int MinFastPathTicks = 5;
+
+        // Square-root scaling factor (K) for population-based cache expiry.
+        private const int DynamicExpiryScaleK = 5;
+
+        // Interval in ticks at which expired cache entries are swept.
+        private const int CacheCleanupInterval = 600;
+
         // Pre-seeded dictionary with an initial capacity of 512 to eliminate rehash allocations during early game ticks
         private static readonly Dictionary<int, CachedMassData> capacityCache = new Dictionary<int, CachedMassData>(512);
 
@@ -52,16 +62,6 @@ namespace OverHaulers
         // Sentinel flag ensuring only one thread or maintenance routine executes cleanup at a time
         private static int activeCleanupSentinel = 0;
 
-        // Cache expiry invariants (engine-owned, not user-tunable).
-        // Fast-path floor and expiry base (5 ticks = ~0.08s at 1x speed).
-        private const int MinFastPathTicks = 5;
-
-        // Square-root scaling factor (K) for population-based cache expiry.
-        private const int DynamicExpiryScaleK = 5;
-
-        // Interval in ticks at which expired cache entries are swept.
-        private const int CacheCleanupInterval = 600;
-
         // Cached population count and base TTL to avoid redundant Mathf.Sqrt calculations when population is stable
         private static int cachedActiveCount = -1;
         private static int cachedExpiryBase = MinFastPathTicks;
@@ -76,23 +76,6 @@ namespace OverHaulers
         #endregion
 
         #region 3. DOWNWARD CONFIGURATION & EVENTS
-
-        /// <summary>
-        /// Updates the active runtime infrastructure configuration snapshot.
-        /// Downward entry point invoked by Settings upon load, save, or slider mutation; the snapshot is range-checked here, so Core never trusts the caller.
-        /// </summary>
-        /// <param name="newConfig">The new runtime infrastructure configuration struct snapshot.</param>
-        public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
-        {
-            RuntimeConfiguration sanitized = newConfig.Sanitized(out bool wasModified);
-            activeRuntimeConfig = sanitized;
-            PerformanceTelemetry.Configure(in sanitized);
-            PerformanceReport.Configure(in sanitized);
-            if (wasModified)
-            {
-                OHLog.Warn("Config.RuntimeSanitized", null, "Runtime configuration contained out-of-range values; they were clamped to their supported bounds.");
-            }
-        }
 
         /// <summary>Gets a read-only reference to the active runtime configuration.</summary>
         public static ref readonly RuntimeConfiguration ActiveConfiguration => ref activeRuntimeConfig;
@@ -116,6 +99,23 @@ namespace OverHaulers
         /// [CACHE-01] Downward notification event fired on the main thread when a specific pawn entity is evicted from Core caches.
         /// </summary>
         public static event Action<int> OnPawnEvicted;
+
+        /// <summary>
+        /// Updates the active runtime infrastructure configuration snapshot.
+        /// Downward entry point invoked by Settings upon load, save, or slider mutation; the snapshot is range-checked here, so Core never trusts the caller.
+        /// </summary>
+        /// <param name="newConfig">The new runtime infrastructure configuration struct snapshot.</param>
+        public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
+        {
+            RuntimeConfiguration sanitized = newConfig.Sanitized(out bool wasModified);
+            activeRuntimeConfig = sanitized;
+            PerformanceTelemetry.Configure(in sanitized);
+            PerformanceReport.Configure(in sanitized);
+            if (wasModified)
+            {
+                OHLog.Warn("Config.RuntimeSanitized", null, "Runtime configuration contained out-of-range values; they were clamped to their supported bounds.");
+            }
+        }
 
         #endregion
 

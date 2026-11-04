@@ -65,11 +65,11 @@ namespace OverHaulers
     /// against a private <see cref="SnapshotTable"/> instance across both L1 colony baselines and L2 scaled surges.
     /// Driven one time slice per frame by <see cref="BenchmarkRunner"/>; reader threads run continuously in the background
     /// while the main thread acts as the single writer.
-    /// Resides under Source/Diagnostics/Benchmark/.
+    /// Resides under Source/Settings/Tooling/Benchmark/.
     /// </summary>
     public static class SnapshotTableBenchmark
     {
-        #region 2. CONFIGURATION & PUBLIC STATE
+        #region 2. CONFIGURATION CONSTANTS
 
         // Population Tiers
         private const int BaselinePawnCount = 100;
@@ -89,19 +89,9 @@ namespace OverHaulers
         private const int MaxReaderThreads = 4;
         private const int ReaderStopTimeoutMs = 2000;
 
-        /// <summary>Multi-tier read cost of the last completed run; null until measured.</summary>
-        public static SnapshotReadResult ReadResult { get; private set; }
-        public static readonly List<SnapshotContentionResult> ContentionResults = new List<SnapshotContentionResult>(2);
-
-        /// <summary>Overall progress of this stage in the range 0 to 1.</summary>
-        public static float Progress01 { get; private set; }
-
-        /// <summary>True once a run has recorded both read costs and contention scenarios.</summary>
-        public static bool HasResults => ReadResult != null && ContentionResults.Count > 0;
-
         #endregion
 
-        #region 3. STATE MACHINE FIELDS
+        #region 3. STATE MACHINE FIELDS & OBSERVABLE STATE
 
         /// <summary>
         /// Phases of the two-tier snapshot table benchmark in execution order.
@@ -160,6 +150,8 @@ namespace OverHaulers
             }
         }
 
+        public static readonly List<SnapshotContentionResult> ContentionResults = new List<SnapshotContentionResult>(2);
+
         private static Phase phase = Phase.Idle;
         private static SnapshotTable table;
 
@@ -190,6 +182,15 @@ namespace OverHaulers
         private static Stopwatch scenarioWatch;
 
         private static float optimiserDefeatSink;
+
+        /// <summary>Multi-tier read cost of the last completed run; null until measured.</summary>
+        public static SnapshotReadResult ReadResult { get; private set; }
+
+        /// <summary>Overall progress of this stage in the range 0 to 1.</summary>
+        public static float Progress01 { get; private set; }
+
+        /// <summary>True once a run has recorded both read costs and contention scenarios.</summary>
+        public static bool HasResults => ReadResult != null && ContentionResults.Count > 0;
 
         #endregion
 

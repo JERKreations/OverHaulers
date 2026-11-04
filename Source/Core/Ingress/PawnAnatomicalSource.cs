@@ -17,17 +17,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. LIFECYCLE: CONSTRUCTOR
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public PawnAnatomicalSource(Pawn pawn)
-        {
-            this.pawn = pawn;
-        }
-
-        #endregion
-
-        #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
+        #region 2. PROPERTIES & ENCAPSULATED ACCESSORS
 
         /// <summary>
         /// Direct access to the underlying pawn entity instance.
@@ -100,6 +90,16 @@ namespace OverHaulers
                     return pawn.def?.label ?? "Pawn";
                 }
             }
+        }
+
+        #endregion
+
+        #region 3. LIFECYCLE: CONSTRUCTOR
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PawnAnatomicalSource(Pawn pawn)
+        {
+            this.pawn = pawn;
         }
 
         #endregion

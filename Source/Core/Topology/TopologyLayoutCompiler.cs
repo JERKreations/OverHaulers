@@ -20,7 +20,7 @@ namespace OverHaulers
     [StaticConstructorOnStartup]
     public static class TopologyLayoutCompiler
     {
-        #region 1. STATIC DEF POINTERS & CACHED TAGS
+        #region 1. STATIC DEF POINTERS, CACHE STATE & STATIC CONSTRUCTOR
 
         public static readonly HashSet<BodyPartTagDef> armTags = new HashSet<BodyPartTagDef>();
         public static readonly HashSet<BodyPartTagDef> legTags = new HashSet<BodyPartTagDef>();
@@ -44,6 +44,28 @@ namespace OverHaulers
         public static readonly BodyPartTagDef BloodFiltrationSourceTag;
         public static readonly BodyPartTagDef MetabolismSourceTag;
         public static readonly BodyPartTagDef DigestionSourceTag;
+
+        // Cache for compiled species topology templates.
+        private static readonly ConcurrentDictionary<BodyDef, Lazy<SpeciesTopologyTemplate>> speciesTopologyCache = 
+            new ConcurrentDictionary<BodyDef, Lazy<SpeciesTopologyTemplate>>();
+
+        private static bool isCompiled = false;
+        private static readonly object compilationLock = new object();
+
+        public static int globalMaxPartCount = 0;
+        public static string globalMaxPartBodyDefName = "None";
+        public static int globalMaxSkeletalDepth = 0;
+
+        /// <summary>
+        /// Single source of truth for the most recent total topology compilation duration in milliseconds.
+        /// Consumed symmetrically by diagnostic logs and the performance benchmark runner.
+        /// </summary>
+        public static double LastCompileDurationMs { get; private set; } = 0.0;
+
+        /// <summary>
+        /// Total count of successfully compiled, validated species skeletal topology templates currently resident in cache.
+        /// </summary>
+        public static int CompiledTemplateCount => speciesTopologyCache.Count;
 
         static TopologyLayoutCompiler()
         {
@@ -103,28 +125,6 @@ namespace OverHaulers
         #endregion
 
         #region 2. COMPILATION LIFECYCLE & CACHE MANAGEMENT
-
-        // Cache for compiled species topology templates.
-        private static readonly ConcurrentDictionary<BodyDef, Lazy<SpeciesTopologyTemplate>> speciesTopologyCache = 
-            new ConcurrentDictionary<BodyDef, Lazy<SpeciesTopologyTemplate>>();
-
-        private static bool isCompiled = false;
-        private static readonly object compilationLock = new object();
-
-        public static int globalMaxPartCount = 0;
-        public static string globalMaxPartBodyDefName = "None";
-        public static int globalMaxSkeletalDepth = 0;
-
-        /// <summary>
-        /// Single source of truth for the most recent total topology compilation duration in milliseconds.
-        /// Consumed symmetrically by diagnostic logs and the performance benchmark runner.
-        /// </summary>
-        public static double LastCompileDurationMs { get; private set; } = 0.0;
-
-        /// <summary>
-        /// Total count of successfully compiled, validated species skeletal topology templates currently resident in cache.
-        /// </summary>
-        public static int CompiledTemplateCount => speciesTopologyCache.Count;
 
         /// <summary>
         /// Ensures that all loaded species BodyDefs are compiled into flat, immutable templates.

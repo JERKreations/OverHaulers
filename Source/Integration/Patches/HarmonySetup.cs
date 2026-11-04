@@ -13,10 +13,10 @@ namespace OverHaulers
     {
         #region 1. STATIC STATE & HARMONY INSTANCE
 
+        private static bool isCompatibilityInitialized = false;
+
         /// <summary>Active Harmony instance handle used for dynamic driver rebinding.</summary>
         public static Harmony HarmonyInstance { get; private set; }
-
-        private static bool isCompatibilityInitialized = false;
 
         #endregion
 

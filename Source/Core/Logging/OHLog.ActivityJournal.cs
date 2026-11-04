@@ -6,13 +6,13 @@ namespace OverHaulers
 {
     public static partial class OHLog
     {
-        #region 1. [DIAG-JOURNAL] ACTIVITY JOURNAL STATE & BUFFERS
+        #region 1. [DIAG-06] ACTIVITY JOURNAL STATE & BUFFERS
 
         /// <summary>
-        /// [DIAG-JOURNAL] Modular action accumulator that aggregates correlated lifecycle, 
+        /// [DIAG-06] Modular action accumulator that aggregates correlated lifecycle, 
         /// compilation, and calibration events into unified, structured console reports.
         /// Supports multi-tick deferred execution windows (e.g. Tick 0 -> Tick 10 calibration sweeps).
-        /// Resides under Source/Diagnostics/Logging/.
+        /// Resides under Source/Core/Logging/.
         /// </summary>
         public static class ActivityJournal
         {
@@ -36,7 +36,7 @@ namespace OverHaulers
 
             #endregion
 
-            #region 2. [DIAG-JOURNAL] LIFECYCLE API & BUFFERING
+            #region 2. [DIAG-06] LIFECYCLE API & BUFFERING
 
             /// <summary>
             /// Begins a new activity journal session with a formatted header.

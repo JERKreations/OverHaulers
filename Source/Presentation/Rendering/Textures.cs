@@ -4,7 +4,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// Static texture registry holding custom bundled UI icons and vanilla fallback handles.
+    /// [VIEW-06] Static texture registry holding custom bundled UI icons and vanilla fallback handles.
     /// Employs dual-version (1.5 / 1.6) safe texture resolution to prevent missing icon handles across game builds.
     /// Target: Caravan Mass Capacity InfoCard breakdown icons ([P], [A], [I]).
     /// </summary>

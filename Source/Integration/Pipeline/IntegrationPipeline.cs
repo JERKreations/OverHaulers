@@ -38,6 +38,23 @@ namespace OverHaulers
 
         private static StatDef activeMassCapacityStat;
 
+        /// <summary>Capacity factors stripped from the adopted stat, kept so they can be restored on detach.</summary>
+        private static List<PawnCapacityFactor> cachedRemovedCapacityFactors;
+
+        /// <summary>Stat factors stripped from the adopted stat, kept so they can be restored on detach.</summary>
+        private static List<StatDef> cachedRemovedStatFactors;
+
+        /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
+        private static bool isInitialized = false;
+
+        /// <summary>Keywords used to identify relevant mass capacity stats in external mods.</summary>
+        private static readonly string[] StatKeywords = { "mass", "weight", "capacity", "caravan", "carry", "load", "pack" };
+
+        private static string preferredPresentationKey = PresentationKeyAuto;
+
+        /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
+        public static event Action<string> PreferredPresentationKeyReset;
+
         /// <summary>
         /// The currently adopted mass capacity StatDef used for presentation and inspection.
         /// When assigned, pushes the stat downward into MedicalClassifier to preserve downward layer directionality.
@@ -70,12 +87,6 @@ namespace OverHaulers
         /// <summary>Indicates whether the active profile requires caravan formation explanation string synchronization.</summary>
         public static bool ActiveProfileSyncFormationCapacity { get; private set; }
 
-        /// <summary>Indicates whether authoritative takeover of adopted stats is enabled in the current session.</summary>
-        private static List<PawnCapacityFactor> cachedRemovedCapacityFactors;
-
-        /// <summary>Indicates whether authoritative takeover of adopted stats is enabled in the current session.</summary>
-        private static List<StatDef> cachedRemovedStatFactors;
-
         /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
         public static bool IsInitialized => isInitialized;
 
@@ -85,20 +96,9 @@ namespace OverHaulers
         /// <summary>A list of all discovered patches relevant to mass capacity stat adoption.</summary>
         public static List<DiscoveredPatchInfo> DiscoveredPatches { get; } = new List<DiscoveredPatchInfo>();
 
-        /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
-        private static bool isInitialized = false;
-
-        /// <summary>Keywords used to identify relevant mass capacity stats in external mods.</summary>
-        private static readonly string[] StatKeywords = { "mass", "weight", "capacity", "caravan", "carry", "load", "pack" };
-
         #endregion
 
         #region 2. PRESENTATION BINDING & RE-BINDING
-
-        /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
-        public static event Action<string> PreferredPresentationKeyReset;
-
-        private static string preferredPresentationKey = PresentationKeyAuto;
 
         /// <summary>
         /// Receives the player's presentation preference from the Settings layer (pushed downward, never pulled).

@@ -29,7 +29,23 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. LIFECYCLE: CONSTRUCTOR
+        #region 2. DERIVED TELEMETRY GATES
+
+        /// <summary>Single owner of the master gate: all telemetry collection and reporting is off when the report interval is zero.</summary>
+        public bool IsTelemetryEnabled => ReportMetricsIntervalHours > 0;
+
+        /// <summary>Hit/miss counters feed both the cache and query report sections, so either flag enables collection.</summary>
+        public bool CollectsCacheCounters => IsTelemetryEnabled && (LogCacheMetrics || LogQueryMetrics);
+
+        public bool CollectsSnapshotCounters => IsTelemetryEnabled && LogSnapshotTableMetrics;
+
+        public bool CollectsLifecycleCounters => IsTelemetryEnabled && LogLifecycleMetrics;
+
+        public bool CollectsPresentationCounters => IsTelemetryEnabled && LogPresentationMetrics;
+
+        #endregion
+
+        #region 3. LIFECYCLE: CONSTRUCTOR
 
         public RuntimeConfiguration(
             int pawnEvictionTimeframeTicks,
@@ -56,22 +72,6 @@ namespace OverHaulers
             LogSafetyFloorClamps = logSafetyFloorClamps;
             LogPawnEvictions = logPawnEvictions;
         }
-
-        #endregion
-
-        #region 3. DERIVED TELEMETRY GATES
-
-        /// <summary>Single owner of the master gate: all telemetry collection and reporting is off when the report interval is zero.</summary>
-        public bool IsTelemetryEnabled => ReportMetricsIntervalHours > 0;
-
-        /// <summary>Hit/miss counters feed both the cache and query report sections, so either flag enables collection.</summary>
-        public bool CollectsCacheCounters => IsTelemetryEnabled && (LogCacheMetrics || LogQueryMetrics);
-
-        public bool CollectsSnapshotCounters => IsTelemetryEnabled && LogSnapshotTableMetrics;
-
-        public bool CollectsLifecycleCounters => IsTelemetryEnabled && LogLifecycleMetrics;
-
-        public bool CollectsPresentationCounters => IsTelemetryEnabled && LogPresentationMetrics;
 
         #endregion
 

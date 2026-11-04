@@ -25,7 +25,7 @@ namespace OverHaulers
     /// [TEST-02] Central facade orchestrator for the Mod Settings Interactive Test Bench.
     /// Operates entirely against the unified <see cref="SandboxPawnHarness"/> with 100% native RimWorld capacity evaluation.
     /// Supports live developer hot-recompilation of all skeletal topologies, medical catalogs, and test subjects.
-    /// Resides under Source/Settings/TestBench/.
+    /// Resides under Source/Settings/Tooling/TestBench/.
     /// </summary>
     public static class TestBench
     {
@@ -35,7 +35,18 @@ namespace OverHaulers
         public static GroupingDimension activeGroupingDimension = GroupingDimension.Mod;
         public static TestBenchViewMode activeViewMode = TestBenchViewMode.InfoCard;
 
+        public static float lastCalculatedFinalMass = 0.0f;
+        public static float lastCalculatedDelta = 0.0f;
+
         private static SandboxPawnHarness activeHarness;
+        private static bool isDirty = true;
+        private static string cachedExplanation = string.Empty;
+        private static float cachedSpeciesBaseline = 0.0f;
+        private static readonly MassCapacityModel cachedModel = new MassCapacityModel();
+
+        private static readonly StringBuilder pooledXRayBuilder = new StringBuilder(2048);
+
+        private static bool isInitialized = false;
 
         /// <summary>[TEST-05] Active headless sandbox harness managing 1:1 pawn simulations for all subjects.</summary>
         public static SandboxPawnHarness Harness
@@ -51,17 +62,27 @@ namespace OverHaulers
             }
         }
 
-        public static float lastCalculatedFinalMass = 0.0f;
-        public static float lastCalculatedDelta = 0.0f;
-
-        private static bool isDirty = true;
-        private static string cachedExplanation = string.Empty;
-        private static float cachedSpeciesBaseline = 0.0f;
-        private static readonly MassCapacityModel cachedModel = new MassCapacityModel();
-
-        private static readonly StringBuilder pooledXRayBuilder = new StringBuilder(2048);
-
-        private static bool isInitialized = false;
+        /// <summary>
+        /// Gets or sets the currently active test subject entry for the Test Bench.
+        /// </summary>
+        public static TestSubjectEntry ActiveSubject
+        {
+            get
+            {
+                EnsureInitialized();
+                return activeSubject;
+            }
+            set
+            {
+                EnsureInitialized();
+                if (activeSubject != value)
+                {
+                    activeSubject = value;
+                    Harness.BindSubject(activeSubject);
+                    MarkDirty();
+                }
+            }
+        }
 
         static TestBench()
         {
@@ -114,28 +135,6 @@ namespace OverHaulers
 
             OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_TestBenchHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
             OHLog.ActivityJournal.Dispatch();
-        }
-
-        /// <summary>
-        /// Gets or sets the currently active test subject entry for the Test Bench.
-        /// </summary>
-        public static TestSubjectEntry ActiveSubject
-        {
-            get
-            {
-                EnsureInitialized();
-                return activeSubject;
-            }
-            set
-            {
-                EnsureInitialized();
-                if (activeSubject != value)
-                {
-                    activeSubject = value;
-                    Harness.BindSubject(activeSubject);
-                    MarkDirty();
-                }
-            }
         }
 
         /// <summary>

@@ -22,6 +22,12 @@ namespace OverHaulers
 
         #region 2. MODEL FIELDS & LOOKUP BUFFERS
 
+        /// <summary>Direct flat lookup mapping compiled species part-index slots to their visual node models for O(1) info-card hyperlinks.</summary>
+        private PartViewNode[] nodeByPartIndex = new PartViewNode[64];
+
+        private readonly List<PartViewNode> nodePool = new List<PartViewNode>(64);
+        private int poolIndex = 0;
+
         /// <summary>[VIEW-02] Array of capacity levels for Breathing, Blood Pumping, Moving, Manipulation, and Consciousness.</summary>
         public float[] CapacityLevels { get; set; } = new float[5];
 
@@ -54,12 +60,6 @@ namespace OverHaulers
 
         /// <summary>[VIEW-01] Configurable percentile deficit floor expressed in absolute measurement (e.g. 8.0 kg).</summary>
         public float ConfigurablePercentileFloorKg { get; set; }
-
-        /// <summary>Direct flat lookup mapping compiled species part-index slots to their visual node models for O(1) info-card hyperlinks.</summary>
-        private PartViewNode[] nodeByPartIndex = new PartViewNode[64];
-
-        private readonly List<PartViewNode> nodePool = new List<PartViewNode>(64);
-        private int poolIndex = 0;
 
         /// <summary>Instantiates a new empty Caravan Mass Capacity model with baseline default parameters.</summary>
         public MassCapacityModel()

@@ -21,6 +21,9 @@ namespace OverHaulers
 
         #region 1B. Lifecycle & Factory
 
+        public static readonly BiologicalCapacitySnapshot Default =
+            new BiologicalCapacitySnapshot(1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
         public BiologicalCapacitySnapshot(
             float breathing,
             float bloodPumping,
@@ -34,9 +37,6 @@ namespace OverHaulers
             Manipulation = manipulation;
             Consciousness = consciousness;
         }
-
-        public static readonly BiologicalCapacitySnapshot Default =
-            new BiologicalCapacitySnapshot(1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
         #endregion
     }

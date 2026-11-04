@@ -24,22 +24,10 @@ namespace OverHaulers
         public static readonly Color MutedTextColor = new Color(0.63f, 0.65f, 0.67f);
 
         // Cached active presentation palette pushed downward from Settings
-        private static Color         colorHealthy = PresentationDefaults.ColorHealthyDefault;
-                private static Color colorCritical = PresentationDefaults.ColorCriticalDefault;
-                private static Color colorBoosted = PresentationDefaults.ColorBoostedDefault;
-                private static bool isVerboseBreakdown = PresentationDefaults.VerboseBreakdown;
-
-        /// <summary>
-        /// Updates the active color palette and verbose formatting rules pushed downward from Settings.
-        /// Preserves strict downward layer directionality (Presentation never references Settings).
-        /// </summary>
-        public static void SetPalette(Color healthy, Color critical, Color boosted, bool verbose)
-        {
-            colorHealthy = healthy;
-            colorCritical = critical;
-            colorBoosted = boosted;
-            isVerboseBreakdown = verbose;
-        }
+        private static Color colorHealthy = PresentationDefaults.ColorHealthyDefault;
+        private static Color colorCritical = PresentationDefaults.ColorCriticalDefault;
+        private static Color colorBoosted = PresentationDefaults.ColorBoostedDefault;
+        private static bool isVerboseBreakdown = PresentationDefaults.VerboseBreakdown;
 
         private static readonly string[] CapacityTranslationKeys = new[]
         {
@@ -53,6 +41,18 @@ namespace OverHaulers
         private static readonly StringBuilder pooledFinalReport = new StringBuilder(1024);
         private static readonly StringBuilder pooledDetailsBuilder = new StringBuilder(1024);
         private static readonly StringBuilder pooledListBuilder = new StringBuilder(1024);
+
+        /// <summary>
+        /// Updates the active color palette and verbose formatting rules pushed downward from Settings.
+        /// Preserves strict downward layer directionality (Presentation never references Settings).
+        /// </summary>
+        public static void SetPalette(Color healthy, Color critical, Color boosted, bool verbose)
+        {
+            colorHealthy = healthy;
+            colorCritical = critical;
+            colorBoosted = boosted;
+            isVerboseBreakdown = verbose;
+        }
 
         #endregion
 

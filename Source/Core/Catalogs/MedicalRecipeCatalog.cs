@@ -5,10 +5,10 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [TEST-04] RECIPE CATALOG ENTRY MODELS
+    #region 1. [CORE-CAT-01] RECIPE CATALOG ENTRY MODELS
 
     /// <summary>
-    /// [TEST-04] Immutable descriptor representing an indexed surgery recipe or medical procedure.
+    /// [CORE-CAT-01] Immutable descriptor representing an indexed surgery recipe or medical procedure.
     /// Encapsulates surgical parameters and athletic capacity metadata for the Test Bench.
     /// </summary>
     public readonly struct MedicalOperationEntry
@@ -40,7 +40,7 @@ namespace OverHaulers
     #endregion
 
     /// <summary>
-    /// [TEST-04] STATIC MEDICAL RECIPE & AUGMENTATION CATALOG
+    /// [CORE-CAT-01] STATIC MEDICAL RECIPE & AUGMENTATION CATALOG
     /// Pre-indexes all loaded vanilla and modded surgery recipes, artificial parts, implants, combat stimulants,
     /// and whole-body staged conditions (pregnancies, food poisoning, hangovers, withdrawals, mechanites).
     /// Provides zero-allocation $O(1)$ query tables for the interactive medical planner and diagnostic census tools.
@@ -67,7 +67,7 @@ namespace OverHaulers
         #region 3. CATALOG BOOTSTRAPPING & PRE-INDEXING
 
         /// <summary>
-        /// [TEST-04] Ensures the medical surgery and condition catalog has been indexed.
+        /// [CORE-CAT-01] Ensures the medical surgery and condition catalog has been indexed.
         /// Thread-safe, idempotent on-demand initializer.
         /// </summary>
         public static void EnsureInitialized()
@@ -79,7 +79,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [TEST-04] Scans DefDatabase and pre-indexes all medical surgery recipes, artificial parts, drugs, stimulants, and staged conditions.
+        /// [CORE-CAT-01] Scans DefDatabase and pre-indexes all medical surgery recipes, artificial parts, drugs, stimulants, and staged conditions.
         /// Invoked on startup or first query to ensure all modded defs are resident.
         /// </summary>
         public static void InitializeCatalog()
@@ -272,7 +272,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [TEST-04] Forces a complete wipe and re-index of all surgery recipes, artificial parts, implants, and systemic conditions.
+        /// [CORE-CAT-01] Forces a complete wipe and re-index of all surgery recipes, artificial parts, implants, and systemic conditions.
         /// Flushes internal lookup tables to enable real-time live developer recompilation without requiring game restarts.
         /// </summary>
         public static void ClearAndReinitialize()

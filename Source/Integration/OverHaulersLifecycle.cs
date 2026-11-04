@@ -212,6 +212,9 @@ namespace OverHaulers
     public sealed class OverHaulersLifecycleDriver : MonoBehaviour
     {
         #region 2A. Backing State
+        /// <summary>Delay in ticks between world load and the deferred calibration sweep.</summary>
+        private const int WorldLoadCalibrationDelayTicks = 120;
+
         private Game trackedGame;
         private int lastSeenTick = int.MinValue;
         private int lastReportTick = -1;
@@ -341,9 +344,6 @@ namespace OverHaulers
         #endregion
 
         #region 2D. Maintenance Drivers & Deferred Sweeps
-        /// <summary>Delay in ticks between world load and the deferred calibration sweep.</summary>
-        private const int WorldLoadCalibrationDelayTicks = 120;
-
         /// <summary>
         /// The initial calibration sweep is deferred a short while after a session starts.
         /// Some externally-patched caravan-capacity stat providers (e.g. third-party mod stats) build their own

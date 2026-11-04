@@ -7,7 +7,7 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. MEDICAL TAXONOMY & HEDIFF MODELS
+    #region 1. [CORE-CAT-02] MEDICAL TAXONOMY & HEDIFF MODELS
 
     /// <summary>
     /// Evaluated runtime characteristics of an installed prosthetic or bionic implant.
@@ -33,7 +33,7 @@ namespace OverHaulers
     #endregion
 
     /// <summary>
-    /// Centralized single source of truth for biological state validation, medical taxonomy classification,
+    /// [CORE-CAT-02] Centralized single source of truth for biological state validation, medical taxonomy classification,
     /// hediff pathology bitmask evaluation, and metabolic organ identification.
     /// 100% framework-agnostic with ZERO hardcoded string matching.
     /// Resides under Source/Core/Classification/.
@@ -42,6 +42,14 @@ namespace OverHaulers
     public static class MedicalClassifier
     {
         #region 2. STATIC DEF POINTERS & CONCURRENT CACHES
+
+        /// <summary>Fixed-capacity circular ring buffer tracking pawns with broken third-party BodySize getters.</summary>
+        /// <remarks>
+        /// Replaces unbounded ConcurrentDictionary to enforce a zero-allocation, 256-byte maximum footprint.
+        /// Thread-safe via hardware-atomic 32-bit integer reads and circular Interlocked indexing.
+        /// </remarks>
+        private const int BrokenBodySizeRingCapacity = 64;
+        private const int BrokenBodySizeRingMask = BrokenBodySizeRingCapacity - 1;
 
         public static readonly PawnCapacityDef[] AthleticCapacities = new[]
         {
@@ -74,13 +82,6 @@ namespace OverHaulers
         private static readonly ConcurrentDictionary<HediffStage, bool> stageImpactCache =
             new ConcurrentDictionary<HediffStage, bool>();
 
-        /// <summary>Fixed-capacity circular ring buffer tracking pawns with broken third-party BodySize getters.</summary>
-        /// <remarks>
-        /// Replaces unbounded ConcurrentDictionary to enforce a zero-allocation, 256-byte maximum footprint.
-        /// Thread-safe via hardware-atomic 32-bit integer reads and circular Interlocked indexing.
-        /// </remarks>
-        private const int BrokenBodySizeRingCapacity = 64;
-        private const int BrokenBodySizeRingMask = BrokenBodySizeRingCapacity - 1;
         private static readonly int[] brokenBodySizeRing = new int[BrokenBodySizeRingCapacity];
         private static int brokenBodySizeHead = 0;
         private static volatile int hasBrokenBodySize = 0;
@@ -93,6 +94,26 @@ namespace OverHaulers
 
         /// <summary>Indicates whether the metabolic organ cache has been initialized.</summary>
         private static bool metabolicInitialized = false;
+
+        /// <summary>The currently active mass capacity stat adopted from the Integration layer.</summary>
+        private static StatDef activeMassCapacityStat;
+
+        /// <summary>
+        /// Active adopted caravan mass capacity stat pushed downward from the Integration layer.
+        /// Automatically purges cached evaluation results when a new stat is adopted.
+        /// </summary>
+        public static StatDef ActiveMassCapacityStat
+        {
+            get => activeMassCapacityStat;
+            set
+            {
+                if (activeMassCapacityStat != value)
+                {
+                    activeMassCapacityStat = value;
+                    physiologicallyImpactfulStatCache.Clear();
+                }
+            }
+        }
 
         /// <summary>
         /// Factory method for creating <see cref="HediffFlags"/> based on a given <see cref="HediffDef"/> and type.
@@ -688,26 +709,6 @@ namespace OverHaulers
             }
 
             return false;
-        }
-
-        /// <summary>The currently active mass capacity stat adopted from the Integration layer.</summary>
-        private static StatDef activeMassCapacityStat;
-
-        /// <summary>
-        /// Active adopted caravan mass capacity stat pushed downward from the Integration layer.
-        /// Automatically purges cached evaluation results when a new stat is adopted.
-        /// </summary>
-        public static StatDef ActiveMassCapacityStat
-        {
-            get => activeMassCapacityStat;
-            set
-            {
-                if (activeMassCapacityStat != value)
-                {
-                    activeMassCapacityStat = value;
-                    physiologicallyImpactfulStatCache.Clear();
-                }
-            }
         }
 
         /// <summary>

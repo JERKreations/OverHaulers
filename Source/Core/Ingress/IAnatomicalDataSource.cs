@@ -83,16 +83,16 @@ namespace OverHaulers
     {
         private readonly IAnatomicalDataSource inner;
 
-        public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
-        {
-            this.inner = inner;
-        }
-
         public int EntityId => inner != null ? inner.EntityId : 0;
         public string EntityLabel => inner != null ? inner.EntityLabel : "Unknown";
         public BodyDef BodyDef => inner != null ? inner.BodyDef : null;
         public float BaseBodySize => inner != null ? inner.BaseBodySize : 1.0f;
         public bool IsValidBiologicalState => inner != null && inner.IsValidBiologicalState;
+
+        public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
+        {
+            this.inner = inner;
+        }
 
         public float GetCapacityLevel(PawnCapacityDef capacity)
         {

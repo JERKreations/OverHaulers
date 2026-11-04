@@ -12,7 +12,13 @@ namespace OverHaulers
     /// </summary>
     public class Dialog_TestSubjectPicker : Window
     {
-        #region 1. FIELDS & CONSTANTS
+        #region 1. CONSTANTS & FIELDS
+
+        private const float HeaderHeight = 32f;
+        private const float SearchBarHeight = 28f;
+        private const float DimensionBarHeight = 26f;
+        private const float RowHeight = 28f;
+        private const float GroupHeaderHeight = 24f;
 
         private string searchText = string.Empty;
         private Vector2 scrollPosition = Vector2.zero;
@@ -24,15 +30,17 @@ namespace OverHaulers
         // Empty by default means all are collapsed initially.
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
 
-        private const float HeaderHeight = 32f;
-        private const float SearchBarHeight = 28f;
-        private const float DimensionBarHeight = 26f;
-        private const float RowHeight = 28f;
-        private const float GroupHeaderHeight = 24f;
-
         #endregion
 
-        #region 2. CONSTRUCTOR & WINDOW CONFIG
+        #region 2. WINDOW CONFIG & CONSTRUCTOR
+
+        /// <summary>
+        /// Gets the initial size of the test subject picker dialog when it is first displayed.
+        /// </summary>
+        /// <remarks>
+        /// DO NOT DELETE: 0 reference is a false positive.
+        /// </remarks>
+        public override Vector2 InitialSize => new Vector2(620f, 660f);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Dialog_TestSubjectPicker"/> class.
@@ -54,17 +62,6 @@ namespace OverHaulers
             this.closeOnClickedOutside = true;
             this.absorbInputAroundWindow = true;
         }
-
-        /// <summary>
-        /// Gets the initial size of the test subject picker dialog.
-        /// </summary>
-        /// <returns>The initial size of the test subject picker dialog.</returns>
-        /// </summary>
-        /// <remarks>
-        /// This property defines the initial size of the dialog window when it is first displayed.
-        /// DO NOT DELETE: 0 reference is a false positive.
-        /// </remarks>
-        public override Vector2 InitialSize => new Vector2(620f, 660f);
 
         #endregion
 

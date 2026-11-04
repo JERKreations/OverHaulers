@@ -38,7 +38,7 @@ namespace OverHaulers
     /// [TEST-05] INTERACTIVE SANDBOX PAWN HARNESS
     /// Extends Core <see cref="HeadlessPawnShell"/> with interactive surgical procedures,
     /// simulated condition toggling, and UI inspection delta tracking.
-    /// Resides under Source/Settings/TestBench/.
+    /// Resides under Source/Settings/Tooling/TestBench/.
     /// </summary>
     public class SandboxPawnHarness : HeadlessPawnShell
     {
@@ -606,19 +606,9 @@ namespace OverHaulers
     /// </summary>
     public readonly struct SandboxAnatomicalSource : IAnatomicalDataSource
     {
-        #region 1. FIELDS & CONSTRUCTOR
+        #region 1. FIELDS & PROPERTIES
 
         private readonly SandboxPawnHarness harness;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SandboxAnatomicalSource(SandboxPawnHarness harness)
-        {
-            this.harness = harness;
-        }
-
-        #endregion
-
-        #region 2. PROPERTIES & ENCAPSULATED ACCESSORS
 
         public int EntityId
         {
@@ -648,7 +638,13 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. INGRESS & CAPACITY METHODS
+        #region 2. CONSTRUCTOR, INGRESS & CAPACITY METHODS
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public SandboxAnatomicalSource(SandboxPawnHarness harness)
+        {
+            this.harness = harness;
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetCapacityLevel(PawnCapacityDef capacity)

@@ -9,7 +9,7 @@ namespace OverHaulers
     /// [DIAG-01] TOPOLOGY X-RAY DUMP EXPORTER
     /// Diagnostic exporter dumping canonical skeletal topologies, 1D ancestral jump matrices,
     /// and regional budget weightings across plain text and structured XML targets.
-    /// Resides under Source/Diagnostics/.
+    /// Resides under Source/Settings/Tooling/Exporters/.
     /// </summary>
     public static class TopologyDumpExporter
     {

@@ -172,6 +172,9 @@ namespace OverHaulers
         /// </summary>
         private static SolverConfiguration activeConfig = CoreDefaults.CreateDefaultSolverConfiguration();
 
+        /// <summary>Gets a read-only reference to the active solver configuration.</summary>
+        public static ref readonly SolverConfiguration ActiveConfiguration => ref activeConfig;
+
         /// <summary>
         /// Updates the active solver configuration snapshot.
         /// Single canonical entry point for push configuration from higher layers; the snapshot is range-checked here, so Core never trusts the caller.
@@ -185,9 +188,6 @@ namespace OverHaulers
                 OHLog.Warn("Config.SolverSanitized", null, "Solver configuration contained out-of-range or non-finite values; they were clamped to their supported bounds.");
             }
         }
-
-        /// <summary>Gets a read-only reference to the active solver configuration.</summary>
-        public static ref readonly SolverConfiguration ActiveConfiguration => ref activeConfig;
 
         /// <summary>
         /// [SOLV-03] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.

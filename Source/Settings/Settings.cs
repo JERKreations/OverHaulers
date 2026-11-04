@@ -25,14 +25,7 @@ namespace OverHaulers
     /// </summary>
     public partial class Settings : ModSettings
     {
-        #region 2. [SEC-00] NAVIGATION & FIRST-LAUNCH STATE
-
-        public SettingsTab activeTab = SettingsTab.Tuning;
-        public bool hasOpenedSettingsBefore = false;
-
-        #endregion
-
-        #region 2a. CHANGE NOTIFICATION
+        #region 2. [SEC-00] CHANGE NOTIFICATION
 
         /// <summary>Raised after settings values are reset programmatically, so views can discard stale text-input buffers.</summary>
         public static event System.Action ValuesReset;
@@ -46,7 +39,14 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PROJECTION & CORE INGRESS
+        #region 3. [SEC-00] NAVIGATION & FIRST-LAUNCH STATE
+
+        public SettingsTab activeTab = SettingsTab.Tuning;
+        public bool hasOpenedSettingsBefore = false;
+
+        #endregion
+
+        #region 4. PROJECTION & CORE INGRESS
 
         /// <summary>
         /// Projects the active mutable settings into an immutable <see cref="SolverConfiguration"/> value struct.
@@ -113,7 +113,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. GLOBAL RESET
+        #region 5. GLOBAL RESET
 
         /// <summary>
         /// Resets all settings to their default values.
@@ -135,7 +135,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. DATA SERIALIZATION (SCRIBE)
+        #region 6. DATA SERIALIZATION (SCRIBE)
 
         /// <summary>
         /// Exposes the settings data for serialization.
@@ -185,7 +185,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. SANITISATION PRIMITIVES
+        #region 7. SANITISATION PRIMITIVES
 
         /// <summary>
         /// Sanitises a colour setting channel by channel, falling back per channel when a value is not a number.

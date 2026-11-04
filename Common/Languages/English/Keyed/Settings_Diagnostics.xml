@@ -134,9 +134,3 @@
   <OverHaulers_SelfCheck_Skip_NoSubject>No default test subject is available.</OverHaulers_SelfCheck_Skip_NoSubject>
 
 </LanguageData>
-
-Architecture: Core-owned config sanitisation, lifecycle hooks, Integration and Settings decoupling
-
-Core now range-checks every configuration snapshot pushed into it: SolverConfiguration and RuntimeConfiguration gain Sanitized(), backed by a single ConfigBounds clamp (infinities clamp to the bound they exceed, NaN falls back to the default) and a throttled warning when values were adjusted. Settings drops its duplicated Sane* clamps and sanitises loaded values through Core. Add a ConfigSanitisation self-check.
-
-Integration no longer references Settings or Tooling: LifecycleHooks (FramePumped, RuntimeResetting) replace direct benchmark and self-check calls, bound by ToolingLifecycleBinding; the presentation preference is pushed down via SetPreferredPresentationKey and stale-key recovery is reported back through an event. Settings raises ValuesReset and ValuesMutated events that SettingsViewUtilities subscribes to, so the model no longer calls the views. All bindings are wired in the mod constructor. Prune unused ExternalPatchesDetected keys.

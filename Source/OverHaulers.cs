@@ -4,9 +4,13 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// [LIFE-05] Mod composition root: the only place where the Settings layer is bound to Core, Presentation and
+    /// Integration through pushes and events. Resides under Source/.
+    /// </summary>
     public class OverHaulers : Mod
     {
-        #region 1. FIELDS & CONSTRUCTOR
+        #region 1. [LIFE-05] FIELDS & CONSTRUCTOR
 
         public static Settings settings;
         public static ModContentPack ContentPack { get; private set; }

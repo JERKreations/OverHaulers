@@ -33,12 +33,6 @@ namespace OverHaulers
         private static int infoCardDepth;
 
         /// <summary>
-        /// High-speed execution context gate.
-        /// True only while an in-game InfoCard (StatsReportUtility) is actively drawing.
-        /// </summary>
-        public static bool IsRenderingInfoCard => infoCardDepth > 0;
-
-        /// <summary>
         /// The key used to cache overlay layout data based on the full text, rectangle width, scale percent, and active UI scale.
         /// </summary>
         private struct OverlayCacheKey : IEquatable<OverlayCacheKey>
@@ -117,7 +111,7 @@ namespace OverHaulers
 
         #region 2. LRU CACHE ENGINE & NODE POOL
 
-        /// <summary>Maximum number of cache nodes to retain in the LRU cache and node pool.</summary>
+        /// <summary>Lookup of cached overlay layouts, pre-sized to the maximum cache capacity.</summary>
         private static readonly Dictionary<OverlayCacheKey, LruCacheNode> lruLookup =
             new Dictionary<OverlayCacheKey, LruCacheNode>(MaxCacheCapacity);
 
@@ -136,6 +130,12 @@ namespace OverHaulers
         private static LruCacheNode lruTail;
 
         private static float cachedIconScalePercent = PresentationDefaults.IconScalePercent;
+
+        /// <summary>
+        /// High-speed execution context gate.
+        /// True only while an in-game InfoCard (StatsReportUtility) is actively drawing.
+        /// </summary>
+        public static bool IsRenderingInfoCard => infoCardDepth > 0;
 
         static InfoCardOverlay()
         {

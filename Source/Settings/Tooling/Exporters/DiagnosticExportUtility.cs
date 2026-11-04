@@ -32,7 +32,7 @@ namespace OverHaulers
 
     /// <summary>
     /// [DIAG-00] Shared formatting, census table generation, date-based folder routing, and file I/O utilities for diagnostic dump exporters.
-    /// Resides under Source/Diagnostics/.
+    /// Resides under Source/Settings/Tooling/Exporters/.
     /// </summary>
     public static class DiagnosticExportUtility
     {

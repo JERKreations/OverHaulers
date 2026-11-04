@@ -65,11 +65,11 @@ namespace OverHaulers
     /// Runs entirely against headless sandbox pawns and a private snapshot table instance (see <see cref="SnapshotTableBenchmark"/>), so it never
     /// touches live pawns, the pawn cache or the live background snapshot table. Work is time-sliced across frames (see <see cref="Pump"/>) so the settings window stays responsive,
     /// and every result is synthetic: it measures Over Haulers' own solver on this machine and mod list, nothing else.
-    /// Resides under Source/Diagnostics/Benchmark/.
+    /// Resides under Source/Settings/Tooling/Benchmark/.
     /// </summary>
     public static class BenchmarkRunner
     {
-        #region 2. CONFIGURATION & PUBLIC STATE
+        #region 2. CONFIGURATION CONSTANTS
 
         private const int WarmupIterations = 300;
         private const int SampleCount = 2000;
@@ -82,38 +82,9 @@ namespace OverHaulers
         /// <summary>Frame time budget of a 60 fps game, used to express estimates as a share of a frame.</summary>
         public const double FrameBudgetMs60Fps = 1000.0 / 60.0;
 
-        /// <summary>Population sizes shown in the full-refresh estimate table.</summary>
-        public static readonly int[] RampPawnCounts = { 10, 50, 100, 250, 500, 1000 };
-
-        /// <summary>Current lifecycle state of the benchmark.</summary>
-        public static BenchmarkState State { get; private set; } = BenchmarkState.Idle;
-        /// <summary>Overall progress of the run, from 0 to 1.</summary>
-        public static float Progress { get; private set; }
-        /// <summary>Localised description of the stage currently running; empty when idle.</summary>
-        public static string CurrentLabel { get; private set; } = string.Empty;
-        /// <summary>Message of the exception that aborted the last run; empty otherwise.</summary>
-        public static string ErrorMessage { get; private set; } = string.Empty;
-
-        /// <summary>Time taken to recompile every species topology, in milliseconds.</summary>
-        public static double TopologyCompileMs { get; private set; }
-        /// <summary>Number of body definitions covered by the topology recompile.</summary>
-        public static int TopologyBodyDefCount { get; private set; }
-        /// <summary>Part count of the largest compiled body.</summary>
-        public static int TopologyMaxParts { get; private set; }
-        /// <summary>defName of the body with the most parts.</summary>
-        public static string TopologyMaxPartsBody { get; private set; } = string.Empty;
-
-        public static readonly List<BenchmarkSolverResult> Results = new List<BenchmarkSolverResult>(8);
-
-        /// <summary>True once a run has completed and produced at least one result row.</summary>
-        public static bool HasResults => State == BenchmarkState.Completed && Results.Count > 0;
-
-        /// <summary>Incremented whenever results are cleared or completed, so the UI can rebuild its cached row strings only when needed.</summary>
-        public static int ResultsVersion { get; private set; }
-
         #endregion
 
-        #region 3. STATE MACHINE FIELDS
+        #region 3. STATE MACHINE FIELDS & OBSERVABLE STATE
 
         /// <summary>Steps of the benchmark state machine; each frame executes one time slice of the current step.</summary>
         private enum Stage
@@ -138,6 +109,11 @@ namespace OverHaulers
             public BenchmarkProfile Profile;
         }
 
+        /// <summary>Population sizes shown in the full-refresh estimate table.</summary>
+        public static readonly int[] RampPawnCounts = { 10, 50, 100, 250, 500, 1000 };
+
+        public static readonly List<BenchmarkSolverResult> Results = new List<BenchmarkSolverResult>(8);
+
         private static Stage stage;
         private static readonly List<BenchJob> jobs = new List<BenchJob>(8);
         private static int jobIndex;
@@ -158,6 +134,30 @@ namespace OverHaulers
 
         private static int unitsDone;
         private static int unitsTotal;
+
+        /// <summary>Current lifecycle state of the benchmark.</summary>
+        public static BenchmarkState State { get; private set; } = BenchmarkState.Idle;
+        /// <summary>Overall progress of the run, from 0 to 1.</summary>
+        public static float Progress { get; private set; }
+        /// <summary>Localised description of the stage currently running; empty when idle.</summary>
+        public static string CurrentLabel { get; private set; } = string.Empty;
+        /// <summary>Message of the exception that aborted the last run; empty otherwise.</summary>
+        public static string ErrorMessage { get; private set; } = string.Empty;
+
+        /// <summary>Time taken to recompile every species topology, in milliseconds.</summary>
+        public static double TopologyCompileMs { get; private set; }
+        /// <summary>Number of body definitions covered by the topology recompile.</summary>
+        public static int TopologyBodyDefCount { get; private set; }
+        /// <summary>Part count of the largest compiled body.</summary>
+        public static int TopologyMaxParts { get; private set; }
+        /// <summary>defName of the body with the most parts.</summary>
+        public static string TopologyMaxPartsBody { get; private set; } = string.Empty;
+
+        /// <summary>True once a run has completed and produced at least one result row.</summary>
+        public static bool HasResults => State == BenchmarkState.Completed && Results.Count > 0;
+
+        /// <summary>Incremented whenever results are cleared or completed, so the UI can rebuild its cached row strings only when needed.</summary>
+        public static int ResultsVersion { get; private set; }
 
         #endregion
 

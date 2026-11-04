@@ -3,7 +3,7 @@ namespace OverHaulers
     /// <summary>
     /// [CORE-CONF-01] IMMUTABLE VALUE-TYPE SOLVER CONFIGURATION
     /// Pure data transfer snapshot providing tuning parameters to Core mathematical solvers and topology compilers.
-    /// Resides under Source/Core/Data/.
+    /// Resides under Source/Core/Configs/.
     /// </summary>
     public readonly struct SolverConfiguration
     {

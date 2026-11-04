@@ -12,7 +12,7 @@ namespace OverHaulers
     /// Compiles diagnostic reports of body part groupings, nested hierarchy trees,
     /// load-bearing weight shares, applied pathology/prosthetics, systemic athletic capacities,
     /// and simulated InfoCards across plain text and structured XML targets.
-    /// Resides under Source/Diagnostics/.
+    /// Resides under Source/Settings/Tooling/Exporters/.
     /// </summary>
     public static class GroupingDumpExporter
     {

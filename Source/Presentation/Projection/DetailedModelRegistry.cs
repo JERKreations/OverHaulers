@@ -87,17 +87,6 @@ namespace OverHaulers
         private static long totalRecycles;
         private static long totalFlushes;
 
-        static DetailedModelRegistry()
-        {
-            // Subscribe downward to Core invalidation events (Strict Downward Directionality)
-            PawnDataRegistry.OnPawnEvicted += Evict;
-            PawnDataRegistry.OnCacheCleared += Clear;
-
-            // Wire downward telemetry providers into Core
-            PerformanceTelemetry.GetPresentationActiveCount = () => ActiveEntryCount;
-            PerformanceTelemetry.GetPresentationCapacity = () => CurrentCapacity;
-        }
-
         #endregion
 
         #region 2. [VIEW-03-B] TELEMETRY & DIAGNOSTIC PROPERTIES
@@ -133,7 +122,18 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [VIEW-03-C] PUBLIC PRESENTATION API
+        #region 3. [VIEW-03-C] STATIC LIFECYCLE & PUBLIC PRESENTATION API
+
+        static DetailedModelRegistry()
+        {
+            // Subscribe downward to Core invalidation events (Strict Downward Directionality)
+            PawnDataRegistry.OnPawnEvicted += Evict;
+            PawnDataRegistry.OnCacheCleared += Clear;
+
+            // Wire downward telemetry providers into Core
+            PerformanceTelemetry.GetPresentationActiveCount = () => ActiveEntryCount;
+            PerformanceTelemetry.GetPresentationCapacity = () => CurrentCapacity;
+        }
 
         /// <summary>
         /// Retrieves or rebuilds the compiled <see cref="MassCapacityModel"/> for a pawn's InfoCard dialog.
