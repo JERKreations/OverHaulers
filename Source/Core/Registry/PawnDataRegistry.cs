@@ -79,14 +79,19 @@ namespace OverHaulers
 
         /// <summary>
         /// Updates the active runtime infrastructure configuration snapshot.
-        /// Downward entry point invoked by Settings upon load, save, or slider mutation.
+        /// Downward entry point invoked by Settings upon load, save, or slider mutation; the snapshot is range-checked here, so Core never trusts the caller.
         /// </summary>
         /// <param name="newConfig">The new runtime infrastructure configuration struct snapshot.</param>
         public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
         {
-            activeRuntimeConfig = newConfig;
-            PerformanceTelemetry.Configure(in newConfig);
-            PerformanceReport.Configure(in newConfig);
+            RuntimeConfiguration sanitized = newConfig.Sanitized(out bool wasModified);
+            activeRuntimeConfig = sanitized;
+            PerformanceTelemetry.Configure(in sanitized);
+            PerformanceReport.Configure(in sanitized);
+            if (wasModified)
+            {
+                OHLog.Warn("Config.RuntimeSanitized", null, "Runtime configuration contained out-of-range values; they were clamped to their supported bounds.");
+            }
         }
 
         /// <summary>Gets a read-only reference to the active runtime configuration.</summary>

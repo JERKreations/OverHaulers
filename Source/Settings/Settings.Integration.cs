@@ -17,7 +17,7 @@ namespace OverHaulers
         public void ResetCompatibility()
         {
             selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         #endregion

@@ -95,12 +95,28 @@ namespace OverHaulers
 
         #region 2. PRESENTATION BINDING & RE-BINDING
 
+        /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
+        public static event Action<string> PreferredPresentationKeyReset;
+
+        private static string preferredPresentationKey = PresentationKeyAuto;
+
+        /// <summary>
+        /// Receives the player's presentation preference from the Settings layer (pushed downward, never pulled).
+        /// </summary>
+        /// <param name="key">The preference key; null or empty selects automatic resolution.</param>
+        public static void SetPreferredPresentationKey(string key)
+        {
+            preferredPresentationKey = string.IsNullOrEmpty(key) ? PresentationKeyAuto : key;
+        }
+
         /// <summary>
         /// Rebinds the active presentation stat, detaching from any previously adopted foreign stats
         /// and re-evaluating preferences and detected mods.
         /// </summary>
-        public static void RebindPresentation()
+        /// <param name="preferredKey">The player's presentation preference, owned by the Settings layer.</param>
+        public static void RebindPresentation(string preferredKey)
         {
+            SetPreferredPresentationKey(preferredKey);
             if (HarmonySetup.HarmonyInstance == null) return;
 
             CleanupAdoptedForeignStat();
@@ -120,8 +136,7 @@ namespace OverHaulers
             if (isInitialized) return;
 
             string localizedSuffix = " " + "kg".Translate();
-            Settings settings = OverHaulers.settings;
-            string key = settings?.selectedPresentationKey ?? PresentationKeyAuto;
+            string key = preferredPresentationKey;
 
             // -------------------------------------------------------------------------
             // PATH A: EXPLICIT PLAYER OVERRIDES (Highest Authority)
@@ -142,8 +157,8 @@ namespace OverHaulers
                 }
                 else
                 {
-                    RecoverStalePreference(settings, key);
-                    ResolveAutoPresentation(settings, localizedSuffix);
+                    RecoverStalePreference(key);
+                    ResolveAutoPresentation(localizedSuffix);
                 }
             }
             // Case 3: Player Locked a CIL Discovered Stat
@@ -155,8 +170,8 @@ namespace OverHaulers
                 }
                 else
                 {
-                    RecoverStalePreference(settings, key);
-                    ResolveAutoPresentation(settings, localizedSuffix);
+                    RecoverStalePreference(key);
+                    ResolveAutoPresentation(localizedSuffix);
                 }
             }
             // -------------------------------------------------------------------------
@@ -164,7 +179,7 @@ namespace OverHaulers
             // -------------------------------------------------------------------------
             else
             {
-                ResolveAutoPresentation(settings, localizedSuffix);
+                ResolveAutoPresentation(localizedSuffix);
             }
 
             isInitialized = true;
@@ -307,9 +322,8 @@ namespace OverHaulers
         /// Prioritizes declarative XML profiles, falling back to Native Standalone mode.
         /// Dynamic CIL bytecode scanning is intentionally decoupled and only executes upon explicit player request.
         /// </summary>
-        /// <param name="settings">The current settings object containing user preferences and configuration.</param>
         /// <param name="localizedSuffix">The localized suffix used for unit display.</param>
-        private static void ResolveAutoPresentation(Settings settings, string localizedSuffix)
+        private static void ResolveAutoPresentation(string localizedSuffix)
         {
             // Tier 1: Declarative XML Profiles (High-Speed O(1) Matching, 100% verified safety)
             if (TryResolveHighestPriorityXmlProfile(out MassCapacityStatProfileDef profile, out StatDef xmlStat))
@@ -386,15 +400,12 @@ namespace OverHaulers
         /// <summary>
         /// Recovers from a stale presentation preference by reverting to automatic selection if a previously selected mod is removed.
         /// </summary>
-        /// <param name="settings">The current settings object containing user preferences and configuration.</param>
         /// <param name="staleKey">The key representing the previously selected preference that is now considered stale.</param>
-        private static void RecoverStalePreference(Settings settings, string staleKey)
+        private static void RecoverStalePreference(string staleKey)
         {
             IntegrationLogEvents.StalePreferenceRecovered(staleKey);
-            if (settings != null)
-            {
-                settings.selectedPresentationKey = PresentationKeyAuto;
-            }
+            preferredPresentationKey = PresentationKeyAuto;
+            PreferredPresentationKeyReset?.Invoke(PresentationKeyAuto);
         }
 
         #endregion

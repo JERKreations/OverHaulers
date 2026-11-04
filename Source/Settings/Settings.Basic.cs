@@ -56,7 +56,7 @@ namespace OverHaulers
             enableProsthetics = CoreDefaults.EnableProsthetics;
             enableAthletics = CoreDefaults.EnableAthletics;
             enablePartHealth = CoreDefaults.EnablePartHealth;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -67,7 +67,7 @@ namespace OverHaulers
             anatomyWeightTorso = CoreDefaults.AnatomyWeightTorso;
             anatomyWeightArm = CoreDefaults.AnatomyWeightArm;
             anatomyWeightLeg = CoreDefaults.AnatomyWeightLeg;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         #endregion
@@ -89,16 +89,16 @@ namespace OverHaulers
             Scribe_Values.Look(ref anatomyWeightLeg, "anatomyWeightLeg", CoreDefaults.AnatomyWeightLeg);
         }
 
-        private void SanitizeBasic()
+        private void SanitizeBasic(in SolverConfiguration solver)
         {
-            prostheticScaling = Sane(prostheticScaling, CoreDefaults.ProstheticScaling, CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax);
-            athleticScaling = Sane(athleticScaling, CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax);
-            configurablePercentileFloor = Sane(configurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax);
+            prostheticScaling = solver.ProstheticScaling;
+            athleticScaling = solver.AthleticScaling;
+            configurablePercentileFloor = solver.ConfigurablePercentileFloor;
 
-                        anatomyWeightTorso = SanePercent(anatomyWeightTorso, CoreDefaults.AnatomyWeightTorso);
-                        anatomyWeightArm = SanePercent(anatomyWeightArm, CoreDefaults.AnatomyWeightArm);
-                        anatomyWeightLeg = SanePercent(anatomyWeightLeg, CoreDefaults.AnatomyWeightLeg);
-                    }
+            anatomyWeightTorso = solver.BudgetCorePart;
+            anatomyWeightArm = solver.BudgetManipulationPart;
+            anatomyWeightLeg = solver.BudgetMovingPart;
+        }
 
         #endregion
     }

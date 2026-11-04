@@ -102,6 +102,21 @@ namespace OverHaulers
 
         #region 2. CENTRALIZED CACHE INVALIDATION & MUTATION SINK
 
+        private static bool isBoundToSettings;
+
+        /// <summary>
+        /// Subscribes the view layer to <see cref="Settings"/> change notifications, so the model never references the views.
+        /// Idempotent; invoked from the mod constructor (composition root).
+        /// </summary>
+        public static void BindToSettings()
+        {
+            if (isBoundToSettings) return;
+            isBoundToSettings = true;
+
+            Settings.ValuesReset += ClearInputBuffers;
+            Settings.ValuesMutated += OnSettingMutated;
+        }
+
         /// <summary>
         /// Single centralized endpoint invoked whenever any slider, input box, or toggle mutates in settings.
         /// Immediately pushes the active configuration struct to Core solvers, flushes the TestBench dirty cache,

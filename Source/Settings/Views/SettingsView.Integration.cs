@@ -30,7 +30,7 @@ namespace OverHaulers
                 Action customResetAction = () =>
                 {
                     resetAction?.Invoke();
-                    IntegrationPipeline.RebindPresentation();
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 };
 
                 SettingsViewUtilities.DrawHeaderWithResetDirect(inner, "OverHaulers_CompatibilityHeader", customResetAction, localY, out localY);
@@ -74,7 +74,7 @@ namespace OverHaulers
                 if (DrawCustomRadioRow(autoRowRect, "OverHaulers_PresentationMode_Auto".Translate().ToString(), isAutoSelected))
                 {
                     settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
-                    IntegrationPipeline.RebindPresentation();
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 }
                 TooltipHandler.TipRegion(autoRowRect, "OverHaulers_PresentationMode_Auto_Tooltip".Translate().ToString());
                 localY += 26f;
@@ -84,7 +84,7 @@ namespace OverHaulers
                 if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_PresentationMode_Native".Translate().ToString(), isStandaloneSelected))
                 {
                     settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
-                    IntegrationPipeline.RebindPresentation();
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 }
                 TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_PresentationMode_Native_Tooltip".Translate().ToString());
                 localY += 32f;
@@ -427,7 +427,7 @@ namespace OverHaulers
                 if (DrawCustomRadioRow(radioRect, profileLabel, isSelected))
                 {
                     settings.selectedPresentationKey = expectedKey;
-                    IntegrationPipeline.RebindPresentation();
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 }
 
                 Text.Font = GameFont.Tiny;
@@ -485,7 +485,7 @@ namespace OverHaulers
                     if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
                     {
                         settings.selectedPresentationKey = targetKey;
-                        IntegrationPipeline.RebindPresentation();
+                        IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                     }
                     localY += 24f;
                 }

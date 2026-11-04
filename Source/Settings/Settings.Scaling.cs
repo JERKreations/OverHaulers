@@ -20,7 +20,7 @@ namespace OverHaulers
         {
             prostheticImpactConstant = CoreDefaults.ProstheticImpactConstant;
             athleticImpactConstant = CoreDefaults.AthleticImpactConstant;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         #endregion
@@ -33,10 +33,10 @@ namespace OverHaulers
             Scribe_Values.Look(ref athleticImpactConstant, "athleticImpactConstant", CoreDefaults.AthleticImpactConstant);
         }
 
-        private void SanitizeScaling()
+        private void SanitizeScaling(in SolverConfiguration solver)
         {
-            prostheticImpactConstant = Sane(prostheticImpactConstant, CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax);
-            athleticImpactConstant = Sane(athleticImpactConstant, CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax);
+            prostheticImpactConstant = solver.ProstheticImpactConstant;
+            athleticImpactConstant = solver.AthleticImpactConstant;
         }
 
         #endregion

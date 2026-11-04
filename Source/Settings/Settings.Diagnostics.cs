@@ -60,7 +60,7 @@ namespace OverHaulers
             logSafetyFloorClamps = CoreDefaults.LogSafetyFloorClamps;
             logPawnEvictions = CoreDefaults.LogPawnEvictions;
             pawnEvictionTimeframeHours = CoreDefaults.PawnEvictionTimeframeHours;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         #endregion
@@ -83,10 +83,10 @@ namespace OverHaulers
             Scribe_Values.Look(ref pawnEvictionTimeframeHours, "pawnEvictionTimeframeHours", CoreDefaults.PawnEvictionTimeframeHours);
         }
 
-        private void SanitizeDiagnostics()
+        private void SanitizeDiagnostics(in RuntimeConfiguration runtime)
         {
-            reportMetricsIntervalHours = System.Math.Max(CoreDefaults.ReportMetricsIntervalHoursMin, System.Math.Min(CoreDefaults.ReportMetricsIntervalHoursMax, reportMetricsIntervalHours));
-            pawnEvictionTimeframeHours = System.Math.Max(CoreDefaults.PawnEvictionTimeframeHoursMin, System.Math.Min(CoreDefaults.PawnEvictionTimeframeHoursMax, pawnEvictionTimeframeHours));
+            reportMetricsIntervalHours = runtime.ReportMetricsIntervalHours;
+            pawnEvictionTimeframeHours = runtime.PawnEvictionTimeframeTicks / GenDate.TicksPerHour;
         }
 
         #endregion

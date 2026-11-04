@@ -134,5 +134,63 @@ namespace OverHaulers
         }
 
         #endregion
+
+        #region 3. SANITISATION
+
+        /// <summary>
+        /// Returns a copy with every tunable clamped to its <see cref="CoreDefaults"/> range, so Core never depends on the caller having validated.
+        /// Out-of-range values (infinities included) resolve to the bound they exceeded; NaN resolves to the default.
+        /// </summary>
+        /// <param name="wasModified">True when at least one value had to be adjusted.</param>
+        /// <returns>A configuration guaranteed to be finite and within range.</returns>
+        public SolverConfiguration Sanitized(out bool wasModified)
+        {
+            bool c = false;
+            SolverConfiguration result = new SolverConfiguration(
+                ConfigBounds.ClampFloat(ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax, ref c),
+                EnableProsthetics,
+                EnableAthletics,
+                EnablePartHealth,
+                EnableHardCompatibilitySafetyFloor,
+                ConfigBounds.ClampFloat(AthleticScaling, CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax, ref c),
+                ConfigBounds.ClampFloat(AthleticImpactConstant, CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax, ref c),
+                ConfigBounds.ClampFloat(ProstheticScaling, CoreDefaults.ProstheticScaling, CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax, ref c),
+                ConfigBounds.ClampFloat(ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax, ref c),
+                ConfigBounds.ClampFloat(TorsoAxialBias, CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax, ref c),
+                ConfigBounds.ClampFloat(TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax, ref c),
+                ConfigBounds.ClampFloat(LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax, ref c),
+                ConfigBounds.ClampPercent(TorsoPositiveBreathing, CoreDefaults.TorsoPositiveBreathing, ref c),
+                ConfigBounds.ClampPercent(TorsoPositiveBlood, CoreDefaults.TorsoPositiveBlood, ref c),
+                ConfigBounds.ClampPercent(TorsoPositiveMoving, CoreDefaults.TorsoPositiveMoving, ref c),
+                ConfigBounds.ClampPercent(TorsoPositiveManipulation, CoreDefaults.TorsoPositiveManipulation, ref c),
+                ConfigBounds.ClampPercent(ArmPositiveBreathing, CoreDefaults.ArmPositiveBreathing, ref c),
+                ConfigBounds.ClampPercent(ArmPositiveBlood, CoreDefaults.ArmPositiveBlood, ref c),
+                ConfigBounds.ClampPercent(ArmPositiveMoving, CoreDefaults.ArmPositiveMoving, ref c),
+                ConfigBounds.ClampPercent(ArmPositiveManipulation, CoreDefaults.ArmPositiveManipulation, ref c),
+                ConfigBounds.ClampPercent(LegPositiveBreathing, CoreDefaults.LegPositiveBreathing, ref c),
+                ConfigBounds.ClampPercent(LegPositiveBlood, CoreDefaults.LegPositiveBlood, ref c),
+                ConfigBounds.ClampPercent(LegPositiveMoving, CoreDefaults.LegPositiveMoving, ref c),
+                ConfigBounds.ClampPercent(LegPositiveManipulation, CoreDefaults.LegPositiveManipulation, ref c),
+                ConfigBounds.ClampPercent(TorsoDeficitBreathing, CoreDefaults.TorsoDeficitBreathing, ref c),
+                ConfigBounds.ClampPercent(TorsoDeficitBlood, CoreDefaults.TorsoDeficitBlood, ref c),
+                ConfigBounds.ClampPercent(TorsoDeficitMoving, CoreDefaults.TorsoDeficitMoving, ref c),
+                ConfigBounds.ClampPercent(TorsoDeficitManipulation, CoreDefaults.TorsoDeficitManipulation, ref c),
+                ConfigBounds.ClampPercent(ArmDeficitBreathing, CoreDefaults.ArmDeficitBreathing, ref c),
+                ConfigBounds.ClampPercent(ArmDeficitBlood, CoreDefaults.ArmDeficitBlood, ref c),
+                ConfigBounds.ClampPercent(ArmDeficitMoving, CoreDefaults.ArmDeficitMoving, ref c),
+                ConfigBounds.ClampPercent(ArmDeficitManipulation, CoreDefaults.ArmDeficitManipulation, ref c),
+                ConfigBounds.ClampPercent(LegDeficitBreathing, CoreDefaults.LegDeficitBreathing, ref c),
+                ConfigBounds.ClampPercent(LegDeficitBlood, CoreDefaults.LegDeficitBlood, ref c),
+                ConfigBounds.ClampPercent(LegDeficitMoving, CoreDefaults.LegDeficitMoving, ref c),
+                ConfigBounds.ClampPercent(LegDeficitManipulation, CoreDefaults.LegDeficitManipulation, ref c),
+                ConfigBounds.ClampPercent(BudgetCorePart, CoreDefaults.AnatomyWeightTorso, ref c),
+                ConfigBounds.ClampPercent(BudgetManipulationPart, CoreDefaults.AnatomyWeightArm, ref c),
+                ConfigBounds.ClampPercent(BudgetMovingPart, CoreDefaults.AnatomyWeightLeg, ref c));
+
+            wasModified = c;
+            return result;
+        }
+
+        #endregion
     }
 }

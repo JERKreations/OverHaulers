@@ -51,8 +51,8 @@ namespace OverHaulers
                     break;
             }
 
-            SettingsViewUtilities.ClearInputBuffers();
-            SettingsViewUtilities.OnSettingMutated();
+            NotifyValuesReset();
+            NotifyValuesMutated();
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace OverHaulers
         {
             if (!System.Enum.IsDefined(typeof(PalettePreset), activePalettePreset)) activePalettePreset = PresentationDefaults.DefaultPalettePreset;
 
-            iconScalePercent = Sane(iconScalePercent, PresentationDefaults.IconScalePercent, PresentationDefaults.IconScalePercentMin, PresentationDefaults.IconScalePercentMax);
+            iconScalePercent = ConfigBounds.ClampFloatUntracked(iconScalePercent, PresentationDefaults.IconScalePercent, PresentationDefaults.IconScalePercentMin, PresentationDefaults.IconScalePercentMax);
             colorHealthy = SaneColor(colorHealthy, PresentationDefaults.ColorHealthyDefault);
             colorCritical = SaneColor(colorCritical, PresentationDefaults.ColorCriticalDefault);
             colorBoosted = SaneColor(colorBoosted, PresentationDefaults.ColorBoostedDefault);

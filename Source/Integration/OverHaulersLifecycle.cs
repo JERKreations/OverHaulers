@@ -84,8 +84,7 @@ namespace OverHaulers
         public static void ReinitializeRuntime(bool onlyCaravanCapable = true, string sweepContext = null)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            BenchmarkRunner.Cancel();
-            SelfCheckRunner.Cancel();
+            LifecycleHooks.RaiseRuntimeResetting();
 
             // Open Recompile Activity Journal
             OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_RecompileHeader".Translate("...").ToString());
@@ -242,9 +241,8 @@ namespace OverHaulers
         /// </summary>
         private void Pump()
         {
-            // Benchmark time slices run in every program state, including the main menu.
-            BenchmarkRunner.Pump();
-            SelfCheckRunner.Pump();
+            // Tooling time slices (benchmark, self-check) run in every program state, including the main menu.
+            LifecycleHooks.RaiseFramePumped();
 
             // ProgramState only becomes Playing at the very end of Game.FinalizeInit, on the main thread,
             // so a session is never started while a save is still being loaded.
@@ -284,8 +282,7 @@ namespace OverHaulers
         /// </summary>
         private void TeardownSession()
         {
-            BenchmarkRunner.Cancel();
-            SelfCheckRunner.Cancel();
+            LifecycleHooks.RaiseRuntimeResetting();
             OHLog.ActivityJournal.Discard();
 
             PawnDataRegistry.ClearAllCaches();
@@ -299,8 +296,7 @@ namespace OverHaulers
         /// </summary>
         private void BeginSession(int currentTick)
         {
-            BenchmarkRunner.Cancel();
-            SelfCheckRunner.Cancel();
+            LifecycleHooks.RaiseRuntimeResetting();
             lastSeenTick = int.MinValue;
             lastReportTick = -1;
             OverHaulersLifecycle.IsCalibrationSweepDone = false;

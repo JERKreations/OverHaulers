@@ -32,6 +32,20 @@ namespace OverHaulers
 
         #endregion
 
+        #region 2a. CHANGE NOTIFICATION
+
+        /// <summary>Raised after settings values are reset programmatically, so views can discard stale text-input buffers.</summary>
+        public static event System.Action ValuesReset;
+
+        /// <summary>Raised after a programmatic reset that must also push configuration and invalidate dependent runtime caches.</summary>
+        public static event System.Action ValuesMutated;
+
+        private static void NotifyValuesReset() => ValuesReset?.Invoke();
+
+        private static void NotifyValuesMutated() => ValuesMutated?.Invoke();
+
+        #endregion
+
         #region 3. PROJECTION & CORE INGRESS
 
         /// <summary>
@@ -94,6 +108,7 @@ namespace OverHaulers
             PawnDataRegistry.UpdateConfiguration(ToRuntimeConfiguration());
             ReportFormatter.SetPalette(colorHealthy, colorCritical, colorBoosted, verboseBreakdown);
             InfoCardOverlay.SetIconScale(iconScalePercent);
+            IntegrationPipeline.SetPreferredPresentationKey(selectedPresentationKey);
         }
 
         #endregion
@@ -114,8 +129,8 @@ namespace OverHaulers
             ResetScalingConstants();
             ResetCompatibility();
             ResetDiagnostics();
-            SettingsViewUtilities.ClearInputBuffers();
-            SettingsViewUtilities.OnSettingMutated();
+            NotifyValuesReset();
+            NotifyValuesMutated();
         }
 
         #endregion
@@ -149,19 +164,23 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clamps every numeric setting to its supported range and replaces NaN/infinite values with defaults,
+        /// Replaces every numeric setting with its Core-sanitised counterpart and clamps presentation-owned values,
         /// so a hand-edited or corrupted settings file can never feed invalid numbers into the solver or the UI.
+        /// Range logic for Core-owned tunables lives solely in <see cref="SolverConfiguration.Sanitized"/> and <see cref="RuntimeConfiguration.Sanitized"/>.
         /// </summary>
         private void SanitizeLoadedValues()
         {
             if (!System.Enum.IsDefined(typeof(SettingsTab), activeTab)) activeTab = SettingsTab.Tuning;
 
-            SanitizeBasic();
+            SolverConfiguration solver = ToSolverConfiguration().Sanitized(out _);
+            RuntimeConfiguration runtime = ToRuntimeConfiguration().Sanitized(out _);
+
+            SanitizeBasic(in solver);
             SanitizeAccessibility();
-            SanitizeWeightings();
-            SanitizeScaling();
+            SanitizeWeightings(in solver);
+            SanitizeScaling(in solver);
             SanitizeIntegration();
-            SanitizeDiagnostics();
+            SanitizeDiagnostics(in runtime);
         }
 
         #endregion
@@ -169,43 +188,18 @@ namespace OverHaulers
         #region 6. SANITISATION PRIMITIVES
 
         /// <summary>
-        /// Returns a finite value clamped to a range, or the fallback when the value is NaN or infinite.
-        /// </summary>
-        /// <param name="value">The loaded value.</param>
-        /// <param name="fallback">The default used when the value is not finite.</param>
-        /// <param name="min">Lower bound.</param>
-        /// <param name="max">Upper bound.</param>
-        /// <returns>A finite value within the range.</returns>
-        private static float Sane(float value, float fallback, float min, float max)
-        {
-            if (float.IsNaN(value) || float.IsInfinity(value)) return fallback;
-            return value < min ? min : (value > max ? max : value);
-        }
-
-        /// <summary>
-        /// Sanitises a 0 to 1 percentage-style setting.
-        /// </summary>
-        /// <param name="value">The loaded value.</param>
-        /// <param name="fallback">The default used when the value is not finite.</param>
-        /// <returns>A finite value between 0 and 1.</returns>
-        private static float SanePercent(float value, float fallback)
-        {
-            return Sane(value, fallback, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax);
-        }
-
-        /// <summary>
-        /// Sanitises a colour setting channel by channel, falling back per channel when a value is not finite.
+        /// Sanitises a colour setting channel by channel, falling back per channel when a value is not a number.
         /// </summary>
         /// <param name="value">The loaded colour.</param>
         /// <param name="fallback">The default colour.</param>
-        /// <returns>A colour with every channel finite and within 0 to 1.</returns>
+        /// <returns>A colour with every channel within 0 to 1.</returns>
         private static Color SaneColor(Color value, Color fallback)
         {
             return new Color(
-                Sane(value.r, fallback.r, 0f, 1f),
-                Sane(value.g, fallback.g, 0f, 1f),
-                Sane(value.b, fallback.b, 0f, 1f),
-                Sane(value.a, 1f, 0f, 1f));
+                ConfigBounds.ClampFloatUntracked(value.r, fallback.r, 0f, 1f),
+                ConfigBounds.ClampFloatUntracked(value.g, fallback.g, 0f, 1f),
+                ConfigBounds.ClampFloatUntracked(value.b, fallback.b, 0f, 1f),
+                ConfigBounds.ClampFloatUntracked(value.a, 1f, 0f, 1f));
         }
 
         #endregion

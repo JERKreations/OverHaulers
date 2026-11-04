@@ -4,7 +4,6 @@
   <!-- ========================================================================= -->
   <!-- 1. BOOTSTRAP & INTEGRATION CHECKPOINTS                                    -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_Bootstrap_ExternalPatchesDetected>[Over Haulers] Detected external C# mod patch(es) targeting MassUtility.Capacity from owner(s): {0}.</OverHaulers_Log_Bootstrap_ExternalPatchesDetected>
   <OverHaulers_Log_Integration_StatPresentationBound>[Over Haulers] Adopted caravan mass capacity stat '{0}' (Owner: {1}, Suffix: '{2}').</OverHaulers_Log_Integration_StatPresentationBound>
   <OverHaulers_Log_Integration_MedicalCatalogIndexed>[Over Haulers] Medical catalog indexing complete ({0} ms): {1} replacement surgeries, {2} implants, {3} stimulants/drugs.</OverHaulers_Log_Integration_MedicalCatalogIndexed>
   <OverHaulers_Log_Integration_StalePreferenceRecovered>[Over Haulers] Saved presentation selection '{0}' is no longer active (mod uninstalled?). Reverting to Automatic selection.</OverHaulers_Log_Integration_StalePreferenceRecovered>
@@ -49,7 +48,6 @@
 
   <OverHaulers_Journal_HarmonyInitialized>Harmony Compatibility: {1} engine hooks applied ({0} ms, one-time)</OverHaulers_Journal_HarmonyInitialized>
   <OverHaulers_Log_Integration_HarmonyInitialized>[Over Haulers] Harmony compatibility initialized ({0} ms, one-time): {1} engine hooks applied.</OverHaulers_Log_Integration_HarmonyInitialized>
-  <OverHaulers_Journal_ExternalPatchesDetected>External Patches: Detected C# patch(es) on MassUtility.Capacity from: {0}</OverHaulers_Journal_ExternalPatchesDetected>
   <OverHaulers_Journal_StatPresentationBound>Stat Integration: Adopted '{0}' (Owner: {1}, Suffix: '{2}')</OverHaulers_Journal_StatPresentationBound>
   <OverHaulers_Journal_SnapshotInitialized>Atomic Registry: Initialized {0} L1 slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4})</OverHaulers_Journal_SnapshotInitialized>
 

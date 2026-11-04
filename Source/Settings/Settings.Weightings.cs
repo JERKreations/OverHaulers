@@ -70,7 +70,7 @@ namespace OverHaulers
             torsoPositiveBlood = CoreDefaults.TorsoPositiveBlood;
             torsoPositiveMoving = CoreDefaults.TorsoPositiveMoving;
             torsoPositiveManipulation = CoreDefaults.TorsoPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace OverHaulers
             armPositiveBlood = CoreDefaults.ArmPositiveBlood;
             armPositiveMoving = CoreDefaults.ArmPositiveMoving;
             armPositiveManipulation = CoreDefaults.ArmPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -94,7 +94,7 @@ namespace OverHaulers
             legPositiveBlood = CoreDefaults.LegPositiveBlood;
             legPositiveMoving = CoreDefaults.LegPositiveMoving;
             legPositiveManipulation = CoreDefaults.LegPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace OverHaulers
             torsoDeficitBlood = CoreDefaults.TorsoDeficitBlood;
             torsoDeficitMoving = CoreDefaults.TorsoDeficitMoving;
             torsoDeficitManipulation = CoreDefaults.TorsoDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace OverHaulers
             armDeficitBlood = CoreDefaults.ArmDeficitBlood;
             armDeficitMoving = CoreDefaults.ArmDeficitMoving;
             armDeficitManipulation = CoreDefaults.ArmDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace OverHaulers
             legDeficitBlood = CoreDefaults.LegDeficitBlood;
             legDeficitMoving = CoreDefaults.LegDeficitMoving;
             legDeficitManipulation = CoreDefaults.LegDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace OverHaulers
         {
             torsoAxialBias = CoreDefaults.TorsoAxialBias;
             torsoHpSensitivity = CoreDefaults.TorsoHpSensitivity;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         /// <summary>
@@ -187,7 +187,7 @@ namespace OverHaulers
         public void ResetLimbDecay()
         {
             limbDepthDecayFactor = CoreDefaults.LimbDepthDecayFactor;
-            SettingsViewUtilities.ClearInputBuffers();
+            NotifyValuesReset();
         }
 
         #endregion
@@ -230,37 +230,37 @@ namespace OverHaulers
             Scribe_Values.Look(ref limbDepthDecayFactor, "limbDepthDecayFactor", CoreDefaults.LimbDepthDecayFactor);
         }
 
-        private void SanitizeWeightings()
+        private void SanitizeWeightings(in SolverConfiguration solver)
         {
-            torsoPositiveBreathing = SanePercent(torsoPositiveBreathing, CoreDefaults.TorsoPositiveBreathing);
-            torsoPositiveBlood = SanePercent(torsoPositiveBlood, CoreDefaults.TorsoPositiveBlood);
-            torsoPositiveMoving = SanePercent(torsoPositiveMoving, CoreDefaults.TorsoPositiveMoving);
-            torsoPositiveManipulation = SanePercent(torsoPositiveManipulation, CoreDefaults.TorsoPositiveManipulation);
-            armPositiveBreathing = SanePercent(armPositiveBreathing, CoreDefaults.ArmPositiveBreathing);
-            armPositiveBlood = SanePercent(armPositiveBlood, CoreDefaults.ArmPositiveBlood);
-            armPositiveMoving = SanePercent(armPositiveMoving, CoreDefaults.ArmPositiveMoving);
-            armPositiveManipulation = SanePercent(armPositiveManipulation, CoreDefaults.ArmPositiveManipulation);
-            legPositiveBreathing = SanePercent(legPositiveBreathing, CoreDefaults.LegPositiveBreathing);
-            legPositiveBlood = SanePercent(legPositiveBlood, CoreDefaults.LegPositiveBlood);
-            legPositiveMoving = SanePercent(legPositiveMoving, CoreDefaults.LegPositiveMoving);
-            legPositiveManipulation = SanePercent(legPositiveManipulation, CoreDefaults.LegPositiveManipulation);
+            torsoPositiveBreathing = solver.TorsoPositiveBreathing;
+            torsoPositiveBlood = solver.TorsoPositiveBlood;
+            torsoPositiveMoving = solver.TorsoPositiveMoving;
+            torsoPositiveManipulation = solver.TorsoPositiveManipulation;
+            armPositiveBreathing = solver.ArmPositiveBreathing;
+            armPositiveBlood = solver.ArmPositiveBlood;
+            armPositiveMoving = solver.ArmPositiveMoving;
+            armPositiveManipulation = solver.ArmPositiveManipulation;
+            legPositiveBreathing = solver.LegPositiveBreathing;
+            legPositiveBlood = solver.LegPositiveBlood;
+            legPositiveMoving = solver.LegPositiveMoving;
+            legPositiveManipulation = solver.LegPositiveManipulation;
 
-            torsoDeficitBreathing = SanePercent(torsoDeficitBreathing, CoreDefaults.TorsoDeficitBreathing);
-            torsoDeficitBlood = SanePercent(torsoDeficitBlood, CoreDefaults.TorsoDeficitBlood);
-            torsoDeficitMoving = SanePercent(torsoDeficitMoving, CoreDefaults.TorsoDeficitMoving);
-            torsoDeficitManipulation = SanePercent(torsoDeficitManipulation, CoreDefaults.TorsoDeficitManipulation);
-            armDeficitBreathing = SanePercent(armDeficitBreathing, CoreDefaults.ArmDeficitBreathing);
-            armDeficitBlood = SanePercent(armDeficitBlood, CoreDefaults.ArmDeficitBlood);
-            armDeficitMoving = SanePercent(armDeficitMoving, CoreDefaults.ArmDeficitMoving);
-            armDeficitManipulation = SanePercent(armDeficitManipulation, CoreDefaults.ArmDeficitManipulation);
-            legDeficitBreathing = SanePercent(legDeficitBreathing, CoreDefaults.LegDeficitBreathing);
-            legDeficitBlood = SanePercent(legDeficitBlood, CoreDefaults.LegDeficitBlood);
-            legDeficitMoving = SanePercent(legDeficitMoving, CoreDefaults.LegDeficitMoving);
-            legDeficitManipulation = SanePercent(legDeficitManipulation, CoreDefaults.LegDeficitManipulation);
+            torsoDeficitBreathing = solver.TorsoDeficitBreathing;
+            torsoDeficitBlood = solver.TorsoDeficitBlood;
+            torsoDeficitMoving = solver.TorsoDeficitMoving;
+            torsoDeficitManipulation = solver.TorsoDeficitManipulation;
+            armDeficitBreathing = solver.ArmDeficitBreathing;
+            armDeficitBlood = solver.ArmDeficitBlood;
+            armDeficitMoving = solver.ArmDeficitMoving;
+            armDeficitManipulation = solver.ArmDeficitManipulation;
+            legDeficitBreathing = solver.LegDeficitBreathing;
+            legDeficitBlood = solver.LegDeficitBlood;
+            legDeficitMoving = solver.LegDeficitMoving;
+            legDeficitManipulation = solver.LegDeficitManipulation;
 
-            torsoAxialBias = Sane(torsoAxialBias, CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax);
-            torsoHpSensitivity = Sane(torsoHpSensitivity, CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax);
-            limbDepthDecayFactor = Sane(limbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax);
+            torsoAxialBias = solver.TorsoAxialBias;
+            torsoHpSensitivity = solver.TorsoHpSensitivity;
+            limbDepthDecayFactor = solver.LimbDepthDecayFactor;
         }
 
         #endregion

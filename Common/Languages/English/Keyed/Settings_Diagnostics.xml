@@ -91,7 +91,7 @@
 
   <!-- [DIAG-04] Self-check -->
   <OverHaulers_SelfCheck_Header>Self-Check</OverHaulers_SelfCheck_Header>
-  <OverHaulers_SelfCheck_Desc>Runs Over Haulers' built-in correctness checks on this game install: the lock-free snapshot table (against private copies, so live data is untouched), the core collections, every loaded body definition, and the solver on test pawns. Usually finishes within a second, depending on your hardware and mod list. Failures are also listed in the exported benchmark report, so include it when reporting a bug.</OverHaulers_SelfCheck_Desc>
+  <OverHaulers_SelfCheck_Desc>Runs Over Haulers' built-in correctness checks: the lock-free snapshot table (against private copies, so live data is untouched), the core collections, every loaded body definition, and the solver on test pawns. Usually finishes within a second, depending on your hardware and mod list. Failures are also listed in the exported benchmark report, so include it when reporting a bug.</OverHaulers_SelfCheck_Desc>
   <OverHaulers_SelfCheck_Run>Run Self-Check</OverHaulers_SelfCheck_Run>
   <OverHaulers_SelfCheck_Running>Running… ({0}/{1})</OverHaulers_SelfCheck_Running>
   <OverHaulers_SelfCheck_Summary>{0}/{1} checks passed</OverHaulers_SelfCheck_Summary>
@@ -109,6 +109,7 @@
 
   <!-- Self-check names -->
   <OverHaulers_SelfCheck_Check_CoreDefaultsInRange>Every core default lies inside its Min/Max range</OverHaulers_SelfCheck_Check_CoreDefaultsInRange>
+  <OverHaulers_SelfCheck_Check_ConfigSanitisation>Core sanitiser clamps out-of-range, infinite and NaN configuration values</OverHaulers_SelfCheck_Check_ConfigSanitisation>
   <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
   <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
   <OverHaulers_SelfCheck_Check_WriteOverwriteRead>Write, overwrite and read back</OverHaulers_SelfCheck_Check_WriteOverwriteRead>
@@ -133,3 +134,9 @@
   <OverHaulers_SelfCheck_Skip_NoSubject>No default test subject is available.</OverHaulers_SelfCheck_Skip_NoSubject>
 
 </LanguageData>
+
+Architecture: Core-owned config sanitisation, lifecycle hooks, Integration and Settings decoupling
+
+Core now range-checks every configuration snapshot pushed into it: SolverConfiguration and RuntimeConfiguration gain Sanitized(), backed by a single ConfigBounds clamp (infinities clamp to the bound they exceed, NaN falls back to the default) and a throttled warning when values were adjusted. Settings drops its duplicated Sane* clamps and sanitises loaded values through Core. Add a ConfigSanitisation self-check.
+
+Integration no longer references Settings or Tooling: LifecycleHooks (FramePumped, RuntimeResetting) replace direct benchmark and self-check calls, bound by ToolingLifecycleBinding; the presentation preference is pushed down via SetPreferredPresentationKey and stale-key recovery is reported back through an event. Settings raises ValuesReset and ValuesMutated events that SettingsViewUtilities subscribes to, so the model no longer calls the views. All bindings are wired in the mod constructor. Prune unused ExternalPatchesDetected keys.

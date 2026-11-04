@@ -174,12 +174,16 @@ namespace OverHaulers
 
         /// <summary>
         /// Updates the active solver configuration snapshot.
-        /// Single canonical entry point for push configuration from higher layers.
+        /// Single canonical entry point for push configuration from higher layers; the snapshot is range-checked here, so Core never trusts the caller.
         /// </summary>
         /// <param name="newConfig">The new solver configuration struct snapshot.</param>
         public static void UpdateConfiguration(in SolverConfiguration newConfig)
         {
-            activeConfig = newConfig;
+            activeConfig = newConfig.Sanitized(out bool wasModified);
+            if (wasModified)
+            {
+                OHLog.Warn("Config.SolverSanitized", null, "Solver configuration contained out-of-range or non-finite values; they were clamped to their supported bounds.");
+            }
         }
 
         /// <summary>Gets a read-only reference to the active solver configuration.</summary>

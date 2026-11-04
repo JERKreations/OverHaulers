@@ -1,3 +1,5 @@
+using RimWorld;
+
 namespace OverHaulers
 {
     /// <summary>
@@ -70,6 +72,39 @@ namespace OverHaulers
         public bool CollectsLifecycleCounters => IsTelemetryEnabled && LogLifecycleMetrics;
 
         public bool CollectsPresentationCounters => IsTelemetryEnabled && LogPresentationMetrics;
+
+        #endregion
+
+        #region 4. SANITISATION
+
+        /// <summary>
+        /// Returns a copy with the eviction timeframe and report interval clamped to their <see cref="CoreDefaults"/> ranges.
+        /// </summary>
+        /// <param name="wasModified">True when at least one value had to be adjusted.</param>
+        /// <returns>A configuration guaranteed to be within range.</returns>
+        public RuntimeConfiguration Sanitized(out bool wasModified)
+        {
+            bool c = false;
+            RuntimeConfiguration result = new RuntimeConfiguration(
+                ConfigBounds.ClampInt(
+                    PawnEvictionTimeframeTicks,
+                    CoreDefaults.PawnEvictionTimeframeHoursMin * GenDate.TicksPerHour,
+                    CoreDefaults.PawnEvictionTimeframeHoursMax * GenDate.TicksPerHour,
+                    ref c),
+                DevStressTestAllFauna,
+                ConfigBounds.ClampInt(ReportMetricsIntervalHours, CoreDefaults.ReportMetricsIntervalHoursMin, CoreDefaults.ReportMetricsIntervalHoursMax, ref c),
+                LogCacheMetrics,
+                LogQueryMetrics,
+                LogSnapshotTableMetrics,
+                LogPresentationMetrics,
+                LogLifecycleMetrics,
+                LogWorkspaceMetrics,
+                LogSafetyFloorClamps,
+                LogPawnEvictions);
+
+            wasModified = c;
+            return result;
+        }
 
         #endregion
     }

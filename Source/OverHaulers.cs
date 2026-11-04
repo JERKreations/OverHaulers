@@ -20,6 +20,9 @@ namespace OverHaulers
             ContentPack = content;
             settings = GetSettings<Settings>();
             settings?.PushConfigurationToCore();
+            IntegrationPipeline.PreferredPresentationKeyReset += key => { if (settings != null) settings.selectedPresentationKey = key; };
+            ToolingLifecycleBinding.Bind();
+            SettingsViewUtilities.BindToSettings();
         }
 
         #endregion
@@ -33,8 +36,7 @@ namespace OverHaulers
         {
             base.WriteSettings();
             
-            BenchmarkRunner.Cancel();
-            SelfCheckRunner.Cancel();
+            LifecycleHooks.RaiseRuntimeResetting();
             settings?.PushConfigurationToCore();
             PawnDataRegistry.MarkAllStale();
             MedicalClassifier.ClearStaticCaches();
