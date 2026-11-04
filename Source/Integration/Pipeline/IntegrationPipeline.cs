@@ -121,7 +121,7 @@ namespace OverHaulers
 
             string localizedSuffix = " " + "kg".Translate();
             Settings settings = OverHaulers.settings;
-            string key = settings?.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
+            string key = settings?.selectedPresentationKey ?? PresentationKeyAuto;
 
             // -------------------------------------------------------------------------
             // PATH A: EXPLICIT PLAYER OVERRIDES (Highest Authority)
@@ -393,7 +393,7 @@ namespace OverHaulers
             OHLog.Integration.StalePreferenceRecovered(staleKey);
             if (settings != null)
             {
-                settings.selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
+                settings.selectedPresentationKey = PresentationKeyAuto;
             }
         }
 

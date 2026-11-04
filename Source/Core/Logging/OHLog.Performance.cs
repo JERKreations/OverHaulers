@@ -164,9 +164,6 @@ namespace OverHaulers
             /// <param name="s">The telemetry snapshot containing all aggregated performance metrics for the reporting interval.</param>
             public static void DispatchCumulativeReport(in TelemetrySnapshot s)
             {
-                var settings = OverHaulers.settings;
-                if (settings == null) return;
-
                 lock (bufferLock)
                 {
                     pooledReportBuilder.Clear();

@@ -431,7 +431,7 @@ namespace OverHaulers
             {
                 bool isLiveSubject = TestBench.ActiveSubject?.IsLivePawn == true;
                 Rect clearPlanRect = new Rect(inner.x, leftY, leftWidth, 22f);
-                Color critColor = OverHaulers.settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
+                Color critColor = OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
                 GUI.color = Color.Lerp(Color.white, critColor, 0.6f);
                 Text.Font = GameFont.Tiny;
 
@@ -659,8 +659,8 @@ namespace OverHaulers
             out Color labelColor)
         {
             var settings = OverHaulers.settings;
-            Color critColor = settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
-            Color boostColor = settings?.colorBoosted ?? SettingsDefaults.ColorBoostedDefault;
+            Color critColor = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
+            Color boostColor = settings?.colorBoosted ?? PresentationDefaults.ColorBoostedDefault;
 
             // 1. Virtual Anchor Grey-Box Badge
             if (isVirtualAnchor)

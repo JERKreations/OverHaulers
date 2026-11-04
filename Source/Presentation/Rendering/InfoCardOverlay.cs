@@ -135,7 +135,7 @@ namespace OverHaulers
         /// <summary>Tail of the LRU linked list, representing the least recently used cache node.</summary>
         private static LruCacheNode lruTail;
 
-        private static float cachedIconScalePercent = SettingsDefaults.IconScalePercent;
+        private static float cachedIconScalePercent = PresentationDefaults.IconScalePercent;
 
         static InfoCardOverlay()
         {

@@ -1,22 +1,15 @@
-using UnityEngine;
+using RimWorld;
 
 namespace OverHaulers
 {
-    public enum PalettePreset
-    {
-        Default = 0,
-        Deuteranopia = 1,
-        Tritanopia = 2,
-        HighContrast = 3,
-        Custom = 4
-    }
-
     /// <summary>
-    /// Centralized database of hardcoded factory defaults, bounding constraints, and mathematical constants.
-    /// Acts as the single source of truth for all balancing configurations and UI slider limits.
-    /// Annotated with Canonical Semantic Tags [SEC-01] through [SEC-10] for instant cross-file search.
+    /// [CORE-CONF-03] CORE FACTORY DEFAULTS &amp; BASELINE CONFIGURATION FACTORIES
+    /// Single source of truth for every default value that feeds <see cref="SolverConfiguration"/> and
+    /// <see cref="RuntimeConfiguration"/>, together with each tunable's valid Min/Max range. Resides under Source/Core/Configs/
+    /// and has zero Settings or UI dependencies.
+    /// The Settings layer reads these values downward for its persisted fields and UI sliders; it owns only presentation-side values and palettes.
     /// </summary>
-    public static class SettingsDefaults
+    public static class CoreDefaults
     {
         #region 1. [SEC-01] GLOBAL MODIFIERS & SCALING INTENSITY
 
@@ -52,8 +45,6 @@ namespace OverHaulers
         #endregion
 
         #region 3. [SEC-03] POSITIVE SYSTEMIC COUPLING WEIGHTS
-
-        public const bool LinkSystemicWeights = true;
 
         public const float TorsoPositiveBreathing = 1.00f;
         public const float TorsoPositiveBlood = 1.00f;
@@ -123,18 +114,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 8. [SEC-08] COMPATIBILITY & PIPELINE DRIVER DEFAULTS
-
-        /// <summary>Default key for the selected presentation mode in the UI.</summary>
-        public const string DefaultSelectedPresentationKey = "AUTO";
-
-        #endregion
-
-        #region 9. [SEC-09] DIAGNOSTICS & TELEMETRY DEFAULTS
-
-        // Verbose breakdown flag for diagnostics. When true, instances of InfoCard are forced to display all groupings details regardless of
-        // part states and health conditions.
-        public const bool VerboseBreakdown = false;
+        #region 8. [SEC-09] DIAGNOSTICS & TELEMETRY DEFAULTS
 
         /// <summary>
         /// High-load population stress-test benchmark toggle forcing 100% of biological fauna
@@ -156,7 +136,7 @@ namespace OverHaulers
         public const bool LogWorkspaceMetrics = true;
         public const bool LogSafetyFloorClamps = true;
         public const bool LogPawnEvictions = true;
-        
+
         // Timeframe in hours for considering pawn evictions. This defines the window within which pawn evictions are evaluated.
         public const int PawnEvictionTimeframeHours = 24;
         public const int PawnEvictionTimeframeHoursMin = 1;
@@ -164,62 +144,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 10. [SEC-10] ACCESSIBILITY & COLOR PALETTES
-
-        public const float IconScalePercent = 0.70f;
-        public const float IconScalePercentMin = 0.50f;
-        public const float IconScalePercentMax = 1.20f;
-
-        // Default color palette.
-        public static readonly Color ColorHealthyDefault = new Color(0.90f, 0.90f, 0.90f);
-        public static readonly Color ColorCriticalDefault = new Color(0.90f, 0.33f, 0.33f);
-        public static readonly Color ColorBoostedDefault = new Color(0.40f, 0.82f, 1.00f);
-
-        // Deuteranopia color palette.
-        public static readonly Color ColorHealthyDeuteranopia = new Color(0.35f, 0.70f, 0.90f);
-        public static readonly Color ColorCriticalDeuteranopia = new Color(0.95f, 0.65f, 0.15f);
-        public static readonly Color ColorBoostedDeuteranopia = new Color(0.85f, 0.40f, 0.85f);
-
-        // Tritanopia color palette.
-        public static readonly Color ColorHealthyTritanopia = new Color(0.20f, 0.75f, 0.65f);
-        public static readonly Color ColorCriticalTritanopia = new Color(0.90f, 0.25f, 0.40f);
-        public static readonly Color ColorBoostedTritanopia = new Color(0.65f, 0.40f, 0.90f);
-
-        // High contrast color palette.
-        public static readonly Color ColorHealthyHighContrast = new Color(1.00f, 1.00f, 1.00f);
-        public static readonly Color ColorCriticalHighContrast = new Color(0.45f, 0.45f, 0.45f);
-        public static readonly Color ColorBoostedHighContrast = new Color(1.00f, 0.85f, 0.20f);
-
-        public const PalettePreset DefaultPalettePreset = PalettePreset.Default;
-
-        #endregion
-
-        #region 11. [SEC-11] ENGINE & PERFORMANCE INVARIANTS
-
-        // Minimum fast path ticks and dynamic cache expiry floor (5 ticks = ~0.08s at 1x speed).
-        public const int DefaultCacheMinFastPathTicks = 5;
-
-        // Dynamic square-root scaling factor (K) for population-based cache expiry.
-        public const int DynamicCacheExpiryScaleK = 5;
-
-        // Minimum tick interval between reactive cache invalidations for a single pawn during combat damage bursts (15 ticks = ~0.25s).
-        public const int InvalidationDebounceTicks = 15;
-
-        // Cache cleanup interval. This is the interval at which expired cache entries are cleaned up.
-        public const int CacheCleanupInterval = 600;
-
-        // Default workspace capacity. This defines the initial capacity of the workspace used in performance-critical operations.
-        public const int DefaultWorkspaceCapacity = 64;
-
-        // World load calibration delay in ticks. This is the delay before performing calibration after the world is loaded.
-        public const int WorldLoadCalibrationDelayTicks = 120;
-
-        #region 11A. DOWNWARD SOLVER SNAPSHOT FACTORY
+        #region 9. BASELINE CONFIGURATION FACTORIES
 
         /// <summary>
         /// Creates a baseline <see cref="SolverConfiguration"/> snapshot using default constant values.
         /// Acts as the single source of truth for unconfigured or reset solver baselines.
-        /// Downward dependency flow: SettingsDefaults -> Core.
         /// </summary>
         public static SolverConfiguration CreateDefaultSolverConfiguration()
         {
@@ -249,12 +178,11 @@ namespace OverHaulers
         /// <summary>
         /// Creates a baseline <see cref="RuntimeConfiguration"/> snapshot using tuned default constant values.
         /// Acts as the single source of truth for unconfigured or reset infrastructure baselines.
-        /// Downward dependency flow: SettingsDefaults -> Core.
         /// </summary>
         public static RuntimeConfiguration CreateDefaultRuntimeConfiguration()
         {
             return new RuntimeConfiguration(
-                pawnEvictionTimeframeTicks: PawnEvictionTimeframeHours * RimWorld.GenDate.TicksPerHour,
+                pawnEvictionTimeframeTicks: PawnEvictionTimeframeHours * GenDate.TicksPerHour,
                 devStressTestAllFauna: DevStressTestAllFauna,
                 reportMetricsIntervalHours: ReportMetricsIntervalHours,
                 logCache: LogCacheMetrics,
@@ -264,14 +192,9 @@ namespace OverHaulers
                 logLifecycle: LogLifecycleMetrics,
                 logWorkspace: LogWorkspaceMetrics,
                 logSafetyFloorClamps: LogSafetyFloorClamps,
-                logPawnEvictions: LogPawnEvictions,
-                minFastPathTicks: DefaultCacheMinFastPathTicks,
-                cacheCleanupInterval: CacheCleanupInterval,
-                dynamicExpiryScaleK: DynamicCacheExpiryScaleK
+                logPawnEvictions: LogPawnEvictions
             );
         }
-
-        #endregion
 
         #endregion
     }

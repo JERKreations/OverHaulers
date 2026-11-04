@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-using RimWorld;
 using Verse;
 
 namespace OverHaulers
@@ -20,7 +18,12 @@ namespace OverHaulers
 
     #endregion
 
-    public class Settings : ModSettings
+    /// <summary>
+    /// Persisted user settings. The class is split per domain: this primary file owns navigation state, the
+    /// serialization orchestrators, sanitisation helpers, the projections into Core configuration snapshots and the
+    /// global reset; each <c>Settings.*.cs</c> partial owns the fields, resets and Scribe/sanitise helpers of one [SEC-xx] domain.
+    /// </summary>
+    public partial class Settings : ModSettings
     {
         #region 2. [SEC-00] NAVIGATION & FIRST-LAUNCH STATE
 
@@ -29,212 +32,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [SEC-01] GLOBAL MODIFIERS & SCALING FIELDS
-
-        public bool enableProsthetics = SettingsDefaults.EnableProsthetics;
-        public bool enableAthletics = SettingsDefaults.EnableAthletics;
-        public bool enablePartHealth = SettingsDefaults.EnablePartHealth;
-
-        public float prostheticScaling = SettingsDefaults.ProstheticScaling;
-        public float athleticScaling = SettingsDefaults.AthleticScaling;
-        public float configurablePercentileFloor = SettingsDefaults.ConfigurablePercentileFloor;
-
-        public bool enableHardCompatibilitySafetyFloor = SettingsDefaults.EnableHardCompatibilitySafetyFloor;
-
-        #endregion
-
-        #region 4. [SEC-02] CORE BODY GROUP BUDGET FIELDS
-
-        public float anatomyWeightTorso = SettingsDefaults.AnatomyWeightTorso;
-        public float anatomyWeightArm = SettingsDefaults.AnatomyWeightArm;
-        public float anatomyWeightLeg = SettingsDefaults.AnatomyWeightLeg;
-
-        #endregion
-
-        #region 5. [SEC-03] POSITIVE SYSTEMIC COUPLING FIELDS
-
-        public bool linkSystemicWeights = SettingsDefaults.LinkSystemicWeights;
-
-        public float torsoPositiveBreathing = SettingsDefaults.TorsoPositiveBreathing;
-        public float torsoPositiveBlood = SettingsDefaults.TorsoPositiveBlood;
-        public float torsoPositiveMoving = SettingsDefaults.TorsoPositiveMoving;
-        public float torsoPositiveManipulation = SettingsDefaults.TorsoPositiveManipulation;
-
-        public float armPositiveBreathing = SettingsDefaults.ArmPositiveBreathing;
-        public float armPositiveBlood = SettingsDefaults.ArmPositiveBlood;
-        public float armPositiveMoving = SettingsDefaults.ArmPositiveMoving;
-        public float armPositiveManipulation = SettingsDefaults.ArmPositiveManipulation;
-
-        public float legPositiveBreathing = SettingsDefaults.LegPositiveBreathing;
-        public float legPositiveBlood = SettingsDefaults.LegPositiveBlood;
-        public float legPositiveMoving = SettingsDefaults.LegPositiveMoving;
-        public float legPositiveManipulation = SettingsDefaults.LegPositiveManipulation;
-
-        #endregion
-
-        #region 6. [SEC-04] NEGATIVE SYSTEMIC COUPLING FIELDS
-
-        public float torsoDeficitBreathing = SettingsDefaults.TorsoDeficitBreathing;
-        public float torsoDeficitBlood = SettingsDefaults.TorsoDeficitBlood;
-        public float torsoDeficitMoving = SettingsDefaults.TorsoDeficitMoving;
-        public float torsoDeficitManipulation = SettingsDefaults.TorsoDeficitManipulation;
-
-        public float armDeficitBreathing = SettingsDefaults.ArmDeficitBreathing;
-        public float armDeficitBlood = SettingsDefaults.ArmDeficitBlood;
-        public float armDeficitMoving = SettingsDefaults.ArmDeficitMoving;
-        public float armDeficitManipulation = SettingsDefaults.ArmDeficitManipulation;
-
-        public float legDeficitBreathing = SettingsDefaults.LegDeficitBreathing;
-        public float legDeficitBlood = SettingsDefaults.LegDeficitBlood;
-        public float legDeficitMoving = SettingsDefaults.LegDeficitMoving;
-        public float legDeficitManipulation = SettingsDefaults.LegDeficitManipulation;
-
-        #endregion
-
-        #region 7. [SEC-05] TORSO MACRO TOPOLOGY FIELDS
-
-        public float torsoAxialBias = SettingsDefaults.TorsoAxialBias;
-        public float torsoHpSensitivity = SettingsDefaults.TorsoHpSensitivity;
-
-        #endregion
-
-        #region 8. [SEC-06] LIMB DEPTH DECAY FIELDS
-
-        public float limbDepthDecayFactor = SettingsDefaults.LimbDepthDecayFactor;
-
-        #endregion
-
-        #region 9. [SEC-07] STRUCTURAL SCALING CONSTANTS
-
-        public float prostheticImpactConstant = SettingsDefaults.ProstheticImpactConstant;
-        public float athleticImpactConstant = SettingsDefaults.AthleticImpactConstant;
-
-        #endregion
-
-        #region 10. [SEC-08] COMPATIBILITY & STAT ADOPTION FIELDS
-
-        /// <summary>Selected presentation key in the UI.</summary>
-        public string selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
-
-        /// <summary>Resets compatibility-related settings to their default values.</summary>
-        public void ResetCompatibility()
-        {
-            selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        #endregion
-
-        #region 11. [SEC-09] DIAGNOSTICS & DEVELOPER FIELDS
-
-        public bool verboseBreakdown = SettingsDefaults.VerboseBreakdown;
-
-        /// <summary>
-        /// High-load population stress-test benchmark toggle forcing 100% of biological fauna
-        /// (livestock, wild animals, vermin, predators) through the solver and dynamic cache.
-        /// </summary>
-        public bool devStressTestAllFauna = SettingsDefaults.DevStressTestAllFauna;
-
-        /// <summary>
-        /// Backwards-compatible alias for <see cref="devStressTestAllFauna"/>.
-        /// </summary>
-        [System.Obsolete("Use devStressTestAllFauna instead.")]
-        public bool devAllowNonPackSpeciesInLivePlay
-        {
-            get => devStressTestAllFauna;
-            set => devStressTestAllFauna = value;
-        }
-
-        public int reportMetricsIntervalHours = SettingsDefaults.ReportMetricsIntervalHours;
-        public bool logQueryMetrics = SettingsDefaults.LogQueryMetrics;
-        public bool logCacheMetrics = SettingsDefaults.LogCacheMetrics;
-        public bool logSnapshotTableMetrics = SettingsDefaults.LogSnapshotTableMetrics;
-        public bool logPresentationMetrics = SettingsDefaults.LogPresentationMetrics;
-        public bool logLifecycleMetrics = SettingsDefaults.LogLifecycleMetrics;
-        public bool logWorkspaceMetrics = SettingsDefaults.LogWorkspaceMetrics;
-        public bool logSafetyFloorClamps = SettingsDefaults.LogSafetyFloorClamps;
-        public bool logPawnEvictions = SettingsDefaults.LogPawnEvictions;
-        public int pawnEvictionTimeframeHours = SettingsDefaults.PawnEvictionTimeframeHours;
-
-        public int ReportMetricsIntervalTicks => reportMetricsIntervalHours * GenDate.TicksPerHour;
-        public int PawnEvictionTimeframeTicks => pawnEvictionTimeframeHours * GenDate.TicksPerHour;
-
-        #endregion
-
-        #region 12. [SEC-10] ACCESSIBILITY & COLOR FIELDS
-
-        public float iconScalePercent = SettingsDefaults.IconScalePercent;
-        public PalettePreset activePalettePreset = SettingsDefaults.DefaultPalettePreset;
-
-        public Color colorHealthy = SettingsDefaults.ColorHealthyDefault;
-        public Color colorCritical = SettingsDefaults.ColorCriticalDefault;
-        public Color colorBoosted = SettingsDefaults.ColorBoostedDefault;
-
-        /// <summary>
-        /// Applies the specified color palette preset to the accessibility and color settings.
-        /// </summary>
-        /// <param name="preset">The color palette preset to apply.</param>
-        public void ApplyPreset(PalettePreset preset)
-        {
-            activePalettePreset = preset;
-            switch (preset)
-            {
-                case PalettePreset.Default:
-                    colorHealthy = SettingsDefaults.ColorHealthyDefault;
-                    colorCritical = SettingsDefaults.ColorCriticalDefault;
-                    colorBoosted = SettingsDefaults.ColorBoostedDefault;
-                    break;
-                case PalettePreset.Deuteranopia:
-                    colorHealthy = SettingsDefaults.ColorHealthyDeuteranopia;
-                    colorCritical = SettingsDefaults.ColorCriticalDeuteranopia;
-                    colorBoosted = SettingsDefaults.ColorBoostedDeuteranopia;
-                    break;
-                case PalettePreset.Tritanopia:
-                    colorHealthy = SettingsDefaults.ColorHealthyTritanopia;
-                    colorCritical = SettingsDefaults.ColorCriticalTritanopia;
-                    colorBoosted = SettingsDefaults.ColorBoostedTritanopia;
-                    break;
-                case PalettePreset.HighContrast:
-                    colorHealthy = SettingsDefaults.ColorHealthyHighContrast;
-                    colorCritical = SettingsDefaults.ColorCriticalHighContrast;
-                    colorBoosted = SettingsDefaults.ColorBoostedHighContrast;
-                    break;
-                case PalettePreset.Custom:
-                    break;
-            }
-
-            SettingsViewUtilities.ClearInputBuffers();
-            SettingsViewUtilities.OnSettingMutated();
-        }
-
-        /// <summary>
-        /// Resets the accessibility settings to their default values, including the icon scale and color palette.
-        /// </summary>
-        public void ResetAccessibility()
-        {
-            iconScalePercent = SettingsDefaults.IconScalePercent;
-            ApplyPreset(SettingsDefaults.DefaultPalettePreset);
-        }
-
-        #endregion
-
-        #region 13. DYNAMIC READERS & HELPERS
-
-        /// <summary>
-        /// Retrieves the budget value for the specified body part type.
-        /// </summary>
-        /// <param name="type">The type of body part.</param>
-        /// <returns>The budget value associated with the specified body part type.</returns>
-        public float GetBudget(PartType type)
-        {
-            switch (type)
-            {
-                case PartType.CorePart: return anatomyWeightTorso;
-                case PartType.ManipulationPart: return anatomyWeightArm;
-                case PartType.MovingPart: return anatomyWeightLeg;
-                default: return 0f;
-            }
-        }
+        #region 3. PROJECTION & CORE INGRESS
 
         /// <summary>
         /// Projects the active mutable settings into an immutable <see cref="SolverConfiguration"/> value struct.
@@ -281,10 +79,7 @@ namespace OverHaulers
                 logLifecycle: logLifecycleMetrics,
                 logWorkspace: logWorkspaceMetrics,
                 logSafetyFloorClamps: logSafetyFloorClamps,
-                logPawnEvictions: logPawnEvictions,
-                minFastPathTicks: SettingsDefaults.DefaultCacheMinFastPathTicks,
-                cacheCleanupInterval: SettingsDefaults.CacheCleanupInterval,
-                dynamicExpiryScaleK: SettingsDefaults.DynamicCacheExpiryScaleK
+                logPawnEvictions: logPawnEvictions
             );
         }
 
@@ -303,192 +98,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 14. TAGGED SECTION RESET ROUTINES
-
-        /// <summary>
-        /// Resets all global settings to their default values.
-        /// </summary>
-        public void ResetGlobals()
-        {
-            prostheticScaling = SettingsDefaults.ProstheticScaling;
-            athleticScaling = SettingsDefaults.AthleticScaling;
-            configurablePercentileFloor = SettingsDefaults.ConfigurablePercentileFloor;
-            enableHardCompatibilitySafetyFloor = SettingsDefaults.EnableHardCompatibilitySafetyFloor;
-            enableProsthetics = SettingsDefaults.EnableProsthetics;
-            enableAthletics = SettingsDefaults.EnableAthletics;
-            enablePartHealth = SettingsDefaults.EnablePartHealth;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all body part-related settings to their default values.
-        /// </summary>
-        public void ResetBodyParts()
-        {
-            anatomyWeightTorso = SettingsDefaults.AnatomyWeightTorso;
-            anatomyWeightArm = SettingsDefaults.AnatomyWeightArm;
-            anatomyWeightLeg = SettingsDefaults.AnatomyWeightLeg;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all positive torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoPositives()
-        {
-            torsoPositiveBreathing = SettingsDefaults.TorsoPositiveBreathing;
-            torsoPositiveBlood = SettingsDefaults.TorsoPositiveBlood;
-            torsoPositiveMoving = SettingsDefaults.TorsoPositiveMoving;
-            torsoPositiveManipulation = SettingsDefaults.TorsoPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all positive arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmPositives()
-        {
-            armPositiveBreathing = SettingsDefaults.ArmPositiveBreathing;
-            armPositiveBlood = SettingsDefaults.ArmPositiveBlood;
-            armPositiveMoving = SettingsDefaults.ArmPositiveMoving;
-            armPositiveManipulation = SettingsDefaults.ArmPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all positive leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegPositives()
-        {
-            legPositiveBreathing = SettingsDefaults.LegPositiveBreathing;
-            legPositiveBlood = SettingsDefaults.LegPositiveBlood;
-            legPositiveMoving = SettingsDefaults.LegPositiveMoving;
-            legPositiveManipulation = SettingsDefaults.LegPositiveManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all negative torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoDeficits()
-        {
-            torsoDeficitBreathing = SettingsDefaults.TorsoDeficitBreathing;
-            torsoDeficitBlood = SettingsDefaults.TorsoDeficitBlood;
-            torsoDeficitMoving = SettingsDefaults.TorsoDeficitMoving;
-            torsoDeficitManipulation = SettingsDefaults.TorsoDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all negative arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmDeficits()
-        {
-            armDeficitBreathing = SettingsDefaults.ArmDeficitBreathing;
-            armDeficitBlood = SettingsDefaults.ArmDeficitBlood;
-            armDeficitMoving = SettingsDefaults.ArmDeficitMoving;
-            armDeficitManipulation = SettingsDefaults.ArmDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all negative leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegDeficits()
-        {
-            legDeficitBreathing = SettingsDefaults.LegDeficitBreathing;
-            legDeficitBlood = SettingsDefaults.LegDeficitBlood;
-            legDeficitMoving = SettingsDefaults.LegDeficitMoving;
-            legDeficitManipulation = SettingsDefaults.LegDeficitManipulation;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all systemic torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoSystemic()
-        {
-            ResetTorsoPositives();
-            ResetTorsoDeficits();
-        }
-
-        /// <summary>
-        /// Resets all systemic arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmSystemic()
-        {
-            ResetArmPositives();
-            ResetArmDeficits();
-        }
-
-        /// <summary>
-        /// Resets all systemic leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegSystemic()
-        {
-            ResetLegPositives();
-            ResetLegDeficits();
-        }
-
-        /// <summary>
-        /// Resets all systemic weightings to their default values.
-        /// </summary>
-        public void ResetSystemicWeightings()
-        {
-            linkSystemicWeights = SettingsDefaults.LinkSystemicWeights;
-            ResetTorsoSystemic();
-            ResetArmSystemic();
-            ResetLegSystemic();
-        }
-
-        /// <summary>
-        /// Resets all torso part-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoParts()
-        {
-            torsoAxialBias = SettingsDefaults.TorsoAxialBias;
-            torsoHpSensitivity = SettingsDefaults.TorsoHpSensitivity;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all limb decay-related settings to their default values.
-        /// </summary>
-        public void ResetLimbDecay()
-        {
-            limbDepthDecayFactor = SettingsDefaults.LimbDepthDecayFactor;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all scaling constant-related settings to their default values.
-        /// </summary>
-        public void ResetScalingConstants()
-        {
-            prostheticImpactConstant = SettingsDefaults.ProstheticImpactConstant;
-            athleticImpactConstant = SettingsDefaults.AthleticImpactConstant;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
-
-        /// <summary>
-        /// Resets all diagnostic-related settings to their default values.
-        /// </summary>
-        public void ResetDiagnostics()
-        {
-            verboseBreakdown = SettingsDefaults.VerboseBreakdown;
-            devStressTestAllFauna = SettingsDefaults.DevStressTestAllFauna;
-            reportMetricsIntervalHours = SettingsDefaults.ReportMetricsIntervalHours;
-            logQueryMetrics = SettingsDefaults.LogQueryMetrics;
-            logCacheMetrics = SettingsDefaults.LogCacheMetrics;
-            logSnapshotTableMetrics = SettingsDefaults.LogSnapshotTableMetrics;
-            logPresentationMetrics = SettingsDefaults.LogPresentationMetrics;
-            logLifecycleMetrics = SettingsDefaults.LogLifecycleMetrics;
-            logWorkspaceMetrics = SettingsDefaults.LogWorkspaceMetrics;
-            logSafetyFloorClamps = SettingsDefaults.LogSafetyFloorClamps;
-            logPawnEvictions = SettingsDefaults.LogPawnEvictions;
-            pawnEvictionTimeframeHours = SettingsDefaults.PawnEvictionTimeframeHours;
-            SettingsViewUtilities.ClearInputBuffers();
-        }
+        #region 4. GLOBAL RESET
 
         /// <summary>
         /// Resets all settings to their default values.
@@ -510,7 +120,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 15. DATA SERIALIZATION (SCRIBE)
+        #region 5. DATA SERIALIZATION (SCRIBE)
 
         /// <summary>
         /// Exposes the settings data for serialization.
@@ -518,88 +128,16 @@ namespace OverHaulers
         public override void ExposeData()
         {
             base.ExposeData();
-            
+
             Scribe_Values.Look(ref activeTab, "activeTab", SettingsTab.Tuning);
             Scribe_Values.Look(ref hasOpenedSettingsBefore, "hasOpenedSettingsBefore", false);
 
-            Scribe_Values.Look(ref enableProsthetics, "enableProsthetics", SettingsDefaults.EnableProsthetics);
-            Scribe_Values.Look(ref enableAthletics, "enableAthletics", SettingsDefaults.EnableAthletics);
-            Scribe_Values.Look(ref enablePartHealth, "enablePartHealth", SettingsDefaults.EnablePartHealth);
-            Scribe_Values.Look(ref prostheticScaling, "prostheticScaling", SettingsDefaults.ProstheticScaling);
-            Scribe_Values.Look(ref athleticScaling, "athleticScaling", SettingsDefaults.AthleticScaling);
-            Scribe_Values.Look(ref configurablePercentileFloor, "configurablePercentileFloor", SettingsDefaults.ConfigurablePercentileFloor);
-            Scribe_Values.Look(ref enableHardCompatibilitySafetyFloor, "enableHardCompatibilitySafetyFloor", SettingsDefaults.EnableHardCompatibilitySafetyFloor);
-
-            Scribe_Values.Look(ref iconScalePercent, "iconScalePercent", SettingsDefaults.IconScalePercent);
-            Scribe_Values.Look(ref activePalettePreset, "activePalettePreset", SettingsDefaults.DefaultPalettePreset);
-            Scribe_Values.Look(ref colorHealthy, "colorHealthy", SettingsDefaults.ColorHealthyDefault);
-            Scribe_Values.Look(ref colorCritical, "colorCritical", SettingsDefaults.ColorCriticalDefault);
-            Scribe_Values.Look(ref colorBoosted, "colorBoosted", SettingsDefaults.ColorBoostedDefault);
-
-            Scribe_Values.Look(ref anatomyWeightTorso, "anatomyWeightTorso", SettingsDefaults.AnatomyWeightTorso);
-            Scribe_Values.Look(ref anatomyWeightArm, "anatomyWeightArm", SettingsDefaults.AnatomyWeightArm);
-            Scribe_Values.Look(ref anatomyWeightLeg, "anatomyWeightLeg", SettingsDefaults.AnatomyWeightLeg);
-
-            // [SEC-03] Master lock for symmetric/individual systemic editing
-            Scribe_Values.Look(ref linkSystemicWeights, "linkSystemicWeights", SettingsDefaults.LinkSystemicWeights);
-
-            Scribe_Values.Look(ref torsoPositiveBreathing, "torsoPositiveBreathing", SettingsDefaults.TorsoPositiveBreathing);
-            Scribe_Values.Look(ref torsoPositiveBlood, "torsoPositiveBlood", SettingsDefaults.TorsoPositiveBlood);
-            Scribe_Values.Look(ref torsoPositiveMoving, "torsoPositiveMoving", SettingsDefaults.TorsoPositiveMoving);
-            Scribe_Values.Look(ref torsoPositiveManipulation, "torsoPositiveManipulation", SettingsDefaults.TorsoPositiveManipulation);
-            Scribe_Values.Look(ref armPositiveBreathing, "armPositiveBreathing", SettingsDefaults.ArmPositiveBreathing);
-            Scribe_Values.Look(ref armPositiveBlood, "armPositiveBlood", SettingsDefaults.ArmPositiveBlood);
-            Scribe_Values.Look(ref armPositiveMoving, "armPositiveMoving", SettingsDefaults.ArmPositiveMoving);
-            Scribe_Values.Look(ref armPositiveManipulation, "armPositiveManipulation", SettingsDefaults.ArmPositiveManipulation);
-            Scribe_Values.Look(ref legPositiveBreathing, "legPositiveBreathing", SettingsDefaults.LegPositiveBreathing);
-            Scribe_Values.Look(ref legPositiveBlood, "legPositiveBlood", SettingsDefaults.LegPositiveBlood);
-            Scribe_Values.Look(ref legPositiveMoving, "legPositiveMoving", SettingsDefaults.LegPositiveMoving);
-            Scribe_Values.Look(ref legPositiveManipulation, "legPositiveManipulation", SettingsDefaults.LegPositiveManipulation);
-
-            Scribe_Values.Look(ref torsoDeficitBreathing, "torsoDeficitBreathing", SettingsDefaults.TorsoDeficitBreathing);
-            Scribe_Values.Look(ref torsoDeficitBlood, "torsoDeficitBlood", SettingsDefaults.TorsoDeficitBlood);
-            Scribe_Values.Look(ref torsoDeficitMoving, "torsoDeficitMoving", SettingsDefaults.TorsoDeficitMoving);
-            Scribe_Values.Look(ref torsoDeficitManipulation, "torsoDeficitManipulation", SettingsDefaults.TorsoDeficitManipulation);
-            Scribe_Values.Look(ref armDeficitBreathing, "armDeficitBreathing", SettingsDefaults.ArmDeficitBreathing);
-            Scribe_Values.Look(ref armDeficitBlood, "armDeficitBlood", SettingsDefaults.ArmDeficitBlood);
-            Scribe_Values.Look(ref armDeficitMoving, "armDeficitMoving", SettingsDefaults.ArmDeficitMoving);
-            Scribe_Values.Look(ref armDeficitManipulation, "armDeficitManipulation", SettingsDefaults.ArmDeficitManipulation);
-            Scribe_Values.Look(ref legDeficitBreathing, "legDeficitBreathing", SettingsDefaults.LegDeficitBreathing);
-            Scribe_Values.Look(ref legDeficitBlood, "legDeficitBlood", SettingsDefaults.LegDeficitBlood);
-            Scribe_Values.Look(ref legDeficitMoving, "legDeficitMoving", SettingsDefaults.LegDeficitMoving);
-            Scribe_Values.Look(ref legDeficitManipulation, "legDeficitManipulation", SettingsDefaults.LegDeficitManipulation);
-
-            Scribe_Values.Look(ref torsoAxialBias, "torsoAxialBias", SettingsDefaults.TorsoAxialBias);
-            Scribe_Values.Look(ref torsoHpSensitivity, "torsoHpSensitivity", SettingsDefaults.TorsoHpSensitivity);
-            Scribe_Values.Look(ref limbDepthDecayFactor, "limbDepthDecayFactor", SettingsDefaults.LimbDepthDecayFactor);
-
-            Scribe_Values.Look(ref prostheticImpactConstant, "prostheticImpactConstant", SettingsDefaults.ProstheticImpactConstant);
-            Scribe_Values.Look(ref athleticImpactConstant, "athleticImpactConstant", SettingsDefaults.AthleticImpactConstant);
-
-            Scribe_Values.Look(ref selectedPresentationKey, "selectedPresentationKey", SettingsDefaults.DefaultSelectedPresentationKey);
-            // Backward-compatibility migration: check for legacy 'selectedDriverKey'
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-            {
-                string legacyKey = null;
-                Scribe_Values.Look(ref legacyKey, "selectedDriverKey");
-                if (!string.IsNullOrEmpty(legacyKey) && selectedPresentationKey == SettingsDefaults.DefaultSelectedPresentationKey)
-                {
-                    selectedPresentationKey = (legacyKey == "STANDALONE") ? IntegrationPipeline.PresentationKeyNative : legacyKey;
-                }
-            }
-
-            Scribe_Values.Look(ref verboseBreakdown, "verboseBreakdown", SettingsDefaults.VerboseBreakdown);
-            Scribe_Values.Look(ref devStressTestAllFauna, "devStressTestAllFauna", SettingsDefaults.DevStressTestAllFauna);
-            Scribe_Values.Look(ref reportMetricsIntervalHours, "reportMetricsIntervalHours", SettingsDefaults.ReportMetricsIntervalHours);
-            Scribe_Values.Look(ref logQueryMetrics, "logQueryMetrics", SettingsDefaults.LogQueryMetrics);
-            Scribe_Values.Look(ref logCacheMetrics, "logCacheMetrics", SettingsDefaults.LogCacheMetrics);
-            Scribe_Values.Look(ref logSnapshotTableMetrics, "logSnapshotTableMetrics", SettingsDefaults.LogSnapshotTableMetrics);
-            Scribe_Values.Look(ref logPresentationMetrics, "logPresentationMetrics", SettingsDefaults.LogPresentationMetrics);
-            Scribe_Values.Look(ref logLifecycleMetrics, "logLifecycleMetrics", SettingsDefaults.LogLifecycleMetrics);
-            Scribe_Values.Look(ref logWorkspaceMetrics, "logWorkspaceMetrics", SettingsDefaults.LogWorkspaceMetrics);
-            Scribe_Values.Look(ref logSafetyFloorClamps, "logSafetyFloorClamps", SettingsDefaults.LogSafetyFloorClamps);
-            Scribe_Values.Look(ref logPawnEvictions, "logPawnEvictions", SettingsDefaults.LogPawnEvictions);
-            Scribe_Values.Look(ref pawnEvictionTimeframeHours, "pawnEvictionTimeframeHours", SettingsDefaults.PawnEvictionTimeframeHours);
+            ExposeBasic();
+            ExposeAccessibility();
+            ExposeWeightings();
+            ExposeScaling();
+            ExposeIntegration();
+            ExposeDiagnostics();
 
             // Values are fully populated at this point when loading; guard against hand-edited or corrupted settings files and ensure
             // the configuration is pushed to the core systems.
@@ -617,58 +155,18 @@ namespace OverHaulers
         private void SanitizeLoadedValues()
         {
             if (!System.Enum.IsDefined(typeof(SettingsTab), activeTab)) activeTab = SettingsTab.Tuning;
-            if (!System.Enum.IsDefined(typeof(PalettePreset), activePalettePreset)) activePalettePreset = SettingsDefaults.DefaultPalettePreset;
-            if (string.IsNullOrEmpty(selectedPresentationKey)) selectedPresentationKey = SettingsDefaults.DefaultSelectedPresentationKey;
 
-            prostheticScaling = Sane(prostheticScaling, SettingsDefaults.ProstheticScaling, SettingsDefaults.ProstheticScalingMin, SettingsDefaults.ProstheticScalingMax);
-            athleticScaling = Sane(athleticScaling, SettingsDefaults.AthleticScaling, SettingsDefaults.AthleticScalingMin, SettingsDefaults.AthleticScalingMax);
-            configurablePercentileFloor = Sane(configurablePercentileFloor, SettingsDefaults.ConfigurablePercentileFloor, SettingsDefaults.ConfigurablePercentileFloorMin, SettingsDefaults.ConfigurablePercentileFloorMax);
-
-            anatomyWeightTorso = SanePercent(anatomyWeightTorso, SettingsDefaults.AnatomyWeightTorso);
-            anatomyWeightArm = SanePercent(anatomyWeightArm, SettingsDefaults.AnatomyWeightArm);
-            anatomyWeightLeg = SanePercent(anatomyWeightLeg, SettingsDefaults.AnatomyWeightLeg);
-
-            torsoPositiveBreathing = SanePercent(torsoPositiveBreathing, SettingsDefaults.TorsoPositiveBreathing);
-            torsoPositiveBlood = SanePercent(torsoPositiveBlood, SettingsDefaults.TorsoPositiveBlood);
-            torsoPositiveMoving = SanePercent(torsoPositiveMoving, SettingsDefaults.TorsoPositiveMoving);
-            torsoPositiveManipulation = SanePercent(torsoPositiveManipulation, SettingsDefaults.TorsoPositiveManipulation);
-            armPositiveBreathing = SanePercent(armPositiveBreathing, SettingsDefaults.ArmPositiveBreathing);
-            armPositiveBlood = SanePercent(armPositiveBlood, SettingsDefaults.ArmPositiveBlood);
-            armPositiveMoving = SanePercent(armPositiveMoving, SettingsDefaults.ArmPositiveMoving);
-            armPositiveManipulation = SanePercent(armPositiveManipulation, SettingsDefaults.ArmPositiveManipulation);
-            legPositiveBreathing = SanePercent(legPositiveBreathing, SettingsDefaults.LegPositiveBreathing);
-            legPositiveBlood = SanePercent(legPositiveBlood, SettingsDefaults.LegPositiveBlood);
-            legPositiveMoving = SanePercent(legPositiveMoving, SettingsDefaults.LegPositiveMoving);
-            legPositiveManipulation = SanePercent(legPositiveManipulation, SettingsDefaults.LegPositiveManipulation);
-
-            torsoDeficitBreathing = SanePercent(torsoDeficitBreathing, SettingsDefaults.TorsoDeficitBreathing);
-            torsoDeficitBlood = SanePercent(torsoDeficitBlood, SettingsDefaults.TorsoDeficitBlood);
-            torsoDeficitMoving = SanePercent(torsoDeficitMoving, SettingsDefaults.TorsoDeficitMoving);
-            torsoDeficitManipulation = SanePercent(torsoDeficitManipulation, SettingsDefaults.TorsoDeficitManipulation);
-            armDeficitBreathing = SanePercent(armDeficitBreathing, SettingsDefaults.ArmDeficitBreathing);
-            armDeficitBlood = SanePercent(armDeficitBlood, SettingsDefaults.ArmDeficitBlood);
-            armDeficitMoving = SanePercent(armDeficitMoving, SettingsDefaults.ArmDeficitMoving);
-            armDeficitManipulation = SanePercent(armDeficitManipulation, SettingsDefaults.ArmDeficitManipulation);
-            legDeficitBreathing = SanePercent(legDeficitBreathing, SettingsDefaults.LegDeficitBreathing);
-            legDeficitBlood = SanePercent(legDeficitBlood, SettingsDefaults.LegDeficitBlood);
-            legDeficitMoving = SanePercent(legDeficitMoving, SettingsDefaults.LegDeficitMoving);
-            legDeficitManipulation = SanePercent(legDeficitManipulation, SettingsDefaults.LegDeficitManipulation);
-
-            torsoAxialBias = Sane(torsoAxialBias, SettingsDefaults.TorsoAxialBias, SettingsDefaults.TorsoAxialBiasMin, SettingsDefaults.TorsoAxialBiasMax);
-            torsoHpSensitivity = Sane(torsoHpSensitivity, SettingsDefaults.TorsoHpSensitivity, SettingsDefaults.TorsoHpSensitivityMin, SettingsDefaults.TorsoHpSensitivityMax);
-            limbDepthDecayFactor = Sane(limbDepthDecayFactor, SettingsDefaults.LimbDepthDecayFactor, SettingsDefaults.LimbDepthDecayFactorMin, SettingsDefaults.LimbDepthDecayFactorMax);
-
-            prostheticImpactConstant = Sane(prostheticImpactConstant, SettingsDefaults.ProstheticImpactConstant, SettingsDefaults.ProstheticImpactConstantMin, SettingsDefaults.ProstheticImpactConstantMax);
-            athleticImpactConstant = Sane(athleticImpactConstant, SettingsDefaults.AthleticImpactConstant, SettingsDefaults.AthleticImpactConstantMin, SettingsDefaults.AthleticImpactConstantMax);
-
-            iconScalePercent = Sane(iconScalePercent, SettingsDefaults.IconScalePercent, SettingsDefaults.IconScalePercentMin, SettingsDefaults.IconScalePercentMax);
-            colorHealthy = SaneColor(colorHealthy, SettingsDefaults.ColorHealthyDefault);
-            colorCritical = SaneColor(colorCritical, SettingsDefaults.ColorCriticalDefault);
-            colorBoosted = SaneColor(colorBoosted, SettingsDefaults.ColorBoostedDefault);
-
-            reportMetricsIntervalHours = System.Math.Max(SettingsDefaults.ReportMetricsIntervalHoursMin, System.Math.Min(SettingsDefaults.ReportMetricsIntervalHoursMax, reportMetricsIntervalHours));
-            pawnEvictionTimeframeHours = System.Math.Max(SettingsDefaults.PawnEvictionTimeframeHoursMin, System.Math.Min(SettingsDefaults.PawnEvictionTimeframeHoursMax, pawnEvictionTimeframeHours));
+            SanitizeBasic();
+            SanitizeAccessibility();
+            SanitizeWeightings();
+            SanitizeScaling();
+            SanitizeIntegration();
+            SanitizeDiagnostics();
         }
+
+        #endregion
+
+        #region 6. SANITISATION PRIMITIVES
 
         /// <summary>
         /// Returns a finite value clamped to a range, or the fallback when the value is NaN or infinite.
@@ -692,7 +190,7 @@ namespace OverHaulers
         /// <returns>A finite value between 0 and 1.</returns>
         private static float SanePercent(float value, float fallback)
         {
-            return Sane(value, fallback, SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax);
+            return Sane(value, fallback, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax);
         }
 
         /// <summary>

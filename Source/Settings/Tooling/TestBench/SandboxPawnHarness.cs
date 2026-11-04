@@ -38,7 +38,7 @@ namespace OverHaulers
     /// [TEST-05] INTERACTIVE SANDBOX PAWN HARNESS
     /// Extends Core <see cref="HeadlessPawnShell"/> with interactive surgical procedures,
     /// simulated condition toggling, and UI inspection delta tracking.
-    /// Resides under Source/Core/Synthesis/.
+    /// Resides under Source/Settings/TestBench/.
     /// </summary>
     public class SandboxPawnHarness : HeadlessPawnShell
     {

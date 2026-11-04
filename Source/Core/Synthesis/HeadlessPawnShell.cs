@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using HarmonyLib;
@@ -208,14 +207,14 @@ namespace OverHaulers
                     {
                         headlessPawn.story.bodyType = BodyTypeDefOf.Male 
                             ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male") 
-                            ?? DefDatabase<BodyTypeDef>.AllDefsListForReading?.FirstOrDefault();
+                            ?? FirstDefOrNull(DefDatabase<BodyTypeDef>.AllDefsListForReading);
 
                         headlessPawn.story.headType = DefDatabase<HeadTypeDef>.GetNamedSilentFail("Male_AverageNormal") 
-                            ?? DefDatabase<HeadTypeDef>.AllDefsListForReading?.FirstOrDefault();
+                            ?? FirstDefOrNull(DefDatabase<HeadTypeDef>.AllDefsListForReading);
 
                         headlessPawn.story.hairDef = HairDefOf.Bald 
                             ?? DefDatabase<HairDef>.GetNamedSilentFail("Bald") 
-                            ?? DefDatabase<HairDef>.AllDefsListForReading?.FirstOrDefault();
+                            ?? FirstDefOrNull(DefDatabase<HairDef>.AllDefsListForReading);
                     }
                 }
 
@@ -432,7 +431,17 @@ namespace OverHaulers
                 }
             }
 
-            return DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist") ?? DefDatabase<PawnKindDef>.AllDefsListForReading?.FirstOrDefault();
+            return DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist") ?? FirstDefOrNull(allKinds);
+        }
+
+        /// <summary>
+        /// Allocation-free replacement for Linq FirstOrDefault over a DefDatabase read-only list.
+        /// </summary>
+        /// <param name="defs">The def list to read; may be null.</param>
+        /// <returns>The first element, or null when the list is null or empty.</returns>
+        protected static T FirstDefOrNull<T>(List<T> defs) where T : class
+        {
+            return defs != null && defs.Count > 0 ? defs[0] : null;
         }
 
         /// <summary>

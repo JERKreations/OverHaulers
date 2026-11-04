@@ -37,7 +37,7 @@ namespace OverHaulers
                     inner,
                     "OverHaulers_ProstheticImpactConstant".Translate(settings.prostheticImpactConstant.ToString("F1")).ToString(),
                     ref settings.prostheticImpactConstant,
-                    SettingsDefaults.ProstheticImpactConstantMin, SettingsDefaults.ProstheticImpactConstantMax,
+                    CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax,
                     localY,
                     "OverHaulers_ProstheticImpactConstant_Tooltip".Translate().ToString(),
                     highlight: isResetHovered
@@ -48,7 +48,7 @@ namespace OverHaulers
                     inner,
                     "OverHaulers_AthleticImpactConstant".Translate(settings.athleticImpactConstant.ToString("F1")).ToString(),
                     ref settings.athleticImpactConstant,
-                    SettingsDefaults.AthleticImpactConstantMin, SettingsDefaults.AthleticImpactConstantMax,
+                    CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax,
                     localY,
                     "OverHaulers_AthleticImpactConstant_Tooltip".Translate().ToString(),
                     highlight: isResetHovered

@@ -53,7 +53,7 @@ namespace OverHaulers
                     rightColRect,
                     "OverHaulers_TorsoImpact".Translate(pctTorso.ToStringPercent()).ToString(),
                     ref settings.anatomyWeightTorso,
-                    SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax,
+                    CoreDefaults.PercentageMin, CoreDefaults.PercentageMax,
                     rightY,
                     "OverHaulers_TorsoImpact_Tooltip".Translate().ToString(),
                     highlight: isResetHovered
@@ -63,7 +63,7 @@ namespace OverHaulers
                     rightColRect,
                     "OverHaulers_ArmsImpact".Translate(pctArm.ToStringPercent()).ToString(),
                     ref settings.anatomyWeightArm,
-                    SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax,
+                    CoreDefaults.PercentageMin, CoreDefaults.PercentageMax,
                     rightY,
                     "OverHaulers_ArmsImpact_Tooltip".Translate().ToString(),
                     highlight: isResetHovered
@@ -73,7 +73,7 @@ namespace OverHaulers
                     rightColRect,
                     "OverHaulers_LegsImpact".Translate(pctLeg.ToStringPercent()).ToString(),
                     ref settings.anatomyWeightLeg,
-                    SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax,
+                    CoreDefaults.PercentageMin, CoreDefaults.PercentageMax,
                     rightY,
                     "OverHaulers_LegsImpact_Tooltip".Translate().ToString(),
                     highlight: isResetHovered
@@ -248,7 +248,7 @@ namespace OverHaulers
                 leftInner,
                 axialLabel,
                 ref settings.torsoAxialBias,
-                SettingsDefaults.TorsoAxialBiasMin, SettingsDefaults.TorsoAxialBiasMax,
+                CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax,
                 axialDesc,
                 leftY,
                 highlight: isTorsoResetHovered
@@ -258,7 +258,7 @@ namespace OverHaulers
                 leftInner,
                 hpSensLabel,
                 ref settings.torsoHpSensitivity,
-                SettingsDefaults.TorsoHpSensitivityMin, SettingsDefaults.TorsoHpSensitivityMax,
+                CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax,
                 hpSensDesc,
                 leftY,
                 highlight: isTorsoResetHovered
@@ -273,7 +273,7 @@ namespace OverHaulers
                 rightInner,
                 decayPctLabel,
                 ref settings.limbDepthDecayFactor,
-                SettingsDefaults.LimbDepthDecayFactorMin, SettingsDefaults.LimbDepthDecayFactorMax,
+                CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax,
                 decayDesc,
                 rightY,
                 highlight: isLimbResetHovered
@@ -376,10 +376,10 @@ namespace OverHaulers
             float oldDef = defValue;
 
             string posLabel = "OverHaulers_BoostShort".Translate(posValue.ToStringPercent()).ToString();
-            SettingsViewUtilities.DrawSliderAndInputRowDirect(boostRect, posLabel, ref posValue, SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax, isInteger: false);
+            SettingsViewUtilities.DrawSliderAndInputRowDirect(boostRect, posLabel, ref posValue, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, isInteger: false);
 
             string defLabel = "OverHaulers_DeficitShort".Translate(defValue.ToStringPercent()).ToString();
-            SettingsViewUtilities.DrawSliderAndInputRowDirect(deficitRect, defLabel, ref defValue, SettingsDefaults.PercentageMin, SettingsDefaults.PercentageMax, isInteger: false);
+            SettingsViewUtilities.DrawSliderAndInputRowDirect(deficitRect, defLabel, ref defValue, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, isInteger: false);
 
             if (isLinked)
             {

@@ -4,7 +4,7 @@ namespace OverHaulers
     /// [CORE-CONF-02] IMMUTABLE VALUE-TYPE RUNTIME & INFRASTRUCTURE CONFIGURATION
     /// Encapsulates engine infrastructure, cache lifecycle policies, fauna stress-testing,
     /// and diagnostic telemetry toggles. Resides under Source/Core/Data/.
-    /// Holds zero duplicate constants, preserving SettingsDefaults as the Single Source of Truth (SSoT).
+    /// Holds zero duplicate constants, preserving CoreDefaults as the Single Source of Truth (SSoT).
     /// </summary>
     public readonly struct RuntimeConfiguration
     {
@@ -25,11 +25,6 @@ namespace OverHaulers
         public readonly bool LogSafetyFloorClamps;
         public readonly bool LogPawnEvictions;
 
-        // Engine & Cache Invariants
-        public readonly int MinFastPathTicks;
-        public readonly int CacheCleanupInterval;
-        public readonly int DynamicExpiryScaleK;
-
         #endregion
 
         #region 2. LIFECYCLE: CONSTRUCTOR
@@ -45,10 +40,7 @@ namespace OverHaulers
             bool logLifecycle,
             bool logWorkspace,
             bool logSafetyFloorClamps,
-            bool logPawnEvictions,
-            int minFastPathTicks,
-            int cacheCleanupInterval,
-            int dynamicExpiryScaleK)
+            bool logPawnEvictions)
         {
             PawnEvictionTimeframeTicks = pawnEvictionTimeframeTicks;
             DevStressTestAllFauna = devStressTestAllFauna;
@@ -61,10 +53,6 @@ namespace OverHaulers
             LogWorkspaceMetrics = logWorkspace;
             LogSafetyFloorClamps = logSafetyFloorClamps;
             LogPawnEvictions = logPawnEvictions;
-
-            MinFastPathTicks = minFastPathTicks;
-            CacheCleanupInterval = cacheCleanupInterval;
-            DynamicExpiryScaleK = dynamicExpiryScaleK;
         }
 
         #endregion

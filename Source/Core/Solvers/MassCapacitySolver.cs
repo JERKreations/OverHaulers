@@ -170,7 +170,7 @@ namespace OverHaulers
         /// Thread-safe active configuration snapshot pushed from the Settings layer.
         /// Eliminates upward dependencies on Settings.
         /// </summary>
-        private static SolverConfiguration activeConfig = SettingsDefaults.CreateDefaultSolverConfiguration();
+        private static SolverConfiguration activeConfig = CoreDefaults.CreateDefaultSolverConfiguration();
 
         /// <summary>
         /// Updates the active solver configuration snapshot.

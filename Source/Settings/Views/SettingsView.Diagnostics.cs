@@ -71,7 +71,7 @@ namespace OverHaulers
                     left2Rect,
                     reportIntervalLabel,
                     ref settings.reportMetricsIntervalHours,
-                    SettingsDefaults.ReportMetricsIntervalHoursMin, SettingsDefaults.ReportMetricsIntervalHoursMax,
+                    CoreDefaults.ReportMetricsIntervalHoursMin, CoreDefaults.ReportMetricsIntervalHoursMax,
                     tooltip: "OverHaulers_ReportMetricsInterval_Tooltip".Translate().ToString()
                 );
 
@@ -84,7 +84,7 @@ namespace OverHaulers
                     right2Rect,
                     "OverHaulers_CacheInactivityEvictionHours".Translate(settings.pawnEvictionTimeframeHours).ToString(),
                     ref settings.pawnEvictionTimeframeHours,
-                    SettingsDefaults.PawnEvictionTimeframeHoursMin, SettingsDefaults.PawnEvictionTimeframeHoursMax,
+                    CoreDefaults.PawnEvictionTimeframeHoursMin, CoreDefaults.PawnEvictionTimeframeHoursMax,
                     evictionTooltip
                 );
                 localY += 34f;

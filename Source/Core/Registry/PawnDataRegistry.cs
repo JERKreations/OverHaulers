@@ -52,12 +52,22 @@ namespace OverHaulers
         // Sentinel flag ensuring only one thread or maintenance routine executes cleanup at a time
         private static int activeCleanupSentinel = 0;
 
+        // Cache expiry invariants (engine-owned, not user-tunable).
+        // Fast-path floor and expiry base (5 ticks = ~0.08s at 1x speed).
+        private const int MinFastPathTicks = 5;
+
+        // Square-root scaling factor (K) for population-based cache expiry.
+        private const int DynamicExpiryScaleK = 5;
+
+        // Interval in ticks at which expired cache entries are swept.
+        private const int CacheCleanupInterval = 600;
+
         // Cached population count and base TTL to avoid redundant Mathf.Sqrt calculations when population is stable
         private static int cachedActiveCount = -1;
-        private static int cachedExpiryBase = 5;
+        private static int cachedExpiryBase = MinFastPathTicks;
 
-        // Downward configuration snapshot pushed from Settings (SSoT initialized from SettingsDefaults)
-        private static RuntimeConfiguration activeRuntimeConfig = SettingsDefaults.CreateDefaultRuntimeConfiguration();
+        // Downward configuration snapshot pushed from Settings (initialized from CoreDefaults)
+        private static RuntimeConfiguration activeRuntimeConfig = CoreDefaults.CreateDefaultRuntimeConfiguration();
 
         // Re-entrancy guard preventing infinite recursion when external stat workers query mass within a mass calculation
         [ThreadStatic]
@@ -75,7 +85,6 @@ namespace OverHaulers
         public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
         {
             activeRuntimeConfig = newConfig;
-            cachedExpiryBase = newConfig.MinFastPathTicks;
             PerformanceTelemetry.Configure(in newConfig);
             OHLog.Performance.Configure(in newConfig);
         }
@@ -124,7 +133,7 @@ namespace OverHaulers
 
             System.Threading.Interlocked.Exchange(ref deferredInvalidationCount, 0);
             cachedActiveCount = -1;
-            cachedExpiryBase = activeRuntimeConfig.MinFastPathTicks;
+            cachedExpiryBase = MinFastPathTicks;
             lastCapturedMainThreadTick = 0;
             lastCleanupTick = 0;
             currentEvaluatingPawnId = 0;
@@ -349,7 +358,7 @@ namespace OverHaulers
 
                 if (elapsedTicks >= 0)
                 {
-                    if (elapsedTicks < activeRuntimeConfig.MinFastPathTicks ||
+                    if (elapsedTicks < MinFastPathTicks ||
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
                         PerformanceTelemetry.IncrementCacheHits();
@@ -386,7 +395,7 @@ namespace OverHaulers
 
                 if (elapsedTicks >= 0)
                 {
-                    if (elapsedTicks < activeRuntimeConfig.MinFastPathTicks ||
+                    if (elapsedTicks < MinFastPathTicks ||
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
                         PerformanceTelemetry.IncrementCacheHits();
@@ -548,7 +557,7 @@ namespace OverHaulers
         /// <param name="currentTick">The current game tick.</param>
         private static void MaybeCleanupCache(int currentTick)
         {
-            int interval = activeRuntimeConfig.CacheCleanupInterval;
+            int interval = CacheCleanupInterval;
 
             if (currentTick < lastCleanupTick || (currentTick - lastCleanupTick) > interval)
             {
@@ -644,7 +653,7 @@ namespace OverHaulers
             }
 
             int age = currentTick - calculatedTick;
-            return age >= 0 && age < activeRuntimeConfig.MinFastPathTicks && !node.IsStale;
+            return age >= 0 && age < MinFastPathTicks && !node.IsStale;
         }
 
         #endregion
@@ -661,13 +670,10 @@ namespace OverHaulers
         private static int GetCacheExpiryDuration(int pawnId)
         {
             int activeCount = capacityCache.Count;
-            int floor = activeRuntimeConfig.MinFastPathTicks;
-            int scaleK = activeRuntimeConfig.DynamicExpiryScaleK;
-
             if (activeCount != cachedActiveCount)
             {
                 cachedActiveCount = activeCount;
-                cachedExpiryBase = floor + (int)(scaleK * Math.Sqrt(activeCount));
+                cachedExpiryBase = MinFastPathTicks + (int)(DynamicExpiryScaleK * Math.Sqrt(activeCount));
             }
 
             int expiryJitter = cachedExpiryBase / 4; // 25% staggered jitter window

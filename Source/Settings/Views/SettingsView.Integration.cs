@@ -41,7 +41,7 @@ namespace OverHaulers
                 // ---------------------------------------------------------------------
                 // 1. ACTIVE STAT STATUS READOUT BANNER
                 // ---------------------------------------------------------------------
-                string currentKey = settings.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
+                string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
                 string activeStatName = IntegrationPipeline.ActiveStatOwner;
                 string activeBadgeType = ResolveStatPresentationBadge();
 
@@ -218,7 +218,7 @@ namespace OverHaulers
                 ? stat.category.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackCategory".Translate().ToString();
 
-            string key = settings?.selectedPresentationKey ?? SettingsDefaults.DefaultSelectedPresentationKey;
+            string key = settings?.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
             bool isForcedStandalone = key == IntegrationPipeline.PresentationKeyNative;
             bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
             bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;
@@ -255,7 +255,7 @@ namespace OverHaulers
                 return new VerificationGuide
                 {
                     StatusTitle = "OverHaulers_Verify_Unified_Title".Translate().ToString(),
-                    StatusColor = settings?.colorBoosted ?? SettingsDefaults.ColorBoostedDefault,
+                    StatusColor = settings?.colorBoosted ?? PresentationDefaults.ColorBoostedDefault,
                     DisplayLine = "OverHaulers_Verify_Unified_Display".Translate(statLabel, categoryLabel).ToString(),
                     GearLine = "OverHaulers_Verify_Unified_Gear".Translate().ToString(),
                     ConfirmLine = "OverHaulers_Verify_Unified_Confirm".Translate(statLabel).ToString()
@@ -266,7 +266,7 @@ namespace OverHaulers
             return new VerificationGuide
             {
                 StatusTitle = "OverHaulers_Verify_Standalone_Title".Translate().ToString(),
-                StatusColor = settings?.colorHealthy ?? SettingsDefaults.ColorHealthyDefault,
+                StatusColor = settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault,
                 DisplayLine = "OverHaulers_Verify_Standalone_Display".Translate(statLabel, categoryLabel).ToString(),
                 GearLine = "OverHaulers_Verify_Standalone_Gear".Translate().ToString(),
                 ConfirmLine = "OverHaulers_Verify_Standalone_Confirm".Translate(statLabel).ToString()

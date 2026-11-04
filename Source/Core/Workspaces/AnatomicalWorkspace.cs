@@ -15,7 +15,7 @@ namespace OverHaulers
     {
         #region 1. CONTIGUOUS SoA PARALLEL ARRAYS
 
-        /// <summary>Default initial slot capacity for anatomical workspaces.</summary>
+        /// <summary>Default initial slot capacity for anatomical workspaces (engine-owned, not user-tunable).</summary>
         public const int DefaultWorkspaceCapacity = 64;
 
         // Parallel float streams for mathematical solver passes
@@ -212,7 +212,7 @@ namespace OverHaulers
             if (healthFractions == null || healthFractions.Length < layoutSize)
             {
                 int targetSize = healthFractions == null
-                    ? Math.Max(SettingsDefaults.DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount)
+                    ? Math.Max(DefaultWorkspaceCapacity, TopologyLayoutCompiler.globalMaxPartCount)
                     : healthFractions.Length;
                 
                 // Double the target size until it meets or exceeds the required layout size.

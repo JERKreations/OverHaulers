@@ -31,7 +31,7 @@ namespace OverHaulers
                     ref settings.enableProsthetics,
                     "OverHaulers_ProstheticScaling_Label".Translate().ToString(),
                     ref settings.prostheticScaling,
-                    SettingsDefaults.ProstheticScalingMin, SettingsDefaults.ProstheticScalingMax,
+                    CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax,
                     "OverHaulers_ProstheticScaling_Desc".Translate().ToString(),
                     localY,
                     highlight: isResetHovered
@@ -43,7 +43,7 @@ namespace OverHaulers
                     ref settings.enableAthletics,
                     "OverHaulers_AthleticScaling_Label".Translate().ToString(),
                     ref settings.athleticScaling,
-                    SettingsDefaults.AthleticScalingMin, SettingsDefaults.AthleticScalingMax,
+                    CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax,
                     "OverHaulers_AthleticScaling_Desc".Translate().ToString(),
                     localY,
                     highlight: isResetHovered
@@ -60,7 +60,7 @@ namespace OverHaulers
                     ref settings.enablePartHealth,
                     "OverHaulers_Deficits_Label".Translate().ToString(),
                     ref settings.configurablePercentileFloor,
-                    SettingsDefaults.ConfigurablePercentileFloorMin, SettingsDefaults.ConfigurablePercentileFloorMax,
+                    CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax,
                     "OverHaulers_Deficits_Desc".Translate().ToString(),
                     localY,
                     highlight: isResetHovered,

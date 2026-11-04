@@ -24,10 +24,10 @@ namespace OverHaulers
         public static readonly Color MutedTextColor = new Color(0.63f, 0.65f, 0.67f);
 
         // Cached active presentation palette pushed downward from Settings
-        private static Color colorHealthy = SettingsDefaults.ColorHealthyDefault;
-        private static Color colorCritical = SettingsDefaults.ColorCriticalDefault;
-        private static Color colorBoosted = SettingsDefaults.ColorBoostedDefault;
-        private static bool isVerboseBreakdown = SettingsDefaults.VerboseBreakdown;
+        private static Color         colorHealthy = PresentationDefaults.ColorHealthyDefault;
+                private static Color colorCritical = PresentationDefaults.ColorCriticalDefault;
+                private static Color colorBoosted = PresentationDefaults.ColorBoostedDefault;
+                private static bool isVerboseBreakdown = PresentationDefaults.VerboseBreakdown;
 
         /// <summary>
         /// Updates the active color palette and verbose formatting rules pushed downward from Settings.

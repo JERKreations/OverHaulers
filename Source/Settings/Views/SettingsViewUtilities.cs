@@ -24,10 +24,10 @@ namespace OverHaulers
         public static readonly Color DarkTargetHighlightColor = new Color(0f, 0f, 0f, 0.40f);
 
         /// <summary>The player-selected "healthy / good" colour from the accessibility palette (default palette until settings load).</summary>
-        public static Color HealthyColor => OverHaulers.settings?.colorHealthy ?? SettingsDefaults.ColorHealthyDefault;
+        public static Color HealthyColor => OverHaulers.settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault;
 
         /// <summary>The player-selected "critical / bad" colour from the accessibility palette (default palette until settings load).</summary>
-        public static Color CriticalColor => OverHaulers.settings?.colorCritical ?? SettingsDefaults.ColorCriticalDefault;
+        public static Color CriticalColor => OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
 
         private static readonly Dictionary<string, string> activeInputBuffers = new Dictionary<string, string>(32);
         private static readonly Dictionary<string, float> sectionHeightCache = new Dictionary<string, float>(16);

@@ -34,7 +34,7 @@ namespace OverHaulers
 
                 localY = SettingsViewUtilities.DrawSettingRowWithDescriptionDirect(
                     inner, iconScaleLabel, ref settings.iconScalePercent,
-                    SettingsDefaults.IconScalePercentMin, SettingsDefaults.IconScalePercentMax,
+                    PresentationDefaults.IconScalePercentMin, PresentationDefaults.IconScalePercentMax,
                     iconScaleDesc, localY
                 );
                 localY += 6f;
