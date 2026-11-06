@@ -258,26 +258,7 @@ namespace OverHaulers
                     }
                 }
 
-                // TODO: This needs to be handled on a per pawn basis rather than globally?
-                // 2. Surgical Stat Factor Neutralization
-                // if (profile.neutraliseStatFactors != null && profile.neutraliseStatFactors.Count > 0 && foreignStat.statFactors != null)
-                // {
-                //     cachedRemovedStatFactors = new List<StatDef>();
-                //     for (int i = foreignStat.statFactors.Count - 1; i >= 0; i--)
-                //     {
-                //         StatDef factor = foreignStat.statFactors[i];
-                //         if (factor != null && profile.neutraliseStatFactors.Contains(factor.defName))
-                //         {
-                //             // `bodySizeFactor` must never be neutralized as it is a critical factor for mass capacity calculations.
-                //             if (factor.defName == "bodySizeFactor"){
-                //                 continue;
-                //             }
-
-                //             cachedRemovedStatFactors.Add(factor);
-                //             foreignStat.statFactors.RemoveAt(i);
-                //         }
-                //     }
-                // }
+                // TODO: Investigate if additional cleanup or restoration is needed for other stat factors beyond capacity factors.
 
                 IsAuthoritativeTakeoverActive = true;
             }
