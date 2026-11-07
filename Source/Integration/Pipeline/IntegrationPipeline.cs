@@ -31,18 +31,36 @@ namespace OverHaulers
     {
         #region 1. CONSTANTS & ACTIVE PRESENTATION BINDING
 
+        /// <summary>The presentation key indicating how the mass capacity stat should be displayed.</summary>
         public const string PresentationKeyAuto = "AUTO";
+
+        /// <summary>The presentation key indicating native standalone display mode.</summary>
         public const string PresentationKeyNative = "STANDALONE";
+
+        /// <summary>The presentation key prefix for XML-defined profiles.</summary>
         public const string PresentationKeyXmlPrefix = "XML:";
+
+        /// <summary>The presentation key prefix for CIL-discovered profiles.</summary>
         public const string PresentationKeyCilPrefix = "CIL:";
 
+        /// <summary>
+        /// [INT-NEUT-01] Canonical set of biological capacities actively simulated by Over Haulers' kinetic solver.
+        /// Any adopted foreign StatDef containing capacity factors for these capacities is a candidate for heuristic neutralization.
+        /// </summary>
+        private static readonly HashSet<string> SimulatedBiologicalCapacities = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Moving",
+            "Manipulation",
+            "Breathing",
+            "BloodPumping",
+            "Consciousness"
+        };
+
+        /// <summary>The currently active mass capacity StatDef adopted for presentation and inspection.</summary>
         private static StatDef activeMassCapacityStat;
 
         /// <summary>Capacity factors stripped from the adopted stat, kept so they can be restored on detach.</summary>
         private static List<PawnCapacityFactor> cachedRemovedCapacityFactors;
-
-        /// <summary>Stat factors stripped from the adopted stat, kept so they can be restored on detach.</summary>
-        private static List<StatDef> cachedRemovedStatFactors;
 
         /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
         private static bool isInitialized = false;
@@ -50,6 +68,7 @@ namespace OverHaulers
         /// <summary>Keywords used to identify relevant mass capacity stats in external mods.</summary>
         private static readonly string[] StatKeywords = { "mass", "weight", "capacity", "caravan", "carry", "load", "pack" };
 
+        /// <summary>The currently preferred presentation key for mass capacity display.</summary>
         private static string preferredPresentationKey = PresentationKeyAuto;
 
         /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
@@ -211,8 +230,9 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Adopts an external mod's StatDef for presentation, attaching our explanation/hyperlinks
-        /// and hiding OverHaulers_CaravanMassCapacity to eliminate duplicate inspect rows.
+        /// Adopts an external mod's StatDef for presentation, attaching our explanation/hyperlinks,
+        /// neutralizing overlapping biological factors, and hiding OverHaulers_CaravanMassCapacity.
+        /// SSoT for foreign stat presentation binding.
         /// </summary>
         /// <param name="owner">The owner identifier or mod name associated with the foreign stat.</param>
         /// <param name="foreignStat">The foreign StatDef being adopted.</param>
@@ -236,35 +256,20 @@ namespace OverHaulers
                 ? profile.hostLabelShort
                 : (!string.IsNullOrEmpty(owner) ? owner : "Host");
 
-            ActiveProfileAllowsAuthoritativeTakeover = profile != null && profile.allowAuthoritativeTakeover;
-            ActiveProfileSyncFormationCapacity = profile != null && profile.syncFormationCapacity;
-
-            bool shouldTakeOver = ActiveProfileAllowsAuthoritativeTakeover;
-
-            if (shouldTakeOver)
+            // BREAKPOINT ANCHOR: Authoritative Takeover Resolution
+            // Profile mode obeys declarative XML directives; Unknown mod mode uses heuristic biological detection.
+            bool shouldTakeOver = false;
+            if (profile != null)
             {
-                // 1. Surgical Capacity Factor Neutralization (e.g. Removing 'Moving' on CE)
-                if (profile.neutraliseCapacityFactors != null && profile.neutraliseCapacityFactors.Count > 0 && foreignStat.capacityFactors != null)
-                {
-                    cachedRemovedCapacityFactors = new List<PawnCapacityFactor>();
-                    for (int i = foreignStat.capacityFactors.Count - 1; i >= 0; i--)
-                    {
-                        PawnCapacityFactor factor = foreignStat.capacityFactors[i];
-                        if (factor.capacity != null && profile.neutraliseCapacityFactors.Contains(factor.capacity.defName))
-                        {
-                            cachedRemovedCapacityFactors.Add(factor);
-                            foreignStat.capacityFactors.RemoveAt(i);
-                        }
-                    }
-                }
-
-                // TODO: Investigate if additional cleanup or restoration is needed for other stat factors beyond capacity factors.
-
-                IsAuthoritativeTakeoverActive = true;
+                shouldTakeOver = profile.allowAuthoritativeTakeover;
+                ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
+                ActiveProfileSyncFormationCapacity = profile.syncFormationCapacity;
             }
             else
             {
-                IsAuthoritativeTakeoverActive = false;
+                shouldTakeOver = DetectOverlappingBiologicalFactors(foreignStat);
+                ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
+                ActiveProfileSyncFormationCapacity = true;
             }
 
             // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
@@ -291,11 +296,24 @@ namespace OverHaulers
             // Inject MassCapacityStatPart for InfoCard explanation and hyperlinks
             AttachStatPart(foreignStat);
 
+            // Establish primary foreign stat adoption state
             ActiveMassCapacityStat = foreignStat;
             ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
             IsForeignStatAdopted = true;
 
+            // 1. Emit primary adoption bullet first: "Stat Integration: Adopted ..."
             IntegrationLogEvents.StatPresentationBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
+
+            // 2. Consequential Action: Execute Authoritative Takeover and factor neutralization second
+            if (shouldTakeOver)
+            {
+                NeutralizeForeignCapacityFactors(foreignStat, profile);
+                IsAuthoritativeTakeoverActive = true;
+            }
+            else
+            {
+                IsAuthoritativeTakeoverActive = false;
+            }
         }
 
         /// <summary>
@@ -339,7 +357,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Detaches MassCapacityStatPart from the currently adopted foreign stat
-        /// and restores any original capacity factors or stat factors that were neutralized during adoption.
+        /// and restores any original capacity factors that were neutralized during adoption.
         /// </summary>
         private static void CleanupAdoptedForeignStat()
         {
@@ -351,25 +369,14 @@ namespace OverHaulers
                 }
 
                 // Restore any surgically neutralized capacityFactors
-                if (cachedRemovedCapacityFactors != null)
+                if (cachedRemovedCapacityFactors != null && cachedRemovedCapacityFactors.Count > 0)
                 {
                     if (ActiveMassCapacityStat.capacityFactors == null)
                     {
                         ActiveMassCapacityStat.capacityFactors = new List<PawnCapacityFactor>();
                     }
                     ActiveMassCapacityStat.capacityFactors.AddRange(cachedRemovedCapacityFactors);
-                    cachedRemovedCapacityFactors = null;
-                }
-
-                // Restore any surgically neutralized statFactors
-                if (cachedRemovedStatFactors != null)
-                {
-                    if (ActiveMassCapacityStat.statFactors == null)
-                    {
-                        ActiveMassCapacityStat.statFactors = new List<StatDef>();
-                    }
-                    ActiveMassCapacityStat.statFactors.AddRange(cachedRemovedStatFactors);
-                    cachedRemovedStatFactors = null;
+                    cachedRemovedCapacityFactors.Clear();
                 }
             }
 
@@ -818,9 +825,9 @@ namespace OverHaulers
             int score = 0;
             if (stat.HasModExtension<MassCapacityStatModExtension>()) score += 100;
             string lowerDef = stat.defName?.ToLowerInvariant() ?? "";
-            if (lowerDef.Contains("caravan")) score += 10;
-            if (lowerDef.Contains("mass")) score += 10;
-            if (lowerDef.Contains("weight")) score += 5;
+            if (lowerDef.Contains("caravan")) score += 15;
+            if (lowerDef.Contains("mass")) score += 15;
+            if (lowerDef.Contains("weight")) score += 10;
             if (lowerDef.Contains("carry")) score += 5;
             if (lowerDef.Contains("capacity")) score += 5;
             if (stat.showOnPawns) score += 2;
@@ -848,6 +855,70 @@ namespace OverHaulers
                 }
             }
             return null;
+        }
+
+        #endregion
+
+        #region 5. [INT-NEUT-02] ALGORITHMIC FACTOR NEUTRALIZATION & DETECTION
+
+        /// <summary>
+        /// Evaluates whether a foreign StatDef contains capacity factors that overlap with Over Haulers' kinetic simulation.
+        /// SSoT for biological factor overlap detection.
+        /// </summary>
+        /// <param name="foreignStat">The foreign StatDef being evaluated.</param>
+        /// <returns>True if at least one simulated biological capacity factor is attached; otherwise, false.</returns>
+        private static bool DetectOverlappingBiologicalFactors(StatDef foreignStat)
+        {
+            if (foreignStat?.capacityFactors == null || foreignStat.capacityFactors.Count == 0) return false;
+
+            for (int i = 0; i < foreignStat.capacityFactors.Count; i++)
+            {
+                PawnCapacityFactor factor = foreignStat.capacityFactors[i];
+                if (factor?.capacity != null && SimulatedBiologicalCapacities.Contains(factor.capacity.defName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Surgically removes and buffers conflicting capacity factors from an adopted StatDef.
+        /// Supports explicit profile lists as well as heuristic biological detection for unknown mods.
+        /// SSoT for capacity factor neutralization.
+        /// </summary>
+        /// <param name="foreignStat">The foreign StatDef undergoing authoritative takeover.</param>
+        /// <param name="profile">The declarative XML profile, or null if adopting an unlisted third-party mod.</param>
+        private static void NeutralizeForeignCapacityFactors(StatDef foreignStat, MassCapacityStatProfileDef profile)
+        {
+            if (foreignStat?.capacityFactors == null || foreignStat.capacityFactors.Count == 0) return;
+
+            bool hasExplicitList = profile?.neutraliseCapacityFactors != null && profile.neutraliseCapacityFactors.Count > 0;
+            List<string> explicitList = hasExplicitList ? profile.neutraliseCapacityFactors : null;
+
+            if (cachedRemovedCapacityFactors == null)
+            {
+                cachedRemovedCapacityFactors = new List<PawnCapacityFactor>();
+            }
+
+            for (int i = foreignStat.capacityFactors.Count - 1; i >= 0; i--)
+            {
+                PawnCapacityFactor factor = foreignStat.capacityFactors[i];
+                if (factor?.capacity == null) continue;
+
+                string capName = factor.capacity.defName;
+                bool shouldNeutralize = hasExplicitList
+                    ? explicitList.Contains(capName)
+                    : SimulatedBiologicalCapacities.Contains(capName);
+
+                if (shouldNeutralize)
+                {
+                    cachedRemovedCapacityFactors.Add(factor);
+                    foreignStat.capacityFactors.RemoveAt(i);
+                    IntegrationLogEvents.CapacityFactorNeutralized(capName, foreignStat.defName);
+                }
+            }
         }
 
         #endregion

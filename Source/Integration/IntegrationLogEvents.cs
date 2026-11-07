@@ -19,6 +19,11 @@ namespace OverHaulers
             OHLog.Event("OverHaulers_Journal_StatPresentationBound", "OverHaulers_Log_Integration_StatPresentationBound",
                 statName, owner, suffix);
 
+        /// <summary>Logs the neutralization of a capacity factor on an adopted stat.</summary>
+        public static void CapacityFactorNeutralized(string factorName, string statName) =>
+            OHLog.Event("OverHaulers_Journal_CapacityFactorNeutralized", "OverHaulers_Log_Integration_CapacityFactorNeutralized",
+                factorName, statName);
+
         /// <summary>Logs the recovery of a stale saved presentation preference.</summary>
         public static void StalePreferenceRecovered(string staleKey) =>
             OHLog.Info("OverHaulers_Log_Integration_StalePreferenceRecovered", staleKey);

@@ -76,7 +76,12 @@ namespace OverHaulers
             {
                 if (IntegrationPipeline.ActiveProfileSyncFormationCapacity && explanation != null)
                 {
-                    SyncFormationCapacityEntry(explanation, p, __result);
+                    // BREAKPOINT ANCHOR: Order-Agnostic Capacity Query
+                    // Query the adopted stat directly so the explanation line matches the true solved capacity
+                    // regardless of whether Over Haulers or the host mod executed its postfix first.
+                    StatDef adoptedStat = IntegrationPipeline.ActiveMassCapacityStat;
+                    float finalCapacity = adoptedStat != null ? p.GetStatValue(adoptedStat) : __result;
+                    SyncFormationCapacityEntry(explanation, p, finalCapacity);
                 }
                 return;
             }
