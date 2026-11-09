@@ -6,7 +6,7 @@
   <!-- ========================================================================= -->
   <OverHaulers_AccessibilityHeader>Accessibility Options</OverHaulers_AccessibilityHeader>
   
-  <OverHaulers_IconScaleLabel>Breakdown Icon Scale ( {0}% )</OverHaulers_IconScaleLabel>
+  <OverHaulers_IconScaleLabel>Breakdown Icon Scale ( {0} )</OverHaulers_IconScaleLabel>
   <OverHaulers_IconScale_Desc>Adjusts the display size of prosthetic, athletic, and injury icons rendered across InfoCard breakdowns relative to text font height.</OverHaulers_IconScale_Desc>
 
   <OverHaulers_ColorPaletteHeader>Medical Color Scheme &amp; Accessibility Presets</OverHaulers_ColorPaletteHeader>

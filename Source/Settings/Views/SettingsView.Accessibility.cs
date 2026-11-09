@@ -5,176 +5,220 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// Provides the user interface for accessibility settings, including color palette customization and icon scale adjustments.
+    /// [SEC-10] Linear, zero-allocation presentation layout for Tab 3 (Accessibility &amp; UI).
+    /// Provides controls for Breakdown Icon Scaling, medical health status color presets,
+    /// live 3-stop gradient previewing, and interactive RGB channel customization.
+    /// Resides under Source/Settings/Views/.
     /// </summary>
     public static partial class SettingsView
     {
-        #region 1. [SEC-10] ACCESSIBILITY & MEDICAL COLOR PALETTE DRAWER
+        #region 1. CANONICAL TAB ENTRY POINT
 
         /// <summary>
-        /// [SEC-10] Draws the accessibility section of the settings view, including icon scale and color palette options.
+        /// Renders the contents of the Accessibility tab, including icon scale, color palette presets, live gradient preview, and RGB
+        ///  color customization sliders.
         /// </summary>
-        /// <param name="viewRect">The rectangle defining the area in which to draw the section.</param>
-        /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
-        /// <param name="settings">The settings object containing accessibility options.</param>
-        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
-        public static void DrawAccessibilitySection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
+        /// <param name="ui">The settings layout context for positioning and rendering UI elements.</param>
+        /// <param name="settings">The settings object containing the current accessibility and UI preferences.</param>
+        public static void DrawAccessibilityTabContents(ref SettingsLayout ui, Settings settings)
         {
-            Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Accessibility", ref currentY, fallbackEstimate: 360f);
-            float startY = inner.y;
-            float localY = inner.y;
-
-            try
+            // 1. Header with Reset Action
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_AccessibilityHeader", () =>
             {
-                bool isResetHovered = SettingsViewUtilities.DrawHeaderWithResetDirect(inner, "OverHaulers_AccessibilityHeader", resetAction, localY, out localY);
+                settings.ResetAccessibility();
+                SettingsLayout.ClearInputBuffers();
+                SettingsViewUtilities.OnSettingMutated();
+            });
 
-                // 1. Breakdown Icon Scale Setting
-                string iconScaleLabel = "OverHaulers_IconScaleLabel".Translate((settings.iconScalePercent * 100f).ToString("F0")).ToString();
-                string iconScaleDesc = "OverHaulers_IconScale_Desc".Translate().ToString();
+            // 2. Icon Scale Slider
+            string scaleReadout = string.Format("{0:F0}%", settings.iconScalePercent * 100f);
+            string scaleLabel = "OverHaulers_IconScaleLabel".Translate(scaleReadout).ToString();
+            ui.Slider(
+                scaleLabel,
+                ref settings.iconScalePercent,
+                PresentationDefaults.IconScalePercentMin,
+                PresentationDefaults.IconScalePercentMax,
+                step: 0.01f
+            );
+            ui.DescriptionKey("OverHaulers_IconScale_Desc");
+            ui.Divider();
 
-                localY = SettingsViewUtilities.DrawSettingRowWithDescriptionDirect(
-                    inner, iconScaleLabel, ref settings.iconScalePercent,
-                    PresentationDefaults.IconScalePercentMin, PresentationDefaults.IconScalePercentMax,
-                    iconScaleDesc, localY
-                );
-                localY += 6f;
+            // 3. Medical Palette Presets
+            ui.SubHeader("OverHaulers_ColorPaletteHeader".Translate().ToString());
+            ui.DescriptionKey("OverHaulers_Accessibility_Desc");
+            ui.Gap(4f);
 
-                // 2. Inline Sub-Header
-                Rect colorHeaderRect = new Rect(inner.x, localY, inner.width, 22f);
-                Text.Font = GameFont.Small;
-                Widgets.Label(colorHeaderRect, "OverHaulers_ColorPaletteHeader".Translate().ToString());
-                localY += 26f;
+            DrawPresetRadioMatrix(ref ui, settings);
+            ui.Gap(8f);
 
-                string sectionDesc = "OverHaulers_Accessibility_Desc".Translate().ToString();
-                localY = SettingsViewUtilities.DrawSectionDescriptionDirect(inner, sectionDesc, localY);
+            // 4. Live Health Gradient Preview Bar
+            DrawLiveGradientPreview(ref ui, settings.colorCritical, settings.colorHealthy, settings.colorBoosted);
+            ui.Divider();
 
-                // 3. Preset Radio Toggles
-                float halfWidth = (inner.width / 2f) - 8f;
-                Rect row1Rect = new Rect(inner.x, localY, inner.width, 24f);
-                
-                if (Widgets.RadioButtonLabeled(new Rect(row1Rect.x, row1Rect.y, halfWidth, row1Rect.height), "OverHaulers_PresetDefault".Translate().ToString(), settings.activePalettePreset == PalettePreset.Default)) settings.ApplyPreset(PalettePreset.Default);
-                if (Widgets.RadioButtonLabeled(new Rect(row1Rect.x + halfWidth + 16f, row1Rect.y, halfWidth, row1Rect.height), "OverHaulers_PresetDeuteranopia".Translate().ToString(), settings.activePalettePreset == PalettePreset.Deuteranopia)) settings.ApplyPreset(PalettePreset.Deuteranopia);
-                localY += 26f;
-
-                Rect row2Rect = new Rect(inner.x, localY, inner.width, 24f);
-                if (Widgets.RadioButtonLabeled(new Rect(row2Rect.x, row2Rect.y, halfWidth, row2Rect.height), "OverHaulers_PresetTritanopia".Translate().ToString(), settings.activePalettePreset == PalettePreset.Tritanopia)) settings.ApplyPreset(PalettePreset.Tritanopia);
-                if (Widgets.RadioButtonLabeled(new Rect(row2Rect.x + halfWidth + 16f, row2Rect.y, halfWidth, row2Rect.height), "OverHaulers_PresetHighContrast".Translate().ToString(), settings.activePalettePreset == PalettePreset.HighContrast)) settings.ApplyPreset(PalettePreset.HighContrast);
-                localY += 26f;
-
-                GUI.enabled = false;
-                Widgets.RadioButtonLabeled(new Rect(inner.x, localY, inner.width, 22f), "OverHaulers_PresetCustom".Translate().ToString(), settings.activePalettePreset == PalettePreset.Custom);
-                GUI.enabled = true;
-                localY += 28f;
-
-                // 4. Live 3-Stop Gradient Preview Bar
-                localY = DrawGradientPreviewDirect(inner, settings.colorCritical, settings.colorHealthy, settings.colorBoosted, localY);
-
-                // 5. Interactive RGB Slider Rows
-                Action onSliderChanged = () => 
-                { 
-                    settings.activePalettePreset = PalettePreset.Custom; 
-                    SettingsViewUtilities.ClearInputBuffers(); 
-                    SettingsViewUtilities.OnSettingMutated(); 
-                };
-
-                localY = DrawColorSliderRowDirect(inner, "OverHaulers_ColorCriticalLabel".Translate().ToString(), ref settings.colorCritical, localY, onSliderChanged);
-                localY = DrawColorSliderRowDirect(inner, "OverHaulers_ColorHealthyLabel".Translate().ToString(), ref settings.colorHealthy, localY, onSliderChanged);
-                localY = DrawColorSliderRowDirect(inner, "OverHaulers_ColorBoostedLabel".Translate().ToString(), ref settings.colorBoosted, localY, onSliderChanged);
-            }
-            finally
-            {
-                SettingsViewUtilities.EndSectionBoxDirect("SEC_Accessibility", startY, localY, ref currentY);
-            }
+            // 5. Interactive RGB Color Channel Sliders
+            DrawColorCustomizerRow(ref ui, "OverHaulers_ColorCriticalLabel".Translate().ToString(), ref settings.colorCritical, settings);
+            ui.Gap(4f);
+            DrawColorCustomizerRow(ref ui, "OverHaulers_ColorHealthyLabel".Translate().ToString(), ref settings.colorHealthy, settings);
+            ui.Gap(4f);
+            DrawColorCustomizerRow(ref ui, "OverHaulers_ColorBoostedLabel".Translate().ToString(), ref settings.colorBoosted, settings);
+            ui.Gap(16f);
         }
 
         #endregion
 
-        #region 2. PRIVATE ACCESSIBILITY IMGUI HELPERS
+        #region 2. PRESET RADIO MATRIX
 
         /// <summary>
-        /// Draws a live gradient preview bar representing the transition from critical to healthy to boosted colors.
+        /// Draws a matrix of radio buttons for selecting a color palette preset.
         /// </summary>
-        /// <param name="containerRect">The rectangle defining the area in which to draw the gradient preview.</param>
-        /// <param name="critical">The color representing the critical state.</param>
-        /// <param name="healthy">The color representing the healthy state.</param>
-        /// <param name="boosted">The color representing the boosted state.</param>
-        /// <param name="currentY">The current vertical position within the container, updated as elements are drawn.</param>
-        /// <returns>The updated vertical position after drawing the gradient preview.</returns>
-        private static float DrawGradientPreviewDirect(Rect containerRect, Color critical, Color healthy, Color boosted, float currentY)
+        /// <param name="ui">The settings layout context for positioning and rendering UI elements.</param>
+        /// <param name="settings">The settings object containing the active palette preset.</param>
+        private static void DrawPresetRadioMatrix(ref SettingsLayout ui, Settings settings)
         {
-            Rect labelRect = new Rect(containerRect.x, currentY, containerRect.width, 20f);
+            float halfWidth = (ui.Width - 12f) / 2f;
+
+            // Row 1: Default & Deuteranopia
+            Rect r1Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
+            Rect r1Col2 = new Rect(ui.X + halfWidth + 12f, ui.Y, halfWidth, 24f);
+
+            if (Widgets.RadioButtonLabeled(r1Col1, "OverHaulers_PresetDefault".Translate().ToString(), settings.activePalettePreset == PalettePreset.Default))
+            {
+                settings.ApplyPreset(PalettePreset.Default);
+                SettingsLayout.ClearInputBuffers();
+            }
+
+            if (Widgets.RadioButtonLabeled(r1Col2, "OverHaulers_PresetDeuteranopia".Translate().ToString(), settings.activePalettePreset == PalettePreset.Deuteranopia))
+            {
+                settings.ApplyPreset(PalettePreset.Deuteranopia);
+                SettingsLayout.ClearInputBuffers();
+            }
+            ui.Y += 28f;
+
+            // Row 2: Tritanopia & High Contrast
+            Rect r2Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
+            Rect r2Col2 = new Rect(ui.X + halfWidth + 12f, ui.Y, halfWidth, 24f);
+
+            if (Widgets.RadioButtonLabeled(r2Col1, "OverHaulers_PresetTritanopia".Translate().ToString(), settings.activePalettePreset == PalettePreset.Tritanopia))
+            {
+                settings.ApplyPreset(PalettePreset.Tritanopia);
+                SettingsLayout.ClearInputBuffers();
+            }
+
+            if (Widgets.RadioButtonLabeled(r2Col2, "OverHaulers_PresetHighContrast".Translate().ToString(), settings.activePalettePreset == PalettePreset.HighContrast))
+            {
+                settings.ApplyPreset(PalettePreset.HighContrast);
+                SettingsLayout.ClearInputBuffers();
+            }
+            ui.Y += 28f;
+
+            // Row 3: Custom Palette Indicator
+            Rect r3Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
+            if (Widgets.RadioButtonLabeled(r3Col1, "OverHaulers_PresetCustom".Translate().ToString(), settings.activePalettePreset == PalettePreset.Custom))
+            {
+                settings.activePalettePreset = PalettePreset.Custom;
+            }
+            ui.Y += 30f;
+        }
+
+        #endregion
+
+        #region 3. LIVE HEALTH STATUS GRADIENT PREVIEW
+
+        /// <summary>
+        /// Draws a live preview of the health status gradient, showing the transition from critical to healthy to boosted states.
+        /// </summary>
+        /// <param name="ui">The settings layout context for positioning and rendering UI elements.</param>
+        /// <param name="critical">The color representing the critical health state.</param>
+        /// <param name="healthy">The color representing the healthy state.</param>
+        /// <param name="boosted">The color representing the boosted health state.</param>
+        private static void DrawLiveGradientPreview(ref SettingsLayout ui, Color critical, Color healthy, Color boosted)
+        {
+            // Header
             Text.Font = GameFont.Tiny;
             Color origColor = GUI.color;
-            GUI.color = SettingsViewUtilities.DescriptionTextColor;
-            Widgets.Label(labelRect, "OverHaulers_GradientPreviewHeader".Translate().ToString());
+            GUI.color = SettingsLayout.MutedTextColor;
+            Widgets.Label(new Rect(ui.X, ui.Y, ui.Width, 20f), "OverHaulers_GradientPreviewHeader".Translate().ToString());
             GUI.color = origColor;
             Text.Font = GameFont.Small;
-            currentY += 22f;
+            ui.Y += 22f;
 
-            float barWidth = containerRect.width;
+            // 32-Segment LERP Gradient Bar
             float barHeight = 16f;
-            Rect barRect = new Rect(containerRect.x, currentY, barWidth, barHeight);
+            Rect barRect = new Rect(ui.X, ui.Y, ui.Width, barHeight);
 
             Widgets.DrawBoxSolid(barRect.ExpandedBy(1f), Color.black);
 
-            int segments = 32;
-            float segmentWidth = barWidth / segments;
+            const int segments = 32;
+            float segmentWidth = ui.Width / segments;
             for (int i = 0; i < segments; i++)
             {
                 float t = (float)i / (segments - 1);
-                Color segColor = t <= 0.5f ? Color.Lerp(critical, healthy, t / 0.5f) : Color.Lerp(healthy, boosted, (t - 0.5f) / 0.5f);
+                Color segColor = t <= 0.5f
+                    ? Color.Lerp(critical, healthy, t / 0.5f)
+                    : Color.Lerp(healthy, boosted, (t - 0.5f) / 0.5f);
+
                 Widgets.DrawBoxSolid(new Rect(barRect.x + (i * segmentWidth), barRect.y, segmentWidth + 0.5f, barHeight), segColor);
             }
+            ui.Y += barHeight + 3f;
 
-            currentY += barHeight + 2f;
-            Rect tickRect = new Rect(containerRect.x, currentY, containerRect.width, 16f);
+            // Percentage Legend Ticks
+            Rect tickRect = new Rect(ui.X, ui.Y, ui.Width, 16f);
             Text.Font = GameFont.Tiny;
-            GUI.color = SettingsViewUtilities.DescriptionTextColor;
+            GUI.color = SettingsLayout.MutedTextColor;
+
             Widgets.Label(tickRect.LeftPart(0.20f), "0%");
             Text.Anchor = TextAnchor.UpperCenter;
             Widgets.Label(tickRect, "100%");
             Text.Anchor = TextAnchor.UpperRight;
             Widgets.Label(tickRect.RightPart(0.20f), "200%+");
             Text.Anchor = TextAnchor.UpperLeft;
+
             GUI.color = origColor;
             Text.Font = GameFont.Small;
-
-            return currentY + 18f;
+            ui.Y += 20f;
         }
 
-        /// <summary>
-        /// Draws a color slider row for adjusting the red, green, and blue components of a color.
-        /// </summary>
-        /// <param name="containerRect">The rectangle defining the area in which to draw the color slider row.</param>
-        /// <param name="labelText">The label text to display next to the color swatch.</param>
-        /// <param name="color">The color to be adjusted.</param>
-        /// <param name="currentY">The current vertical position within the container, updated as elements are drawn.</param>
-        /// <param name="onColorChanged">The action to invoke when the color is changed.</param>
-        /// <returns>The updated vertical position after drawing the color slider row.</returns>
-        private static float DrawColorSliderRowDirect(Rect containerRect, string labelText, ref Color color, float currentY, Action onColorChanged)
-        {
-            Rect labelRect = new Rect(containerRect.x, currentY, containerRect.width - 26f, 20f);
-            Rect swatchRect = new Rect(containerRect.x + containerRect.width - 20f, currentY, 20f, 20f);
+        #endregion
 
-            Widgets.Label(labelRect, labelText);
+        #region 4. RGB COLOR CHANNEL CUSTOMIZATION ROWS
+
+        /// <summary>
+        /// Draws a row for customizing an RGB color with live preview and individual channel sliders.
+        /// </summary>
+        /// <param name="ui">The settings layout context for positioning and rendering UI elements.</param>
+        /// <param name="label">The label describing the color being customized.</param>
+        /// <param name="color">The color value to be customized.</param>
+        /// <param name="settings">The settings object containing the active palette preset.</param>
+        private static void DrawColorCustomizerRow(ref SettingsLayout ui, string label, ref Color color, Settings settings)
+        {
+            // 1. Label and Live Color Swatch Box
+            Rect labelRect = new Rect(ui.X, ui.Y, ui.Width - 36f, 22f);
+            Rect swatchRect = new Rect(ui.X + ui.Width - 30f, ui.Y, 30f, 20f);
+
+            Widgets.Label(labelRect, label);
             Widgets.DrawBoxSolid(swatchRect.ExpandedBy(1f), Color.black);
             Widgets.DrawBoxSolid(swatchRect, color);
+            ui.Y += 24f;
 
-            currentY += 22f;
+            // 2. 3-Column RGB Sliders with Manual Entry Fields
+            float gap = 8f;
+            float colWidth = (ui.Width - (gap * 2f)) / 3f;
 
-            float sliderWidth = (containerRect.width / 3f) - 6f;
-            Color oldColor = color;
+            Rect rRect = new Rect(ui.X, ui.Y, colWidth, 26f);
+            Rect gRect = new Rect(ui.X + colWidth + gap, ui.Y, colWidth, 26f);
+            Rect bRect = new Rect(ui.X + (colWidth * 2f) + (gap * 2f), ui.Y, colWidth, 26f);
 
-            color.r = Widgets.HorizontalSlider(new Rect(containerRect.x, currentY, sliderWidth, 22f), color.r, 0f, 1f, false, label: $"R: {color.r:F2}");
-            color.g = Widgets.HorizontalSlider(new Rect(containerRect.x + sliderWidth + 9f, currentY, sliderWidth, 22f), color.g, 0f, 1f, false, label: $"G: {color.g:F2}");
-            color.b = Widgets.HorizontalSlider(new Rect(containerRect.x + (sliderWidth * 2f) + 18f, currentY, sliderWidth, 22f), color.b, 0f, 1f, false, label: $"B: {color.b:F2}");
+            bool rChanged = ui.DrawSliderInputUnit(rRect, "R:", ref color.r, 0f, 1f, step: 0.01f);
+            bool gChanged = ui.DrawSliderInputUnit(gRect, "G:", ref color.g, 0f, 1f, step: 0.01f);
+            bool bChanged = ui.DrawSliderInputUnit(bRect, "B:", ref color.b, 0f, 1f, step: 0.01f);
 
-            if (Mathf.Abs(color.r - oldColor.r) > 0.001f || Mathf.Abs(color.g - oldColor.g) > 0.001f || Mathf.Abs(color.b - oldColor.b) > 0.001f)
+            if (rChanged || gChanged || bChanged)
             {
-                onColorChanged?.Invoke();
+                settings.activePalettePreset = PalettePreset.Custom;
+                SettingsViewUtilities.OnSettingMutated();
             }
 
-            return currentY + 28f;
+            ui.Y += 30f;
         }
 
         #endregion

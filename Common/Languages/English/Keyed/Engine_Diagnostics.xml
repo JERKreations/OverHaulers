@@ -20,7 +20,6 @@
   <!-- 3. SPECIES BASELINE CALIBRATION CHECKPOINTS                               -->
   <!-- ========================================================================= -->
   <OverHaulers_Log_Calibration_SweepComplete>[Over Haulers] Species baseline calibration sweep complete ({0} ms - {1}): {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency Failsafe across {6} species.</OverHaulers_Log_Calibration_SweepComplete>
-  <OverHaulers_Log_Calibration_Context_FullCatalogue>Full Catalogue</OverHaulers_Log_Calibration_Context_FullCatalogue>
   <OverHaulers_Log_Calibration_Context_WorldLoad>World Load</OverHaulers_Log_Calibration_Context_WorldLoad>
   <OverHaulers_Log_Calibration_Context_RecompileAll>Recompile All</OverHaulers_Log_Calibration_Context_RecompileAll>
   <OverHaulers_Log_Calibration_PendingNotice>[Over Haulers] Notice: {0} caravan-capable species assigned temporary testing benchmarks due to Main Menu component limitations. They will calibrate automatically via live pawns in gameplay: {1}</OverHaulers_Log_Calibration_PendingNotice>
@@ -57,7 +56,6 @@
   <OverHaulers_Journal_TopologyCompiled>Skeletal Topologies: {1} species compiled ({0} ms, Max: {3} {2} parts, Depth: {4})</OverHaulers_Journal_TopologyCompiled>
 
   <OverHaulers_Journal_CalibrationSweep>Baseline Calibration: {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency ({0} ms)</OverHaulers_Journal_CalibrationSweep>
-  <OverHaulers_Journal_CalibrationRescueLive>Rescued {0} species baseline(s) from spawned live pawn(s): {1}</OverHaulers_Journal_CalibrationRescueLive>
   <OverHaulers_Journal_CalibrationPendingNotice>Notice: {0} caravan-capable species operating on temporary benchmarks pending live comps: {1}</OverHaulers_Journal_CalibrationPendingNotice>
 
   <OverHaulers_Journal_SnapshotReset>Atomic Registry: Initialized to {0} L1 slots (Cleared {1} stale entries)</OverHaulers_Journal_SnapshotReset>

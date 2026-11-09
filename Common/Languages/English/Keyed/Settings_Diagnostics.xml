@@ -4,47 +4,54 @@
   <!-- ========================================================================= -->
   <!-- [SEC-09] DIAGNOSTICS, LOGGING & PERFORMANCE SETTINGS                      -->
   <!-- ========================================================================= -->
-  <OverHaulers_DiagnosticsHeader>Diagnostic Logging &amp; Advanced Settings</OverHaulers_DiagnosticsHeader>
-  <OverHaulers_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_VerboseBreakdown>
-  <OverHaulers_VerboseBreakdown_Desc>Forces pawn info cards to display every single body part and organ, even if completely healthy and normal.</OverHaulers_VerboseBreakdown_Desc>
-  <OverHaulers_VerboseBreakdown_Tooltip>If checked, shows every single body part on a pawn's info page, even if they are perfectly healthy and normal.</OverHaulers_VerboseBreakdown_Tooltip>
-  <OverHaulers_DevStressTestAllFauna_Label>DOD Stress-Test: Evaluate All Fauna</OverHaulers_DevStressTestAllFauna_Label>
-  <OverHaulers_DevStressTestAllFauna_Desc>High-load population benchmarking override. When enabled, 100% of biological fauna (livestock, wild animals, vermin, predators) are forced through the OverHaulers solver, SoA workspaces, and dynamic cache pipeline regardless of pack animal status. Designed to stress-test cache capacity, TTL scaling, and zero-allocation throughput across large populations.</OverHaulers_DevStressTestAllFauna_Desc>
+  <!-- Developer tooling workspace -->
+  <OverHaulers_ToolingDialog_WindowTitle>Developer Tools</OverHaulers_ToolingDialog_WindowTitle>
+  <OverHaulers_ToolingDialog_Tab_TestBench>1. Test Bench</OverHaulers_ToolingDialog_Tab_TestBench>
+  <OverHaulers_ToolingDialog_Tab_Benchmark>2. Benchmarks &amp; Self-Check</OverHaulers_ToolingDialog_Tab_Benchmark>
+  <OverHaulers_ToolingDialog_Tab_Telemetry>3. Telemetry &amp; Metrics</OverHaulers_ToolingDialog_Tab_Telemetry>
+  <OverHaulers_ToolingDialog_RecompileData>Recompile Data</OverHaulers_ToolingDialog_RecompileData>
+  <OverHaulers_ToolingDialog_RecompileData_Tooltip>Flushes and fully recompiles all species skeletal topologies, XML mod extensions, medical recipe catalogs, and test subjects in real-time.</OverHaulers_ToolingDialog_RecompileData_Tooltip>
+  <OverHaulers_ToolingDialog_OpenDumpsFolder>Open Folder</OverHaulers_ToolingDialog_OpenDumpsFolder>
+  <OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip>Opens the date-cataloged DiagnosticDumps sub directory containing export files, or if date-cataloged dumps do not exist, opens the root DiagnosticDumps directory.</OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip>
 
-  <OverHaulers_ReportMetricsInterval>Report Interval ({0}h)</OverHaulers_ReportMetricsInterval>
-  <OverHaulers_ReportMetricsIntervalDisabled>Report Interval (Off)</OverHaulers_ReportMetricsIntervalDisabled>
-  <OverHaulers_ReportMetricsInterval_Tooltip>Configure how often (in game-hours) the cumulative performance and cache efficiency report is printed to the log. Set to 0 to completely disable automatic reports.</OverHaulers_ReportMetricsInterval_Tooltip>
+  <!-- InfoCard diagnostic display -->
+  <OverHaulers_ToolingDialog_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_ToolingDialog_VerboseBreakdown>
+  <OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>If checked, shows every single body part on a pawn's info page, even if they are perfectly healthy and normal.</OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>
 
-  <!-- Report Content Checkbox Options -->
-  <OverHaulers_ReportContentHeader>Report Content Options (Report interval &gt; 0)</OverHaulers_ReportContentHeader>
-  <OverHaulers_ReportContent_Desc>Configure which telemetry sections are compiled and dispatched to the console log during periodic reports.</OverHaulers_ReportContent_Desc>
+  <!-- Telemetry controls -->
+  <OverHaulers_ToolingDialog_Telemetry_SectionHeader>Periodic Telemetry Logging</OverHaulers_ToolingDialog_Telemetry_SectionHeader>
+  <OverHaulers_ToolingDialog_Telemetry_Desc>Configure which telemetry sections are compiled and dispatched to the console log during periodic reports.</OverHaulers_ToolingDialog_Telemetry_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_ReportInterval>Report Interval ({0}h)</OverHaulers_ToolingDialog_Telemetry_ReportInterval>
+  <OverHaulers_ToolingDialog_Telemetry_ReportIntervalDisabled>Report Interval (Off)</OverHaulers_ToolingDialog_Telemetry_ReportIntervalDisabled>
+  <OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader>Active Telemetry Metrics:</OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader>
+  <OverHaulers_ToolingDialog_Telemetry_StressTestingHeader>Live Population Stress Testing</OverHaulers_ToolingDialog_Telemetry_StressTestingHeader>
+  <OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna>DOD Stress-Test: Evaluate All Fauna</OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna>
+  <OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>High-load population benchmarking override. When enabled, 100% of biological fauna (livestock, wild animals, vermin, predators) are forced through the OverHaulers solver, SoA workspaces, and dynamic cache pipeline regardless of pack animal status. Designed to stress-test cache capacity, TTL scaling, and zero-allocation throughput across large populations.</OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours>Pawn Eviction Timeframe ({0}h)</OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours>
 
-  <OverHaulers_LogQueryMetrics>Total Registry Queries</OverHaulers_LogQueryMetrics>
-  <OverHaulers_LogQueryMetrics_Desc>Tracks overall capacity query volume and compares main-thread game queries against off-thread background worker pathfinding requests.</OverHaulers_LogQueryMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics>Total Registry Queries</OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc>Tracks overall capacity query volume and compares main-thread game queries against off-thread background worker pathfinding requests.</OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc>
 
-  <OverHaulers_LogCacheMetrics>Cache Hit Efficiency</OverHaulers_LogCacheMetrics>
-  <OverHaulers_LogCacheMetrics_Desc>Tracks cache hit ratios, hits, and solver recalculations across both main-thread evaluations and background thread queries.</OverHaulers_LogCacheMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics>Cache Hit Efficiency</OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc>Tracks cache hit ratios, hits, and solver recalculations across both main-thread evaluations and background thread queries.</OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc>
 
-  <OverHaulers_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_LogSnapshotTableMetrics>
-  <OverHaulers_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 512-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_LogSnapshotTableMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 512-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>
 
-  <OverHaulers_LogPresentationMetrics>Presentation UI Cache</OverHaulers_LogPresentationMetrics>
-  <OverHaulers_LogPresentationMetrics_Desc>Logs active visual model rotation count, hit efficiency, and node recycling metrics for the presentation layer (DetailedModelRegistry).</OverHaulers_LogPresentationMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics>Presentation UI Cache</OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc>Logs active visual model rotation count, hit efficiency, and node recycling metrics for the presentation layer (DetailedModelRegistry).</OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc>
 
-  <OverHaulers_LogLifecycleMetrics>Lifecycle &amp; Invalidation Events</OverHaulers_LogLifecycleMetrics>
-  <OverHaulers_LogLifecycleMetrics_Desc>Reports reactive cache invalidations, combat burst damage debouncer efficiency, and active pawn lifecycle purges.</OverHaulers_LogLifecycleMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics>Lifecycle &amp; Invalidation Events</OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc>Reports reactive cache invalidations, combat burst damage debouncer efficiency, and active pawn lifecycle purges.</OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc>
 
-  <OverHaulers_LogWorkspaceMetrics>Pooled Workspaces</OverHaulers_LogWorkspaceMetrics>
-  <OverHaulers_LogWorkspaceMetrics_Desc>Reports active thread-static workspace memory scratchpads allocated across main and worker threads.</OverHaulers_LogWorkspaceMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics>Pooled Workspaces</OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics>
+  <OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc>Reports active thread-static workspace memory scratchpads allocated across main and worker threads.</OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc>
 
-  <OverHaulers_LogSafetyFloorClamps>Safety Floor Clamps</OverHaulers_LogSafetyFloorClamps>
-  <OverHaulers_LogSafetyFloorClamps_Desc>Buffers and lists pawns whose calculated mass capacity dropped below the safety floor and was clamped.</OverHaulers_LogSafetyFloorClamps_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps>Safety Floor Clamps</OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps>
+  <OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc>Buffers and lists pawns whose calculated mass capacity dropped below the safety floor and was clamped.</OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc>
 
-  <OverHaulers_LogPawnEvictions>Evicted Pawn IDs</OverHaulers_LogPawnEvictions>
-  <OverHaulers_LogPawnEvictions_Desc>Buffers and lists the unique Thing IDs of pawns evicted from memory due to death, despawn, or long-term inactivity.</OverHaulers_LogPawnEvictions_Desc>
-
-  <OverHaulers_CacheInactivityEvictionHours>Pawn Eviction Timeframe ({0}h)</OverHaulers_CacheInactivityEvictionHours>
-  <OverHaulers_CacheInactivityEvictionHours_Tooltip>Configures how many game-hours a pawn's capacity cache entry can remain unqueried before being evicted from memory. (1 game-hour = {0} ticks, {1} hours = 1 game day).</OverHaulers_CacheInactivityEvictionHours_Tooltip>
+  <OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions>Evicted Pawn IDs</OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions>
+  <OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc>Buffers and lists the unique Thing IDs of pawns evicted from memory due to death, despawn, or long-term inactivity.</OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc>
 
   <!-- [DIAG-03] Performance benchmark -->
   <OverHaulers_Benchmark_Header>Performance Benchmark</OverHaulers_Benchmark_Header>

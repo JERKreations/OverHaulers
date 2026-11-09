@@ -14,7 +14,7 @@ namespace OverHaulers
     /// Provides the interactive Test Bench settings view for the OverHaulers mod, allowing developers to experiment with anatomical configurations
     ///  and preview results.
     /// </remarks>
-    public static partial class SettingsView
+    public partial class ToolingDialog
     {
         #region 1. CONSTANTS & ACCORDION STATES
 
@@ -47,48 +47,25 @@ namespace OverHaulers
         /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
         public static void DrawTestBenchSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
         {
-            // GUI Entry Point Anchor: Ensures catalogs and calibrations are initialized on Frame 1,
-            // even if TestBench was the remembered active tab from a previous session.
             TestBench.EnsureInitialized();
 
-            Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_TestBench", ref currentY, fallbackEstimate: 560f);
-            float startY = inner.y;
-            float localY = inner.y;
+            float localY = currentY;
+            float totalWidth = viewRect.width;
+            float gap = 16f;
+            float leftWidth = (totalWidth * 0.44f) - (gap / 2f);
+            float rightWidth = totalWidth - leftWidth - gap;
 
-            try
-            {
-                float totalWidth = inner.width;
-                float gap = 16f;
-                float leftWidth = (totalWidth * 0.44f) - (gap / 2f);
-                float rightWidth = totalWidth - leftWidth - gap;
+            bool isResetHovered = DrawTestBenchHeaderDirect(viewRect, "OverHaulers_TestBenchHeader", resetAction, localY, out localY, leftWidth, rightWidth, gap);
 
-                // Header Row: Title on Left Column (44%), 3 Full-Width Action Buttons on Right Column (56%)
-                bool isResetHovered = DrawTestBenchHeaderDirect(
-                    inner, 
-                    "OverHaulers_TestBenchHeader", 
-                    resetAction, 
-                    localY, 
-                    out localY,
-                    leftWidth,
-                    rightWidth,
-                    gap
-                );
+            float columnStartY = localY;
 
-                // BREAKPOINT ANCHOR: Parallel Column Start Anchor
-                float columnStartY = localY;
+            // LEFT COLUMN: Subject Picker, Topology Badge & Universal Sandbox Medical Planner (Flattened)
+            float leftY = DrawLeftControlColumn(viewRect, columnStartY, leftWidth, isResetHovered, settings);
 
-                // LEFT COLUMN: Subject Picker, Topology Badge & Universal Sandbox Medical Planner (Flattened)
-                float leftY = DrawLeftControlColumn(inner, columnStartY, leftWidth, isResetHovered, settings);
+            // RIGHT COLUMN: Top Action Toolbar (View Modes / Dumps) & Live Delta Preview
+            float rightY = DrawRightPreviewColumn(viewRect, columnStartY, leftWidth + gap, rightWidth, leftY - columnStartY, settings);
 
-                // RIGHT COLUMN: Top Action Toolbar (View Modes / Dumps) & Live Delta Preview
-                float rightY = DrawRightPreviewColumn(inner, columnStartY, leftWidth + gap, rightWidth, leftY - columnStartY, settings);
-
-                localY = Mathf.Max(leftY, rightY) + 10f;
-            }
-            finally
-            {
-                SettingsViewUtilities.EndSectionBoxDirect("SEC_TestBench", startY, localY, ref currentY);
-            }
+            currentY = Math.Max(leftY, rightY) + 10f;
         }
 
         #endregion
@@ -128,18 +105,18 @@ namespace OverHaulers
             Text.Font = GameFont.Small;
 
             // [Recompile Data] Button - Triggers full live re-compilation
-            if (Widgets.ButtonText(refreshRect, "OverHaulers_RecompileData".Translate().ToString()))
+            if (Widgets.ButtonText(refreshRect, "OverHaulers_ToolingDialog_RecompileData".Translate().ToString()))
             {
                 TestBench.RecompileAll();
             }
-            TooltipHandler.TipRegion(refreshRect, "OverHaulers_RecompileData_Tooltip".Translate().ToString());
+            TooltipHandler.TipRegion(refreshRect, "OverHaulers_ToolingDialog_RecompileData_Tooltip".Translate().ToString());
 
             // [Open Folder] Button - Opens OS File Explorer / Finder
-            if (Widgets.ButtonText(openDirectoryRect, "OverHaulers_OpenDumpsFolder".Translate().ToString()))
+            if (Widgets.ButtonText(openDirectoryRect, "OverHaulers_ToolingDialog_OpenDumpsFolder".Translate().ToString()))
             {
                 DiagnosticExportUtility.OpenExportDirectory();
             }
-            TooltipHandler.TipRegion(openDirectoryRect, "OverHaulers_OpenDumpsFolder_Tooltip".Translate().ToString());
+            TooltipHandler.TipRegion(openDirectoryRect, "OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip".Translate().ToString());
 
             // [Reset] Button - Resets Test Bench parameters to baseline
             bool isResetHovered = Mouse.IsOver(resetRect);
@@ -147,8 +124,6 @@ namespace OverHaulers
             {
                 resetAction?.Invoke();
                 ResetPlannerViewState();
-                SettingsViewUtilities.ClearInputBuffers();
-                SettingsViewUtilities.ClearHeightCache();
                 SettingsViewUtilities.OnSettingMutated();
             }
 
@@ -598,7 +573,7 @@ namespace OverHaulers
                 Rect rowRect = new Rect(viewRect.x, currentY, viewRect.width, 22f);
                 Widgets.DrawHighlightIfMouseover(rowRect);
 
-                float indentOffset = Mathf.Min(depth * 8f, 24f);
+                float indentOffset = Math.Min(depth * 8f, 24f);
                 float labelWidth = viewRect.width - 76f - indentOffset;
 
                 Rect labelRect = new Rect(rowRect.x + 4f + indentOffset, rowRect.y + 2f, labelWidth, 18f);
@@ -687,7 +662,7 @@ namespace OverHaulers
                 }
                 if (repl.OpType == SimulatedOpType.Trauma)
                 {
-                    float hpPercent = Mathf.Clamp(repl.Efficiency * 100f, 1f, 99f);
+                    float hpPercent = Math.Min(99f, Math.Max(1f, repl.Efficiency * 100f));
                     labelColor = ReportFormatter.GetMedicalColor(repl.Efficiency);
                     return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, hpPercent.ToString("F0")).Colorize(labelColor);
                 }
@@ -835,8 +810,8 @@ namespace OverHaulers
 
             if (hasAnyReplacements)
             {
-                int maxPct = Mathf.RoundToInt(maxEfficiency * 100f);
-                int minPct = Mathf.RoundToInt(minEfficiency * 100f);
+                int maxPct = (int)Math.Round(maxEfficiency * 100f, MidpointRounding.ToEven);
+                int minPct = (int)Math.Round(minEfficiency * 100f, MidpointRounding.ToEven);
 
                 // 1. Bulk Maximum Upgrade Option
                 options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkMaxUpgrade".Translate(maxPct).ToString(), () =>
@@ -1155,7 +1130,7 @@ namespace OverHaulers
 
             // 3. InfoCard Breakdown Preview Box
             string printableExplanation = liveExplanation.Replace(InfoCardOverlay.TagSentinel, "").Replace(InfoCardOverlay.TagProsthetic, "    ").Replace(InfoCardOverlay.TagAthletic, "    ").Replace(InfoCardOverlay.TagInjury, "    ");
-            float previewBoxHeight = Mathf.Max(leftColumnHeight - (rightY - columnStartY), Text.CalcHeight(printableExplanation, rightWidth - 16f) + 20f);
+            float previewBoxHeight = Math.Max(leftColumnHeight - (rightY - columnStartY), Text.CalcHeight(printableExplanation, rightWidth - 16f) + 20f);
 
             Rect previewBoxRect = new Rect(inner.x + rightX, rightY, rightWidth, previewBoxHeight);
             Widgets.DrawMenuSection(previewBoxRect);

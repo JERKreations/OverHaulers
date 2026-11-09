@@ -368,7 +368,7 @@ namespace OverHaulers
 
                     if (tex != null)
                     {
-                        float iconY = Mathf.Round(rect.y + cmd.OffsetY);
+                        float iconY = (float)Math.Round(rect.y + cmd.OffsetY, MidpointRounding.ToEven);
                         Rect iconRect = new Rect(rect.x + cmd.OffsetX, iconY, cmd.Size, cmd.Size);
                         GUI.DrawTexture(iconRect, tex, ScaleMode.ScaleToFit, true);
                     }
@@ -417,7 +417,7 @@ namespace OverHaulers
             float doubleLineHeight = Text.CalcHeight("A\nB", rectWidth);
             float exactFontPitch = doubleLineHeight - singleLineHeight;
 
-            float iconSize = Mathf.Round(exactFontPitch * scalePercent);
+            float iconSize = (float)Math.Round(exactFontPitch * scalePercent, MidpointRounding.ToEven);
             float centeredOffset = (exactFontPitch - iconSize) / 2f;
             float opticalNudge = exactFontPitch * 0.10f;
             float iconOffsetYBase = centeredOffset + opticalNudge;
@@ -442,7 +442,7 @@ namespace OverHaulers
                     // Calculate visual rows wrapped
                     float measuredLineWidth = string.IsNullOrEmpty(line) ? 0f : Text.CalcSize(line).x;
                     int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f)
-                        ? Mathf.Max(1, Mathf.CeilToInt(measuredLineWidth / rectWidth))
+                        ? Math.Max(1, (int)Math.Ceiling(measuredLineWidth / rectWidth))
                         : 1;
 
                     relativeY += (lineVisualRows * exactFontPitch);

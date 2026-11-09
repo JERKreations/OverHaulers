@@ -1,9 +1,10 @@
+using System;
 using UnityEngine;
 using Verse;
 
 namespace OverHaulers
 {
-    public static partial class SettingsView
+    public partial class ToolingDialog
     {
         #region 1. [DIAG-04] SELF-CHECK PRESENTATION CACHE
 
@@ -28,7 +29,12 @@ namespace OverHaulers
         private static void RefreshSelfCheckCacheIfStale(float width)
         {
             int epoch = SettingsViewUtilities.TranslationEpoch;
-            if (selfCheckCacheVersion == SelfCheckRunner.ResultsVersion && selfCheckCacheEpoch == epoch && Mathf.Approximately(selfCheckCacheWidth, width)) return;
+            // Preserve Mathf.Approximately's relative tolerance and subnormal floor without a Unity dependency.
+            if (selfCheckCacheVersion == SelfCheckRunner.ResultsVersion
+                && selfCheckCacheEpoch == epoch
+                && Math.Abs(selfCheckCacheWidth - width) < Math.Max(
+                    1E-06f * Math.Max(Math.Abs(selfCheckCacheWidth), Math.Abs(width)),
+                    1.121039E-44f)) return;
 
             selfCheckCacheVersion = SelfCheckRunner.ResultsVersion;
             selfCheckCacheEpoch = epoch;
@@ -64,11 +70,8 @@ namespace OverHaulers
         #region 2. [DIAG-04] SELF-CHECK BLOCK DRAWER
 
         /// <summary>
-        /// Draws the in-game self-check block at the bottom of the Diagnostics section.
+        /// Draws the in-game self-check block.
         /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section box.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <returns>The updated Y position after drawing the block.</returns>
         public static float DrawSelfCheckBlock(Rect inner, float localY)
         {
             Text.Font = GameFont.Small;
@@ -81,7 +84,7 @@ namespace OverHaulers
 
             bool running = SelfCheckRunner.State == SelfCheckState.Running;
 
-            Rect runRect = new Rect(inner.x, localY, Mathf.Min(170f, inner.width * 0.3f), 28f);
+            Rect runRect = new Rect(inner.x, localY, Math.Min(170f, inner.width * 0.3f), 28f);
             bool originalEnabled = GUI.enabled;
             try
             {
@@ -141,12 +144,6 @@ namespace OverHaulers
 
         #region 3. [DIAG-04] SELF-CHECK RESULT ROWS
 
-        /// <summary>
-        /// Draws one row per executed check with its outcome tag, name and any note or failure reason, using cached strings and heights.
-        /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <returns>The updated Y position.</returns>
         private static float DrawSelfCheckResults(Rect inner, float localY)
         {
             RefreshSelfCheckCacheIfStale(inner.width);

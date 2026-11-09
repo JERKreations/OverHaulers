@@ -6,192 +6,74 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>
+    /// [SEC-08] Linear, zero-allocation presentation layout for Tab 2 (Integration &amp; Compatibility).
+    /// Controls InfoCard stat adoption, deduplication against third-party mods, and bytecode patch discovery.
+    /// Resides under Source/Settings/Views/.
+    /// </summary>
     public static partial class SettingsView
     {
-         #region 1. [SEC-08] COMPATIBILITY DRAWER ENTRY POINT
+        #region 1. CANONICAL TAB ENTRY POINT
 
-        /// <summary>
-        /// [SEC-08] Renders the complete Compatibility and External Mod Integration settings panel.
-        /// Controls InfoCard stat adoption, deduplication against third-party mods, and bytecode patch discovery.
-        /// Executes a deterministic order-of-operations pass to ensure zero IMGUI font leaks,
-        /// dynamic height adaptation, and real-time in-game verification guidance.
-        /// </summary>
-        public static void DrawIntegrationSection(Rect viewRect, ref float currentY, Settings settings, Action resetAction)
+        public static void DrawIntegrationTabContents(ref SettingsLayout ui, Settings settings)
         {
-            Rect inner = SettingsViewUtilities.BeginSectionBoxDirect(viewRect, "SEC_Compatibility", ref currentY, fallbackEstimate: 460f);
-            float startY = inner.y;
-            float localY = inner.y;
-
-            try
+            // 0. Section Header & Reset Action
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_CompatibilityHeader", () =>
             {
-                // ---------------------------------------------------------------------
-                // 0. SECTION HEADER & RESET ACTION
-                // ---------------------------------------------------------------------
-                Action customResetAction = () =>
-                {
-                    resetAction?.Invoke();
-                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
-                };
+                settings.ResetCompatibility();
+                IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+                SettingsLayout.ClearInputBuffers();
+                SettingsViewUtilities.OnSettingMutated();
+            });
 
-                SettingsViewUtilities.DrawHeaderWithResetDirect(inner, "OverHaulers_CompatibilityHeader", customResetAction, localY, out localY);
+            ui.DescriptionKey("OverHaulers_Compatibility_Desc");
+            ui.Gap(4f);
 
-                string sectionDesc = "OverHaulers_Compatibility_Desc".Translate().ToString();
-                localY = SettingsViewUtilities.DrawSectionDescriptionDirect(inner, sectionDesc, localY);
+            // 1. Active Stat Readout Banner
+            DrawActiveStatBanner(ref ui, settings);
 
-                // ---------------------------------------------------------------------
-                // 1. ACTIVE STAT STATUS READOUT BANNER
-                // ---------------------------------------------------------------------
-                string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
-                string activeStatName = IntegrationPipeline.ActiveStatOwner;
-                string activeBadgeType = ResolveStatPresentationBadge();
+            // 2. Dynamic In-Game Verification & What-To-Expect Card
+            VerificationGuide guide = BuildVerificationGuide(settings);
+            DrawVerificationGuideCard(ref ui, in guide);
+            ui.Gap(6f);
 
-                Rect activeBannerRect = new Rect(inner.x, localY, inner.width, 24f);
-                Widgets.DrawBoxSolid(activeBannerRect, SettingsViewUtilities.DarkTargetHighlightColor);
+            // 3. Top-Level Mode Selection (Auto vs Standalone)
+            DrawTopLevelModeSelection(ref ui, settings);
+            ui.Divider();
 
-                string activeLabel = "OverHaulers_ActiveStatBanner".Translate(activeStatName, activeBadgeType).ToString();
-                
-                Text.Font = GameFont.Tiny;
-                GUI.color = settings.colorBoosted;
-                Widgets.Label(new Rect(activeBannerRect.x + 8f, activeBannerRect.y + 4f, activeBannerRect.width - 16f, 18f), activeLabel);
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                localY += 28f;
+            // 4. Declarative XML Profiles (Built-In & Third-Party)
+            DrawXmlProfilesSection(ref ui, settings);
+            ui.Divider();
 
-                // ---------------------------------------------------------------------
-                // 1B. DYNAMIC IN-GAME VERIFICATION & WHAT-TO-EXPECT CARD
-                // ---------------------------------------------------------------------
-                VerificationGuide guide = BuildVerificationGuide(settings);
-                DrawVerificationGuideCard(inner, guide, ref localY);
-
-                // ---------------------------------------------------------------------
-                // 2. TOP-LEVEL MODE SELECTION (AUTO VS STANDALONE)
-                // ---------------------------------------------------------------------
-                bool isAutoSelected = currentKey == IntegrationPipeline.PresentationKeyAuto;
-                bool isStandaloneSelected = currentKey == IntegrationPipeline.PresentationKeyNative;
-
-                // Option A: Automatic Selection (Recommended)
-                Rect autoRowRect = new Rect(inner.x, localY, inner.width, 24f);
-                if (DrawCustomRadioRow(autoRowRect, "OverHaulers_PresentationMode_Auto".Translate().ToString(), isAutoSelected))
-                {
-                    settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
-                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
-                }
-                TooltipHandler.TipRegion(autoRowRect, "OverHaulers_PresentationMode_Auto_Tooltip".Translate().ToString());
-                localY += 26f;
-
-                // Option B: Force Standalone Direct Mode
-                Rect standaloneRowRect = new Rect(inner.x, localY, inner.width, 24f);
-                if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_PresentationMode_Native".Translate().ToString(), isStandaloneSelected))
-                {
-                    settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
-                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
-                }
-                TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_PresentationMode_Native_Tooltip".Translate().ToString());
-                localY += 32f;
-
-                // ---------------------------------------------------------------------
-                // 3. DECLARATIVE XML PROFILES (BUILT-IN & THIRD-PARTY)
-                // ---------------------------------------------------------------------
-                List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
-
-                List<MassCapacityStatProfileDef> builtInProfiles = new List<MassCapacityStatProfileDef>();
-                List<MassCapacityStatProfileDef> thirdPartyProfiles = new List<MassCapacityStatProfileDef>();
-
-                if (allXmlProfiles != null)
-                {
-                    for (int i = 0; i < allXmlProfiles.Count; i++)
-                    {
-                        var def = allXmlProfiles[i];
-                        if (def.modContentPack == OverHaulers.ContentPack) builtInProfiles.Add(def);
-                        else thirdPartyProfiles.Add(def);
-                    }
-                }
-
-                DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_BuiltIn".Translate().ToString(), ref localY);
-
-                if (builtInProfiles.Count == 0)
-                {
-                    DrawEmptyGroupNote(inner, "OverHaulers_ProfileGroup_None".Translate().ToString(), ref localY);
-                }
-                else
-                {
-                    for (int i = 0; i < builtInProfiles.Count; i++)
-                    {
-                        DrawXmlProfileEntry(inner, builtInProfiles[i], currentKey, settings, ref localY);
-                    }
-                }
-
-                if (thirdPartyProfiles.Count > 0)
-                {
-                    localY += 6f;
-                    DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_ThirdParty".Translate().ToString(), ref localY);
-                    for (int i = 0; i < thirdPartyProfiles.Count; i++)
-                    {
-                        DrawXmlProfileEntry(inner, thirdPartyProfiles[i], currentKey, settings, ref localY);
-                    }
-                }
-
-                localY += 10f;
-
-                // ---------------------------------------------------------------------
-                // 4. DYNAMIC BYTECODE DISCOVERIES (LAZY CIL SCANNING)
-                // ---------------------------------------------------------------------
-                DrawGroupSubHeader(inner, "OverHaulers_ProfileGroup_Cil".Translate().ToString(), ref localY);
-
-                if (!IntegrationPipeline.HasScannedThisSession)
-                {
-                    // Scan is Idle: Instructions + Trigger Button
-                    localY = SettingsViewUtilities.DrawSectionDescriptionDirect(inner, "OverHaulers_CilScanIdleDesc".Translate().ToString(), localY);
-
-                    Rect scanBtnRect = new Rect(inner.x + 4f, localY, Mathf.Min(320f, inner.width - 8f), 26f);
-                    if (Widgets.ButtonText(scanBtnRect, "OverHaulers_ScanPatchesBtn".Translate().ToString()))
-                    {
-                        IntegrationPipeline.TriggerManualScan();
-                    }
-                    localY += 32f;
-                }
-                else
-                {
-                    // Scan Ran: Session-Locked Indicator
-                    Rect scanDoneRect = new Rect(inner.x + 4f, localY, Mathf.Min(320f, inner.width - 8f), 24f);
-                    GUI.enabled = false;
-                    Widgets.ButtonText(scanDoneRect, "OverHaulers_ScanPatchesDone".Translate(IntegrationPipeline.DiscoveredPatches.Count).ToString());
-                    GUI.enabled = true;
-                    localY += 28f;
-
-                    if (IntegrationPipeline.DiscoveredPatches.Count == 0)
-                    {
-                        DrawEmptyGroupNote(inner, "OverHaulers_NoExternalPatchesDiscovered".Translate().ToString(), ref localY);
-                    }
-                    else
-                    {
-                        for (int p = 0; p < IntegrationPipeline.DiscoveredPatches.Count; p++)
-                        {
-                            DrawCilDiscoveredPatch(inner, IntegrationPipeline.DiscoveredPatches[p], currentKey, settings, ref localY);
-                        }
-                    }
-                }
-
-                // Generous bottom margin to guarantee zero box-border clipping
-                localY += 8f;
-            }
-            finally
-            {
-                SettingsViewUtilities.EndSectionBoxDirect("SEC_Compatibility", startY, localY, ref currentY);
-            }
+            // 5. Dynamic Bytecode Discoveries (Lazy CIL Scanning)
+            DrawCilScanningSection(ref ui, settings);
+            ui.Gap(16f);
         }
 
         #endregion
 
-        #region 2. IN-GAME VERIFICATION & WHAT-TO-EXPECT ENGINE
+        #region 2. ACTIVE STAT BANNER & VERIFICATION ENGINE
 
-        /// <summary>
-        /// Represents the verification guide containing status and guidance lines for in-game verification.
-        /// </summary>
-        /// <remarks>
-        /// This struct encapsulates the information needed to display the verification status and guidance
-        /// for the current in-game settings, including the status title, color, and various instructional lines.
-        /// </remarks>
+        private static void DrawActiveStatBanner(ref SettingsLayout ui, Settings settings)
+        {
+            string activeStatName = IntegrationPipeline.ActiveStatOwner;
+            string activeBadgeType = ResolveStatPresentationBadge();
+            string activeLabel = "OverHaulers_ActiveStatBanner".Translate(activeStatName, activeBadgeType).ToString();
+
+            Rect bannerRect = new Rect(ui.X, ui.Y, ui.Width, 26f);
+            Widgets.DrawBoxSolid(bannerRect, new Color(0.12f, 0.15f, 0.18f, 0.85f));
+            Widgets.DrawBox(bannerRect);
+
+            Text.Font = GameFont.Tiny;
+            Color origColor = GUI.color;
+            GUI.color = settings.colorBoosted;
+            Widgets.Label(new Rect(bannerRect.x + 8f, bannerRect.y + 5f, bannerRect.width - 16f, 18f), activeLabel);
+            GUI.color = origColor;
+            Text.Font = GameFont.Small;
+
+            ui.Y += 32f;
+        }
+
         private struct VerificationGuide
         {
             public string StatusTitle;
@@ -201,11 +83,6 @@ namespace OverHaulers
             public string ConfirmLine;
         }
 
-        /// <summary>
-        /// Builds a verification guide based on the current settings and active presentation state.
-        /// </summary>
-        /// <param name="settings">The current settings object used to determine the verification guide.</param>
-        /// <returns>A VerificationGuide struct containing the status and guidance lines for in-game verification.</returns>
         private static VerificationGuide BuildVerificationGuide(Settings settings)
         {
             StatDef stat = IntegrationPipeline.ActiveMassCapacityStat;
@@ -214,12 +91,12 @@ namespace OverHaulers
                 ? stat.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackStat".Translate().ToString();
 
-            string categoryLabel = (stat?.category != null && !string.IsNullOrEmpty(stat.category.label))
+            string categoryLabel = (stat != null && stat.category != null && !string.IsNullOrEmpty(stat.category.label))
                 ? stat.category.LabelCap.ToString()
                 : "OverHaulers_Verify_FallbackCategory".Translate().ToString();
 
-            string key = settings?.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
-            bool isForcedStandalone = key == IntegrationPipeline.PresentationKeyNative;
+            string key = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
+            bool isForcedStandalone = (key == IntegrationPipeline.PresentationKeyNative);
             bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
             bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;
 
@@ -255,7 +132,7 @@ namespace OverHaulers
                 return new VerificationGuide
                 {
                     StatusTitle = "OverHaulers_Verify_Unified_Title".Translate().ToString(),
-                    StatusColor = settings?.colorBoosted ?? PresentationDefaults.ColorBoostedDefault,
+                    StatusColor = settings.colorBoosted,
                     DisplayLine = "OverHaulers_Verify_Unified_Display".Translate(statLabel, categoryLabel).ToString(),
                     GearLine = "OverHaulers_Verify_Unified_Gear".Translate().ToString(),
                     ConfirmLine = "OverHaulers_Verify_Unified_Confirm".Translate(statLabel).ToString()
@@ -266,27 +143,20 @@ namespace OverHaulers
             return new VerificationGuide
             {
                 StatusTitle = "OverHaulers_Verify_Standalone_Title".Translate().ToString(),
-                StatusColor = settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault,
+                StatusColor = settings.colorHealthy,
                 DisplayLine = "OverHaulers_Verify_Standalone_Display".Translate(statLabel, categoryLabel).ToString(),
                 GearLine = "OverHaulers_Verify_Standalone_Gear".Translate().ToString(),
                 ConfirmLine = "OverHaulers_Verify_Standalone_Confirm".Translate(statLabel).ToString()
             };
         }
 
-        /// <summary>
-        /// Draws the verification guide card within the settings view.
-        /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the verification guide card.</param>
-        /// <param name="guide">The verification guide data to be displayed.</param>
-        /// <param name="localY">The local Y-coordinate for positioning the card, passed by reference to allow vertical stacking.</param>
-        private static void DrawVerificationGuideCard(Rect inner, in VerificationGuide guide, ref float localY)
+        private static void DrawVerificationGuideCard(ref SettingsLayout ui, in VerificationGuide guide)
         {
             float padding = 8f;
-            float textWidth = inner.width - (padding * 2f);
-            float prefixWidth = 100f;
+            float textWidth = ui.Width - (padding * 2f);
+            float prefixWidth = 110f;
             float valueWidth = textWidth - prefixWidth;
 
-            // Safe Order-of-Operations: Font must be explicitly Tiny during height measurement
             GameFont origFont = Text.Font;
             Color origColor = GUI.color;
             Text.Font = GameFont.Tiny;
@@ -297,18 +167,18 @@ namespace OverHaulers
 
             try
             {
-                hDisplay = Mathf.Max(18f, Text.CalcHeight(guide.DisplayLine, valueWidth));
-                hGear = Mathf.Max(18f, Text.CalcHeight(guide.GearLine, valueWidth));
-                hConfirm = Mathf.Max(18f, Text.CalcHeight(guide.ConfirmLine, valueWidth));
+                hDisplay = Math.Max(18f, Text.CalcHeight(guide.DisplayLine, valueWidth));
+                hGear = Math.Max(18f, Text.CalcHeight(guide.GearLine, valueWidth));
+                hConfirm = Math.Max(18f, Text.CalcHeight(guide.ConfirmLine, valueWidth));
             }
             finally
             {
                 Text.Font = origFont;
             }
 
-            float cardHeight = 26f + hDisplay + hGear + hConfirm + (padding * 2f) + 6f;
+            float cardHeight = 24f + hDisplay + hGear + hConfirm + (padding * 2f) + 6f;
+            Rect cardRect = new Rect(ui.X, ui.Y, ui.Width, cardHeight);
 
-            Rect cardRect = new Rect(inner.x, localY, inner.width, cardHeight);
             Widgets.DrawBoxSolid(cardRect, new Color(0.10f, 0.12f, 0.14f, 0.85f));
             Widgets.DrawHighlightIfMouseover(cardRect);
 
@@ -318,43 +188,28 @@ namespace OverHaulers
             Rect titleRect = new Rect(cardRect.x + padding, curY, textWidth, 20f);
             Text.Font = GameFont.Tiny;
             GUI.color = guide.StatusColor;
-            Widgets.Label(titleRect, $"\u25CF {guide.StatusTitle.ToUpperInvariant()}");
+            Widgets.Label(titleRect, string.Format("● {0}", guide.StatusTitle.ToUpperInvariant()));
             GUI.color = Color.white;
             curY += 22f;
 
-            // Diagnostic Lines
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay, 
-                "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
-
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear, 
-                "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
-
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm, 
-                "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
+            // 3 Verification Lines
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay, "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear, "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm, "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
 
             Text.Font = GameFont.Small;
             GUI.color = origColor;
 
-            localY += cardHeight + 12f;
+            ui.Y += cardHeight + 10f;
         }
 
-        /// <summary>
-        /// Draws a single verification line within the settings view.
-        /// </summary>
-        /// <param name="startX">The starting X-coordinate for the verification line.</param>
-        /// <param name="curY">The current Y-coordinate for positioning the line, passed by reference to allow vertical stacking.</param>
-        /// <param name="prefixWidth">The width allocated for the prefix text.</param>
-        /// <param name="valueWidth">The width allocated for the value text.</param>
-        /// <param name="lineHeight">The height of the line.</param>
-        /// <param name="prefix">The prefix text to be displayed (usually a label or bullet point).</param>
-        /// <param name="text">The main text content of the verification line.</param>
         private static void DrawVerificationLine(float startX, ref float curY, float prefixWidth, float valueWidth, float lineHeight, string prefix, string text)
         {
             Rect prefixRect = new Rect(startX, curY, prefixWidth, lineHeight);
             Rect textRect = new Rect(startX + prefixWidth, curY, valueWidth, lineHeight);
 
-            GUI.color = SettingsViewUtilities.DescriptionTextColor;
-            Widgets.Label(prefixRect, $"\u2022 {prefix}");
+            GUI.color = SettingsLayout.MutedTextColor;
+            Widgets.Label(prefixRect, string.Format("• {0}", prefix));
             GUI.color = Color.white;
             Widgets.Label(textRect, text);
 
@@ -363,61 +218,106 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. PRIVATE UI DRAW HELPERS
+        #region 3. TOP-LEVEL MODE SELECTION (AUTO VS STANDALONE)
 
-        /// <summary>
-        /// Draws a sub-header for a group within the settings view.
-        /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the sub-header.</param>
-        /// <param name="text">The text of the sub-header to be displayed.</param>
-        /// <param name="localY">The local Y-coordinate for positioning the sub-header, passed by reference to allow vertical stacking.</param>
-        private static void DrawGroupSubHeader(Rect inner, string text, ref float localY)
+        private static void DrawTopLevelModeSelection(ref SettingsLayout ui, Settings settings)
         {
-            Rect rect = new Rect(inner.x, localY, inner.width, 20f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = new Color(1f, 0.8f, 0.3f);
-            Widgets.Label(rect, text.ToUpperInvariant());
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
-            localY += 22f;
+            string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
+            bool isAutoSelected = (currentKey == IntegrationPipeline.PresentationKeyAuto);
+            bool isStandaloneSelected = (currentKey == IntegrationPipeline.PresentationKeyNative);
+
+            // Option A: Automatic Stat Adoption (Recommended)
+            Rect autoRowRect = new Rect(ui.X, ui.Y, ui.Width, 24f);
+            if (DrawCustomRadioRow(autoRowRect, "OverHaulers_PresentationMode_Auto".Translate().ToString(), isAutoSelected))
+            {
+                settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
+                IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+            }
+            TooltipHandler.TipRegion(autoRowRect, "OverHaulers_PresentationMode_Auto_Tooltip".Translate().ToString());
+            ui.Y += 28f;
+
+            // Option B: Force Native Standalone Card
+            Rect standaloneRowRect = new Rect(ui.X, ui.Y, ui.Width, 24f);
+            if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_PresentationMode_Native".Translate().ToString(), isStandaloneSelected))
+            {
+                settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
+                IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+            }
+            TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_PresentationMode_Native_Tooltip".Translate().ToString());
+            ui.Y += 32f;
         }
 
-        /// <summary>
-        /// Draws a note indicating that a group is empty within the settings view.
-        /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the note.</param>
-        /// <param name="note">The text of the note to be displayed.</param>
-        /// <param name="localY">The local Y-coordinate for positioning the note, passed by reference to allow vertical stacking.</param>
-        private static void DrawEmptyGroupNote(Rect inner, string note, ref float localY)
+        #endregion
+
+        #region 4. DECLARATIVE XML PROFILES
+
+        private static void DrawXmlProfilesSection(ref SettingsLayout ui, Settings settings)
         {
-            Rect rect = new Rect(inner.x + 12f, localY, inner.width - 12f, 20f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = SettingsViewUtilities.DescriptionTextColor;
-            Widgets.Label(rect, $"\u2014 {note}");
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
-            localY += 22f;
+            string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
+            List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
+
+            List<MassCapacityStatProfileDef> builtInProfiles = new List<MassCapacityStatProfileDef>();
+            List<MassCapacityStatProfileDef> thirdPartyProfiles = new List<MassCapacityStatProfileDef>();
+
+            if (allXmlProfiles != null)
+            {
+                for (int i = 0; i < allXmlProfiles.Count; i++)
+                {
+                    MassCapacityStatProfileDef def = allXmlProfiles[i];
+                    if (def.modContentPack == OverHaulers.ContentPack)
+                    {
+                        builtInProfiles.Add(def);
+                    }
+                    else
+                    {
+                        thirdPartyProfiles.Add(def);
+                    }
+                }
+            }
+
+            ui.SubHeader("OverHaulers_ProfileGroup_BuiltIn".Translate().ToString());
+
+            if (builtInProfiles.Count == 0)
+            {
+                DrawEmptyGroupNote(ref ui, "OverHaulers_ProfileGroup_None".Translate().ToString());
+            }
+            else
+            {
+                for (int i = 0; i < builtInProfiles.Count; i++)
+                {
+                    DrawXmlProfileEntry(ref ui, builtInProfiles[i], currentKey, settings);
+                }
+            }
+
+            if (thirdPartyProfiles.Count > 0)
+            {
+                ui.Gap(4f);
+                ui.SubHeader("OverHaulers_ProfileGroup_ThirdParty".Translate().ToString());
+                for (int i = 0; i < thirdPartyProfiles.Count; i++)
+                {
+                    DrawXmlProfileEntry(ref ui, thirdPartyProfiles[i], currentKey, settings);
+                }
+            }
+
+            ui.Gap(6f);
         }
 
-        /// <summary>
-        /// Draws the UI elements for an XML stat profile entry within the settings view.
-        /// </summary>
-        private static void DrawXmlProfileEntry(Rect inner, MassCapacityStatProfileDef def, string currentKey, Settings settings, ref float localY)
+        private static void DrawXmlProfileEntry(ref SettingsLayout ui, MassCapacityStatProfileDef def, string currentKey, Settings settings)
         {
             bool isActive = def.IsValidAndActive(out _);
             string expectedKey = IntegrationPipeline.PresentationKeyXmlPrefix + def.defName;
-            bool isSelected = currentKey == expectedKey;
+            bool isSelected = (currentKey == expectedKey);
 
-            Rect rowRect = new Rect(inner.x + 8f, localY, inner.width - 8f, 24f);
+            Rect rowRect = new Rect(ui.X + 8f, ui.Y, ui.Width - 8f, 24f);
 
             if (isSelected)
             {
-                Widgets.DrawBoxSolid(rowRect.ExpandedBy(2f, 1f), SettingsViewUtilities.DarkTargetHighlightColor);
+                Widgets.DrawBoxSolid(rowRect.ExpandedBy(2f, 1f), new Color(1f, 1f, 1f, 0.05f));
             }
 
             float badgeWidth = 130f;
             Rect radioRect = new Rect(rowRect.x, rowRect.y, rowRect.width - badgeWidth - 4f, rowRect.height);
-            Rect badgeRect = new Rect(rowRect.x + rowRect.width - badgeWidth, rowRect.y + 2f, badgeWidth, rowRect.height);
+            Rect badgeRect = new Rect(rowRect.xMax - badgeWidth, rowRect.y + 2f, badgeWidth, rowRect.height);
 
             string profileName = def.label ?? def.defName;
             string profileLabel = "OverHaulers_ProfileLabel_StatFormat".Translate(profileName, def.statDefName).ToString();
@@ -431,83 +331,136 @@ namespace OverHaulers
                 }
 
                 Text.Font = GameFont.Tiny;
+                Color origColor = GUI.color;
                 GUI.color = isSelected ? settings.colorBoosted : settings.colorHealthy;
                 Widgets.Label(badgeRect, "OverHaulers_ModActive".Translate().ToString());
-                GUI.color = Color.white;
+                GUI.color = origColor;
                 Text.Font = GameFont.Small;
             }
             else
             {
+                bool prevGui = GUI.enabled;
                 GUI.enabled = false;
                 DrawCustomRadioRow(radioRect, profileLabel, false);
 
                 Text.Font = GameFont.Tiny;
-                GUI.color = SettingsViewUtilities.DescriptionTextColor;
+                Color origColor = GUI.color;
+                GUI.color = SettingsLayout.MutedTextColor;
                 Widgets.Label(badgeRect, "OverHaulers_ModNotLoaded".Translate().ToString());
-                GUI.color = Color.white;
+                GUI.color = origColor;
                 Text.Font = GameFont.Small;
-                GUI.enabled = true;
+                GUI.enabled = prevGui;
             }
 
-            localY += 26f;
+            ui.Y += 26f;
         }
 
-        /// <summary>
-        /// Draws the UI elements for a discovered CIL patch within the settings view.
-        /// </summary>
-        /// <param name="inner">The inner rectangle defining the drawing area for the patch UI elements.</param>
-        /// <param name="patch">The discovered CIL patch information to be displayed.</param>
-        /// <param name="currentKey">The currently selected presentation key for comparison.</param>
-        /// <param name="settings">The current settings object containing user preferences and selections.</param>
-        /// <param name="localY">The local Y-coordinate for positioning the UI elements, passed by reference to allow vertical stacking.</param>
-        private static void DrawCilDiscoveredPatch(Rect inner, DiscoveredPatchInfo patch, string currentKey, Settings settings, ref float localY)
+        #endregion
+
+        #region 5. DYNAMIC BYTECODE DISCOVERIES (CIL SCANNER)
+
+        private static void DrawCilScanningSection(ref SettingsLayout ui, Settings settings)
         {
-            Rect patchHeaderRect = new Rect(inner.x + 8f, localY, inner.width - 8f, 22f);
+            string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
+
+            ui.SubHeader("OverHaulers_ProfileGroup_Cil".Translate().ToString());
+
+            if (!IntegrationPipeline.HasScannedThisSession)
+            {
+                ui.DescriptionKey("OverHaulers_CilScanIdleDesc");
+                ui.Gap(4f);
+
+                if (ui.Button("OverHaulers_ScanPatchesBtn".Translate().ToString(), 280f))
+                {
+                    IntegrationPipeline.TriggerManualScan();
+                }
+            }
+            else
+            {
+                // Scan Completed Indicator
+                Rect scanDoneRect = new Rect(ui.X, ui.Y, Math.Min(320f, ui.Width), 26f);
+                bool prevGui = GUI.enabled;
+                GUI.enabled = false;
+                Widgets.ButtonText(scanDoneRect, "OverHaulers_ScanPatchesDone".Translate(IntegrationPipeline.DiscoveredPatches.Count).ToString());
+                GUI.enabled = prevGui;
+                ui.Y += 30f;
+
+                if (IntegrationPipeline.DiscoveredPatches.Count == 0)
+                {
+                    DrawEmptyGroupNote(ref ui, "OverHaulers_NoExternalPatchesDiscovered".Translate().ToString());
+                }
+                else
+                {
+                    for (int p = 0; p < IntegrationPipeline.DiscoveredPatches.Count; p++)
+                    {
+                        DrawCilDiscoveredPatch(ref ui, IntegrationPipeline.DiscoveredPatches[p], currentKey, settings);
+                    }
+                }
+            }
+        }
+
+        private static void DrawCilDiscoveredPatch(ref SettingsLayout ui, DiscoveredPatchInfo patch, string currentKey, Settings settings)
+        {
+            Rect patchHeaderRect = new Rect(ui.X + 8f, ui.Y, ui.Width - 8f, 22f);
             Text.Font = GameFont.Tiny;
-            GUI.color = SettingsViewUtilities.DescriptionTextColor;
+            Color origColor = GUI.color;
+            GUI.color = SettingsLayout.MutedTextColor;
             Widgets.Label(patchHeaderRect, "OverHaulers_PatchHeader_OwnerFormat".Translate(patch.Owner, patch.PrimaryType).ToString());
-            GUI.color = Color.white;
+            GUI.color = origColor;
             Text.Font = GameFont.Small;
-            localY += 22f;
+            ui.Y += 22f;
 
             if (patch.CandidateStats != null && patch.CandidateStats.Count > 0)
             {
                 for (int s = 0; s < patch.CandidateStats.Count; s++)
                 {
                     StatDef stat = patch.CandidateStats[s];
-                    string targetKey = $"{IntegrationPipeline.PresentationKeyCilPrefix}{patch.Owner}:{stat.defName}";
-                    bool isSelected = currentKey == targetKey;
+                    string targetKey = string.Format("{0}{1}:{2}", IntegrationPipeline.PresentationKeyCilPrefix, patch.Owner, stat.defName);
+                    bool isSelected = (currentKey == targetKey);
 
                     string suggested = (s == 0) ? (" - " + "OverHaulers_SuggestedStat".Translate().ToString()).Colorize(settings.colorBoosted) : "";
-                    string statLabel = $"{stat.defName} ({stat.LabelCap}){suggested}";
+                    string statLabel = string.Format("{0} ({1}){2}", stat.defName, stat.LabelCap, suggested);
 
-                    Rect statRadioRect = new Rect(inner.x + 24f, localY, inner.width - 24f, 24f);
+                    Rect statRadioRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 24f);
                     if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
                     {
                         settings.selectedPresentationKey = targetKey;
                         IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                     }
-                    localY += 24f;
+                    ui.Y += 24f;
                 }
             }
             else
             {
-                // Clean empty-state note for mods that patch without creating caravan stats (e.g. Genetics Rim)
-                Rect emptyRect = new Rect(inner.x + 24f, localY, inner.width - 24f, 18f);
+                Rect emptyRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 18f);
                 Text.Font = GameFont.Tiny;
-                GUI.color = SettingsViewUtilities.DescriptionTextColor;
+                Color origColor2 = GUI.color;
+                GUI.color = SettingsLayout.MutedTextColor;
                 Widgets.Label(emptyRect, "OverHaulers_NoCandidateStatsInPatch".Translate().ToString());
-                GUI.color = Color.white;
+                GUI.color = origColor2;
                 Text.Font = GameFont.Small;
-                localY += 20f;
+                ui.Y += 20f;
             }
 
-            localY += 6f;
+            ui.Y += 6f;
         }
 
-        /// <summary>
-        /// Resolves the appropriate badge label based on the current stat presentation binding.
-        /// </summary>
+        #endregion
+
+        #region 6. PRIVATE UI HELPERS
+
+        private static void DrawEmptyGroupNote(ref SettingsLayout ui, string note)
+        {
+            Rect rect = new Rect(ui.X + 12f, ui.Y, ui.Width - 12f, 20f);
+            Text.Font = GameFont.Tiny;
+            Color origColor = GUI.color;
+            GUI.color = SettingsLayout.MutedTextColor;
+            Widgets.Label(rect, string.Format("— {0}", note));
+            GUI.color = origColor;
+            Text.Font = GameFont.Small;
+            ui.Y += 22f;
+        }
+
         private static string ResolveStatPresentationBadge()
         {
             if (!IntegrationPipeline.IsForeignStatAdopted)
@@ -515,13 +468,12 @@ namespace OverHaulers
                 return "OverHaulers_Badge_NativeCard".Translate().ToString();
             }
 
-            string key = OverHaulers.settings?.selectedPresentationKey ?? "";
-            if (key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix))
+            string key = OverHaulers.settings != null ? OverHaulers.settings.selectedPresentationKey : "";
+            if (!string.IsNullOrEmpty(key) && key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix))
             {
                 return "OverHaulers_Badge_AdoptedBytecode".Translate().ToString();
             }
 
-            // Check if active stat matches any loaded XML definition
             List<MassCapacityStatProfileDef> xmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
             if (xmlProfiles != null)
             {
@@ -538,9 +490,6 @@ namespace OverHaulers
             return "OverHaulers_Badge_AdoptedStat".Translate().ToString();
         }
 
-        /// <summary>
-        /// Renders an accessible left-aligned radio button with label and full font descender clearance.
-        /// </summary>
         private static bool DrawCustomRadioRow(Rect rect, string label, bool chosen)
         {
             float radioSize = 20f;

@@ -10,9 +10,9 @@
   <OverHaulers_None>None</OverHaulers_None>
 
   <OverHaulers_Tab_Tuning>1. Tuning &amp; Anatomy</OverHaulers_Tab_Tuning>
-  <OverHaulers_Tab_TestBench>2. Test Bench</OverHaulers_Tab_TestBench>
-  <OverHaulers_Tab_Integration>3. Integration &amp; Diagnostics</OverHaulers_Tab_Integration>
-  <OverHaulers_Tab_Accessibility>4. Accessibility &amp; UI</OverHaulers_Tab_Accessibility>
+  <OverHaulers_Tab_Integration>2. Integration &amp; Compatibility</OverHaulers_Tab_Integration>
+  <OverHaulers_Tab_Accessibility>3. Accessibility &amp; UI</OverHaulers_Tab_Accessibility>
+  <OverHaulers_ToolingDialog_LaunchButton>Dev Panel ▼</OverHaulers_ToolingDialog_LaunchButton>
 
   <!-- ========================================================================= -->
   <!-- [SEC-01] GLOBAL MODIFIERS & SCALING INTENSITY                             -->
@@ -63,9 +63,6 @@
   <OverHaulers_Prefix_BloodPumping>Blood Pump:</OverHaulers_Prefix_BloodPumping>
   <OverHaulers_Prefix_Moving>Moving:</OverHaulers_Prefix_Moving>
   <OverHaulers_Prefix_Manipulation>Manipulation:</OverHaulers_Prefix_Manipulation>
-
-  <OverHaulers_BoostShort>[+] Boost ({0})</OverHaulers_BoostShort>
-  <OverHaulers_DeficitShort>[-] Deficit ({0})</OverHaulers_DeficitShort>
 
   <!-- ========================================================================= -->
   <!-- [SEC-05] TORSO MACRO TOPOLOGY & AXIAL COLUMN                              -->

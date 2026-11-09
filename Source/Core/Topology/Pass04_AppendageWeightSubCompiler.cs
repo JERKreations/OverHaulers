@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 using Verse;
 
 namespace OverHaulers
@@ -236,7 +236,7 @@ namespace OverHaulers
                 case 3: return baseVal * baseVal * baseVal;
                 case 4: return baseVal * baseVal * baseVal * baseVal;
                 default:
-                    if (exp < 0) return Mathf.Pow(baseVal, exp);
+                    if (exp < 0) return (float)Math.Pow(baseVal, exp);
                     float result = 1.0f;
                     float current = baseVal;
                     while (exp > 0)

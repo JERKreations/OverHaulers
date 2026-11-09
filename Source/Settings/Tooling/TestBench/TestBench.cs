@@ -213,8 +213,7 @@ namespace OverHaulers
             isInitialized = true;
 
             // 4. Flush UI layout caches and mark Test Bench dirty for immediate recalculation
-            SettingsViewUtilities.ClearInputBuffers();
-            SettingsViewUtilities.ClearHeightCache();
+            SettingsLayout.ClearInputBuffers();
             MarkDirty();
 
             watch.Stop();

@@ -8,12 +8,6 @@
   <OverHaulers_TestBenchSubject>Subject: {0} ▼</OverHaulers_TestBenchSubject>
   <OverHaulers_ActiveBodyTopology>Topology: {0} ({1} parts) • Mod: {2}</OverHaulers_ActiveBodyTopology>
 
-  <OverHaulers_RecompileData>Recompile Data</OverHaulers_RecompileData>
-  <OverHaulers_RecompileData_Tooltip>Flushes and fully recompiles all species skeletal topologies, XML mod extensions, medical recipe catalogs, and test subjects in real-time.</OverHaulers_RecompileData_Tooltip>
-
-  <OverHaulers_OpenDumpsFolder>Open Folder</OverHaulers_OpenDumpsFolder>
-  <OverHaulers_OpenDumpsFolder_Tooltip>Opens the date-cataloged DiagnosticDumps sub directory containing export files, or if date-cataloged dumps do not exist, opens the root DiagnosticDumps directory.</OverHaulers_OpenDumpsFolder_Tooltip>
-  
   <OverHaulers_DumpBtn>Dump ▼</OverHaulers_DumpBtn>
   <OverHaulers_DumpGrouping_Tooltip>Export detailed InfoCard and grouping breakdowns to a structured text or XML file on disk.</OverHaulers_DumpGrouping_Tooltip>
   <OverHaulers_DumpTopology_Tooltip>Export canonical skeletal topologies and load-bearing weight vectors to a structured text or XML file on disk.</OverHaulers_DumpTopology_Tooltip>

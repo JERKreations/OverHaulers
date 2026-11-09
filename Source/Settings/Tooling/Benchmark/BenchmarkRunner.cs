@@ -288,7 +288,7 @@ namespace OverHaulers
             }
 
             float snapshotUnits = stage == Stage.SnapshotTable ? SnapshotTableBenchmark.Progress01 * SnapshotTableProgressUnits : 0f;
-            Progress = Mathf.Clamp01((unitsDone + snapshotUnits) / unitsTotal);
+            Progress = Math.Min(1f, Math.Max(0f, (unitsDone + snapshotUnits) / unitsTotal));
         }
 
         /// <summary>

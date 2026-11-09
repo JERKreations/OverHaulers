@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using UnityEngine;
 using RimWorld;
@@ -5,7 +6,7 @@ using Verse;
 
 namespace OverHaulers
 {
-    public static partial class SettingsView
+    public partial class ToolingDialog
     {
         #region 1. [DIAG-03] BENCHMARK PRESENTATION CACHE
 
@@ -186,11 +187,8 @@ namespace OverHaulers
         #region 2. [DIAG-03] BENCHMARK BLOCK DRAWER
 
         /// <summary>
-        /// Draws the in-game performance benchmark block at the bottom of the Diagnostics section.
+        /// Draws the in-game performance benchmark block.
         /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section box.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <returns>The updated Y position after drawing the block.</returns>
         public static float DrawBenchmarkBlock(Rect inner, float localY)
         {
             Text.Font = GameFont.Small;
@@ -206,7 +204,7 @@ namespace OverHaulers
 
             // Action row: Run/Cancel, Copy, Export, Open folder
             float gap = 8f;
-            float buttonWidth = Mathf.Min(150f, (inner.width - gap * 3f) / 4f);
+            float buttonWidth = Math.Min(150f, (inner.width - gap * 3f) / 4f);
             Rect runRect = new Rect(inner.x, localY, buttonWidth, 28f);
             Rect copyRect = new Rect(runRect.xMax + gap, localY, buttonWidth, 28f);
             Rect exportRect = new Rect(copyRect.xMax + gap, localY, buttonWidth, 28f);
@@ -246,7 +244,7 @@ namespace OverHaulers
                 GUI.enabled = originalEnabled;
             }
 
-            if (Widgets.ButtonText(folderRect, SettingsViewUtilities.CachedText("OverHaulers_OpenDumpsFolder")))
+            if (Widgets.ButtonText(folderRect, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_OpenDumpsFolder")))
             {
                 DiagnosticExportUtility.OpenExportDirectory();
             }
@@ -279,12 +277,6 @@ namespace OverHaulers
             return localY + 6f;
         }
 
-        /// <summary>
-        /// Draws the progress bar and its status text while the benchmark is running.
-        /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <returns>The updated Y position.</returns>
         private static float DrawBenchmarkProgress(Rect inner, float localY)
         {
             Rect barRect = new Rect(inner.x, localY, inner.width, 20f);
@@ -306,14 +298,6 @@ namespace OverHaulers
             return localY + 26f;
         }
 
-        /// <summary>
-        /// Draws a single-line status message in the given colour.
-        /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <param name="text">The message to draw.</param>
-        /// <param name="color">The text colour.</param>
-        /// <returns>The updated Y position.</returns>
         private static float DrawBenchmarkStatusLine(Rect inner, float localY, string text, Color color)
         {
             Text.Font = GameFont.Tiny;
@@ -328,12 +312,6 @@ namespace OverHaulers
 
         #region 3. [DIAG-03] BENCHMARK RESULT TABLES
 
-        /// <summary>
-        /// Draws the startup line, the solver table, the re-solve estimate table and the snapshot table results from cached strings.
-        /// </summary>
-        /// <param name="inner">The inner rectangle of the diagnostics section.</param>
-        /// <param name="localY">The current Y position within the section.</param>
-        /// <returns>The updated Y position.</returns>
         private static float DrawBenchmarkResults(Rect inner, float localY)
         {
             RefreshBenchmarkCacheIfStale();
@@ -393,9 +371,6 @@ namespace OverHaulers
             return localY;
         }
 
-        /// <summary>
-        /// Draws the background snapshot table results: the single-thread read cost line and the reader-versus-writer scenario table.
-        /// </summary>
         private static float DrawBenchmarkSnapshotTable(Rect inner, float localY)
         {
             Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), SettingsViewUtilities.CachedText("OverHaulers_Benchmark_TableHeader"));
@@ -421,9 +396,6 @@ namespace OverHaulers
             return localY;
         }
 
-        /// <summary>
-        /// Draws one table row; the first column is left-aligned and the rest right-aligned.
-        /// </summary>
         private static void DrawBenchmarkRow(Rect inner, float y, float[] fractions, string[] cells)
         {
             float x = inner.x;
