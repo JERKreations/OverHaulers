@@ -80,16 +80,12 @@ namespace OverHaulers
         /// Decoupled from Presentation and Settings layers.
         /// </summary>
         /// <param name="onlyCaravanCapable">If true, filters species sweeps to caravan-capable fauna.</param>
-        /// <param name="sweepContext">Human-readable label for the batch sweep summary log.</param>
-        public static void ReinitializeRuntime(bool onlyCaravanCapable = true, string sweepContext = null)
+        public static void ReinitializeRuntime(bool onlyCaravanCapable = true)
         {
-            var watch = System.Diagnostics.Stopwatch.StartNew();
+            IsCalibrationSweepDone = false;
             LifecycleHooks.RaiseRuntimeResetting();
 
-            // Open Recompile Activity Journal
-            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_RecompileHeader".Translate("...").ToString());
-
-            // 1. Flush Core caches and medical classifier caches (triggers OnCacheCleared downward to Presentation)
+            // 1. Flush Core caches and medical classifier caches. Keep cache-clear callbacks from warming pawns before recompilation.
             PawnDataRegistry.ClearAllCaches();
             MedicalClassifier.ClearStaticCaches();
 
@@ -99,10 +95,7 @@ namespace OverHaulers
 
             // 3. Reset and re-run baseline calibration sweep
             SpeciesBaselineCalibration.Reset();
-            string context = !string.IsNullOrEmpty(sweepContext)
-                ? sweepContext
-                : "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, context);
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable);
 
             // 4. Re-index medical surgery and implant catalog
             MedicalRecipeCatalog.ClearAndReinitialize();
@@ -110,12 +103,6 @@ namespace OverHaulers
             // 5. Mark calibration ready and proactively re-warm all active pawns
             IsCalibrationSweepDone = true;
             WarmupActivePawns();
-
-            watch.Stop();
-
-            // Update headline with final total duration and dispatch unified report
-            OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_RecompileHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
-            OHLog.ActivityJournal.Dispatch();
         }
         #endregion
 
@@ -310,9 +297,9 @@ namespace OverHaulers
             // 1. Clear all cached pawn data, presentation models, and UI layout typography
             int snapshotPurged = MassSnapshotCache.OccupiedSlotsCount;
             PawnDataRegistry.ClearAllCaches();
-            OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_SnapshotReset".Translate(
-                MassSnapshotCache.TableCapacity, 
-                snapshotPurged
+            OHLog.ActivityJournal.RecordBullet("OverHaulers_Event_Snapshot_Cleared".Translate(
+                snapshotPurged,
+                MassSnapshotCache.TableCapacity
             ).ToString());
 
             int presPurged = DetailedModelRegistry.ActiveEntryCount;
@@ -361,7 +348,7 @@ namespace OverHaulers
             OverHaulersLifecycle.IsCalibrationSweepDone = true;
 
             // BATCH PRE-CALIBRATION SWEEP: Automatically routes bullet into active ActivityJournal
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, "OverHaulers_Log_Calibration_Context_WorldLoad".Translate().ToString());
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true);
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
             OverHaulersLifecycle.WarmupActivePawns();

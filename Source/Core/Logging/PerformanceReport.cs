@@ -68,27 +68,20 @@ namespace OverHaulers
         /// and probe depth. Automatically routes into the active ActivityJournal during engine bootstrap.
         /// </summary>
         public static void SnapshotTableInitialized(int capacity, bool dynamic, int min, int max, int probeDepth) =>
-            OHLog.Event("OverHaulers_Journal_SnapshotInitialized", "OverHaulers_Log_Snapshot_Initialized",
+            OHLog.Event("OverHaulers_Event_Snapshot_Initialized",
                 capacity, dynamic ? "Dynamic" : "Static", min, max, probeDepth);
 
-        /// <summary>
-        /// Logs the event of the snapshot table scaling up, including old and new capacities, current occupancy, and load percentage.
-        /// </summary>
-        public static void SnapshotTableScaledUp(int oldCapacity, int newCapacity, int occupancy, float loadPercent) =>
-            OHLog.Info("OverHaulers_Log_Snapshot_ScaledUp", oldCapacity, newCapacity, occupancy, loadPercent.ToString("F1"));
+        /// <summary>Logs a snapshot table capacity change with its previous occupancy and load, routing it into an active journal.</summary>
+        public static void SnapshotTableCapacityChanged(int oldCapacity, int newCapacity, int occupancy, float loadPercent) =>
+            OHLog.Event("OverHaulers_Event_Snapshot_ScaleEvent",
+                oldCapacity, newCapacity, occupancy, loadPercent.ToString("F1"));
 
         /// <summary>
-        /// Logs the event of the snapshot table contracting, including old and new capacities, current occupancy, and load percentage.
-        /// </summary>
-        public static void SnapshotTableContracted(int oldCapacity, int newCapacity, int occupancy, float loadPercent) =>
-            OHLog.Info("OverHaulers_Log_Snapshot_Contracted", oldCapacity, newCapacity, occupancy, loadPercent.ToString("F1"));
-
-        /// <summary>
-        /// Logs the event of the snapshot table being flushed, including the number of cleared entries and the restored capacity.
+        /// Logs a snapshot table clear, including the number of removed entries and the restored capacity.
         /// Suppressed when an ActivityJournal session is active to prevent duplicate logging during world load.
         /// </summary>
-        public static void SnapshotTableFlushed(int clearedCount, int restoredCapacity) =>
-            OHLog.InfoUnlessJournaled("OverHaulers_Log_Snapshot_Flushed", clearedCount, restoredCapacity);
+        public static void SnapshotTableCleared(int clearedCount, int restoredCapacity) =>
+            OHLog.InfoUnlessJournaled("OverHaulers_Event_Snapshot_Cleared", clearedCount, restoredCapacity);
 
         #endregion
 
@@ -147,7 +140,7 @@ namespace OverHaulers
         #region 5. CUMULATIVE REPORT
 
         /// <summary>
-        /// Compiles and dispatches the localized cumulative performance report to the RimWorld console log.
+        /// Compiles the localized cumulative performance report and dispatches it through the shared log sink.
         /// Synchronized via bufferLock to ensure thread-safe StringBuilder assembly and trace buffer clearing.
         /// </summary>
         /// <param name="s">The telemetry snapshot containing all aggregated performance metrics for the reporting interval.</param>
@@ -159,7 +152,9 @@ namespace OverHaulers
 
                 try
                 {
-                    pooledReportBuilder.Append("OverHaulers_Log_PerformanceReportHeader".Translate(s.ElapsedHours).ToString());
+                    OHLog.AppendReportHeader(
+                        pooledReportBuilder,
+                        "OverHaulers_Log_PerformanceReportHeader".Translate(s.ElapsedHours).ToString());
 
                     // 1. Query Metrics
                     if (isLogQueryMetricsActive)
@@ -278,7 +273,7 @@ namespace OverHaulers
                         pooledReportBuilder.Append("OverHaulers_Log_EvictedPawnsBuffer".Translate(pendingEvictedPawnIds.Count, idsFormatted).ToString());
                     }
 
-                    Log.Message(pooledReportBuilder.ToString());
+                    OHLog.DispatchLogMessage(pooledReportBuilder.ToString());
                 }
                 finally
                 {

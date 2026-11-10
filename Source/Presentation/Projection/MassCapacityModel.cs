@@ -41,7 +41,7 @@ namespace OverHaulers
         public float FinalCapacity { get; set; }
 
         /// <summary>[VIEW-03] Unified deduplicated list of active systemic medical ailment labels.</summary>
-        public UniqueList<string> Ailments { get; } = new UniqueList<string>(16);
+        public UniqueList<string> Ailments { get; } = new UniqueList<string>();
 
         /// <summary>[VIEW-03 & VIEW-04] List of evaluated top-level visual body part view nodes.</summary>
         public List<PartViewNode> EvaluatedParts { get; set; } = new List<PartViewNode>();

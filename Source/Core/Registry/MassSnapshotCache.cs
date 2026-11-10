@@ -19,7 +19,11 @@ namespace OverHaulers
 
         #region 2. STATIC STATE & BACKING INSTANCE
 
-        private static readonly SnapshotTable liveTable = new SnapshotTable(SnapshotTable.DefaultCapacity, forwardTelemetry: true);
+        private static readonly SnapshotTable liveTable = new SnapshotTable(
+            SnapshotTable.DefaultCapacity,
+            forwardTelemetry: true,
+            minimumCapacity: SnapshotTable.MinCapacity
+        );
 
         /// <summary>Tracks whether the atomic snapshot table has been primed during engine bootstrap.</summary>
         private static bool isInitialized = false;
@@ -98,6 +102,12 @@ namespace OverHaulers
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <returns>True if evicted; false otherwise.</returns>
         public static bool Evict(int pawnId) => liveTable.Evict(pawnId);
+
+        /// <summary>Begins a main-thread batch of snapshot evictions, deferring table contraction until the batch ends.</summary>
+        public static void BeginEvictionBatch() => liveTable.BeginEvictionBatch();
+
+        /// <summary>Ends a main-thread batch of snapshot evictions and applies any pending contraction once.</summary>
+        public static void EndEvictionBatch() => liveTable.EndEvictionBatch();
 
         #endregion
     }

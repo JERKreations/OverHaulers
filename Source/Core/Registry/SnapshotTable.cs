@@ -7,16 +7,16 @@ namespace OverHaulers
     /// <summary>
     /// [CACHE-03] CONCURRENT MASS SNAPSHOT TABLE
     /// Instance implementation of the atomic registry mapping pawn IDs to Caravan Mass Capacity (kg) physical offsets.
-    /// Operates as a dynamic power-of-two open-addressing table (initializing at 512 slots / 4 KB, exactly one memory page, L1 resident)
-    /// storing aligned 32-bit float offsets. Implements Backward-Shift Deletion (Algorithm R) synchronized via a lock-free
+    /// Operates as a dynamic power-of-two open-addressing table, initialized at <see cref="DefaultCapacity"/> slots and able to contract to its
+    /// configured minimum or grow as needed while storing aligned 32-bit float offsets. Implements Backward-Shift Deletion (Algorithm R) synchronized via a lock-free
     /// Sequence Counter (SeqLock) and Read-Copy-Update (RCU) atomic compound buffer snapshotting.
     /// Guarantees atomic, linearizable, zero-allocation reads for background pathfinding threads.
     /// Resides under Source/Core/Registry/.
     /// </summary>
     /// <remarks>
     /// ARCHITECTURAL DESIGN RATIONALE (ZERO-LOCK ATOMIC CONCURRENCY &amp; DYNAMIC L1 SCALING):
-    /// 1. Dynamic L1-Resident Sizing: Starts at 512 slots (4 KB), residing entirely within the CPU's L1 Data Cache for
-    ///    sub-nanosecond read latency. Scales dynamically (512 &lt;-&gt; 8192) based on load factor watermarks.
+    /// 1. Dynamic L1-Resident Sizing: Starts at <see cref="DefaultCapacity"/> slots, residing within the CPU's L1 Data Cache.
+    ///    Scales between the configured minimum and <see cref="MaxCapacity"/> based on load factor watermarks.
     /// 2. Cache-Aligned Linear Probing (16 Steps): Max linear probe depth is bounded to 16 steps, aligning with a 64-byte L1 cache line fetch.
     /// 3. RCU Compound Buffer Capture: Parallel arrays and their bitwise mask are encapsulated within an immutable TableBuffer instance.
     ///    Readers snapshot this compound reference via an atomic Volatile.Read, mathematically preventing length mismatches,
@@ -27,8 +27,9 @@ namespace OverHaulers
     /// 6. Multiplicative Hashing: Knuth's golden-ratio multiplier uniformly diffuses sequential RimWorld Thing IDs across power-of-two buckets.
     /// 7. Zero-Contention Telemetry: Reader conflict retries, probe step depths, and slot displacements are tracked via gated atomic accumulators.
     ///
-    /// Threading contract: <see cref="WriteState"/>, <see cref="Evict"/> and <see cref="Reset"/> must only be called from one
-    /// thread at a time (the main thread in the live instance); read methods may be called concurrently from any thread.
+    /// Threading contract: <see cref="WriteState"/>, <see cref="Evict"/>, <see cref="BeginEvictionBatch"/>,
+    /// <see cref="EndEvictionBatch"/> and <see cref="Reset"/> must only be called from one thread at a time
+    /// (the main thread in the live instance); read methods may be called concurrently from any thread.
     /// </remarks>
     public sealed class SnapshotTable
     {
@@ -38,7 +39,7 @@ namespace OverHaulers
         public const int DefaultCapacity = 512;
 
         /// <summary>Minimum power-of-two slot count permitted for dynamic tables.</summary>
-        public const int MinCapacity = 256;
+        public const int MinCapacity = 64;
 
         /// <summary>Maximum power-of-two slot count permitted for dynamic tables (64 KB, L2 resident).</summary>
         public const int MaxCapacity = 8192;
@@ -53,10 +54,10 @@ namespace OverHaulers
         private const uint HashMultiplier = 2654435761u;
 
         /// <summary>Load factor threshold triggering power-of-two expansion (65% occupancy).</summary>
-        private const float HighWatermarkRatio = 0.65f;
+        internal const float HighWatermarkRatio = 0.65f;
 
         /// <summary>Load factor threshold triggering power-of-two contraction with wide hysteresis (25% occupancy).</summary>
-        private const float LowWatermarkRatio = 0.25f;
+        internal const float LowWatermarkRatio = 0.25f;
 
         /// <summary>
         /// [CACHE-03] Immutable compound array buffer holding parallel pawn ID and offset arrays.
@@ -103,6 +104,10 @@ namespace OverHaulers
         // Active non-zero slot counter tracking resident entries.
         private int occupiedSlots;
 
+        // Main-thread eviction batch state; contractions are applied once when the outermost batch ends.
+        private int evictionBatchDepth;
+        private bool contractionPending;
+
         // High-water diagnostic throttle flag
         private bool hasLoggedHighWaterWarning;
 
@@ -147,17 +152,26 @@ namespace OverHaulers
         /// <summary>
         /// Creates a new atomic snapshot table.
         /// </summary>
-        /// <param name="capacity">Slot count; must be a power of two and at least twice <see cref="MaxProbeSteps"/>.</param>
+        /// <param name="capacity">Initial slot count; must be a power of two, at least twice <see cref="MaxProbeSteps"/>, and no greater than <see cref="MaxCapacity"/>.</param>
         /// <param name="forwardTelemetry">When true, hit/miss/retry/probe events are reported to <see cref="PerformanceTelemetry"/>.</param>
-        /// <param name="enableDynamicScaling">When true, the table dynamically scales between initial capacity and <see cref="MaxCapacity"/>.</param>
-        public SnapshotTable(int capacity = DefaultCapacity, bool forwardTelemetry = false, bool enableDynamicScaling = true)
+        /// <param name="enableDynamicScaling">When true, the table dynamically scales between minimum capacity and <see cref="MaxCapacity"/>.</param>
+        /// <param name="minimumCapacity">Smallest capacity available to contraction and reset; defaults to <see cref="MinCapacity"/>.</param>
+        public SnapshotTable(int capacity = DefaultCapacity, bool forwardTelemetry = false, bool enableDynamicScaling = true, int minimumCapacity = MinCapacity)
         {
             if (capacity < MaxProbeSteps * 2 || (capacity & (capacity - 1)) != 0)
             {
                 throw new ArgumentException("Capacity must be a power of two and at least " + (MaxProbeSteps * 2) + ".", nameof(capacity));
             }
+            if (capacity > MaxCapacity)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity cannot exceed " + MaxCapacity + ".");
+            }
+            if (minimumCapacity < MaxProbeSteps * 2 || (minimumCapacity & (minimumCapacity - 1)) != 0 || minimumCapacity > capacity)
+            {
+                throw new ArgumentException("Minimum capacity must be a power of two, at least " + (MaxProbeSteps * 2) + ", and no greater than the initial capacity.", nameof(minimumCapacity));
+            }
 
-            this.minConfiguredCapacity = capacity;
+            this.minConfiguredCapacity = minimumCapacity;
             this.forwardTelemetry = forwardTelemetry;
             this.dynamicScalingEnabled = enableDynamicScaling;
             this.activeBuffer = new TableBuffer(capacity);
@@ -165,7 +179,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CACHE-03] Completely flushes the atomic snapshot table on save load or world reset.
-        /// Resets active occupied slot metrics to baseline zero and contracts back to initial capacity.
+        /// Resets active occupied slot metrics to baseline zero and contracts back to the configured minimum capacity.
         /// </summary>
         public void Reset()
         {
@@ -188,10 +202,11 @@ namespace OverHaulers
 
                 occupiedSlots = 0;
                 hasLoggedHighWaterWarning = false;
+                contractionPending = false;
 
                 if (forwardTelemetry && clearedEntries > 0)
                 {
-                    PerformanceReport.SnapshotTableFlushed(clearedEntries, Volatile.Read(ref this.activeBuffer).Capacity);
+                    PerformanceReport.SnapshotTableCleared(clearedEntries, Volatile.Read(ref this.activeBuffer).Capacity);
                 }
             }
             finally
@@ -303,8 +318,51 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Begins a main-thread eviction batch. Capacity contractions are deferred until the outermost batch ends.
+        /// </summary>
+        public void BeginEvictionBatch()
+        {
+            if (evictionBatchDepth == 0)
+            {
+                contractionPending = false;
+            }
+
+            evictionBatchDepth++;
+        }
+
+        /// <summary>
+        /// Ends a main-thread eviction batch and publishes at most one contraction supported by the remaining entries.
+        /// </summary>
+        public void EndEvictionBatch()
+        {
+            if (evictionBatchDepth <= 0)
+            {
+                throw new InvalidOperationException("No SnapshotTable eviction batch is active.");
+            }
+
+            evictionBatchDepth--;
+            if (evictionBatchDepth != 0) return;
+
+            bool shouldContract = contractionPending;
+            contractionPending = false;
+            if (!shouldContract) return;
+
+            // BREAKPOINT ANCHOR: SeqLock Mutation Window
+            Interlocked.Increment(ref tableVersion);
+
+            try
+            {
+                ContractToLoadTarget();
+            }
+            finally
+            {
+                Interlocked.Increment(ref tableVersion);
+            }
+        }
+
+        /// <summary>
         /// [CACHE-03] Explicitly evicts a pawn entry using Backward-Shift Deletion (Algorithm R).
-        /// Handles dynamic power-of-two contraction if low watermark is crossed.
+        /// Contracts immediately outside an eviction batch, or defers contraction until the batch completes.
         /// </summary>
         /// <param name="pawnId">The target pawn's unique ID.</param>
         /// <returns>True if a matching slot was found and cleanly evicted.</returns>
@@ -322,7 +380,14 @@ namespace OverHaulers
 
                 if (evicted && dynamicScalingEnabled && buffer.Capacity > minConfiguredCapacity && occupiedSlots <= (int)(buffer.Capacity * LowWatermarkRatio))
                 {
-                    ResizeInternal(buffer.Capacity >> 1);
+                    if (evictionBatchDepth > 0)
+                    {
+                        contractionPending = true;
+                    }
+                    else
+                    {
+                        ContractToLoadTarget();
+                    }
                 }
 
                 return evicted;
@@ -521,8 +586,34 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Reallocates parallel contiguous primitive arrays and rehashes existing entries under the active SeqLock mutation window.
-        /// Publishes the new buffer atomically via a single Volatile.Write barrier.
+        /// Computes the smallest target allowed by the low-watermark policy and attempts a lossless contraction.
+        /// </summary>
+        private void ContractToLoadTarget()
+        {
+            TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
+            int targetCapacity = buffer.Capacity;
+            if (!dynamicScalingEnabled || targetCapacity <= minConfiguredCapacity ||
+                occupiedSlots > (int)(targetCapacity * LowWatermarkRatio))
+            {
+                return;
+            }
+
+            while (targetCapacity > minConfiguredCapacity &&
+                occupiedSlots <= (int)(targetCapacity * LowWatermarkRatio))
+            {
+                targetCapacity >>= 1;
+            }
+
+            // BREAKPOINT ANCHOR: Single-Publication Contraction After Eviction Burst
+            if (targetCapacity < buffer.Capacity)
+            {
+                ResizeInternal(targetCapacity);
+            }
+        }
+
+        /// <summary>
+        /// Rehashes into private candidate buffers under the active SeqLock mutation window. A contraction retries larger
+        /// capacities when collision clusters cannot fit; no buffer is published unless every entry was rehashed.
         /// </summary>
         /// <param name="newCapacity">The new capacity to resize the table to. Must be a power of two and within configured bounds.</param>
         private void ResizeInternal(int newCapacity)
@@ -536,48 +627,70 @@ namespace OverHaulers
             int[] oldPawnIds = oldBuffer.PawnIds;
             float[] oldOffsets = oldBuffer.Offsets;
 
-            TableBuffer newBuffer = new TableBuffer(newCapacity);
-            int[] newPawnIds = newBuffer.PawnIds;
-            float[] newOffsets = newBuffer.Offsets;
-            uint newMask = newBuffer.Mask;
-            int rehashedCount = 0;
-
-            for (int i = 0; i < oldCapacity; i++)
+            int candidateCapacity = newCapacity;
+            while (true)
             {
-                int id = oldPawnIds[i];
-                if (id <= 0) continue;
+                TableBuffer newBuffer = new TableBuffer(candidateCapacity);
+                int[] newPawnIds = newBuffer.PawnIds;
+                float[] newOffsets = newBuffer.Offsets;
+                uint newMask = newBuffer.Mask;
+                bool fits = true;
 
-                float offset = oldOffsets[i];
-                uint baseSlot = ((uint)id * HashMultiplier) & newMask;
-
-                for (uint step = 0; step < MaxProbeSteps; step++)
+                for (int i = 0; i < oldCapacity; i++)
                 {
-                    uint slot = (baseSlot + step) & newMask;
-                    if (newPawnIds[slot] == 0)
+                    int id = oldPawnIds[i];
+                    if (id <= 0) continue;
+
+                    uint baseSlot = ((uint)id * HashMultiplier) & newMask;
+                    bool inserted = false;
+                    for (uint step = 0; step < MaxProbeSteps; step++)
                     {
-                        newPawnIds[slot] = id;
-                        newOffsets[slot] = offset;
-                        rehashedCount++;
+                        uint slot = (baseSlot + step) & newMask;
+                        if (newPawnIds[slot] == 0)
+                        {
+                            newPawnIds[slot] = id;
+                            newOffsets[slot] = oldOffsets[i];
+                            inserted = true;
+                            break;
+                        }
+                    }
+
+                    if (!inserted)
+                    {
+                        fits = false;
                         break;
                     }
                 }
-            }
 
-            int oldOccupancy = this.occupiedSlots;
-            Volatile.Write(ref this.activeBuffer, newBuffer);
-            this.occupiedSlots = rehashedCount;
+                // BREAKPOINT ANCHOR: Lossless Snapshot Buffer Publication
+                if (fits)
+                {
+                    Volatile.Write(ref this.activeBuffer, newBuffer);
+                    if (forwardTelemetry)
+                    {
+                        float load = ((float)occupiedSlots / oldCapacity) * 100f;
+                        PerformanceReport.SnapshotTableCapacityChanged(oldCapacity, candidateCapacity, occupiedSlots, load);
+                    }
+                    return;
+                }
 
-            if (forwardTelemetry)
-            {
-                float load = oldCapacity > 0 ? ((float)oldOccupancy / oldCapacity) * 100f : 0f;
+                if (newCapacity < oldCapacity && (candidateCapacity << 1) < oldCapacity)
+                {
+                    candidateCapacity <<= 1;
+                    continue;
+                }
+
                 if (newCapacity > oldCapacity)
                 {
-                    PerformanceReport.SnapshotTableScaledUp(oldCapacity, newCapacity, oldOccupancy, load);
+                    throw new InvalidOperationException("SnapshotTable expansion could not rehash all entries within the probe limit.");
                 }
-                else
+
+                if (forwardTelemetry)
                 {
-                    PerformanceReport.SnapshotTableContracted(oldCapacity, newCapacity, oldOccupancy, load);
+                    OHLog.Warn("Registry.SnapshotContraction", null,
+                        "SnapshotTable contraction was deferred because collision clusters exceed the probe limit; all existing snapshots were retained.");
                 }
+                return;
             }
         }
 

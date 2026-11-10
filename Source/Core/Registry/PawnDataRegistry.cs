@@ -588,12 +588,25 @@ namespace OverHaulers
                                 }
                             }
 
-                            for (int i = 0; i < staleKeysScratch.Count; i++)
+                            MassSnapshotCache.BeginEvictionBatch();
+                            try
                             {
-                                EvictCacheEntry(staleKeysScratch[i]);
+                                for (int i = 0; i < staleKeysScratch.Count; i++)
+                                {
+                                    EvictCacheEntry(staleKeysScratch[i]);
+                                }
                             }
-
-                            staleKeysScratch.Clear();
+                            finally
+                            {
+                                try
+                                {
+                                    MassSnapshotCache.EndEvictionBatch();
+                                }
+                                finally
+                                {
+                                    staleKeysScratch.Clear();
+                                }
+                            }
                         }
                     }
                     finally
@@ -715,7 +728,7 @@ namespace OverHaulers
         {
             if (!UnityData.IsInMainThread)
             {
-                throw new InvalidOperationException($"[Over Haulers] Thread-safety violation: {context} must be executed exclusively on the main thread.");
+                throw new InvalidOperationException($"{OHLog.LogPrefix} Thread-safety violation: {context} must be executed exclusively on the main thread.");
             }
         }
 

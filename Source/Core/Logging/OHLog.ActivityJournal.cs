@@ -128,7 +128,7 @@ namespace OverHaulers
                     }
                     else
                     {
-                        Log.Message($"[Over Haulers] {bulletText}");
+                        DispatchLogMessage(bulletText);
                     }
                 }
             }
@@ -168,9 +168,7 @@ namespace OverHaulers
 
                 try
                 {
-                    journalBuilder.Append("[Over Haulers] ==== ");
-                    journalBuilder.Append(activeHeader);
-                    journalBuilder.Append(" ====");
+                    AppendReportHeader(journalBuilder, activeHeader);
 
                     for (int i = 0; i < pendingBullets.Count; i++)
                     {
@@ -179,7 +177,7 @@ namespace OverHaulers
                         journalBuilder.Append(pendingBullets[i]);
                     }
 
-                    Log.Message(journalBuilder.ToString());
+                    DispatchLogMessage(journalBuilder.ToString());
                 }
                 finally
                 {

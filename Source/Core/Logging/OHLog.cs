@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Text;
 using Verse;
 
 namespace OverHaulers
@@ -15,6 +16,9 @@ namespace OverHaulers
     public static partial class OHLog
     {
         #region 1. [DIAG-07] DYNAMIC ATOMIC THROTTLING ENGINE
+
+        /// <summary>Canonical prefix for Over Haulers console and report output.</summary>
+        internal const string LogPrefix = "[Over Haulers]";
 
         public const int MaxWarnCutoff = 3;
         private static readonly ConcurrentDictionary<string, int> warnCounts = new ConcurrentDictionary<string, int>();
@@ -54,11 +58,11 @@ namespace OverHaulers
 
             if (isError)
             {
-                Log.Error($"[Over Haulers] Error #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}");
+                Log.Error(WithLogPrefix($"Error #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}"));
             }
             else
             {
-                Log.Warning($"[Over Haulers] Warning #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}");
+                Log.Warning(WithLogPrefix($"Warning #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}"));
             }
         }
 
@@ -67,21 +71,50 @@ namespace OverHaulers
         #region 2. LOCALIZED EVENT ROUTING
 
         /// <summary>
-        /// Emits a localized informative event. While an <see cref="ActivityJournal"/> session is open the journal text is
-        /// recorded as a bullet; otherwise the console text is logged. Both keys receive the same positional arguments.
+        /// Appends the standard Over Haulers report heading to a producer-owned buffer.
         /// </summary>
-        /// <param name="journalKey">Keyed translation used for the journal bullet.</param>
-        /// <param name="logKey">Keyed translation used for the console message.</param>
-        /// <param name="args">Positional arguments shared by both translations.</param>
-        public static void Event(string journalKey, string logKey, params NamedArgument[] args)
+        /// <param name="reportBuilder">The buffer receiving the report heading.</param>
+        /// <param name="title">The localized report title.</param>
+        internal static void AppendReportHeader(StringBuilder reportBuilder, string title)
+        {
+            reportBuilder.Append(LogPrefix);
+            reportBuilder.Append(" ==== ");
+            reportBuilder.Append(title);
+            reportBuilder.Append(" ====");
+        }
+
+        /// <summary>
+        /// Dispatches a log message through the shared sink, adding the canonical prefix when it is absent.
+        /// </summary>
+        /// <param name="message">The complete message or report text to emit.</param>
+        internal static void DispatchLogMessage(string message)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+
+            Log.Message(WithLogPrefix(message));
+        }
+
+        private static string WithLogPrefix(string message)
+        {
+            if (message.StartsWith(LogPrefix, StringComparison.Ordinal)) return message;
+
+            return string.Concat(LogPrefix, " ", message);
+        }
+
+        /// <summary>
+        /// Emits a localized event using one translation for both journal and standalone output.
+        /// </summary>
+        /// <param name="key">Translation key used in either output context.</param>
+        /// <param name="args">Positional translation arguments.</param>
+        public static void Event(string key, params NamedArgument[] args)
         {
             if (ActivityJournal.IsActive)
             {
-                ActivityJournal.RecordBullet(journalKey.Translate(args).ToString());
+                ActivityJournal.RecordBullet(key.Translate(args).ToString());
             }
             else
             {
-                Log.Message(logKey.Translate(args).ToString());
+                DispatchLogMessage(key.Translate(args).ToString());
             }
         }
 
@@ -92,7 +125,7 @@ namespace OverHaulers
         /// <param name="args">Positional arguments for the translation.</param>
         public static void Info(string logKey, params NamedArgument[] args)
         {
-            Log.Message(logKey.Translate(args).ToString());
+            DispatchLogMessage(logKey.Translate(args).ToString());
         }
 
         /// <summary>
@@ -105,7 +138,7 @@ namespace OverHaulers
         {
             if (ActivityJournal.IsActive) return;
 
-            Log.Message(logKey.Translate(args).ToString());
+            DispatchLogMessage(logKey.Translate(args).ToString());
         }
 
         #endregion

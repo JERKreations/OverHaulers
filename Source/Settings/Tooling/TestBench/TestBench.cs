@@ -175,53 +175,64 @@ namespace OverHaulers
         public static void RecompileAll()
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
+            OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_RecompileHeader".Translate("...").ToString());
+            bool completedSuccessfully = false;
 
-            bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
-            string context = "OverHaulers_Log_Calibration_Context_RecompileAll".Translate().ToString();
-
-            // 1. Hot-recompile Core, Integration, and TestBench catalogs (Topologies, Calibrations, Surgeries, Caches)
-            OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan, context);
-
-            // 2. Re-index subject entries
-            TestSubjectRegistry.ClearCache();
-            TestSubjectRegistry.EnsureCacheInitialized();
-
-            // 3. Rebuild local testbench harness & subject bindings
-            if (activeHarness != null)
+            try
             {
-                activeHarness.Dispose();
-                activeHarness = null;
-            }
+                bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
 
-            if (activeSubject != null)
-            {
-                var updatedSubject = TestSubjectRegistry.AllSubjects.Find(s => 
-                    s.RaceDef == activeSubject.RaceDef && s.BodyDef == activeSubject.BodyDef);
+                // 1. Hot-recompile Core, Integration, and TestBench catalogs (Topologies, Calibrations, Surgeries, Caches)
+                OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan);
 
-                activeSubject = updatedSubject ?? TestSubjectRegistry.GetDefaultSubject();
-                Harness.BindSubject(activeSubject);
-            }
-            else
-            {
-                activeSubject = TestSubjectRegistry.GetDefaultSubject();
+                // 2. Re-index subject entries
+                TestSubjectRegistry.ClearCache();
+                TestSubjectRegistry.EnsureCacheInitialized();
+
+                // 3. Rebuild local testbench harness & subject bindings
+                if (activeHarness != null)
+                {
+                    activeHarness.Dispose();
+                    activeHarness = null;
+                }
+
                 if (activeSubject != null)
                 {
+                    var updatedSubject = TestSubjectRegistry.AllSubjects.Find(s =>
+                        s.RaceDef == activeSubject.RaceDef && s.BodyDef == activeSubject.BodyDef);
+
+                    activeSubject = updatedSubject ?? TestSubjectRegistry.GetDefaultSubject();
                     Harness.BindSubject(activeSubject);
                 }
+                else
+                {
+                    activeSubject = TestSubjectRegistry.GetDefaultSubject();
+                    if (activeSubject != null)
+                    {
+                        Harness.BindSubject(activeSubject);
+                    }
+                }
+
+                isInitialized = true;
+
+                // 4. Flush UI layout caches and mark Test Bench dirty for immediate recalculation
+                SettingsLayout.ClearInputBuffers();
+                MarkDirty();
+                completedSuccessfully = true;
             }
-
-            isInitialized = true;
-
-            // 4. Flush UI layout caches and mark Test Bench dirty for immediate recalculation
-            SettingsLayout.ClearInputBuffers();
-            MarkDirty();
-
-            watch.Stop();
-            Messages.Message(
-                "OverHaulers_Log_Lifecycle_FullRecompileComplete".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString(), 
-                MessageTypeDefOf.PositiveEvent, 
-                false
-            );
+            finally
+            {
+                watch.Stop();
+                if (completedSuccessfully)
+                {
+                    OHLog.ActivityJournal.SetHeader("OverHaulers_Journal_RecompileHeader".Translate(watch.Elapsed.TotalMilliseconds.ToString("F1")).ToString());
+                    OHLog.ActivityJournal.Dispatch();
+                }
+                else
+                {
+                    OHLog.ActivityJournal.Discard();
+                }
+            }
         }
 
         #endregion

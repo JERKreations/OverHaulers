@@ -48,7 +48,7 @@ namespace OverHaulers
         private int partCount = 0;
 
         /// <summary>List of systemic ailments affecting the pawn, maintained as a unique collection.</summary>
-        private readonly UniqueList<string> systemicAilments = new UniqueList<string>(16);
+        private readonly UniqueList<string> systemicAilments = new UniqueList<string>();
 
         /// <summary>Cached consciousness capacity level evaluated during ingress to prevent duplicate pawn hediff scans.</summary>
         public float CachedConsciousness { get; set; } = -1f;

@@ -4,69 +4,50 @@
   <!-- ========================================================================= -->
   <!-- 1. BOOTSTRAP & INTEGRATION CHECKPOINTS                                    -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_Integration_StatPresentationBound>[Over Haulers] Adopted caravan mass capacity stat '{0}' (Owner: {1}, Suffix: '{2}').</OverHaulers_Log_Integration_StatPresentationBound>
-  <OverHaulers_Log_Integration_CapacityFactorNeutralized>[Over Haulers] Neutralized capacity factor '{0}' on adopted stat '{1}'.</OverHaulers_Log_Integration_CapacityFactorNeutralized>
-  <OverHaulers_Log_Integration_HarmonyInitialized>[Over Haulers] Harmony compatibility initialized ({0} ms, one-time): {1} engine hooks applied.</OverHaulers_Log_Integration_HarmonyInitialized>
-  <OverHaulers_Log_Integration_MedicalCatalogIndexed>[Over Haulers] Medical catalog indexing complete ({0} ms): {1} replacement surgeries, {2} implants, {3} stimulants/drugs.</OverHaulers_Log_Integration_MedicalCatalogIndexed>
-  <OverHaulers_Log_Integration_StalePreferenceRecovered>[Over Haulers] Saved presentation selection '{0}' is no longer active (mod uninstalled?). Reverting to Automatic selection.</OverHaulers_Log_Integration_StalePreferenceRecovered>
+  <OverHaulers_Event_Integration_StatPresentationBound>Adopted caravan mass capacity stat '{0}' (Owner: {1}, Suffix: '{2}').</OverHaulers_Event_Integration_StatPresentationBound>
+  <OverHaulers_Event_Integration_CapacityFactorNeutralized>Neutralized capacity factor '{0}' on adopted stat '{1}'.</OverHaulers_Event_Integration_CapacityFactorNeutralized>
+  <OverHaulers_Event_Integration_HarmonyInitialized>Harmony compatibility initialized ({0} ms, one-time): {1} engine hooks applied.</OverHaulers_Event_Integration_HarmonyInitialized>
+  <OverHaulers_Event_MedicalCatalog_Indexed>Medical catalog indexing complete ({0} ms): {1} replacement surgeries, {2} implants, {3} stimulants/drugs.</OverHaulers_Event_MedicalCatalog_Indexed>
+  <OverHaulers_Event_Integration_StalePreferenceRecovered>Saved presentation selection '{0}' is no longer active (mod uninstalled?). Reverting to Automatic selection.</OverHaulers_Event_Integration_StalePreferenceRecovered>
 
   <!-- ========================================================================= -->
   <!-- 2. TOPOLOGY & SKELETAL COMPILATION CHECKPOINTS                            -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_Topology_CompilationComplete>[Over Haulers] Topology layout compilation complete ({0} ms): Pre-compiled {1} species skeletal layouts. Max parts: {2} ({3}), Max depth: {4}.</OverHaulers_Log_Topology_CompilationComplete>
-  <OverHaulers_Log_Topology_TemplatePurged>[Over Haulers] Species topology template for '{0}' was dynamically invalidated and purged from cache.</OverHaulers_Log_Topology_TemplatePurged>
+  <OverHaulers_Event_Topology_CompilationComplete>Topology layout compilation complete ({0} ms): Pre-compiled {1} species skeletal layouts. Max parts: {2} ({3}), Max depth: {4}.</OverHaulers_Event_Topology_CompilationComplete>
+  <OverHaulers_Event_Topology_TemplatePurged>Species topology template for '{0}' was dynamically invalidated and purged from cache.</OverHaulers_Event_Topology_TemplatePurged>
 
   <!-- ========================================================================= -->
   <!-- 3. SPECIES BASELINE CALIBRATION CHECKPOINTS                               -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_Calibration_SweepComplete>[Over Haulers] Species baseline calibration sweep complete ({0} ms - {1}): {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency Failsafe across {6} species.</OverHaulers_Log_Calibration_SweepComplete>
-  <OverHaulers_Log_Calibration_Context_WorldLoad>World Load</OverHaulers_Log_Calibration_Context_WorldLoad>
-  <OverHaulers_Log_Calibration_Context_RecompileAll>Recompile All</OverHaulers_Log_Calibration_Context_RecompileAll>
-  <OverHaulers_Log_Calibration_PendingNotice>[Over Haulers] Notice: {0} caravan-capable species assigned temporary testing benchmarks due to Main Menu component limitations. They will calibrate automatically via live pawns in gameplay: {1}</OverHaulers_Log_Calibration_PendingNotice>
+  <OverHaulers_Event_Calibration_SweepComplete>Species baseline calibration sweep complete ({0} ms): {1} Pristine | {2} Testing Fallback | {3} Live Rescue | {4} Emergency Failsafe across {5} species.</OverHaulers_Event_Calibration_SweepComplete>
+  <OverHaulers_Event_Calibration_PendingNotice>Notice: {0} caravan-capable species assigned temporary testing benchmarks due to Main Menu component limitations. They will calibrate automatically via live pawns in gameplay: {1}</OverHaulers_Event_Calibration_PendingNotice>
 
   <!-- ========================================================================= -->
   <!-- 4. SNAPSHOT TABLE & REGISTRY CHECKPOINTS                                  -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_Snapshot_Initialized>[Over Haulers] Snapshot table initialized: Capacity {0} slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4}).</OverHaulers_Log_Snapshot_Initialized>
-  <OverHaulers_Log_Snapshot_ScaledUp>[Over Haulers] Snapshot table scaled up: {0} ➔ {1} slots (Occupancy: {2}/{0}, Load: {3}%).</OverHaulers_Log_Snapshot_ScaledUp>
-  <OverHaulers_Log_Snapshot_Contracted>[Over Haulers] Snapshot table contracted: {0} ➔ {1} slots (Occupancy: {2}/{0}, Load: {3}%).</OverHaulers_Log_Snapshot_Contracted>
-  <OverHaulers_Log_Snapshot_Flushed>[Over Haulers] Snapshot table flushed: Cleared {0} active entries, restored capacity to {1} slots.</OverHaulers_Log_Snapshot_Flushed>
-  <OverHaulers_Log_Presentation_ScaledUp>[Over Haulers] Presentation model cache dynamically expanded: {0} ➔ {1} slots due to active UI working-set contention ({2} recycles in burst window).</OverHaulers_Log_Presentation_ScaledUp>
-  <OverHaulers_Log_Presentation_Flushed>[Over Haulers] Presentation model cache flushed: Purged {0} cached visual models, restored baseline capacity to {1} slots.</OverHaulers_Log_Presentation_Flushed>
+  <OverHaulers_Event_Snapshot_Initialized>Snapshot table initialized: Capacity {0} slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4}).</OverHaulers_Event_Snapshot_Initialized>
+  <OverHaulers_Event_Snapshot_ScaleEvent>Snapshot table capacity changed: {0} ➔ {1} slots (Before: {2}/{0} occupied, {3}% load).</OverHaulers_Event_Snapshot_ScaleEvent>
+  <OverHaulers_Event_Snapshot_Cleared>Snapshot table cleared: Removed {0} entries; capacity restored to {1} slots.</OverHaulers_Event_Snapshot_Cleared>
+  <OverHaulers_Log_Presentation_ScaledUp>Presentation model cache dynamically expanded: {0} ➔ {1} slots due to active UI working-set contention ({2} recycles in burst window).</OverHaulers_Log_Presentation_ScaledUp>
+  <OverHaulers_Log_Presentation_Flushed>Presentation model cache flushed: Purged {0} cached visual models, restored baseline capacity to {1} slots.</OverHaulers_Log_Presentation_Flushed>
 
   <!-- ========================================================================= -->
-  <!-- 5. WORLD & SESSION LIFECYCLE CHECKPOINTS                                  -->
-  <!-- ========================================================================= -->
-  <OverHaulers_Log_Lifecycle_FullRecompileComplete>[Over Haulers] Full runtime recompilation complete ({0} ms): All skeletal topologies, medical catalogs, and test subjects refreshed.</OverHaulers_Log_Lifecycle_FullRecompileComplete>
-
-  <!-- ========================================================================= -->
-  <!-- 6. UNIFIED ACTIVITY JOURNAL HEADERS & BULLETS                             -->
+  <!-- 5. ACTIVITY JOURNAL-ONLY HEADERS & BULLETS                                -->
   <!-- ========================================================================= -->
   <OverHaulers_Journal_BootstrapHeader>ENGINE BOOTSTRAP COMPLETE ({0} ms)</OverHaulers_Journal_BootstrapHeader>
   <OverHaulers_Journal_WorldSessionHeader>WORLD SESSION INITIALIZED</OverHaulers_Journal_WorldSessionHeader>
   <OverHaulers_Journal_RecompileHeader>RUNTIME RECOMPILATION COMPLETE ({0} ms)</OverHaulers_Journal_RecompileHeader>
   <OverHaulers_Journal_TestBenchHeader>TEST BENCH INITIALIZED ({0} ms)</OverHaulers_Journal_TestBenchHeader>
 
-  <OverHaulers_Journal_StatPresentationBound>Stat Integration: Adopted '{0}' (Owner: {1}, Suffix: '{2}')</OverHaulers_Journal_StatPresentationBound>
-  <OverHaulers_Journal_CapacityFactorNeutralized>Authoritative Neutralization: conflicting capacity factor '{0}' on '{1}'</OverHaulers_Journal_CapacityFactorNeutralized>
-  <OverHaulers_Journal_HarmonyInitialized>Harmony Compatibility: {1} engine hooks applied ({0} ms, one-time)</OverHaulers_Journal_HarmonyInitialized>
-  <OverHaulers_Journal_SnapshotInitialized>Atomic Registry: Initialized {0} L1 slots (Mode: {1}, Min: {2}, Max: {3}, Probe window: {4})</OverHaulers_Journal_SnapshotInitialized>
-
   <OverHaulers_Journal_TopologyPreserved>Skeletal Topologies: {0} species verified (preserved from startup)</OverHaulers_Journal_TopologyPreserved>
-  <OverHaulers_Journal_TopologyCompiled>Skeletal Topologies: {1} species compiled ({0} ms, Max: {3} {2} parts, Depth: {4})</OverHaulers_Journal_TopologyCompiled>
 
-  <OverHaulers_Journal_CalibrationSweep>Baseline Calibration: {2} Pristine | {3} Testing Fallback | {4} Live Rescue | {5} Emergency ({0} ms)</OverHaulers_Journal_CalibrationSweep>
-  <OverHaulers_Journal_CalibrationPendingNotice>Notice: {0} caravan-capable species operating on temporary benchmarks pending live comps: {1}</OverHaulers_Journal_CalibrationPendingNotice>
-
-  <OverHaulers_Journal_SnapshotReset>Atomic Registry: Initialized to {0} L1 slots (Cleared {1} stale entries)</OverHaulers_Journal_SnapshotReset>
   <OverHaulers_Journal_PresentationReset>Presentation Cache: Purged {0} cached visual models (Restored to {1} slots)</OverHaulers_Journal_PresentationReset>
-  <OverHaulers_Journal_MedicalCatalog>Medical Catalog: Indexed {1} replacements, {2} implants, {3} stimulants ({0} ms)</OverHaulers_Journal_MedicalCatalog>
   <OverHaulers_Journal_ActivePawnsWarmedUp>Population Warmup: Pre-cached {0} active caravan-capable pawns</OverHaulers_Journal_ActivePawnsWarmedUp>
 
   <!-- ========================================================================= -->
-  <!-- 7. PERFORMANCE TELEMETRY & REPORT BUFFERS                                 -->
+  <!-- 6. PERFORMANCE TELEMETRY & REPORT BUFFERS                                 -->
   <!-- ========================================================================= -->
-  <OverHaulers_Log_PerformanceReportHeader><![CDATA[[Over Haulers] ==== PERFORMANCE & CACHE METRICS REPORT (Last {0} Hours) ====]]></OverHaulers_Log_PerformanceReportHeader>
+  <OverHaulers_Log_PerformanceReportHeader>PERFORMANCE &amp; CACHE METRICS REPORT (Last {0} Hours)</OverHaulers_Log_PerformanceReportHeader>
   <OverHaulers_Log_PerformanceReport_Queries>  • Total Registry Queries: {0} (Main Thread: {1} | Background Worker Threads: {2})</OverHaulers_Log_PerformanceReport_Queries>
   <OverHaulers_Log_PerformanceReport_Cache>  • Cache Hit Efficiency: {0}% (Hits: {1} | Recalculations: {2})</OverHaulers_Log_PerformanceReport_Cache>
   <OverHaulers_Log_PerformanceReport_CacheDetailed>  • Cache Hit Efficiency: Total {0}% | Main {1}% (Hits: {2} | Recalcs: {3}) | Background {4}% (Hits: {5} | Misses: {6})</OverHaulers_Log_PerformanceReport_CacheDetailed>
@@ -77,7 +58,6 @@
   <OverHaulers_Log_PerformanceReport_SnapshotContention>    - SeqLock Concurrency: {0} reader retries | {1} timeouts</OverHaulers_Log_PerformanceReport_SnapshotContention>
 
   <!-- Lifecycle & Debounce -->
-  <OverHaulers_Log_PerformanceReport_LifeCycle>  • Registry Lifecycle Events: {0} Invalidations | {1} Active Pawn Evictions</OverHaulers_Log_PerformanceReport_LifeCycle>
   <OverHaulers_Log_PerformanceReport_LifeCycleDetailed>  • Registry Lifecycle Events: {0} Invalidations ({1} burst events culled, {2}% debounce) | {3} Active Pawn Evictions</OverHaulers_Log_PerformanceReport_LifeCycleDetailed>
 
   <OverHaulers_Log_PerformanceReport_Workspaces>  • Workspace Pooled Instances: {0} Active Thread-Static Workspaces</OverHaulers_Log_PerformanceReport_Workspaces>

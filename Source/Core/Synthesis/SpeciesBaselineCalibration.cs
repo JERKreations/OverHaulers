@@ -97,14 +97,12 @@ namespace OverHaulers
         /// Logs a summary of the calibration sweep batch, including diagnostic counters, timing information,
         /// and a single consolidated notice for species operating on testing benchmarks due to Main Menu limitations.
         /// </summary>
-        /// <param name="context">The context or label for the batch sweep.</param>
         /// <param name="ms">The duration of the batch sweep in milliseconds.</param>
         /// <param name="totalSpecies">The total number of species evaluated in the batch sweep.</param>
-        public static void LogBatchSweepSummary(string context, double ms, int totalSpecies)
+        public static void LogBatchSweepSummary(double ms, int totalSpecies)
         {
             CoreLogEvents.CalibrationSweepCompleted(
                 ms,
-                context,
                 CountDummySuccess,
                 CountTestingFallback,
                 CountLiveRescue,
@@ -394,11 +392,7 @@ namespace OverHaulers
             {
                 if (speciesCache.Count > 0) return;
 
-                string context = Current.ProgramState == ProgramState.Playing
-                    ? "OverHaulers_Log_Calibration_Context_WorldLoad".Translate().ToString()
-                    : "Test Bench";
-
-                RunBatchSweep(onlyCaravanCapable: true, context);
+                RunBatchSweep(onlyCaravanCapable: true);
             }
         }
 
@@ -406,12 +400,11 @@ namespace OverHaulers
         /// Runs a timed batch sweep across species ThingDefs and prints a single consolidated checkpoint report.
         /// </summary>
         /// <param name="onlyCaravanCapable">If true, only caravan-capable species will be included in the batch sweep.</param>
-        /// <param name="context">A string providing context for the batch sweep, used in logging the summary report.</param>
         /// <remarks>
         /// This method iterates over all species ThingDefs, optionally filtering for only caravan-capable species.
         /// Each species is pre-calibrated, and a consolidated performance report is logged at the end of the sweep.
         /// </remarks>
-        public static void RunBatchSweep(bool onlyCaravanCapable, string context)
+        public static void RunBatchSweep(bool onlyCaravanCapable)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             int totalSweep = 0;
@@ -440,7 +433,7 @@ namespace OverHaulers
             }
 
             watch.Stop();
-            LogBatchSweepSummary(context, watch.Elapsed.TotalMilliseconds, totalSweep);
+            LogBatchSweepSummary(watch.Elapsed.TotalMilliseconds, totalSweep);
         }
 
         /// <summary>
