@@ -80,6 +80,7 @@ namespace OverHaulers
         private static readonly List<TestSubjectGroup> groupsByBodyDef = new List<TestSubjectGroup>();
         private static readonly List<TestSubjectGroup> groupsByCategory = new List<TestSubjectGroup>();
         private static readonly List<TestSubjectGroup> groupsByFleshType = new List<TestSubjectGroup>();
+        private static readonly Dictionary<GroupingDimension, List<TestSubjectGroup>> caravanGroups = new Dictionary<GroupingDimension, List<TestSubjectGroup>>();
 
         private static bool isInitialized = false;
         private static readonly object initLock = new object();
@@ -121,12 +122,13 @@ namespace OverHaulers
         /// </summary>
         /// <param name="dimension">The dimension by which to group the test subjects.</param>
         /// <param name="filterText">The text to filter the group labels by.</param>
+        /// <param name="caravanCapableOnly">Restrict results to subjects with normal caravan eligibility.</param>
         /// <returns>A list of test subject groups matching the filter criteria.</returns>
-        public static List<TestSubjectGroup> GetFilteredGroups(GroupingDimension dimension, string filterText)
+        public static List<TestSubjectGroup> GetFilteredGroups(GroupingDimension dimension, string filterText, bool caravanCapableOnly = false)
         {
             if (dimension == GroupingDimension.Colony)
             {
-                return BuildLiveColonyGroups(filterText);
+                return BuildLiveColonyGroups(filterText, caravanCapableOnly);
             }
 
             EnsureCacheInitialized();
@@ -146,6 +148,16 @@ namespace OverHaulers
                 default:
                     sourceGroups = groupsByMod;
                     break;
+            }
+
+            if (caravanCapableOnly)
+            {
+                if (!caravanGroups.TryGetValue(dimension, out List<TestSubjectGroup> eligibleGroups))
+                {
+                    eligibleGroups = FilterCaravanGroups(sourceGroups);
+                    caravanGroups.Add(dimension, eligibleGroups);
+                }
+                sourceGroups = eligibleGroups;
             }
 
             if (string.IsNullOrEmpty(filterText))
@@ -181,6 +193,23 @@ namespace OverHaulers
             return filteredResult;
         }
 
+        private static List<TestSubjectGroup> FilterCaravanGroups(List<TestSubjectGroup> sourceGroups)
+        {
+            List<TestSubjectGroup> result = new List<TestSubjectGroup>();
+            for (int g = 0; g < sourceGroups.Count; g++)
+            {
+                TestSubjectGroup source = sourceGroups[g];
+                TestSubjectGroup eligible = new TestSubjectGroup(source.GroupLabel);
+                for (int i = 0; i < source.Entries.Count; i++)
+                {
+                    TestSubjectEntry entry = source.Entries[i];
+                    if (PawnDataRegistry.IsSpeciesCaravanCapable(entry.RaceDef)) eligible.Entries.Add(entry);
+                }
+                if (eligible.Entries.Count > 0) result.Add(eligible);
+            }
+            return result;
+        }
+
         /// <summary>
         /// Determines whether a given test subject entry matches the specified filter text.
         /// </summary>
@@ -209,6 +238,7 @@ namespace OverHaulers
                 groupsByBodyDef.Clear();
                 groupsByCategory.Clear();
                 groupsByFleshType.Clear();
+                caravanGroups.Clear();
                 isInitialized = false;
             }
         }
@@ -221,8 +251,9 @@ namespace OverHaulers
         /// Builds and retrieves the groups of live colony pawns, filtered by the specified search text.
         /// </summary>
         /// <param name="filterText">The text to filter the live colony pawns by.</param>
+        /// <param name="caravanCapableOnly">Restrict results to pawns with normal caravan eligibility.</param>
         /// <returns>A list of test subject groups containing the live colony pawns that match the filter.</returns>
-        private static List<TestSubjectGroup> BuildLiveColonyGroups(string filterText)
+        private static List<TestSubjectGroup> BuildLiveColonyGroups(string filterText, bool caravanCapableOnly)
         {
             List<TestSubjectGroup> colonyGroups = new List<TestSubjectGroup>();
 
@@ -251,6 +282,7 @@ namespace OverHaulers
                 {
                     Pawn pawn = mapPawns[p];
                     if (pawn == null || pawn.Dead || pawn.RaceProps?.body == null) continue;
+                    if (caravanCapableOnly && !PawnDataRegistry.IsCaravanCapable(pawn)) continue;
 
                     if (pawn.IsColonist)
                         AddLivePawnIfMatches(colonistGroup, pawn, cleanFilter);
@@ -335,6 +367,7 @@ namespace OverHaulers
                 groupsByBodyDef.Clear();
                 groupsByCategory.Clear();
                 groupsByFleshType.Clear();
+                caravanGroups.Clear();
 
                 Dictionary<ModContentPack, List<TestSubjectEntry>> modMap = new Dictionary<ModContentPack, List<TestSubjectEntry>>();
                 Dictionary<BodyDef, List<TestSubjectEntry>> bodyMap = new Dictionary<BodyDef, List<TestSubjectEntry>>();

@@ -601,8 +601,8 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// [TEST-05] Specialized stack-allocated anatomical data source adapting the interactive sandbox harness.
-    /// Bridges unmodified live colonist snapshots and simulated surgical operations into the zero-allocation solver.
+    /// [TEST-05] Value-type anatomical data source adapting the interactive sandbox harness.
+    /// Bridges unmodified live colonist snapshots and simulated surgical operations into the solver.
     /// </summary>
     public readonly struct SandboxAnatomicalSource : IAnatomicalDataSource
     {

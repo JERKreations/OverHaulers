@@ -61,11 +61,12 @@ namespace OverHaulers
         /// <summary>
         /// [VIEW-04] Canonical Single Source of Truth (SSoT) entry point formatting the Caravan Mass Capacity breakdown.
         /// Consumes downward-pushed layout rules and palette configuration to preserve strict layer directionality.
-        /// Thread-gated to the main thread with 0 bytes GC allocation via pooled scratch buffers.
+        /// Thread-gated to the main thread with pooled scratch buffers.
         /// </summary>
         /// <param name="massModel">The populated mass capacity model to format.</param>
+        /// <param name="diagnosticPrecision">Use up to five decimal places instead of three.</param>
         /// <returns>A formatted rich-text explanation string containing typographic overlay sentinels.</returns>
-        public static string BuildExplanation(MassCapacityModel massModel)
+        public static string BuildExplanation(MassCapacityModel massModel, bool diagnosticPrecision = false)
         {
             if (!UnityData.IsInMainThread || massModel == null)
             {
@@ -82,23 +83,23 @@ namespace OverHaulers
                 pooledFinalReport.Append(InfoCardOverlay.TagSentinel);
 
                 // 1. OverHaulers Physical Rating Line
-                string totalMultValStr = massModel.TotalMultiplier.ToString("F2");
-                string signedOffsetValStr = massModel.Offset.ToStringMassOffset();
+                string totalMultValStr = FormatAdaptive(massModel.TotalMultiplier, diagnosticPrecision);
+                string signedOffsetValStr = FormatMass(massModel.Offset, diagnosticPrecision, true);
                 pooledFinalReport.AppendLine("OverHaulers_InfoCard_PhysicalRating".Translate(totalMultValStr, signedOffsetValStr).ToString());
 
                 // 2. Minimum Floor Footnote (Unconditionally declared in muted grey)
                 if (massModel.ConfigurablePercentileFloorKg > 0f)
                 {
-                    string floorKgStr = massModel.ConfigurablePercentileFloorKg.ToStringMass();
-                    string floorPctStr = massModel.ConfigurablePercentileFloorPercent.ToString("F0");
+                    string floorKgStr = FormatMass(massModel.ConfigurablePercentileFloorKg, diagnosticPrecision, false);
+                    string floorPctStr = FormatAdaptive(massModel.ConfigurablePercentileFloorPercent, diagnosticPrecision);
                     string floorNote = "OverHaulers_InfoCard_MinimumFloorNote".Translate(floorKgStr, floorPctStr).ToString();
                     pooledFinalReport.AppendLine(floorNote.Colorize(MutedTextColor));
                 }
 
                 // 3. Capacities, Impacts & Anatomical Breakdown
-                AppendCapacities(pooledDetailsBuilder, massModel, verbose);
+                AppendCapacities(pooledDetailsBuilder, massModel, verbose, diagnosticPrecision);
                 AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
-                AppendStructuralSections(pooledDetailsBuilder, massModel, verbose);
+                AppendStructuralSections(pooledDetailsBuilder, massModel, verbose, diagnosticPrecision);
 
                 if (pooledDetailsBuilder.Length > 0 || verbose)
                 {
@@ -127,7 +128,8 @@ namespace OverHaulers
         /// <param name="builder">The StringBuilder to append the report to.</param>
         /// <param name="massModel">The mass capacity model containing the capacity levels.</param>
         /// <param name="verbose">If true, forces display even if no capacity levels are modified.</param>
-        private static void AppendCapacities(StringBuilder builder, MassCapacityModel massModel, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendCapacities(StringBuilder builder, MassCapacityModel massModel, bool verbose, bool diagnosticPrecision)
         {
             bool hasAnyCapacities = verbose;
             if (!hasAnyCapacities)
@@ -149,7 +151,7 @@ namespace OverHaulers
                 builder.AppendLine("OverHaulers_InfoCard_CapacitiesHeader".Translate().ToString());
                 for (int i = 0; i < CapacityTranslationKeys.Length; i++)
                 {
-                    AppendCapacityLine(builder, CapacityTranslationKeys[i], massModel.CapacityLevels[i], verbose);
+                    AppendCapacityLine(builder, CapacityTranslationKeys[i], massModel.CapacityLevels[i], verbose, diagnosticPrecision);
                 }
             }
         }
@@ -212,7 +214,7 @@ namespace OverHaulers
         /// <param name="builder">The StringBuilder to append the report sections to.</param>
         /// <param name="massModel">The mass model containing evaluated parts and ailments.</param>
         /// <param name="verbose">Flag to force display even if no structural modifications are present.</param>
-        private static void AppendStructuralSections(StringBuilder builder, MassCapacityModel massModel, bool verbose)
+        private static void AppendStructuralSections(StringBuilder builder, MassCapacityModel massModel, bool verbose, bool diagnosticPrecision)
         {
             for (int i = 0; i < massModel.EvaluatedParts.Count; i++)
             {
@@ -232,18 +234,18 @@ namespace OverHaulers
                 if (part.HasProsthetic || Math.Abs(part.EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
                     builder.Append(" [");
-                    string effStr = part.EfficiencyRating.ToStringPercent();
+                    string effStr = FormatPercentage(part.EfficiencyRating, diagnosticPrecision);
                     builder.Append(effStr.Colorize(GetMedicalColor(part.EfficiencyRating)));
                     builder.Append("]");
                 }
 
                 builder.Append(": ");
-                builder.Append(part.TotalOffset.ToStringMassOffset());
+                builder.Append(FormatMass(part.TotalOffset, diagnosticPrecision, true));
                 AppendAilmentSuffix(builder, part);
                 builder.AppendLine();
 
-                AppendGroupSubtotalRow(builder, part, verbose);
-                AppendStructuralSubParts(builder, part, verbose);
+                AppendGroupSubtotalRow(builder, part, verbose, diagnosticPrecision);
+                AppendStructuralSubParts(builder, part, verbose, diagnosticPrecision);
             }
         }
 
@@ -253,7 +255,8 @@ namespace OverHaulers
         /// <param name="builder">The StringBuilder to append the subtotal row to.</param>
         /// <param name="part">The part for which to append the subtotal row.</param>
         /// <param name="verbose">Flag to force display even if no offsets are present.</param>
-        private static void AppendGroupSubtotalRow(StringBuilder builder, PartViewNode part, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendGroupSubtotalRow(StringBuilder builder, PartViewNode part, bool verbose, bool diagnosticPrecision)
         {
             bool hasProsthetic = Math.Abs(part.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
             bool hasAthletic = Math.Abs(part.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon;
@@ -269,7 +272,7 @@ namespace OverHaulers
                 if (hasProsthetic || verbose)
                 {
                     builder.Append(InfoCardOverlay.TagProsthetic + " ");
-                    builder.Append(part.ProstheticOffset.ToStringMassOffset());
+                    builder.Append(FormatMass(part.ProstheticOffset, diagnosticPrecision, true));
                     first = false;
                 }
 
@@ -277,7 +280,7 @@ namespace OverHaulers
                 {
                     if (!first) builder.Append("  ");
                     builder.Append(InfoCardOverlay.TagAthletic + " ");
-                    builder.Append(part.AthleticOffset.ToStringMassOffset());
+                    builder.Append(FormatMass(part.AthleticOffset, diagnosticPrecision, true));
                     first = false;
                 }
 
@@ -285,7 +288,7 @@ namespace OverHaulers
                 {
                     if (!first) builder.Append("  ");
                     builder.Append(InfoCardOverlay.TagInjury + " ");
-                    builder.Append(part.HealthOffset.ToStringMassOffset());
+                    builder.Append(FormatMass(part.HealthOffset, diagnosticPrecision, true));
                 }
 
                 builder.AppendLine();
@@ -298,7 +301,8 @@ namespace OverHaulers
         /// <param name="builder">The StringBuilder to which the structural sub-parts will be appended.</param>
         /// <param name="part">The parent part whose structural sub-parts are to be appended.</param>
         /// <param name="verbose">Indicates whether to include all sub-parts regardless of modification status.</param>
-        private static void AppendStructuralSubParts(StringBuilder builder, PartViewNode part, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendStructuralSubParts(StringBuilder builder, PartViewNode part, bool verbose, bool diagnosticPrecision)
         {
             if (part.SubParts.Count == 0) return;
 
@@ -318,7 +322,7 @@ namespace OverHaulers
 
             if (hasModifiedSubParts)
             {
-                AppendSubPartsRecursive(builder, part, 0, verbose);
+                AppendSubPartsRecursive(builder, part, 0, verbose, diagnosticPrecision);
             }
         }
 
@@ -329,7 +333,8 @@ namespace OverHaulers
         /// <param name="parent">The parent part whose structural sub-parts are to be appended.</param>
         /// <param name="depth">The current depth of the recursive traversal, used for indentation.</param>
         /// <param name="verbose">Indicates whether to include all sub-parts regardless of modification status.</param>
-        private static void AppendSubPartsRecursive(StringBuilder statsBuilder, PartViewNode parent, int depth, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendSubPartsRecursive(StringBuilder statsBuilder, PartViewNode parent, int depth, bool verbose, bool diagnosticPrecision)
         {
             if (parent?.SubParts == null || parent.SubParts.Count == 0) return;
 
@@ -346,10 +351,10 @@ namespace OverHaulers
                     }
 
                     AppendIndent(statsBuilder, depth);
-                    AppendSubPartLine(statsBuilder, sub, depth, verbose);
+                    AppendSubPartLine(statsBuilder, sub, depth, verbose, diagnosticPrecision);
                     statsBuilder.AppendLine();
 
-                    AppendSubPartsRecursive(statsBuilder, sub, depth + 1, verbose);
+                    AppendSubPartsRecursive(statsBuilder, sub, depth + 1, verbose, diagnosticPrecision);
                 }
             }
         }
@@ -365,7 +370,8 @@ namespace OverHaulers
         /// <param name="sub">The sub-part whose details are to be appended.</param>
         /// <param name="depth">The current depth of the sub-part within the hierarchy, used for indentation.</param>
         /// <param name="verbose">Indicates whether to include all details regardless of modification status.</param>
-        private static void AppendSubPartLine(StringBuilder builder, PartViewNode sub, int depth, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendSubPartLine(StringBuilder builder, PartViewNode sub, int depth, bool verbose, bool diagnosticPrecision)
         {
             builder.Append("- ");
             builder.Append(sub.Label);
@@ -380,13 +386,13 @@ namespace OverHaulers
                 builder.Append(": [");
                 builder.Append(sub.ProstheticName.Colorize(sub.ProstheticColor));
                 builder.Append(" ");
-                string effStr = sub.EfficiencyRating.ToStringPercent();
+                string effStr = FormatPercentage(sub.EfficiencyRating, diagnosticPrecision);
                 builder.Append(effStr.Colorize(sub.ProstheticColor));
 
                 if (isDamaged || verbose)
                 {
                     builder.Append(", ");
-                    string hpStr = sub.HealthFraction.ToStringPercent();
+                    string hpStr = FormatPercentage(sub.HealthFraction, diagnosticPrecision);
                     builder.Append(hpStr.Colorize(GetMedicalColor(sub.HealthFraction)));
                 }
 
@@ -420,7 +426,7 @@ namespace OverHaulers
                     if (showHealth)
                     {
                         builder.Append("[");
-                        string hpStr = sub.HealthFraction.ToStringPercent();
+                        string hpStr = FormatPercentage(sub.HealthFraction, diagnosticPrecision);
                         builder.Append(hpStr.Colorize(GetMedicalColor(sub.HealthFraction)));
                         builder.Append("]");
                     }
@@ -467,7 +473,8 @@ namespace OverHaulers
         /// <param name="translationKey">The translation key for the capacity label.</param>
         /// <param name="value">The current value of the capacity.</param>
         /// <param name="verbose">Indicates whether to include all details regardless of modification status.</param>
-        private static void AppendCapacityLine(StringBuilder builder, string translationKey, float value, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendCapacityLine(StringBuilder builder, string translationKey, float value, bool verbose, bool diagnosticPrecision)
         {
             float difference = value - 1.0f;
             bool isModified = Math.Abs(difference) >= PawnDataRegistry.EfficiencyEpsilon;
@@ -475,9 +482,29 @@ namespace OverHaulers
             if (isModified || verbose)
             {
                 builder.Append(Indent4);
-                string pctText = value.ToStringPercent();
+                string pctText = FormatPercentage(value, diagnosticPrecision);
                 builder.AppendLine(translationKey.Translate(pctText.Colorize(GetMedicalColor(value))).ToString());
             }
+        }
+
+        /// <summary>Formats a number with up to three gameplay or five diagnostic decimal places.</summary>
+        public static string FormatAdaptive(float value, bool diagnosticPrecision = false)
+        {
+            return value.ToString(diagnosticPrecision ? "0.#####" : "0.###");
+        }
+
+        /// <summary>Formats a fraction as an adaptive percentage in the active numeric culture.</summary>
+        public static string FormatPercentage(float value, bool diagnosticPrecision = false)
+        {
+            return value.ToString(diagnosticPrecision ? "0.#####%" : "0.###%");
+        }
+
+        /// <summary>Uses the game's mass formatter for gameplay and adaptive kilograms for diagnostics.</summary>
+        public static string FormatMass(float value, bool diagnosticPrecision, bool offset)
+        {
+            if (!diagnosticPrecision) return offset ? value.ToStringMassOffset() : value.ToStringMass();
+            string number = value.ToString(offset ? "+0.#####;-0.#####;0" : "0.#####");
+            return "OverHaulers_InfoCard_DiagnosticMass".Translate(number).ToString();
         }
 
         /// <summary>

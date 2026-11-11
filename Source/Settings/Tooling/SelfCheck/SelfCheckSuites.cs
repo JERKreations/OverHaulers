@@ -17,6 +17,7 @@ namespace OverHaulers
         private const string GroupTopology = "OverHaulers_SelfCheck_Group_Topology";
         private const string GroupSolver = "OverHaulers_SelfCheck_Group_Solver";
         private const string GroupConfiguration = "OverHaulers_SelfCheck_Group_Configuration";
+        private const string GroupTestBench = "OverHaulers_SelfCheck_Group_TestBench";
 
         #endregion
 
@@ -30,6 +31,10 @@ namespace OverHaulers
         {
             list.Add(new SelfCheckDef(GroupConfiguration, "OverHaulers_SelfCheck_Check_CoreDefaultsInRange", CheckCoreDefaultsInRange));
             list.Add(new SelfCheckDef(GroupConfiguration, "OverHaulers_SelfCheck_Check_ConfigSanitisation", CheckConfigSanitisation));
+            list.Add(new SelfCheckDef(GroupConfiguration, "OverHaulers_SelfCheck_Check_DisplayPrecision", CheckDisplayPrecision));
+            list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_CaravanSubjectFilter", CheckCaravanSubjectFilter));
+            list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_SubjectPickerSession", CheckSubjectPickerSession));
+            list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_ButtonLayout", CheckButtonLayout));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_PackUnpack", CheckPackUnpack));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_NeutralDefaults", CheckNeutralDefaults));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_WriteOverwriteRead", CheckWriteOverwriteRead));

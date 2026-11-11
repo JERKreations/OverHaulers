@@ -125,7 +125,7 @@ namespace OverHaulers
                 float totalBudget = budgetTorso + budgetArm + budgetLeg;
                 if (totalBudget <= 0f) totalBudget = 1.0f;
 
-                builder.AppendLine($"Regional Mass Budgets: Torso {(budgetTorso / totalBudget):P1} | Arms {(budgetArm / totalBudget):P1} | Legs {(budgetLeg / totalBudget):P1}");
+                builder.AppendLine($"Regional Mass Budgets: Torso {(budgetTorso / totalBudget):P3} | Arms {(budgetArm / totalBudget):P3} | Legs {(budgetLeg / totalBudget):P3}");
                 builder.AppendLine();
                 builder.AppendLine("Compiled Canonical Skeletal Hierarchy:");
 
@@ -142,7 +142,7 @@ namespace OverHaulers
 
                     float weightFactor = tmpl.StaticWeightFactors[idx];
                     string typeTag = TestBench.GetLocalizedPartTypeTag(type, part);
-                    string weightPct = (weightFactor * 100f).ToString("F1") + "%";
+                    string weightPct = weightFactor.ToString("P3");
                     int parentIdx = tmpl.ParentIndices[idx];
                     string parentName = parentIdx != -1 ? tmpl.IndexedParts[parentIdx].Label : defaultParent;
 
@@ -225,7 +225,7 @@ namespace OverHaulers
                 if (tmpl == null) continue;
 
                 builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{DiagnosticExportUtility.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{DiagnosticExportUtility.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
-                builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{(budgetTorso / totalBudget):P1}\" armsPct=\"{(budgetArm / totalBudget):P1}\" legsPct=\"{(budgetLeg / totalBudget):P1}\" />");
+                builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{(budgetTorso / totalBudget):P3}\" armsPct=\"{(budgetArm / totalBudget):P3}\" legsPct=\"{(budgetLeg / totalBudget):P3}\" />");
 
                 builder.AppendLine("      <SkeletalHierarchy>");
                 for (int c = 0; c < tmpl.PartCount; c++)
@@ -243,7 +243,7 @@ namespace OverHaulers
                     string rootAttr = tmpl.RootPartIndex[idx] >= 0 ? $" rootPartIndex=\"{tmpl.RootPartIndex[idx]}\" depth=\"{tmpl.Depth[idx]}\" siblingCount=\"{tmpl.SiblingCount[idx]}\"" : "";
                     string flagsAttr = (tmpl.IsOrgan[idx] ? " isOrgan=\"true\"" : "") + (tmpl.WasReclaimedAsAnchor[idx] ? " wasReclaimedAsAnchor=\"true\"" : "");
 
-                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{DiagnosticExportUtility.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" staticWeight=\"{(tmpl.StaticWeightFactors[idx] * 100f):F2}%\" parentIndex=\"{parentIdx}\" parentDef=\"{parentDef}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{DiagnosticExportUtility.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{DiagnosticExportUtility.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
+                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{DiagnosticExportUtility.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" staticWeight=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" parentDef=\"{parentDef}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{DiagnosticExportUtility.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{DiagnosticExportUtility.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
                 }
                 builder.AppendLine("      </SkeletalHierarchy>");
                 builder.AppendLine("    </BodyDef>");

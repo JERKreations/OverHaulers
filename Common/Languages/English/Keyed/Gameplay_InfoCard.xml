@@ -8,6 +8,7 @@
   <OverHaulers_StatDesc_Fallback>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc_Fallback>
 
   <OverHaulers_InfoCard_PhysicalRating><![CDATA[<b>Physical Rating ({0}x) {1}</b>]]></OverHaulers_InfoCard_PhysicalRating>
+  <OverHaulers_InfoCard_DiagnosticMass>{0} kg</OverHaulers_InfoCard_DiagnosticMass>
 
   <!-- Deficit Floor Footnote -->
   <OverHaulers_InfoCard_MinimumFloorNote>  *Minimum floor: {0} ({1}% of base)</OverHaulers_InfoCard_MinimumFloorNote>

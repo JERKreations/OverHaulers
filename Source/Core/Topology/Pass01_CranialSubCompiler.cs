@@ -62,7 +62,7 @@ namespace OverHaulers
                 template.DepthSortedIndices[i] = i;
             }
 
-            // Zero-allocation dual array sort, eliminating the delegate/closure allocation.
+            // Sort parallel arrays without a custom comparison delegate or closure.
             Array.Sort(skeletalDepths, template.DepthSortedIndices);
         }
 

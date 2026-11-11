@@ -9,10 +9,10 @@
   <OverHaulers_ToolingDialog_Tab_TestBench>1. Test Bench</OverHaulers_ToolingDialog_Tab_TestBench>
   <OverHaulers_ToolingDialog_Tab_Benchmark>2. Benchmarks &amp; Self-Check</OverHaulers_ToolingDialog_Tab_Benchmark>
   <OverHaulers_ToolingDialog_Tab_Telemetry>3. Telemetry &amp; Metrics</OverHaulers_ToolingDialog_Tab_Telemetry>
-  <OverHaulers_ToolingDialog_RecompileData>Recompile Data</OverHaulers_ToolingDialog_RecompileData>
-  <OverHaulers_ToolingDialog_RecompileData_Tooltip>Flushes and fully recompiles all species skeletal topologies, XML mod extensions, medical recipe catalogs, and test subjects in real-time.</OverHaulers_ToolingDialog_RecompileData_Tooltip>
-  <OverHaulers_ToolingDialog_OpenDumpsFolder>Open Folder</OverHaulers_ToolingDialog_OpenDumpsFolder>
-  <OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip>Opens the date-cataloged DiagnosticDumps sub directory containing export files, or if date-cataloged dumps do not exist, opens the root DiagnosticDumps directory.</OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip>
+  <OverHaulers_ToolingDialog_RecompileButton>Runtime Recompile</OverHaulers_ToolingDialog_RecompileButton>
+  <OverHaulers_ToolingDialog_RecompileButton_Tooltip>Flushes and fully recompiles all species skeletal topologies, XML mod extensions, medical recipe catalogs, and test subjects in real-time.</OverHaulers_ToolingDialog_RecompileButton_Tooltip>
+  <OverHaulers_ToolingDialog_DiagnosticsFolder>Diagnostics Folder</OverHaulers_ToolingDialog_DiagnosticsFolder>
+  <OverHaulers_ToolingDialog_DiagnosticsFolder_Tooltip>Opens the date-cataloged DiagnosticDumps sub directory containing export files, or if date-cataloged dumps do not exist, opens the root DiagnosticDumps directory.</OverHaulers_ToolingDialog_DiagnosticsFolder_Tooltip>
 
   <!-- InfoCard diagnostic display -->
   <OverHaulers_ToolingDialog_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_ToolingDialog_VerboseBreakdown>
@@ -26,7 +26,7 @@
   <OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader>Active Telemetry Metrics:</OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader>
   <OverHaulers_ToolingDialog_Telemetry_StressTestingHeader>Live Population Stress Testing</OverHaulers_ToolingDialog_Telemetry_StressTestingHeader>
   <OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna>DOD Stress-Test: Evaluate All Fauna</OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna>
-  <OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>High-load population benchmarking override. When enabled, 100% of biological fauna (livestock, wild animals, vermin, predators) are forced through the OverHaulers solver, SoA workspaces, and dynamic cache pipeline regardless of pack animal status. Designed to stress-test cache capacity, TTL scaling, and zero-allocation throughput across large populations.</OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>Developer stress-test override for live population workloads. When enabled, pawns normally excluded from Over Haulers calculations, including non-pack wildlife and other non-caravan-capable pawns, can be processed during warmup or when queried. This exercises the solver, workspaces, cache capacity, and expiry scaling without changing a species' pack animal designation.&#10;&#10;This mode also applies Over Haulers offsets and the enabled safety floor to live capacity calculations, including adopted mass-capacity stats. Non-caravan species use a testing baseline rather than a verified caravan baseline, and zero or very small capacities may be reported as clamped to 0.01 kg. Results for these pawns are for stress testing, not gameplay balancing.</OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc>
   <OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours>Pawn Eviction Timeframe ({0}h)</OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours>
 
   <OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics>Total Registry Queries</OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics>
@@ -36,7 +36,7 @@
   <OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc>Tracks cache hit ratios, hits, and solver recalculations across both main-thread evaluations and background thread queries.</OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc>
 
   <OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics>Snapshot Table &amp; Probing Health</OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics>
-  <OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 512-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>
+  <OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>Reports atomic hash table load factor (dynamic 64-8192 slots), dual-tier cache parity, linear probe depths (average &amp; peak), displacement overflows, and SeqLock concurrency retries.</OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc>
 
   <OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics>Presentation UI Cache</OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics>
   <OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc>Logs active visual model rotation count, hit efficiency, and node recycling metrics for the presentation layer (DetailedModelRegistry).</OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc>
@@ -117,6 +117,11 @@
   <!-- Self-check names -->
   <OverHaulers_SelfCheck_Check_CoreDefaultsInRange>Every core default lies inside its Min/Max range</OverHaulers_SelfCheck_Check_CoreDefaultsInRange>
   <OverHaulers_SelfCheck_Check_ConfigSanitisation>Core sanitiser clamps out-of-range, infinite and NaN configuration values</OverHaulers_SelfCheck_Check_ConfigSanitisation>
+  <OverHaulers_SelfCheck_Check_DisplayPrecision>Adaptive display precision and localization</OverHaulers_SelfCheck_Check_DisplayPrecision>
+  <OverHaulers_SelfCheck_Group_TestBench>Test Bench</OverHaulers_SelfCheck_Group_TestBench>
+  <OverHaulers_SelfCheck_Check_CaravanSubjectFilter>Caravan-capable subject filter matches species eligibility</OverHaulers_SelfCheck_Check_CaravanSubjectFilter>
+  <OverHaulers_SelfCheck_Check_SubjectPickerSession>Subject picker retains session filter and group state</OverHaulers_SelfCheck_Check_SubjectPickerSession>
+  <OverHaulers_SelfCheck_Check_ButtonLayout>Button size overrides and row wrapping</OverHaulers_SelfCheck_Check_ButtonLayout>
   <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
   <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
   <OverHaulers_SelfCheck_Check_WriteOverwriteRead>Write, overwrite and read back</OverHaulers_SelfCheck_Check_WriteOverwriteRead>
@@ -135,8 +140,8 @@
   <OverHaulers_SelfCheck_Note_ConcurrentReaders>{0} writer cycles checked against {1} concurrent reads</OverHaulers_SelfCheck_Note_ConcurrentReaders>
   <OverHaulers_SelfCheck_Note_Topology>{0} templates verified</OverHaulers_SelfCheck_Note_Topology>
   <OverHaulers_SelfCheck_Note_TopologyPartial>{0} templates verified, {1} bodies produced no template</OverHaulers_SelfCheck_Note_TopologyPartial>
-  <OverHaulers_SelfCheck_Note_SolverDeterminism>{0}: baseline {1}, offset {2}</OverHaulers_SelfCheck_Note_SolverDeterminism>
-  <OverHaulers_SelfCheck_Note_WoundsNeverIncrease>{0}: pristine offset {1}, wounded offset {2}</OverHaulers_SelfCheck_Note_WoundsNeverIncrease>
+  <OverHaulers_SelfCheck_Note_SolverDeterminism>{0}: baseline {1} kg, offset {2} kg</OverHaulers_SelfCheck_Note_SolverDeterminism>
+  <OverHaulers_SelfCheck_Note_WoundsNeverIncrease>{0}: pristine offset {1} kg, wounded offset {2} kg</OverHaulers_SelfCheck_Note_WoundsNeverIncrease>
   <OverHaulers_SelfCheck_Skip_NoBodies>No body definitions are loaded.</OverHaulers_SelfCheck_Skip_NoBodies>
   <OverHaulers_SelfCheck_Skip_NoSubject>No default test subject is available.</OverHaulers_SelfCheck_Skip_NoSubject>
 

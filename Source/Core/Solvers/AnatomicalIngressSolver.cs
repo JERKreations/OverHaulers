@@ -9,11 +9,11 @@ namespace OverHaulers
     /// [PASS-01] UNIFIED INGRESS TRANSLATION &amp; TOPOLOGICAL SWEEP SOLVER
     /// Single source of truth translating Pawn HediffSets onto contiguous SoA workspace arrays.
     /// Executes unified graph sweeps to handle bionic efficiency inheritance, missing part cascading,
-    /// and normalized injury health fractions with zero heap allocations.
+    /// and normalized injury health fractions using reusable workspace buffers.
     /// Resides under Source/Core/Solvers/.
     /// </summary>
     /// <remarks>
-    /// ARCHITECTURAL DESIGN RATIONALE (ZERO-ALLOCATION INGRESS PIPELINE):
+    /// ARCHITECTURAL DESIGN RATIONALE (INGRESS PIPELINE):
     /// Ingress executes in two deterministic stages:
     /// 1. Stage 1 (Hediff Translation): Sweeps live HediffSet, mapping direct wounds, added parts, and organ implants
     ///    into primitive SoA lanes (HealthFractions, EfficiencyRatings, AthleticEfficiencies, and Flags bitmasks).
@@ -179,7 +179,7 @@ namespace OverHaulers
                         athEffs[partIndex] = characteristics.EfficiencyModifier;
                     }
 
-                    // Record biological Def references for UI presentation (zero string allocations in Core)
+                    // Record Def references for presentation without formatting names here.
                     if (populateColdMetadata)
                     {
                         coldState.ProstheticDef = addedPart.def;

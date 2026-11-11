@@ -24,11 +24,12 @@ namespace OverHaulers
 
         private const float HeaderHeight = 36f;
         private const float TabBarHeight = 32f;
-        private const float TabSpacing = 8f;
+        private const float TabSpacing = SettingsViewUtilities.ControlGap;
         private const float TabButtonWidth = 220f;
         private const float BottomMargin = 10f;
+        private const float ScrollContentBottomPadding = 40f;
 
-        private static readonly Vector2 DefaultWindowSize = new Vector2(1024f, 768f); // Vector2(1280f, 720f);
+        private static readonly Vector2 DefaultWindowSize = new Vector2(1024f, 768f);
         private static readonly Color TabActiveColor = new Color(0.92f, 0.94f, 0.96f);
         private static readonly Color TabInactiveColor = new Color(0.65f, 0.67f, 0.70f);
         private static readonly Color DevAccentColor = new Color(0.70f, 0.85f, 1.0f);
@@ -133,64 +134,81 @@ namespace OverHaulers
 
         private void DrawHeader(Rect inRect, ref float curY)
         {
-            Rect headerRect = new Rect(inRect.x, curY, inRect.width, HeaderHeight);
+            float availableWidth = Math.Max(1f, inRect.width - 40f);
+            float rightEdge = inRect.x + availableWidth;
+            string titleText = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_WindowTitle");
+            string recompileText = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_RecompileButton");
+            string folderText = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_DiagnosticsFolder");
 
-            // Left: Title
+            Text.Font = GameFont.Medium;
+            float titleWidth = Math.Min(availableWidth, SettingsViewUtilities.MeasuredTextWidth(titleText));
+            float titleHeight = Math.Max(32f, SettingsViewUtilities.MeasuredTextHeight(titleText, titleWidth));
+            Text.Font = GameFont.Small;
+
+            Vector2 folderSize = SettingsViewUtilities.ButtonSize(folderText, availableWidth, minWidth: 140f, minHeight: 28f);
+            Vector2 recompileSize = SettingsViewUtilities.ButtonSize(recompileText, availableWidth, minWidth: 140f, minHeight: 28f);
+            float folderWidth = folderSize.x;
+            float recompileWidth = recompileSize.x;
+            bool separateTitle = titleWidth + SettingsViewUtilities.ControlGap + folderWidth + SettingsViewUtilities.ControlGap + recompileWidth > availableWidth;
+            float actionY = separateTitle ? curY + titleHeight + SettingsViewUtilities.CompactGap : curY;
+            bool separateButtons = folderWidth + SettingsViewUtilities.ControlGap + recompileWidth > availableWidth;
+            float folderHeight = folderSize.y;
+            float recompileHeight = recompileSize.y;
+            float recompileY = separateButtons ? actionY + folderHeight + SettingsViewUtilities.CompactGap : actionY;
+
             Text.Font = GameFont.Medium;
             GUI.color = DevAccentColor;
-            string titleText = "OverHaulers_ToolingDialog_WindowTitle".Translate().ToString();
-            Widgets.Label(new Rect(headerRect.x, headerRect.y, 400f, 32f), titleText);
+            Widgets.Label(new Rect(inRect.x, curY, titleWidth, titleHeight), titleText);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
 
-            // Right: Global Recompile Button
-            float buttonWidth = 140f;
-            Rect recompileRect = new Rect(headerRect.xMax - buttonWidth - 40f, headerRect.y, buttonWidth, 28f);
-            if (Widgets.ButtonText(recompileRect, "OverHaulers_ToolingDialog_RecompileData".Translate().ToString()))
+            Rect recompileRect = new Rect(rightEdge - recompileWidth, recompileY, recompileWidth, recompileHeight);
+            if (SettingsViewUtilities.DrawButton(recompileRect, recompileText,
+                SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_RecompileButton_Tooltip")))
             {
                 TestBench.RecompileAll();
             }
-            TooltipHandler.TipRegion(recompileRect, "OverHaulers_ToolingDialog_RecompileData_Tooltip".Translate().ToString());
 
-            // Right: Open Dumps Directory Button
-            Rect folderRect = new Rect(recompileRect.x - buttonWidth - 8f, headerRect.y, buttonWidth, 28f);
-            if (Widgets.ButtonText(folderRect, "OverHaulers_ToolingDialog_OpenDumpsFolder".Translate().ToString()))
+            Rect folderRect = new Rect(separateButtons ? rightEdge - folderWidth : recompileRect.x - SettingsViewUtilities.ControlGap - folderWidth, actionY, folderWidth, folderHeight);
+            if (SettingsViewUtilities.DrawButton(folderRect, folderText,
+                SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_DiagnosticsFolder_Tooltip")))
             {
                 DiagnosticExportUtility.OpenExportDirectory();
             }
-            TooltipHandler.TipRegion(folderRect, "OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip".Translate().ToString());
 
-            curY += HeaderHeight + 4f;
+            curY = Math.Max(curY + Math.Max(HeaderHeight, titleHeight), Math.Max(folderRect.yMax, recompileRect.yMax)) + SettingsViewUtilities.CompactGap;
 
             // Subtle divider rule under title row
             GUI.color = SettingsLayout.DividerLineColor;
             Widgets.DrawLineHorizontal(inRect.x, curY, inRect.width);
             GUI.color = Color.white;
-            curY += 8f;
+            curY += SettingsViewUtilities.ControlGap;
         }
 
         private void DrawTabBar(Rect inRect, ref float curY)
         {
-            Rect barRect = new Rect(inRect.x, curY, inRect.width, TabBarHeight);
-            float tabX = barRect.x;
+            float tabX = inRect.x;
+            float tabY = curY;
+            float rowHeight = 0f;
 
-            DrawSingleTab(ref tabX, barRect.y, DevTab.TestBench, "OverHaulers_ToolingDialog_Tab_TestBench".Translate().ToString());
-            DrawSingleTab(ref tabX, barRect.y, DevTab.BenchmarkAndSelfCheck, "OverHaulers_ToolingDialog_Tab_Benchmark".Translate().ToString());
-            DrawSingleTab(ref tabX, barRect.y, DevTab.DumpsAndTelemetry, "OverHaulers_ToolingDialog_Tab_Telemetry".Translate().ToString());
+            DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.TestBench, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_TestBench"));
+            DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.BenchmarkAndSelfCheck, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_Benchmark"));
+            DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.DumpsAndTelemetry, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_Telemetry"));
 
-            curY += TabBarHeight + 10f;
+            curY = tabY + rowHeight + 12f;
         }
 
-        private void DrawSingleTab(ref float tabX, float curY, DevTab tab, string label)
+        private void DrawSingleTab(Rect bounds, ref float tabX, ref float tabY, ref float rowHeight, DevTab tab, string label)
         {
-            Rect btnRect = new Rect(tabX, curY, TabButtonWidth, TabBarHeight - 2f);
+            Rect btnRect = SettingsViewUtilities.PlaceButton(bounds, ref tabX, ref tabY, ref rowHeight, label,
+                TabSpacing, minWidth: TabButtonWidth, minHeight: TabBarHeight - 2f);
             bool isActive = (activeTab == tab);
 
             Color origColor = GUI.color;
             try
             {
                 GUI.color = isActive ? TabActiveColor : TabInactiveColor;
-                if (Widgets.ButtonText(btnRect, label))
+                if (SettingsViewUtilities.DrawButton(btnRect, label))
                 {
                     activeTab = tab;
                 }
@@ -199,8 +217,6 @@ namespace OverHaulers
             {
                 GUI.color = origColor;
             }
-
-            tabX += TabButtonWidth + TabSpacing;
         }
 
         #endregion
@@ -209,52 +225,36 @@ namespace OverHaulers
 
         private void DrawTestBenchTab(Rect canvasRect)
         {
-            // Pinned Top Toolbar: Verbose Breakdown Toggle
-            Rect topBarRect = new Rect(canvasRect.x, canvasRect.y, canvasRect.width, 24f);
-            bool prevVerbose = settings.verboseBreakdown;
-            Widgets.CheckboxLabeled(topBarRect, "OverHaulers_ToolingDialog_VerboseBreakdown".Translate().ToString(), ref settings.verboseBreakdown);
-            TooltipHandler.TipRegion(topBarRect, "OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip".Translate().ToString());
-
-            if (prevVerbose != settings.verboseBreakdown)
-            {
-                DetailedModelRegistry.Clear();
-                TestBench.MarkDirty();
-                SettingsViewUtilities.OnSettingMutated();
-            }
-
-            float scrollY = canvasRect.y + 28f;
-            Rect scrollCanvas = new Rect(canvasRect.x, scrollY, canvasRect.width, canvasRect.height - 28f);
-
             // Dynamic height measurement prevents spillage when expanding surgery accordions
-            float targetHeight = Math.Max(lastTestBenchHeight, scrollCanvas.height);
-            Rect viewRect = new Rect(0f, 0f, scrollCanvas.width - 24f, targetHeight);
-            Widgets.BeginScrollView(scrollCanvas, ref testBenchScrollPos, viewRect);
+            float targetHeight = Math.Max(lastTestBenchHeight, canvasRect.height);
+            Rect viewRect = new Rect(0f, 0f, canvasRect.width - SettingsViewUtilities.ScrollbarGutter, targetHeight);
+            Widgets.BeginScrollView(canvasRect, ref testBenchScrollPos, viewRect);
 
             float currentY = 0f;
             DrawTestBenchSection(viewRect, ref currentY, settings, () => TestBench.ResetTestBench());
 
             Widgets.EndScrollView();
-            lastTestBenchHeight = currentY + 40f;
+            lastTestBenchHeight = currentY + ScrollContentBottomPadding;
         }
 
         private void DrawBenchmarkAndSelfCheckTab(Rect canvasRect)
         {
             float targetHeight = Math.Max(lastBenchmarkHeight, canvasRect.height);
-            Rect viewRect = new Rect(0f, 0f, canvasRect.width - 24f, targetHeight);
+            Rect viewRect = new Rect(0f, 0f, canvasRect.width - SettingsViewUtilities.ScrollbarGutter, targetHeight);
             Widgets.BeginScrollView(canvasRect, ref benchmarkScrollPos, viewRect);
 
             float localY = 0f;
             localY = DrawBenchmarkBlock(viewRect, localY);
-            localY = DrawSelfCheckBlock(viewRect, localY + 16f);
+            localY = DrawSelfCheckBlock(viewRect, localY + SettingsViewUtilities.GroupGap);
 
             Widgets.EndScrollView();
-            lastBenchmarkHeight = localY + 40f;
+            lastBenchmarkHeight = localY + ScrollContentBottomPadding;
         }
 
         private void DrawDumpsAndTelemetryTab(Rect canvasRect)
         {
             float targetHeight = Math.Max(lastDumpsHeight, canvasRect.height);
-            Rect viewRect = new Rect(0f, 0f, canvasRect.width - 24f, targetHeight);
+            Rect viewRect = new Rect(0f, 0f, canvasRect.width - SettingsViewUtilities.ScrollbarGutter, targetHeight);
             Widgets.BeginScrollView(canvasRect, ref dumpsScrollPos, viewRect);
 
             SettingsLayout ui = new SettingsLayout(viewRect);
@@ -266,7 +266,7 @@ namespace OverHaulers
             float interval = settings.reportMetricsIntervalHours;
             string intervalReadout = interval <= 0.001f
                 ? "OverHaulers_ToolingDialog_Telemetry_ReportIntervalDisabled".Translate().ToString()
-                : string.Format("{0:0}h", interval);
+                : interval.ToString("F0");
             string intervalLabel = interval <= 0.001f
                 ? intervalReadout
                 : "OverHaulers_ToolingDialog_Telemetry_ReportInterval".Translate(intervalReadout).ToString();
@@ -276,33 +276,43 @@ namespace OverHaulers
             }
 
             float eviction = settings.pawnEvictionTimeframeHours;
-            string evictionReadout = string.Format("{0:0}h", eviction);
+            string evictionReadout = eviction.ToString("F0");
             string evictionLabel = "OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours".Translate(evictionReadout).ToString();
             if (ui.Slider(evictionLabel, ref eviction, 1f, 72f, step: 1f))
             {
                 settings.pawnEvictionTimeframeHours = (int)eviction;
             }
 
-            ui.Gap(6f);
-            ui.SubHeader(SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader"));
+            ui.Gap(SettingsViewUtilities.ControlGap);
+            ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader");
 
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics", ref settings.logQueryMetrics, "OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics", ref settings.logCacheMetrics, "OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics", ref settings.logSnapshotTableMetrics, "OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics", ref settings.logPresentationMetrics, "OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics", ref settings.logLifecycleMetrics, "OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics", ref settings.logWorkspaceMetrics, "OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps", ref settings.logSafetyFloorClamps, "OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions", ref settings.logPawnEvictions, "OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc");
+            float columnGap = SettingsViewUtilities.ColumnGap;
+            float columnWidth = (ui.Width - columnGap) * 0.5f;
+            SettingsLayout left = ui;
+            SettingsLayout right = ui;
+            left.Width = columnWidth;
+            right.X = ui.X + columnWidth + columnGap;
+            right.Width = columnWidth;
+
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics", ref settings.logQueryMetrics, "OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc");
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics", ref settings.logCacheMetrics, "OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc");
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics", ref settings.logSnapshotTableMetrics, "OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc");
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics", ref settings.logPresentationMetrics, "OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc");
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics", ref settings.logLifecycleMetrics, "OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc");
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics", ref settings.logWorkspaceMetrics, "OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc");
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps", ref settings.logSafetyFloorClamps, "OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc");
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions", ref settings.logPawnEvictions, "OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc");
+            ui.Y = Math.Max(left.Y, right.Y);
 
             ui.Divider();
 
             // Section 2: High-Load Population Stress Testing
-            ui.SubHeader(SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Telemetry_StressTestingHeader"));
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna", ref settings.devStressTestAllFauna, "OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc");
+            ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_StressTestingHeader");
+            ui.DescriptionKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc");
+            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna", ref settings.devStressTestAllFauna);
 
             Widgets.EndScrollView();
-            lastDumpsHeight = ui.Y + 40f;
+            lastDumpsHeight = ui.Y + ScrollContentBottomPadding;
         }
 
         #endregion

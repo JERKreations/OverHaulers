@@ -5,7 +5,7 @@ namespace OverHaulers
 {
     /// <summary>
     /// [CACHE-02] THREAD-STATIC WORKSPACE POOL
-    /// Provides allocation-free, thread-safe scratchpad recyclers for capacity calculations.
+    /// Provides thread-local scratchpad reuse; initialization, buffer growth and pool-depth overflow can allocate.
     /// Replaces complex pooling arrays with high-speed ThreadStatic buffers, guarded against memory leaks.
     /// Resides under Source/Core/Workspaces/.
     /// </summary>

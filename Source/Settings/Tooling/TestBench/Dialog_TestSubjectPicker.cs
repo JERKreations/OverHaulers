@@ -6,9 +6,28 @@ using Verse;
 
 namespace OverHaulers
 {
+    /// <summary>[TEST-03] In-memory picker preferences shared between dialog instances.</summary>
+    internal sealed class TestSubjectPickerSession
+    {
+        private readonly Dictionary<GroupingDimension, HashSet<string>> expandedByDimension =
+            new Dictionary<GroupingDimension, HashSet<string>>();
+
+        public bool CaravanCapableOnly = true;
+
+        public HashSet<string> ExpandedGroups(GroupingDimension dimension)
+        {
+            if (!expandedByDimension.TryGetValue(dimension, out HashSet<string> groups))
+            {
+                groups = new HashSet<string>();
+                expandedByDimension.Add(dimension, groups);
+            }
+            return groups;
+        }
+    }
+
     /// <summary>
     /// [TEST-03] Interactive, searchable species and live pawn picker dialog for the Test Bench.
-    /// Provides instant text search, dynamic 5-way slicing, and collapsible accordion group headers.
+    /// Provides instant text search, caravan-capability filtering, dynamic 5-way slicing, and session-persistent group expansion.
     /// </summary>
     public class Dialog_TestSubjectPicker : Window
     {
@@ -19,16 +38,18 @@ namespace OverHaulers
         private const float DimensionBarHeight = 26f;
         private const float RowHeight = 28f;
         private const float GroupHeaderHeight = 24f;
+        private const float ListTopPadding = 4f;
+        private const float GroupHeaderGap = 2f;
+        private const float ListBottomPadding = 16f;
+        private const float ListScrollbarGutter = 16f;
+
+        private static readonly TestSubjectPickerSession session = new TestSubjectPickerSession();
 
         private string searchText = string.Empty;
         private Vector2 scrollPosition = Vector2.zero;
         private GroupingDimension currentDimension;
         private readonly Action<TestSubjectEntry> onSelectedCallback;
         private readonly TestSubjectEntry currentSelected;
-
-        // Tracks which group headers are currently expanded. 
-        // Empty by default means all are collapsed initially.
-        private readonly HashSet<string> expandedGroups = new HashSet<string>();
 
         #endregion
 
@@ -84,19 +105,28 @@ namespace OverHaulers
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(inRect.x, y, inRect.width - 36f, HeaderHeight), "OverHaulers_PickerTitle".Translate());
             Text.Font = GameFont.Small;
-            y += HeaderHeight + 6f;
+            y += HeaderHeight + SettingsViewUtilities.ControlGap;
 
             // 2. Search Box with Clear Button
             Rect searchBarRect = new Rect(inRect.x, y, inRect.width, SearchBarHeight);
             DrawSearchBar(searchBarRect);
-            y += SearchBarHeight + 8f;
+            y += SearchBarHeight + SettingsViewUtilities.ControlGap;
 
             // 3. Slicing Dimension Selector Tabs
             Rect dimBarRect = new Rect(inRect.x, y, inRect.width, DimensionBarHeight);
-            DrawDimensionTabs(dimBarRect);
-            y += DimensionBarHeight + 8f;
+            y = DrawDimensionTabs(dimBarRect) + SettingsViewUtilities.ControlGap;
 
-            // 4. Scrollable Grouped Results List
+            // 4. Eligibility Filter
+            Rect filterRect = new Rect(inRect.x, y, inRect.width, SettingsLayout.DefaultToggleHeight);
+            string filterTooltip = SettingsViewUtilities.CachedText("OverHaulers_Picker_CaravanCapableOnly_Tooltip");
+            string filterLabel = SettingsViewUtilities.LabelWithTooltip(SettingsViewUtilities.CachedText("OverHaulers_Picker_CaravanCapableOnly"), filterTooltip);
+            bool previousFilter = session.CaravanCapableOnly;
+            Widgets.CheckboxLabeled(filterRect, filterLabel, ref session.CaravanCapableOnly);
+            if (!string.IsNullOrEmpty(filterTooltip)) TooltipHandler.TipRegion(filterRect, filterTooltip);
+            if (previousFilter != session.CaravanCapableOnly) scrollPosition = Vector2.zero;
+            y += SettingsLayout.DefaultToggleHeight + SettingsViewUtilities.ControlGap;
+
+            // 5. Scrollable Grouped Results List
             Rect listRect = new Rect(inRect.x, y, inRect.width, inRect.height - (y - inRect.y));
             DrawSubjectList(listRect);
         }
@@ -110,28 +140,8 @@ namespace OverHaulers
         /// </remarks>
         private void DrawSearchBar(Rect rect)
         {
-            float clearBtnWidth = 24f;
-            Rect inputRect = new Rect(rect.x, rect.y, rect.width - clearBtnWidth - 4f, rect.height);
-            Rect clearRect = new Rect(rect.x + rect.width - clearBtnWidth, rect.y, clearBtnWidth, rect.height);
-
             string previous = searchText;
-            searchText = Widgets.TextField(inputRect, searchText);
-
-            if (string.IsNullOrEmpty(searchText))
-            {
-                if (Event.current.type == EventType.Repaint)
-                {
-                    GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                    Text.Font = GameFont.Small;
-                    Widgets.Label(new Rect(inputRect.x + 6f, inputRect.y + 4f, inputRect.width - 12f, inputRect.height), "OverHaulers_SearchPlaceholder".Translate());
-                    GUI.color = Color.white;
-                }
-            }
-
-            if (Widgets.ButtonText(clearRect, "✕"))
-            {
-                searchText = string.Empty;
-            }
+            searchText = SettingsViewUtilities.DrawSearchField(rect, searchText, "OverHaulers_SearchPlaceholder", GameFont.Small);
 
             if (searchText != previous)
             {
@@ -143,33 +153,37 @@ namespace OverHaulers
         /// Draws the dimension tabs for grouping test subjects.
         /// </summary>
         /// <param name="rect">The rectangle area within which the dimension tabs should be drawn.</param>
-        private void DrawDimensionTabs(Rect rect)
+        private float DrawDimensionTabs(Rect rect)
         {
             bool inGame = Current.ProgramState == ProgramState.Playing && Current.Game != null;
             int tabCount = inGame ? 5 : 4;
 
-            float gap = 4f;
+            float gap = SettingsViewUtilities.CompactGap;
             float btnWidth = (rect.width - (gap * (tabCount - 1))) / (float)tabCount;
-
-            DrawDimensionButton(new Rect(rect.x, rect.y, btnWidth, rect.height), "OverHaulers_GroupMode_Mod".Translate(), GroupingDimension.Mod);
-            DrawDimensionButton(new Rect(rect.x + (btnWidth + gap), rect.y, btnWidth, rect.height), "OverHaulers_GroupMode_BodyDef".Translate(), GroupingDimension.BodyDef);
-            DrawDimensionButton(new Rect(rect.x + (btnWidth + gap) * 2f, rect.y, btnWidth, rect.height), "OverHaulers_GroupMode_Category".Translate(), GroupingDimension.Category);
-            DrawDimensionButton(new Rect(rect.x + (btnWidth + gap) * 3f, rect.y, btnWidth, rect.height), "OverHaulers_GroupMode_FleshType".Translate(), GroupingDimension.FleshType);
+            float x = rect.x;
+            float y = rect.y;
+            float rowHeight = 0f;
+            DrawDimensionButton(rect, ref x, ref y, ref rowHeight, btnWidth, gap, "OverHaulers_GroupMode_Mod", GroupingDimension.Mod);
+            DrawDimensionButton(rect, ref x, ref y, ref rowHeight, btnWidth, gap, "OverHaulers_GroupMode_BodyDef", GroupingDimension.BodyDef);
+            DrawDimensionButton(rect, ref x, ref y, ref rowHeight, btnWidth, gap, "OverHaulers_GroupMode_Category", GroupingDimension.Category);
+            DrawDimensionButton(rect, ref x, ref y, ref rowHeight, btnWidth, gap, "OverHaulers_GroupMode_FleshType", GroupingDimension.FleshType);
 
             if (inGame)
             {
-                DrawDimensionButton(new Rect(rect.x + (btnWidth + gap) * 4f, rect.y, btnWidth, rect.height), "OverHaulers_GroupMode_Colony".Translate(), GroupingDimension.Colony);
+                DrawDimensionButton(rect, ref x, ref y, ref rowHeight, btnWidth, gap, "OverHaulers_GroupMode_Colony", GroupingDimension.Colony);
             }
+            return y + rowHeight;
         }
 
         /// <summary>
         /// Draws a single dimension button within the specified rectangle.
         /// </summary>
-        /// <param name="rect"></param>
-        /// <param name="label"></param>
-        /// <param name="dimension"></param>
-        private void DrawDimensionButton(Rect rect, string label, GroupingDimension dimension)
+        private void DrawDimensionButton(Rect bounds, ref float x, ref float y, ref float rowHeight,
+            float minWidth, float gap, string labelKey, GroupingDimension dimension)
         {
+            string label = SettingsViewUtilities.CachedText(labelKey);
+            Rect rect = SettingsViewUtilities.PlaceButton(bounds, ref x, ref y, ref rowHeight, label,
+                gap, minWidth: minWidth, minHeight: DimensionBarHeight);
             bool isSelected = currentDimension == dimension;
             if (isSelected)
             {
@@ -179,12 +193,11 @@ namespace OverHaulers
             Color origColor = GUI.color;
             if (isSelected) GUI.color = Color.cyan;
 
-            if (Widgets.ButtonText(rect, label))
+            if (SettingsViewUtilities.DrawButton(rect, label))
             {
                 currentDimension = dimension;
                 TestBench.activeGroupingDimension = dimension;
                 scrollPosition = Vector2.zero;
-                expandedGroups.Clear(); // Collapse all when switching tabs
             }
 
             GUI.color = origColor;
@@ -196,9 +209,10 @@ namespace OverHaulers
         /// <param name="rect">The rectangle area within which the subject list should be drawn.</param>
         private void DrawSubjectList(Rect rect)
         {
-            List<TestSubjectGroup> groups = TestSubjectRegistry.GetFilteredGroups(currentDimension, searchText);
+            List<TestSubjectGroup> groups = TestSubjectRegistry.GetFilteredGroups(currentDimension, searchText, session.CaravanCapableOnly);
+            HashSet<string> expandedGroups = session.ExpandedGroups(currentDimension);
 
-            float totalContentHeight = 4f; // Synchronized with starting curY
+            float totalContentHeight = ListTopPadding;
             int totalMatchingSpecies = 0;
             bool isSearching = !string.IsNullOrEmpty(searchText);
 
@@ -206,7 +220,7 @@ namespace OverHaulers
             for (int g = 0; g < groups.Count; g++)
             {
                 TestSubjectGroup group = groups[g];
-                totalContentHeight += GroupHeaderHeight + 2f; // Header is always visible
+                totalContentHeight += GroupHeaderHeight + GroupHeaderGap;
 
                 bool isExpanded = isSearching || expandedGroups.Contains(group.GroupLabel);
                 if (isExpanded)
@@ -214,7 +228,7 @@ namespace OverHaulers
                     totalContentHeight += (group.Entries.Count * RowHeight);
                 }
                 
-                totalContentHeight += 6f; // Synchronized with curY += 6f (gap to next group)
+                totalContentHeight += SettingsViewUtilities.ControlGap;
                 totalMatchingSpecies += group.Entries.Count;
             }
 
@@ -228,11 +242,10 @@ namespace OverHaulers
                 return;
             }
 
-            // Add 16px of comfortable bottom padding so the last item never touches the window edge
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, Math.Max(rect.height, totalContentHeight + 16f));
+            Rect viewRect = new Rect(0f, 0f, rect.width - ListScrollbarGutter, Math.Max(rect.height, totalContentHeight + ListBottomPadding));
             Widgets.BeginScrollView(rect, ref scrollPosition, viewRect);
 
-            float curY = 4f;
+            float curY = ListTopPadding;
 
             for (int g = 0; g < groups.Count; g++)
             {
@@ -262,7 +275,7 @@ namespace OverHaulers
                 
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
-                curY += GroupHeaderHeight + 2f;
+                curY += GroupHeaderHeight + GroupHeaderGap;
 
                 // 2. Group Rows (Only drawn if expanded)
                 if (isExpanded)
@@ -312,7 +325,7 @@ namespace OverHaulers
                     }
                 }
 
-                curY += 6f; // Gap to next group
+                curY += SettingsViewUtilities.ControlGap;
             }
 
             Widgets.EndScrollView();
@@ -332,7 +345,7 @@ namespace OverHaulers
                 float baseMassCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(entry.LivePawn);
                 float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
                 float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg , baseMassCapacity + currentOffset);
-                return $"BodySize {safeBodySize:F1}x • {finalMass.ToStringMass()}";
+                return "OverHaulers_TestBench_SubjectLiveTag".Translate(ReportFormatter.FormatAdaptive(safeBodySize, true), ReportFormatter.FormatMass(finalMass, true, false)).ToString();
             }
 
             string bodyName = entry.BodyDef?.defName ?? "Body";

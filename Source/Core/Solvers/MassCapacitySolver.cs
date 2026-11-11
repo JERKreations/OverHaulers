@@ -70,8 +70,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Stack-allocated accumulator aggregating positive and negative systemic deltas across anatomical regions.
-        /// Consolidates biological capacity coupling math with 0 bytes GC allocation.
+        /// Value-type accumulator aggregating positive and negative systemic deltas across anatomical regions.
         /// </summary>
         private struct SystemicRegionalDeltas
         {
@@ -191,7 +190,8 @@ namespace OverHaulers
 
         /// <summary>
         /// [SOLV-03] Primary canonical numerical solver calculating Caravan Mass Capacity metrics for a data source.
-        /// Constrained to struct to guarantee zero heap allocations, eliminate interface boxing, and ensure strict C# 7.3 compatibility.
+        /// The struct constraint avoids boxing the data source during constrained interface calls.
+        /// Workspace initialization, growth, or exceptional paths may allocate.
         /// Encapsulates the thread-local workspace lease completely within its execution scope using <see cref="WorkspacePool.WorkspaceLease"/>.
         /// Consumes active configuration pushed from Settings as the single source of truth for runtime configuration.
         /// </summary>
@@ -229,7 +229,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Evaluates numerical mass capacity metrics for a live <see cref="Pawn"/> instance.
-        /// Zero heap allocation pass-through wrapping the pawn into a stack-allocated <see cref="PawnAnatomicalSource"/>.
+        /// Wraps the pawn in a <see cref="PawnAnatomicalSource"/> value and delegates to the canonical solver.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MassCapacityEvaluationResult EvaluateMassCapacityForPawn(
@@ -246,7 +246,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Evaluates numerical mass capacity metrics for an abstract <see cref="IAnatomicalDataSource"/> instance.
-        /// Wraps the interface into a stack-allocated struct to satisfy generic constraints without boxing.
+        /// Wraps the interface reference in a struct for the generic solver without additional wrapper boxing.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MassCapacityEvaluationResult EvaluateMassCapacityForSource(
@@ -287,7 +287,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Evaluates and clamps the final capacity for a pawn against the hard technical compatibility safety floor.
-        /// Zero-allocation pass-through hand-off to <see cref="EnforceHardCompatibilitySafetyFloor"/>.
+        /// Delegates to <see cref="EnforceHardCompatibilitySafetyFloor"/> when the floor applies.
         /// </summary>
         /// <param name="finalCapacity">The calculated final caravan mass capacity in kilograms to be clamped.</param>
         /// <param name="pawn">The pawn entity being evaluated.</param>

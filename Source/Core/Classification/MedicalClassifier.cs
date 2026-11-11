@@ -45,7 +45,7 @@ namespace OverHaulers
 
         /// <summary>Fixed-capacity circular ring buffer tracking pawns with broken third-party BodySize getters.</summary>
         /// <remarks>
-        /// Replaces unbounded ConcurrentDictionary to enforce a zero-allocation, 256-byte maximum footprint.
+        /// Replaces an unbounded ConcurrentDictionary with a fixed 64-element integer array.
         /// Thread-safe via hardware-atomic 32-bit integer reads and circular Interlocked indexing.
         /// </remarks>
         private const int BrokenBodySizeRingCapacity = 64;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using UnityEngine;
 using RimWorld;
@@ -124,7 +125,7 @@ namespace OverHaulers
                 float totalBudget = budgetTorso + budgetArm + budgetLeg;
                 if (totalBudget <= 0f) totalBudget = 1.0f;
 
-                builder.AppendLine($"Configured Regional Budgets: Torso {(budgetTorso / totalBudget):P1} | Arms {(budgetArm / totalBudget):P1} | Legs {(budgetLeg / totalBudget):P1}");
+                builder.AppendLine($"Configured Regional Budgets: Torso {(budgetTorso / totalBudget):P3} | Arms {(budgetArm / totalBudget):P3} | Legs {(budgetLeg / totalBudget):P3}");
                 builder.AppendLine();
 
                 // Section 2.A: Parallel Weight Vector Breakdown Table
@@ -146,7 +147,7 @@ namespace OverHaulers
                     string wCore = tmpl.WeightCore[idx] > 0f ? tmpl.WeightCore[idx].ToString("F3") : "-";
                     string wManip = tmpl.WeightManipulation[idx] > 0f ? tmpl.WeightManipulation[idx].ToString("F3") : "-";
                     string wMove = tmpl.WeightMoving[idx] > 0f ? tmpl.WeightMoving[idx].ToString("F3") : "-";
-                    string staticPct = (tmpl.StaticWeightFactors[idx] * 100f).ToString("F2") + "%";
+                    string staticPct = (tmpl.StaticWeightFactors[idx] * 100f).ToString("F3") + "%";
 
                     int parentIdx = tmpl.ParentIndices[idx];
                     string parentName = parentIdx != -1 ? tmpl.IndexedParts[parentIdx].Label : "ROOT";
@@ -293,7 +294,7 @@ namespace OverHaulers
                     string rootAttr = tmpl.RootPartIndex[idx] >= 0 ? $" rootPartIndex=\"{tmpl.RootPartIndex[idx]}\" depth=\"{tmpl.Depth[idx]}\" siblingCount=\"{tmpl.SiblingCount[idx]}\"" : "";
                     string flagsAttr = (tmpl.IsOrgan[idx] ? " isOrgan=\"true\"" : "") + (tmpl.WasReclaimedAsAnchor[idx] ? " wasReclaimedAsAnchor=\"true\"" : "");
 
-                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{DiagnosticExportUtility.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F2}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{DiagnosticExportUtility.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{DiagnosticExportUtility.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
+                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{DiagnosticExportUtility.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{DiagnosticExportUtility.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{DiagnosticExportUtility.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
                 }
                 builder.AppendLine("      </ParallelWeightBreakdown>");
 
@@ -302,7 +303,7 @@ namespace OverHaulers
                 MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
                 float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg, cleanBaseline + massModel.Offset);
-                builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline:F2}\" solvedOffsetKg=\"{massModel.Offset:F2}\" finalMassKg=\"{finalMass:F2}\" totalMultiplier=\"{massModel.TotalMultiplier:F2}\" />");
+                builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline.ToString("R", CultureInfo.InvariantCulture)}\" solvedOffsetKg=\"{massModel.Offset.ToString("R", CultureInfo.InvariantCulture)}\" finalMassKg=\"{finalMass.ToString("R", CultureInfo.InvariantCulture)}\" totalMultiplier=\"{massModel.TotalMultiplier.ToString("R", CultureInfo.InvariantCulture)}\" />");
 
                 builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" consciousness=\"{massModel.CapacityLevels[4]:F2}\" />");
 
@@ -317,7 +318,7 @@ namespace OverHaulers
                 for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
                 {
                     PartViewNode groupNode = massModel.EvaluatedParts[g];
-                    builder.AppendLine($"        <GroupNode label=\"{DiagnosticExportUtility.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset:F2}\" prostheticKg=\"{groupNode.ProstheticOffset:F2}\" athleticKg=\"{groupNode.AthleticOffset:F2}\" healthKg=\"{groupNode.HealthOffset:F2}\">");
+                    builder.AppendLine($"        <GroupNode label=\"{DiagnosticExportUtility.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset.ToString("R", CultureInfo.InvariantCulture)}\" prostheticKg=\"{groupNode.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)}\" athleticKg=\"{groupNode.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)}\" healthKg=\"{groupNode.HealthOffset.ToString("R", CultureInfo.InvariantCulture)}\">");
                     DumpSubPartsXmlRecursive(builder, groupNode.SubParts, 10);
                     builder.AppendLine("        </GroupNode>");
                 }
@@ -408,7 +409,7 @@ namespace OverHaulers
             {
                 PartViewNode node = subParts[i];
                 string organTag = node.IsOrgan ? " [ORGAN]" : "";
-                string weightStr = node.ProportionalWeight > 0f ? $" (Weight: {(node.ProportionalWeight * 100f):F1}%)" : "";
+                string weightStr = node.ProportionalWeight > 0f ? $" (Weight: {(node.ProportionalWeight * 100f):F3}%)" : "";
 
                 string conditionTag = BuildTextConditionTag(node);
                 string channelDetails = BuildTextChannelDetails(node);
@@ -514,14 +515,14 @@ namespace OverHaulers
                 attrBuilder.Append($"label=\"{DiagnosticExportUtility.EscapeXml(node.Label)}\" ");
                 attrBuilder.Append($"def=\"{defName}\" ");
                 attrBuilder.Append($"isOrgan=\"{node.IsOrgan}\" ");
-                attrBuilder.Append($"weightPct=\"{(node.ProportionalWeight * 100f):F1}%\" ");
-                attrBuilder.Append($"totalOffsetKg=\"{node.TotalOffset:F2}\" ");
+                attrBuilder.Append($"weightPct=\"{(node.ProportionalWeight * 100f):F3}%\" ");
+                attrBuilder.Append($"totalOffsetKg=\"{node.TotalOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
 
                 if (node.HasProsthetic)
                 {
                     attrBuilder.Append("hasProsthetic=\"true\" ");
                     if (!string.IsNullOrEmpty(node.ProstheticName)) attrBuilder.Append($"prostheticName=\"{DiagnosticExportUtility.EscapeXml(node.ProstheticName)}\" ");
-                    attrBuilder.Append($"efficiencyRating=\"{node.EfficiencyRating:F2}\" ");
+                    attrBuilder.Append($"efficiencyRating=\"{node.EfficiencyRating.ToString("R", CultureInfo.InvariantCulture)}\" ");
                     if (node.IsInherited) attrBuilder.Append("isInherited=\"true\" ");
                 }
 
@@ -532,7 +533,7 @@ namespace OverHaulers
                 }
                 else if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"healthFraction=\"{node.HealthFraction:F2}\" ");
+                    attrBuilder.Append($"healthFraction=\"{node.HealthFraction.ToString("R", CultureInfo.InvariantCulture)}\" ");
                 }
 
                 if (!string.IsNullOrEmpty(node.AthleticImplantName))
@@ -547,15 +548,15 @@ namespace OverHaulers
 
                 if (Math.Abs(node.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"prostheticOffsetKg=\"{node.ProstheticOffset:F2}\" ");
+                    attrBuilder.Append($"prostheticOffsetKg=\"{node.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
                 }
                 if (Math.Abs(node.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"athleticOffsetKg=\"{node.AthleticOffset:F2}\" ");
+                    attrBuilder.Append($"athleticOffsetKg=\"{node.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
                 }
                 if (Math.Abs(node.HealthOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"healthOffsetKg=\"{node.HealthOffset:F2}\" ");
+                    attrBuilder.Append($"healthOffsetKg=\"{node.HealthOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
                 }
 
                 string attributes = attrBuilder.ToString().TrimEnd();

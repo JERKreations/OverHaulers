@@ -4,25 +4,28 @@
   <!-- ========================================================================= -->
   <!-- [SEC-11.A] TEST BENCH HEADER & ACTIONS                                    -->
   <!-- ========================================================================= -->
-  <OverHaulers_TestBenchHeader>Interactive Anatomical Test Bench</OverHaulers_TestBenchHeader>
-  <OverHaulers_TestBenchSubject>Subject: {0} ▼</OverHaulers_TestBenchSubject>
-  <OverHaulers_ActiveBodyTopology>Topology: {0} ({1} parts) • Mod: {2}</OverHaulers_ActiveBodyTopology>
+  <OverHaulers_TestBench_Header>Interactive Anatomical Test Bench</OverHaulers_TestBench_Header>
+  <OverHaulers_TestBench_Subject>Subject: {0} ▼</OverHaulers_TestBench_Subject>
+  <OverHaulers_TestBench_SubjectLiveTag>BodySize {0}x • {1}</OverHaulers_TestBench_SubjectLiveTag>
+  <OverHaulers_TestBench_ActiveTopology>Topology: {0} ({1} parts) • Mod: {2}</OverHaulers_TestBench_ActiveTopology>
 
-  <OverHaulers_DumpBtn>Dump ▼</OverHaulers_DumpBtn>
-  <OverHaulers_DumpGrouping_Tooltip>Export detailed InfoCard and grouping breakdowns to a structured text or XML file on disk.</OverHaulers_DumpGrouping_Tooltip>
-  <OverHaulers_DumpTopology_Tooltip>Export canonical skeletal topologies and load-bearing weight vectors to a structured text or XML file on disk.</OverHaulers_DumpTopology_Tooltip>
+  <OverHaulers_TestBench_ExportButton>Export ▼</OverHaulers_TestBench_ExportButton>
+  <OverHaulers_TestBench_ExportGrouping_Tooltip>Export detailed InfoCard and grouping breakdowns to a structured text or XML file on disk.</OverHaulers_TestBench_ExportGrouping_Tooltip>
+  <OverHaulers_TestBench_ExportTopology_Tooltip>Export canonical skeletal topologies and load-bearing weight vectors to a structured text or XML file on disk.</OverHaulers_TestBench_ExportTopology_Tooltip>
 
-  <OverHaulers_DumpOption_Selected_Format>Selected Subject ({0}) [{1}]</OverHaulers_DumpOption_Selected_Format>
-  <OverHaulers_DumpOption_Archetype_Format>Archetype: {0} [{1}]</OverHaulers_DumpOption_Archetype_Format>
-  <OverHaulers_DumpOption_FullCensus_Format>Full Census (All Loaded) [{0}]</OverHaulers_DumpOption_FullCensus_Format>
-  <OverHaulers_DumpExportedMessage>[Over Haulers] Detailed census dump exported to: {0}</OverHaulers_DumpExportedMessage>
+  <OverHaulers_TestBench_ExportOption_Selected>Selected Subject ({0}) [{1}]</OverHaulers_TestBench_ExportOption_Selected>
+  <OverHaulers_TestBench_ExportOption_Archetype>Archetype: {0} [{1}]</OverHaulers_TestBench_ExportOption_Archetype>
+  <OverHaulers_TestBench_ExportOption_FullCensus>Full Census (All Loaded) [{0}]</OverHaulers_TestBench_ExportOption_FullCensus>
+  <OverHaulers_TestBench_ExportedMessage>[Over Haulers] Detailed census exported to: {0}</OverHaulers_TestBench_ExportedMessage>
 
   <!-- ========================================================================= -->
   <!-- [SEC-11.B] SEARCHABLE TEST SUBJECT PICKER DIALOG                          -->
   <!-- ========================================================================= -->
   <OverHaulers_PickerTitle>Select Reference Test Subject</OverHaulers_PickerTitle>
   <OverHaulers_SearchPlaceholder>Search species, colonists, mods, or anatomy...</OverHaulers_SearchPlaceholder>
-  <OverHaulers_NoSearchResults>No species or colonists match the search filter.</OverHaulers_NoSearchResults>
+  <OverHaulers_NoSearchResults>No subjects match the current filters.</OverHaulers_NoSearchResults>
+  <OverHaulers_Picker_CaravanCapableOnly>Caravan-capable subjects only</OverHaulers_Picker_CaravanCapableOnly>
+  <OverHaulers_Picker_CaravanCapableOnly_Tooltip>Show humanlike pawns, pack animals, and hauling-capable mechanoids. Live pawns use their current capabilities; species use their race definitions. The all-fauna stress-test override does not change this filter.</OverHaulers_Picker_CaravanCapableOnly_Tooltip>
 
   <OverHaulers_GroupMode_Mod>Source</OverHaulers_GroupMode_Mod>
   <OverHaulers_GroupMode_BodyDef>Anatomy</OverHaulers_GroupMode_BodyDef>
@@ -46,6 +49,7 @@
   <OverHaulers_Delta_Baseline>ⓘ Baseline</OverHaulers_Delta_Baseline>
   <OverHaulers_Delta_Simulated>Simulated</OverHaulers_Delta_Simulated>
   <OverHaulers_Delta_ComparisonLine><![CDATA[{0}: {1}  ➔  {2}: {3}  ]]></OverHaulers_Delta_ComparisonLine>
+  <OverHaulers_Delta_MassChange>{0} ({1})</OverHaulers_Delta_MassChange>
   
   <!-- Delta Calibration Contextual Tooltips -->
   <OverHaulers_Calibration_ActiveHeader>Active Subject Status: [{0}] {1}</OverHaulers_Calibration_ActiveHeader>
@@ -102,7 +106,7 @@
   <OverHaulers_Sandbox_OpBtn>Simulate ▼</OverHaulers_Sandbox_OpBtn>
   
   <!-- Single Target Operations -->
-  <OverHaulers_Op_AddReplacement>[+] {0} ({1}%)</OverHaulers_Op_AddReplacement>
+  <OverHaulers_Op_AddReplacement>[+] {0} ({1})</OverHaulers_Op_AddReplacement>
   <OverHaulers_Op_AddImplant>[+] {0}</OverHaulers_Op_AddImplant>
   <OverHaulers_Op_Destroy>[-] Destroy / Max Damage</OverHaulers_Op_Destroy>
   <OverHaulers_Op_Revert>↺ Revert to Source</OverHaulers_Op_Revert>
@@ -112,19 +116,19 @@
   <OverHaulers_Op_Amputated>Amputated</OverHaulers_Op_Amputated>
 
   <!-- Dynamic Group Bulk Actions -->
-  <OverHaulers_Sandbox_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0}%)</OverHaulers_Sandbox_BulkMaxUpgrade>
-  <OverHaulers_Sandbox_BulkBudgetUpgrade>Bulk: Budget / Basic ({0}%)</OverHaulers_Sandbox_BulkBudgetUpgrade>
+  <OverHaulers_Sandbox_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0})</OverHaulers_Sandbox_BulkMaxUpgrade>
+  <OverHaulers_Sandbox_BulkBudgetUpgrade>Bulk: Budget / Basic ({0})</OverHaulers_Sandbox_BulkBudgetUpgrade>
   <OverHaulers_Sandbox_BulkDestroy>Destroy Entire Group</OverHaulers_Sandbox_BulkDestroy>
   <OverHaulers_Sandbox_BulkRevert>Revert Entire Group</OverHaulers_Sandbox_BulkRevert>
 
   <!-- ========================================================================= -->
   <!-- [SEC-11.F] UNIFIED DYNAMIC NODE STATUS BADGES                             -->
   <!-- ========================================================================= -->
-  <OverHaulers_NodeBadge_Prosthetic>{0} [{1}, {2}%]</OverHaulers_NodeBadge_Prosthetic>
+  <OverHaulers_NodeBadge_Prosthetic>{0} [{1}, {2}]</OverHaulers_NodeBadge_Prosthetic>
   <OverHaulers_NodeBadge_Implant>{0} [{1}]</OverHaulers_NodeBadge_Implant>
   <OverHaulers_NodeBadge_Missing>{0} [Missing]</OverHaulers_NodeBadge_Missing>
   <OverHaulers_NodeBadge_Inoperable>{0} [Inoperable]</OverHaulers_NodeBadge_Inoperable>
-  <OverHaulers_NodeBadge_Wounded>{0} [Wounded, {1}%]</OverHaulers_NodeBadge_Wounded>
+  <OverHaulers_NodeBadge_Wounded>{0} [Wounded, {1}]</OverHaulers_NodeBadge_Wounded>
   <OverHaulers_NodeBadge_Natural>{0} [Natural]</OverHaulers_NodeBadge_Natural>
   <OverHaulers_NodeBadge_VirtualAnchor>{0} [Apparel Anchor]</OverHaulers_NodeBadge_VirtualAnchor>
 

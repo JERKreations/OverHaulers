@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-01] Ingress contract isolating mathematical solvers and topology compilers
     /// from live RimWorld Pawn entity reference mutations.
-    /// Implemented by stack-allocated struct wrappers (PawnAnatomicalSource, SandboxAnatomicalSource, BoxedDataSourceWrapper).
+    /// Implemented by struct wrappers (PawnAnatomicalSource, SandboxAnatomicalSource, BoxedDataSourceWrapper).
     /// Resides under Source/Core/Ingress/.
     /// </summary>
     public interface IAnatomicalDataSource
@@ -72,11 +72,11 @@ namespace OverHaulers
 
     #endregion
 
-    #region 2. [ING-02] ZERO-ALLOCATION STRUCT ADAPTER
+    #region 2. [ING-02] STRUCT ADAPTER
 
     /// <summary>
-    /// [ING-02] Zero-allocation stack wrapper adapting an <see cref="IAnatomicalDataSource"/> reference
-    /// into the unboxed struct solver pipeline. Declared as a namespace-level struct to ensure strict C# 7.3 compliance.
+    /// [ING-02] Struct wrapper adapting an <see cref="IAnatomicalDataSource"/> reference
+    /// into the generic solver pipeline without additional wrapper boxing.
     /// Resides under Source/Core/Ingress/.
     /// </summary>
     internal readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource

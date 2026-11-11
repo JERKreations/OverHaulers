@@ -6,8 +6,8 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [SEC-00] High-performance, zero-allocation immediate mode layout cursor for Mod Settings.
-    /// Operates on top-down linear Rect progression with automatic text measurement, fixed 200px sliders,
+    /// [SEC-00] Immediate mode layout cursor for Mod Settings, using value-type geometry and reusable input buffers.
+    /// Operates on top-down linear Rect progression with automatic text measurement, width-dependent sliders,
     /// focus-aware manual entry text fields, and zero Listing_Standard overhead.
     /// Resides under Source/Settings/Views/.
     /// </summary>
@@ -22,7 +22,8 @@ namespace OverHaulers
 
         public const float FixedSliderWidth = 300f;
         public const float FixedInputWidth = 46f;
-        public const float ControlGap = 8f;
+        public const float SliderTagWidth = 24f;
+        public const float ControlGap = SettingsViewUtilities.ControlGap;
 
         public static readonly Color MutedTextColor = new Color(0.63f, 0.65f, 0.67f);
         public static readonly Color DividerLineColor = new Color(1f, 1f, 1f, 0.12f);
@@ -169,9 +170,9 @@ namespace OverHaulers
             }
 
             bool prev = value;
-            Widgets.CheckboxLabeled(rowRect, label, ref value);
+            Widgets.CheckboxLabeled(rowRect, SettingsViewUtilities.LabelWithTooltip(label, tooltip), ref value);
 
-            Y += 28f;
+            Y += DefaultToggleHeight + SettingsViewUtilities.CompactGap;
 
             if (prev != value)
             {
@@ -194,7 +195,7 @@ namespace OverHaulers
         #region 7. SLIDERS WITH FIXED BARS & MANUAL ENTRY FIELDS
 
         /// <summary>
-        /// Renders a slider row with a fixed 200px slider bar and a manual entry text box on the right.
+        /// Renders a slider row with a width-dependent slider bar and a manual entry text box on the right.
         /// Defaults to fine 1% (0.01f) tuning increments.
         /// </summary>
         public bool Slider(
@@ -203,7 +204,6 @@ namespace OverHaulers
             float min,
             float max,
             float step = 0.01f,
-            string customLabel = null,
             string tooltip = null)
         {
             Rect rowRect = new Rect(X, Y, Width, DefaultRowHeight);
@@ -213,40 +213,30 @@ namespace OverHaulers
                 TooltipHandler.TipRegion(rowRect, tooltip);
             }
 
-            float sliderWidth = Width > 500f ? FixedSliderWidth : 120f;
-            float inputWidth = FixedInputWidth;
-            float labelWidth = Width - sliderWidth - inputWidth - (ControlGap * 2f);
+            GetSliderRowRects(rowRect, out Rect labelRect, out Rect sliderRect, out Rect textRect);
 
-            // 1. Left Label with dynamic value formatting
-            string displayLabel = !string.IsNullOrEmpty(customLabel) ? string.Format("{0} ({1})", label, customLabel) : label;
-            Rect labelRect = new Rect(X, Y + 1f, labelWidth, 24f);
+            // 1. Left Label
+            string displayLabel = SettingsViewUtilities.LabelWithTooltip(label, tooltip);
             Widgets.Label(labelRect, displayLabel);
-
-            // 2. Middle Fixed-Width Slider
-            Rect sliderRect = new Rect(X + labelWidth + ControlGap, Y + 1f, sliderWidth, 24f);
-
-            // 3. Right Manual Entry Text Field
-            Rect textRect = new Rect(sliderRect.xMax + ControlGap, Y + 1f, inputWidth, 22f);
 
             bool changed = DrawAtomicSliderWithInput(sliderRect, textRect, ref value, min, max, step, isInteger: false);
 
-            Y += 30f;
+            Y += DefaultRowHeight + SettingsViewUtilities.CompactGap;
             return changed;
         }
 
         /// <summary>
-        /// Renders an integer-quantized slider with fixed 200px bar and text field.
+        /// Renders an integer-quantized slider with a width-dependent bar and text field.
         /// </summary>
         public bool IntSlider(
             string label,
             ref int value,
             int min,
             int max,
-            string customLabel = null,
             string tooltip = null)
         {
             float floatVal = value;
-            bool changed = Slider(label, ref floatVal, min, max, step: 1f, customLabel: customLabel, tooltip: tooltip);
+            bool changed = Slider(label, ref floatVal, min, max, step: 1f, tooltip: tooltip);
             if (changed)
             {
                 value = (int)Math.Round(floatVal, MidpointRounding.ToEven);
@@ -255,7 +245,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Renders a composite row featuring a toggle checkbox, fixed 200px slider, and text field.
+        /// Renders a composite row featuring a toggle checkbox, width-dependent slider, and text field.
         /// When the toggle is unchecked, the slider and text box are greyed out.
         /// </summary>
         public bool ToggleSlider(
@@ -265,7 +255,6 @@ namespace OverHaulers
             float min,
             float max,
             float step = 0.01f,
-            string customLabel = null,
             string tooltip = null)
         {
             Rect rowRect = new Rect(X, Y, Width, DefaultRowHeight);
@@ -275,27 +264,21 @@ namespace OverHaulers
                 TooltipHandler.TipRegion(rowRect, tooltip);
             }
 
-            float sliderWidth = Width > 500f ? FixedSliderWidth : 120f;
-            float inputWidth = FixedInputWidth;
-            float labelWidth = Width - sliderWidth - inputWidth - (ControlGap * 2f);
+            GetSliderRowRects(rowRect, out Rect labelRect, out Rect sliderRect, out Rect textRect);
 
             // 1. Left Checkbox & Label
-            string displayLabel = !string.IsNullOrEmpty(customLabel) ? string.Format("{0} ({1})", label, customLabel) : label;
-            Rect labelRect = new Rect(X, Y + 1f, labelWidth, 24f);
+            string displayLabel = SettingsViewUtilities.LabelWithTooltip(label, tooltip);
             bool prevEnabled = enabled;
             Widgets.CheckboxLabeled(labelRect, displayLabel, ref enabled);
 
             // 2. Middle Slider & Right Text Input
-            Rect sliderRect = new Rect(X + labelWidth + ControlGap, Y + 1f, sliderWidth, 24f);
-            Rect textRect = new Rect(sliderRect.xMax + ControlGap, Y + 1f, inputWidth, 22f);
-
             bool prevGuiState = GUI.enabled;
             if (!enabled) GUI.enabled = false;
 
             bool valueChanged = DrawAtomicSliderWithInput(sliderRect, textRect, ref value, min, max, step, isInteger: false);
 
             GUI.enabled = prevGuiState;
-            Y += 30f;
+            Y += DefaultRowHeight + SettingsViewUtilities.CompactGap;
 
             if (prevEnabled != enabled)
             {
@@ -304,6 +287,15 @@ namespace OverHaulers
             }
 
             return valueChanged;
+        }
+
+        private static void GetSliderRowRects(Rect row, out Rect label, out Rect slider, out Rect input)
+        {
+            float sliderWidth = row.width > 500f ? FixedSliderWidth : 120f;
+            float labelWidth = row.width - sliderWidth - FixedInputWidth - (ControlGap * 2f);
+            label = new Rect(row.x, row.y + 1f, labelWidth, 24f);
+            slider = new Rect(row.x + labelWidth + ControlGap, row.y + 1f, sliderWidth, 24f);
+            input = new Rect(slider.xMax + ControlGap, row.y + 1f, FixedInputWidth, 22f);
         }
 
         /// <summary>
@@ -318,7 +310,7 @@ namespace OverHaulers
             float max,
             float step = 0.01f)
         {
-            float tagWidth = 24f;
+            float tagWidth = SliderTagWidth;
             float inputWidth = FixedInputWidth;
             float sliderWidth = Math.Max(60f, unitRect.width - tagWidth - inputWidth - (ControlGap * 2f));
 
@@ -423,16 +415,19 @@ namespace OverHaulers
 
         #region 8. BUTTONS & ACTIONS
 
-        public bool Button(string label, float buttonWidth = 180f, float buttonHeight = DefaultButtonHeight)
+        public bool Button(string label, float minWidth = 0f, float minHeight = DefaultButtonHeight,
+            float? maxWidth = null, float? fixedWidth = null, float? fixedHeight = null, float? maxHeight = null)
         {
-            Rect btnRect = new Rect(X, Y, buttonWidth, buttonHeight);
-            Y += buttonHeight + 6f;
-            return Widgets.ButtonText(btnRect, label);
+            Vector2 size = SettingsViewUtilities.ButtonSize(label, Width, minWidth, minHeight, maxWidth, fixedWidth, fixedHeight, maxHeight);
+            Rect btnRect = new Rect(X, Y, size.x, size.y);
+            Y += size.y + SettingsViewUtilities.ControlGap;
+            return SettingsViewUtilities.DrawButton(btnRect, label);
         }
 
-        public bool ButtonKey(string labelKey, float buttonWidth = 180f, float buttonHeight = DefaultButtonHeight)
+        public bool ButtonKey(string labelKey, float minWidth = 0f, float minHeight = DefaultButtonHeight,
+            float? maxWidth = null, float? fixedWidth = null, float? fixedHeight = null, float? maxHeight = null)
         {
-            return Button(SettingsViewUtilities.CachedText(labelKey), buttonWidth, buttonHeight);
+            return Button(SettingsViewUtilities.CachedText(labelKey), minWidth, minHeight, maxWidth, fixedWidth, fixedHeight, maxHeight);
         }
 
         #endregion

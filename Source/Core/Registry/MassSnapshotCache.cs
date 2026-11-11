@@ -5,7 +5,7 @@ namespace OverHaulers
     /// <summary>
     /// [CACHE-02] CONCURRENT MASS SNAPSHOT REGISTRY (LIVE INSTANCE FACADE)
     /// Static entry point over the single live <see cref="SnapshotTable"/> mapping active pawn IDs to Caravan Mass Capacity
-    /// physical offsets. Guarantees atomic, linearizable, zero-allocation reads for background pathfinding threads.
+    /// physical offsets. After initialization, provides atomic, linearizable, zero-allocation reads for background pathfinding threads.
     /// Resides under Source/Core/Registry/.
     /// </summary>
     public static class MassSnapshotCache
@@ -51,7 +51,7 @@ namespace OverHaulers
         static MassSnapshotCache()
         {
             // Explicit static constructor removes the CIL 'beforefieldinit' flag,
-            // guaranteeing liveTable is only allocated when EnsureInitialized() is invoked.
+            // so liveTable initialization is deferred until the type is first used.
         }
 
         /// <summary>

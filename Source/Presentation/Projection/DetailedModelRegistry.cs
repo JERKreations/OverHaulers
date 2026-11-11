@@ -8,7 +8,7 @@ namespace OverHaulers
     /// <summary>
     /// [VIEW-03] PRESENTATION MODEL REGISTRY & INFOCARD CACHE
     /// Dedicated presentation cache managing <see cref="MassCapacityModel"/> lifecycles for InfoCard dialogs.
-    /// Implements a bounded, zero-allocation doubly-linked LRU cache with in-session node recycling to completely
+    /// Implements a bounded doubly-linked LRU cache with in-session node recycling to
     /// isolate presentation tree generation and explanation caching from the high-frequency gameplay Core.
     /// Dynamically scales capacity (32 -> 1024) upon detecting high-velocity UI working-set contention.
     /// Guarantees 100% clean teardown on save unload with zero cross-session memory retention.
@@ -103,7 +103,7 @@ namespace OverHaulers
         /// <summary>Total presentation cache misses triggering visual model solves.</summary>
         public static long TotalMisses => totalMisses;
 
-        /// <summary>Total times the LRU tail was recycled to make room for a new pawn without memory allocation.</summary>
+        /// <summary>Total times the LRU tail entry was recycled to make room for a new pawn.</summary>
         public static long TotalRecycles => totalRecycles;
 
         /// <summary>Total times the presentation registry was completely flushed (e.g. on save unload).</summary>

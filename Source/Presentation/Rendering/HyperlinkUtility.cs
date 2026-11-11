@@ -17,8 +17,8 @@ namespace OverHaulers
         private static readonly HashSet<ThingDef> pooledDeduplicator = new HashSet<ThingDef>(256);
 
         /// <summary>
-        /// Resolves an allocation-free sequence of InfoCard hyperlinks for installed bionics and implants on the specified pawn, avoiding duplicate
-        ///  hyperlinks within a single resolution pass.
+        /// Resolves InfoCard hyperlinks for installed bionics and implants on the specified pawn,
+        /// using a pooled deduplicator and, when a detailed model is available, a newly allocated result list.
         /// </summary>
         /// <param name="req">The StatRequest containing the pawn for which to resolve hyperlinks.</param>
         /// <returns>An enumerable sequence of InfoCard hyperlinks corresponding to the installed bionics and implants on the specified pawn.</returns>

@@ -84,12 +84,15 @@ namespace OverHaulers
 
             bool running = SelfCheckRunner.State == SelfCheckState.Running;
 
-            Rect runRect = new Rect(inner.x, localY, Math.Min(170f, inner.width * 0.3f), 28f);
+            string runLabel = SettingsViewUtilities.CachedText("OverHaulers_SelfCheck_Run");
+            Vector2 runSize = SettingsViewUtilities.ButtonSize(runLabel, inner.width,
+                minWidth: Math.Min(170f, inner.width * 0.3f), maxWidth: inner.width * 0.5f);
+            Rect runRect = new Rect(inner.x, localY, runSize.x, runSize.y);
             bool originalEnabled = GUI.enabled;
             try
             {
                 GUI.enabled = originalEnabled && !running;
-                if (Widgets.ButtonText(runRect, SettingsViewUtilities.CachedText("OverHaulers_SelfCheck_Run")))
+                if (SettingsViewUtilities.DrawButton(runRect, runLabel))
                 {
                     SelfCheckRunner.Start();
                 }
@@ -100,7 +103,7 @@ namespace OverHaulers
             }
 
             // Status beside the button
-            Rect statusRect = new Rect(runRect.xMax + 12f, localY, inner.width - runRect.width - 12f, 28f);
+            Rect statusRect = new Rect(runRect.xMax + 12f, localY, inner.width - runRect.width - 12f, runRect.height);
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             try
@@ -130,7 +133,7 @@ namespace OverHaulers
                 GUI.color = Color.white;
             }
 
-            localY += 34f;
+            localY += runRect.height + 6f;
 
             if (SelfCheckRunner.HasResults)
             {

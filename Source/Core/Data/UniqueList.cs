@@ -4,9 +4,9 @@ using System.Collections.Generic;
 namespace OverHaulers
 {
     /// <summary>
-    /// [PASS-01 & VIEW-03] Thread-isolated, zero-allocation container pairing a <see cref="List{T}"/> with a <see cref="HashSet{T}"/> 
-    /// to guarantee O(1) unique element insertions while maintaining linear index-based iteration order.
-    /// Reuses backing buffers across reset cycles to guarantee 0 GC allocations during calculation passes.
+    /// [PASS-01 & VIEW-03] Thread-isolated container pairing a <see cref="List{T}"/> with a <see cref="HashSet{T}"/>
+    /// for expected O(1) unique element insertions while maintaining linear index-based iteration order.
+    /// Reuses backing buffers across reset cycles; adding beyond their capacity can allocate.
     /// Resides under Source/Core/Data/.
     /// </summary>
     /// <typeparam name="T">Value or reference type being tracked uniquely.</typeparam>
@@ -102,7 +102,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. ZERO-ALLOCATION ENUMERATOR IMPLEMENTATIONS
+        #region 5. ENUMERATOR IMPLEMENTATIONS
 
         /// <summary>
         /// Provides a zero-allocation struct enumerator for pattern-based <c>foreach</c> loops.

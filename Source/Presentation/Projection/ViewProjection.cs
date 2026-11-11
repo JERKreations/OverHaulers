@@ -9,8 +9,7 @@ namespace OverHaulers
     /// <summary>
     /// [VIEW-01 to VIEW-05] VIEW PROJECTION COMPILER
     /// Stateless view projection compiler translating mathematical workspace vectors into passive visual node hierarchies.
-    /// Operates on IAnatomicalDataSource with zero transient heap allocations on the main thread via O(1) direct array access and pooled
-    ///  view nodes.
+    /// Uses direct array access and pooled view nodes to reduce allocations on the main thread; buffers may grow as needed.
     /// Strictly decoupled from Core mathematical solvers; consumes Core via rented workspace leases.
     /// Resides under Source/Presentation/Projection/.
     /// </summary>
@@ -91,11 +90,13 @@ namespace OverHaulers
         /// <param name="source">The anatomical data source providing biological metrics and def definitions.</param>
         /// <param name="baselineCapacity">The pawn's biological baseline capacity in kilograms.</param>
         /// <param name="targetModel">The target mass model to populate with visual tree nodes and explanations.</param>
+        /// <param name="diagnosticPrecision">Format the explanation with diagnostic precision.</param>
         /// <returns>A populated <see cref="MassCapacityEvaluationResult"/> value containing all solved metrics.</returns>
         public static MassCapacityEvaluationResult InspectAndProject<TSource>(
             TSource source,
             float baselineCapacity,
-            MassCapacityModel targetModel) where TSource : struct, IAnatomicalDataSource
+            MassCapacityModel targetModel,
+            bool diagnosticPrecision = false) where TSource : struct, IAnatomicalDataSource
         {
             if (!source.IsValidBiologicalState || targetModel == null)
             {
@@ -132,7 +133,7 @@ namespace OverHaulers
                     targetModel.ConfigurablePercentileFloorKg = baselineCapacity * floorFactor;
 
                     // BREAKPOINT ANCHOR: Build visual projection hierarchy while workspace is pinned
-                    RebuildDetailedModelForSource(source, targetModel, result.SolvedOffset, baselineCapacity, workspace);
+                    RebuildDetailedModelForSource(source, targetModel, result.SolvedOffset, baselineCapacity, workspace, diagnosticPrecision);
 
                     return result;
                 }
@@ -195,12 +196,14 @@ namespace OverHaulers
         /// <param name="solvedOffset">The solved physical capacity offset in kilograms.</param>
         /// <param name="biologicalBaseline">The pawn's biological baseline capacity in kilograms.</param>
         /// <param name="workspace">The populated workspace containing part calculations and cold metadata.</param>
+        /// <param name="diagnosticPrecision">Format the explanation with diagnostic precision.</param>
         public static void RebuildDetailedModelForSource(
             IAnatomicalDataSource source,
             MassCapacityModel massModel,
             float solvedOffset,
             float biologicalBaseline,
-            AnatomicalWorkspace workspace)
+            AnatomicalWorkspace workspace,
+            bool diagnosticPrecision = false)
         {
             if (!UnityData.IsInMainThread || massModel == null) return;
             if (source != null && !source.IsValidBiologicalState) return;
@@ -329,8 +332,7 @@ namespace OverHaulers
                     ProcessAndAddGroupWrapper(pooledGroupSubModels[typeIndex], (PartType)typeIndex, context, massModel, template);
                 }
 
-                // Build a detailed explanation of the mass model, using canonical single-parameter SSoT
-                massModel.Explanation = ReportFormatter.BuildExplanation(massModel);
+                massModel.Explanation = ReportFormatter.BuildExplanation(massModel, diagnosticPrecision);
             }
             catch (Exception ex)
             {
@@ -347,7 +349,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Rebuilds the detailed mass model for a live <see cref="Pawn"/> entity.
-        /// Thin pass-through wrapping the pawn into a stack-allocated <see cref="PawnAnatomicalSource"/> to invoke the canonical source engine.
+        /// Wraps the pawn in a <see cref="PawnAnatomicalSource"/> value and invokes the canonical source engine.
         /// </summary>
         /// <param name="pawn">The live pawn entity being inspected.</param>
         /// <param name="massModel">The target mass model to populate with visual tree nodes and explanations.</param>

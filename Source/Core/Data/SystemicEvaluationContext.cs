@@ -7,7 +7,7 @@ namespace OverHaulers
     /// [SEC-01] IMMUTABLE SYSTEMIC EVALUATION CONTEXT
     /// Value-type context capturing biological capacities, category weight budgets,
     /// and pre-calculated anchor scales for a single calculation pass.
-    /// Passes on the stack with 0 bytes GC allocation for high-performance off-thread calculations.
+    /// Used as a value type in off-thread calculations.
     /// Resides under Source/Core/Data/.
     /// </summary>
     public struct SystemicEvaluationContext

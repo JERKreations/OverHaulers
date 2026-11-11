@@ -5,7 +5,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [SEC-10] Linear, zero-allocation presentation layout for Tab 3 (Accessibility &amp; UI).
+    /// [SEC-10] Linear presentation layout for Tab 3 (Accessibility &amp; UI).
     /// Provides controls for Breakdown Icon Scaling, medical health status color presets,
     /// live 3-stop gradient previewing, and interactive RGB channel customization.
     /// Resides under Source/Settings/Views/.
@@ -31,7 +31,7 @@ namespace OverHaulers
             });
 
             // 2. Icon Scale Slider
-            string scaleReadout = string.Format("{0:F0}%", settings.iconScalePercent * 100f);
+            string scaleReadout = settings.iconScalePercent.ToString("P2");
             string scaleLabel = "OverHaulers_IconScaleLabel".Translate(scaleReadout).ToString();
             ui.Slider(
                 scaleLabel,
@@ -46,10 +46,10 @@ namespace OverHaulers
             // 3. Medical Palette Presets
             ui.SubHeader("OverHaulers_ColorPaletteHeader".Translate().ToString());
             ui.DescriptionKey("OverHaulers_Accessibility_Desc");
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
             DrawPresetRadioMatrix(ref ui, settings);
-            ui.Gap(8f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // 4. Live Health Gradient Preview Bar
             DrawLiveGradientPreview(ref ui, settings.colorCritical, settings.colorHealthy, settings.colorBoosted);
@@ -57,11 +57,11 @@ namespace OverHaulers
 
             // 5. Interactive RGB Color Channel Sliders
             DrawColorCustomizerRow(ref ui, "OverHaulers_ColorCriticalLabel".Translate().ToString(), ref settings.colorCritical, settings);
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
             DrawColorCustomizerRow(ref ui, "OverHaulers_ColorHealthyLabel".Translate().ToString(), ref settings.colorHealthy, settings);
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
             DrawColorCustomizerRow(ref ui, "OverHaulers_ColorBoostedLabel".Translate().ToString(), ref settings.colorBoosted, settings);
-            ui.Gap(16f);
+            ui.Gap(SettingsViewUtilities.GroupGap);
         }
 
         #endregion
@@ -75,11 +75,11 @@ namespace OverHaulers
         /// <param name="settings">The settings object containing the active palette preset.</param>
         private static void DrawPresetRadioMatrix(ref SettingsLayout ui, Settings settings)
         {
-            float halfWidth = (ui.Width - 12f) / 2f;
+            float halfWidth = (ui.Width - SettingsViewUtilities.ControlGap) / 2f;
 
             // Row 1: Default & Deuteranopia
-            Rect r1Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
-            Rect r1Col2 = new Rect(ui.X + halfWidth + 12f, ui.Y, halfWidth, 24f);
+            Rect r1Col1 = new Rect(ui.X, ui.Y, halfWidth, SettingsLayout.DefaultToggleHeight);
+            Rect r1Col2 = new Rect(ui.X + halfWidth + SettingsViewUtilities.ControlGap, ui.Y, halfWidth, SettingsLayout.DefaultToggleHeight);
 
             if (Widgets.RadioButtonLabeled(r1Col1, "OverHaulers_PresetDefault".Translate().ToString(), settings.activePalettePreset == PalettePreset.Default))
             {
@@ -92,11 +92,11 @@ namespace OverHaulers
                 settings.ApplyPreset(PalettePreset.Deuteranopia);
                 SettingsLayout.ClearInputBuffers();
             }
-            ui.Y += 28f;
+            ui.Y += SettingsLayout.DefaultToggleHeight + SettingsViewUtilities.CompactGap;
 
             // Row 2: Tritanopia & High Contrast
-            Rect r2Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
-            Rect r2Col2 = new Rect(ui.X + halfWidth + 12f, ui.Y, halfWidth, 24f);
+            Rect r2Col1 = new Rect(ui.X, ui.Y, halfWidth, SettingsLayout.DefaultToggleHeight);
+            Rect r2Col2 = new Rect(ui.X + halfWidth + SettingsViewUtilities.ControlGap, ui.Y, halfWidth, SettingsLayout.DefaultToggleHeight);
 
             if (Widgets.RadioButtonLabeled(r2Col1, "OverHaulers_PresetTritanopia".Translate().ToString(), settings.activePalettePreset == PalettePreset.Tritanopia))
             {
@@ -109,10 +109,10 @@ namespace OverHaulers
                 settings.ApplyPreset(PalettePreset.HighContrast);
                 SettingsLayout.ClearInputBuffers();
             }
-            ui.Y += 28f;
+            ui.Y += SettingsLayout.DefaultToggleHeight + SettingsViewUtilities.CompactGap;
 
             // Row 3: Custom Palette Indicator
-            Rect r3Col1 = new Rect(ui.X, ui.Y, halfWidth, 24f);
+            Rect r3Col1 = new Rect(ui.X, ui.Y, halfWidth, SettingsLayout.DefaultToggleHeight);
             if (Widgets.RadioButtonLabeled(r3Col1, "OverHaulers_PresetCustom".Translate().ToString(), settings.activePalettePreset == PalettePreset.Custom))
             {
                 settings.activePalettePreset = PalettePreset.Custom;
@@ -201,7 +201,7 @@ namespace OverHaulers
             ui.Y += 24f;
 
             // 2. 3-Column RGB Sliders with Manual Entry Fields
-            float gap = 8f;
+            float gap = SettingsViewUtilities.ControlGap;
             float colWidth = (ui.Width - (gap * 2f)) / 3f;
 
             Rect rRect = new Rect(ui.X, ui.Y, colWidth, 26f);

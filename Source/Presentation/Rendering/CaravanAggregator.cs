@@ -9,7 +9,7 @@ namespace OverHaulers
     #region 1. [VIEW-05-A] CARAVAN SUMMARY DATA STRUCTURE
 
     /// <summary>
-    /// [VIEW-05] Lightweight stack-allocated value structure containing aggregate caravan mass capacity metrics
+    /// [VIEW-05] Lightweight value structure containing aggregate caravan mass capacity metrics
     /// across all pawns selected for an active caravan or transport pod launch session.
     /// Resides under Source/Presentation/Rendering/.
     /// </summary>

@@ -23,7 +23,7 @@ namespace OverHaulers
 
         #region 2. DISPATCH
 
-        /// <summary>Notifies subscribers of a new frame. Allocation-free; a no-op when nothing is subscribed.</summary>
+        /// <summary>Notifies subscribers of a new frame; a no-op when nothing is subscribed.</summary>
         internal static void RaiseFramePumped() => FramePumped?.Invoke();
 
         /// <summary>Notifies subscribers that the runtime is resetting and in-flight work should be aborted.</summary>

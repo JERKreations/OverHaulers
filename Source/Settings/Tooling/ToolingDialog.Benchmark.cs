@@ -203,21 +203,31 @@ namespace OverHaulers
             bool hasResults = BenchmarkRunner.HasResults;
 
             // Action row: Run/Cancel, Copy, Export, Open folder
-            float gap = 8f;
-            float buttonWidth = Math.Min(150f, (inner.width - gap * 3f) / 4f);
-            Rect runRect = new Rect(inner.x, localY, buttonWidth, 28f);
-            Rect copyRect = new Rect(runRect.xMax + gap, localY, buttonWidth, 28f);
-            Rect exportRect = new Rect(copyRect.xMax + gap, localY, buttonWidth, 28f);
-            Rect folderRect = new Rect(exportRect.xMax + gap, localY, buttonWidth, 28f);
+            float gap = SettingsViewUtilities.ControlGap;
+            float minWidth = Math.Min(150f, (inner.width - gap * 3f) / 4f);
+            string runLabel = SettingsViewUtilities.CachedText(running ? "OverHaulers_Benchmark_Cancel" : "OverHaulers_Benchmark_Run");
+            string copyLabel = SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Copy");
+            string exportLabel = SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Export");
+            string folderLabel = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_DiagnosticsFolder");
+            float runWidth = Math.Max(minWidth, Math.Max(
+                SettingsViewUtilities.MeasuredTextWidth(SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Run")),
+                SettingsViewUtilities.MeasuredTextWidth(SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Cancel"))) + SettingsViewUtilities.ButtonTextPadding);
+            float x = inner.x;
+            float y = localY;
+            float rowHeight = 0f;
+            Rect runRect = SettingsViewUtilities.PlaceButton(inner, ref x, ref y, ref rowHeight, runLabel, gap, minWidth: runWidth);
+            Rect copyRect = SettingsViewUtilities.PlaceButton(inner, ref x, ref y, ref rowHeight, copyLabel, gap, minWidth: minWidth);
+            Rect exportRect = SettingsViewUtilities.PlaceButton(inner, ref x, ref y, ref rowHeight, exportLabel, gap, minWidth: minWidth);
+            Rect folderRect = SettingsViewUtilities.PlaceButton(inner, ref x, ref y, ref rowHeight, folderLabel, gap, minWidth: minWidth);
 
             if (running)
             {
-                if (Widgets.ButtonText(runRect, SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Cancel")))
+                if (SettingsViewUtilities.DrawButton(runRect, runLabel))
                 {
                     BenchmarkRunner.Cancel();
                 }
             }
-            else if (Widgets.ButtonText(runRect, SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Run")))
+            else if (SettingsViewUtilities.DrawButton(runRect, runLabel))
             {
                 BenchmarkRunner.Start();
             }
@@ -227,16 +237,16 @@ namespace OverHaulers
             {
                 GUI.enabled = originalEnabled && hasResults;
 
-                if (Widgets.ButtonText(copyRect, SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Copy")))
+                if (SettingsViewUtilities.DrawButton(copyRect, copyLabel))
                 {
                     GUIUtility.systemCopyBuffer = BenchmarkRunner.BuildReport();
                     Messages.Message(SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Copied"), MessageTypeDefOf.PositiveEvent, false);
                 }
 
-                if (Widgets.ButtonText(exportRect, SettingsViewUtilities.CachedText("OverHaulers_Benchmark_Export")))
+                if (SettingsViewUtilities.DrawButton(exportRect, exportLabel))
                 {
                     string path = BenchmarkRunner.ExportReport();
-                    Messages.Message("OverHaulers_DumpExportedMessage".Translate(path).ToString(), MessageTypeDefOf.PositiveEvent, false);
+                    Messages.Message("OverHaulers_TestBench_ExportedMessage".Translate(path).ToString(), MessageTypeDefOf.PositiveEvent, false);
                 }
             }
             finally
@@ -244,12 +254,12 @@ namespace OverHaulers
                 GUI.enabled = originalEnabled;
             }
 
-            if (Widgets.ButtonText(folderRect, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_OpenDumpsFolder")))
+            if (SettingsViewUtilities.DrawButton(folderRect, folderLabel))
             {
                 DiagnosticExportUtility.OpenExportDirectory();
             }
 
-            localY += 36f;
+            localY = y + rowHeight + 8f;
 
             if (running)
             {

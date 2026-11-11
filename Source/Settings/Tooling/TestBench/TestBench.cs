@@ -304,7 +304,7 @@ namespace OverHaulers
                 speciesBaseline = dataSource.ResolveBaselineCapacity();
 
                 MassCapacityEvaluationResult result = ViewProjection.InspectAndProject(
-                    dataSource, speciesBaseline, cachedModel);
+                    dataSource, speciesBaseline, cachedModel, diagnosticPrecision: true);
 
                 lastCalculatedDelta = result.SolvedOffset;
                 lastCalculatedFinalMass = result.FinalCapacity;
@@ -315,9 +315,7 @@ namespace OverHaulers
                     return GenerateTopologyXRayReport(template, settings, subject);
                 }
 
-                string explanation = ReportFormatter.BuildExplanation(cachedModel);
-
-                return explanation ?? string.Empty;
+                return cachedModel.Explanation ?? string.Empty;
             }
             catch (Exception ex)
             {
@@ -352,9 +350,9 @@ namespace OverHaulers
 
                 pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgets".Translate().ToString());
                 pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgetsValues".Translate(
-                    (budgetTorso / totalBudget).ToStringPercent(),
-                    (budgetArm / totalBudget).ToStringPercent(),
-                    (budgetLeg / totalBudget).ToStringPercent()
+                    ReportFormatter.FormatPercentage(budgetTorso / totalBudget, true),
+                    ReportFormatter.FormatPercentage(budgetArm / totalBudget, true),
+                    ReportFormatter.FormatPercentage(budgetLeg / totalBudget, true)
                 ).ToString());
                 pooledXRayBuilder.AppendLine();
 
@@ -370,7 +368,7 @@ namespace OverHaulers
 
                     float weightFactor = template.StaticWeightFactors[i];
                     string typeTag = GetLocalizedPartTypeTag(type, part);
-                    string weightPct = (weightFactor * 100f).ToString("F1") + "%";
+                    string weightPct = ReportFormatter.FormatPercentage(weightFactor, true);
                     int parentIdx = template.ParentIndices[i];
                     string parentName = parentIdx != -1 ? template.IndexedParts[parentIdx].Label : defaultParent;
 

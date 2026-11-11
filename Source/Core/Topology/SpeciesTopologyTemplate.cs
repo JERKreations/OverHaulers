@@ -153,7 +153,7 @@ namespace OverHaulers
             int currentMax;
             
             // BREAKPOINT ANCHOR: Global Max Part Count Atomic High-Water CAS Loop
-            // This maximum is used by WorkspacePool to pre-size thread-local Structure-of-Arrays buffers without runtime reallocation.
+            // WorkspacePool uses this high-water mark to pre-size thread-local buffers and reduce later growth.
             do
             {
                 currentMax = TopologyLayoutCompiler.globalMaxPartCount;

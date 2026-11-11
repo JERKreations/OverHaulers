@@ -5,7 +5,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [SEC-01 to SEC-07] Linear, zero-allocation presentation layout for Tab 1 (Tuning &amp; Anatomy).
+    /// [SEC-01 to SEC-07] Linear presentation layout for Tab 1 (Tuning &amp; Anatomy).
     /// Encompasses global scalar modifiers, safety floor clamping, core body group weights,
     /// systemic capacity coupling, skeletal topology parameters, and structural scaling constants.
     /// Resides under Source/Settings/Views/.
@@ -34,7 +34,7 @@ namespace OverHaulers
 
             // 5. [SEC-07] Structural Scaling Constants
             DrawScalingConstantsSection(ref ui, settings);
-            ui.Gap(16f);
+            ui.Gap(SettingsViewUtilities.GroupGap);
         }
 
         #endregion
@@ -47,43 +47,39 @@ namespace OverHaulers
 
             // Row 1: Prosthetics Scaling
             ui.ToggleSlider(
-                SettingsViewUtilities.CachedText("OverHaulers_ProstheticScaling_Label"),
+                "OverHaulers_ProstheticScaling_Label".Translate(settings.prostheticScaling.ToString("P0")).ToString(),
                 ref settings.enableProsthetics,
                 ref settings.prostheticScaling,
                 CoreDefaults.ProstheticScalingMin,
                 CoreDefaults.ProstheticScalingMax,
-                step: 0.01f,
-                customLabel: string.Format("{0:P0}", settings.prostheticScaling)
+                step: 0.01f
             );
             ui.DescriptionKey("OverHaulers_ProstheticScaling_Desc");
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
             // Row 2: Athletics Scaling
             ui.ToggleSlider(
-                SettingsViewUtilities.CachedText("OverHaulers_AthleticScaling_Label"),
+                "OverHaulers_AthleticScaling_Label".Translate(settings.athleticScaling.ToString("P0")).ToString(),
                 ref settings.enableAthletics,
                 ref settings.athleticScaling,
                 CoreDefaults.AthleticScalingMin,
                 CoreDefaults.AthleticScalingMax,
-                step: 0.01f,
-                customLabel: string.Format("{0:P0}", settings.athleticScaling)
+                step: 0.01f
             );
             ui.DescriptionKey("OverHaulers_AthleticScaling_Desc");
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
             // Row 3: Physical Deficits Floor
-            string floorReadout = "OverHaulers_DeficitsFloorReadout".Translate(settings.configurablePercentileFloor.ToStringPercent()).ToString();
             ui.ToggleSlider(
-                SettingsViewUtilities.CachedText("OverHaulers_Deficits_Label"),
+                "OverHaulers_Deficits_Label".Translate(settings.configurablePercentileFloor.ToString("P0")).ToString(),
                 ref settings.enablePartHealth,
                 ref settings.configurablePercentileFloor,
                 CoreDefaults.ConfigurablePercentileFloorMin,
                 CoreDefaults.ConfigurablePercentileFloorMax,
-                step: 0.01f,
-                customLabel: floorReadout
+                step: 0.01f
             );
             ui.DescriptionKey("OverHaulers_Deficits_Desc");
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
             // Row 4: Global Compatibility Floor (0.01kg)
             ui.ToggleKey(
@@ -107,36 +103,33 @@ namespace OverHaulers
             float pctArm = sumBodyParts > 0f ? (settings.anatomyWeightArm / sumBodyParts) : 0f;
             float pctLeg = sumBodyParts > 0f ? (settings.anatomyWeightLeg / sumBodyParts) : 0f;
 
-            string torsoLabel = "OverHaulers_TorsoImpact".Translate(pctTorso.ToStringPercent()).ToString();
+            string torsoLabel = "OverHaulers_TorsoImpact".Translate(pctTorso.ToString("P0"), settings.anatomyWeightTorso.ToString("P0")).ToString();
             ui.Slider(
                 torsoLabel,
                 ref settings.anatomyWeightTorso,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                customLabel: string.Format("{0:P0}", settings.anatomyWeightTorso),
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_TorsoImpact_Tooltip")
             );
 
-            string armLabel = "OverHaulers_ArmsImpact".Translate(pctArm.ToStringPercent()).ToString();
+            string armLabel = "OverHaulers_ArmsImpact".Translate(pctArm.ToString("P0"), settings.anatomyWeightArm.ToString("P0")).ToString();
             ui.Slider(
                 armLabel,
                 ref settings.anatomyWeightArm,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                customLabel: string.Format("{0:P0}", settings.anatomyWeightArm),
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_ArmsImpact_Tooltip")
             );
 
-            string legLabel = "OverHaulers_LegsImpact".Translate(pctLeg.ToStringPercent()).ToString();
+            string legLabel = "OverHaulers_LegsImpact".Translate(pctLeg.ToString("P0"), settings.anatomyWeightLeg.ToString("P0")).ToString();
             ui.Slider(
                 legLabel,
                 ref settings.anatomyWeightLeg,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                customLabel: string.Format("{0:P0}", settings.anatomyWeightLeg),
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_LegsImpact_Tooltip")
             );
         }
@@ -162,7 +155,7 @@ namespace OverHaulers
                 SynchronizeLinkedSystemicWeights(settings);
             }
 
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // 1. Torso Region Card
             ui.SubHeader("OverHaulers_TorsoSystemicHeader".Translate().ToString());
@@ -170,7 +163,7 @@ namespace OverHaulers
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_BloodPumping".Translate().ToString(), ref settings.torsoPositiveBlood, ref settings.torsoDeficitBlood, settings.linkSystemicWeights);
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_Moving".Translate().ToString(), ref settings.torsoPositiveMoving, ref settings.torsoDeficitMoving, settings.linkSystemicWeights);
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_Manipulation".Translate().ToString(), ref settings.torsoPositiveManipulation, ref settings.torsoDeficitManipulation, settings.linkSystemicWeights);
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // 2. Manipulation Limbs Card
             ui.SubHeader("OverHaulers_ArmSystemicHeader".Translate().ToString());
@@ -178,7 +171,7 @@ namespace OverHaulers
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_BloodPumping".Translate().ToString(), ref settings.armPositiveBlood, ref settings.armDeficitBlood, settings.linkSystemicWeights);
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_Moving".Translate().ToString(), ref settings.armPositiveMoving, ref settings.armDeficitMoving, settings.linkSystemicWeights);
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_Manipulation".Translate().ToString(), ref settings.armPositiveManipulation, ref settings.armDeficitManipulation, settings.linkSystemicWeights);
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // 3. Moving Limbs Card
             ui.SubHeader("OverHaulers_LegSystemicHeader".Translate().ToString());
@@ -197,12 +190,14 @@ namespace OverHaulers
         {
             Rect rowRect = new Rect(ui.X, ui.Y, ui.Width, SettingsLayout.DefaultRowHeight);
 
-            float gap = 10f;
+            float gap = SettingsViewUtilities.ControlGap;
             float minLabelWidth = 120f;
+            const float maxSliderWidth = 200f;
 
             // Anchor dual 200px slider units to the right margin
             float availableForUnits = ui.Width - minLabelWidth - gap;
-            float unitWidth = Math.Min(286f, (availableForUnits - gap) / 2f); // 24px tag + 8px gap + 200px slider + 8px gap + 46px input
+            float maxUnitWidth = SettingsLayout.SliderTagWidth + SettingsLayout.ControlGap * 2f + maxSliderWidth + SettingsLayout.FixedInputWidth;
+            float unitWidth = Math.Min(maxUnitWidth, (availableForUnits - gap) / 2f);
             float totalDualWidth = (unitWidth * 2f) + gap;
 
             float boostX = ui.X + ui.Width - totalDualWidth;
@@ -266,7 +261,7 @@ namespace OverHaulers
             DrawSectionHeaderWithReset(ref ui, "OverHaulers_CoreBonesHeader", settings.ResetTorsoParts);
             ui.DescriptionKey("OverHaulers_CoreBones_Desc");
 
-            string axialLabel = "OverHaulers_TorsoAxialBias".Translate(settings.torsoAxialBias.ToStringPercent()).ToString();
+            string axialLabel = "OverHaulers_TorsoAxialBias".Translate(settings.torsoAxialBias.ToString("P0")).ToString();
             ui.Slider(
                 axialLabel,
                 ref settings.torsoAxialBias,
@@ -275,24 +270,24 @@ namespace OverHaulers
                 step: 0.01f
             );
             ui.DescriptionKey("OverHaulers_TorsoAxialBias_Desc");
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
-            string hpSensLabel = "OverHaulers_TorsoHpSensitivity".Translate(settings.torsoHpSensitivity.ToString("F1")).ToString();
+            string hpSensLabel = "OverHaulers_TorsoHpSensitivity".Translate(settings.torsoHpSensitivity.ToString("F2")).ToString();
             ui.Slider(
                 hpSensLabel,
                 ref settings.torsoHpSensitivity,
                 CoreDefaults.TorsoHpSensitivityMin,
                 CoreDefaults.TorsoHpSensitivityMax,
-                step: 0.1f
+                step: 0.01f
             );
             ui.DescriptionKey("OverHaulers_TorsoHpSensitivity_Desc");
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // Part B: Geometric Limb Depth Decay
             DrawSectionHeaderWithReset(ref ui, "OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay);
             ui.DescriptionKey("OverHaulers_LimbDepth_Desc");
 
-            string decayPctLabel = "OverHaulers_LimbDepthDecayFactor".Translate(settings.limbDepthDecayFactor.ToStringPercent()).ToString();
+            string decayPctLabel = "OverHaulers_LimbDepthDecayFactor".Translate(settings.limbDepthDecayFactor.ToString("P0")).ToString();
             ui.Slider(
                 decayPctLabel,
                 ref settings.limbDepthDecayFactor,
@@ -312,23 +307,23 @@ namespace OverHaulers
             DrawSectionHeaderWithReset(ref ui, "OverHaulers_ScalingConstantsHeader", settings.ResetScalingConstants);
             ui.DescriptionKey("OverHaulers_ScalingConstants_Desc");
 
-            string prostheticImpactLabel = "OverHaulers_ProstheticImpactConstant".Translate(settings.prostheticImpactConstant.ToString("F1")).ToString();
+            string prostheticImpactLabel = "OverHaulers_ProstheticImpactConstant".Translate(settings.prostheticImpactConstant.ToString("F2")).ToString();
             ui.Slider(
                 prostheticImpactLabel,
                 ref settings.prostheticImpactConstant,
                 CoreDefaults.ProstheticImpactConstantMin,
                 CoreDefaults.ProstheticImpactConstantMax,
-                step: 0.1f,
+                step: 0.01f,
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_ProstheticImpactConstant_Tooltip")
             );
 
-            string athleticImpactLabel = "OverHaulers_AthleticImpactConstant".Translate(settings.athleticImpactConstant.ToString("F1")).ToString();
+            string athleticImpactLabel = "OverHaulers_AthleticImpactConstant".Translate(settings.athleticImpactConstant.ToString("F2")).ToString();
             ui.Slider(
                 athleticImpactLabel,
                 ref settings.athleticImpactConstant,
                 CoreDefaults.AthleticImpactConstantMin,
                 CoreDefaults.AthleticImpactConstantMax,
-                step: 0.1f,
+                step: 0.01f,
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_AthleticImpactConstant_Tooltip")
             );
         }
@@ -339,25 +334,34 @@ namespace OverHaulers
 
         private static void DrawSectionHeaderWithReset(ref SettingsLayout ui, string headerKey, Action resetAction)
         {
-            Rect headerRect = new Rect(ui.X, ui.Y, ui.Width, 30f);
-
-            Text.Font = GameFont.Medium;
             string headerText = SettingsViewUtilities.CachedText(headerKey);
-            Widgets.Label(new Rect(headerRect.x, headerRect.y, headerRect.width - 80f, 30f), headerText);
+            string resetLabel = SettingsViewUtilities.CachedText("OverHaulers_Reset");
+            Vector2 resetSize = resetAction != null
+                ? SettingsViewUtilities.ButtonSize(resetLabel, ui.Width, minWidth: 75f, minHeight: 24f)
+                : Vector2.zero;
+            Text.Font = GameFont.Medium;
+            bool separateReset = resetAction != null &&
+                SettingsViewUtilities.MeasuredTextWidth(headerText) + resetSize.x + 5f > ui.Width;
+            float headerWidth = resetAction != null && !separateReset ? ui.Width - resetSize.x - 5f : ui.Width;
+            float headerHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(headerText, headerWidth));
+            Widgets.Label(new Rect(ui.X, ui.Y, headerWidth, headerHeight), headerText);
             Text.Font = GameFont.Small;
 
+            float bottom = ui.Y + headerHeight;
             if (resetAction != null)
             {
-                Rect resetBtnRect = new Rect(headerRect.xMax - 75f, headerRect.y + 2f, 75f, 24f);
-                if (Widgets.ButtonText(resetBtnRect, SettingsViewUtilities.CachedText("OverHaulers_Reset")))
+                float resetY = separateReset ? bottom + 4f : ui.Y + 2f;
+                Rect resetBtnRect = new Rect(ui.X + ui.Width - resetSize.x, resetY, resetSize.x, resetSize.y);
+                if (SettingsViewUtilities.DrawButton(resetBtnRect, resetLabel))
                 {
                     resetAction();
                     SettingsLayout.ClearInputBuffers();
                     SettingsViewUtilities.OnSettingMutated();
                 }
+                bottom = Math.Max(bottom, resetBtnRect.yMax);
             }
 
-            ui.Y += 34f;
+            ui.Y = bottom + 4f;
         }
 
         #endregion

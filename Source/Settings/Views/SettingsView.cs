@@ -8,7 +8,7 @@ namespace OverHaulers
     /// [SEC-00] Central GUI presentation orchestrator for the OverHaulers settings interface.
     /// Manages top-level tab navigation, per-tab scroll state, and delegates section rendering
     /// to modular domain partials (<see cref="SettingsView"/>.*.cs).
-    /// Operates with zero GC allocations per frame via cached heights and direct Rect layouts.
+    /// Uses cached heights and direct Rect layouts to reduce per-frame layout overhead.
     /// Resides under Source/Settings/Views/.
     /// </summary>
     public static partial class SettingsView
@@ -63,7 +63,7 @@ namespace OverHaulers
         private static void DrawTuningTab(Rect containerRect, Settings settings)
         {
             float canvasHeight = Math.Max(containerRect.height, lastTuningHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 24f, canvasHeight);
+            Rect viewRect = new Rect(0f, 0f, containerRect.width - SettingsViewUtilities.ScrollbarGutter, canvasHeight);
 
             Widgets.BeginScrollView(containerRect, ref scrollPositionTuning, viewRect);
 
@@ -80,7 +80,7 @@ namespace OverHaulers
         private static void DrawIntegrationTab(Rect containerRect, Settings settings)
         {
             float canvasHeight = Math.Max(containerRect.height, lastIntegrationHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 24f, canvasHeight);
+            Rect viewRect = new Rect(0f, 0f, containerRect.width - SettingsViewUtilities.ScrollbarGutter, canvasHeight);
 
             Widgets.BeginScrollView(containerRect, ref scrollPositionIntegration, viewRect);
 
@@ -97,7 +97,7 @@ namespace OverHaulers
         private static void DrawAccessibilityTab(Rect containerRect, Settings settings)
         {
             float canvasHeight = Math.Max(containerRect.height, lastAccessibilityHeight);
-            Rect viewRect = new Rect(0f, 0f, containerRect.width - 24f, canvasHeight);
+            Rect viewRect = new Rect(0f, 0f, containerRect.width - SettingsViewUtilities.ScrollbarGutter, canvasHeight);
 
             Widgets.BeginScrollView(containerRect, ref scrollPositionAccessibility, viewRect);
 

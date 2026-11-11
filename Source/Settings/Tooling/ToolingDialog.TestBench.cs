@@ -22,6 +22,8 @@ namespace OverHaulers
 
         // Expanded group labels
         private static readonly HashSet<string> expandedGroupLabels = new HashSet<string>();
+        private static readonly Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> groupingExport = GroupingDumpExporter.ExportGroupingDump;
+        private static readonly Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> topologyExport = TopologyDumpExporter.ExportTopologyDump;
 
         /// <summary>
         /// Clears the accordion expansion states and search filter in the medical planner.
@@ -51,11 +53,11 @@ namespace OverHaulers
 
             float localY = currentY;
             float totalWidth = viewRect.width;
-            float gap = 16f;
+            float gap = SettingsViewUtilities.ColumnGap;
             float leftWidth = (totalWidth * 0.44f) - (gap / 2f);
             float rightWidth = totalWidth - leftWidth - gap;
 
-            bool isResetHovered = DrawTestBenchHeaderDirect(viewRect, "OverHaulers_TestBenchHeader", resetAction, localY, out localY, leftWidth, rightWidth, gap);
+            bool isResetHovered = DrawTestBenchHeaderDirect(viewRect, "OverHaulers_TestBench_Header", settings, resetAction, localY, out localY, leftWidth, rightWidth, gap);
 
             float columnStartY = localY;
 
@@ -73,12 +75,12 @@ namespace OverHaulers
         #region 3. TOP ACTION TOOLBAR & EXPORT MENUS
 
         /// <summary>
-        /// Draws the header section of the Test Bench, placing the title over the left column and expanding
-        /// the 3 action buttons ([Recompile Data], [Open Folder], [Reset]) to evenly fill the entire right column width.
+        /// Draws the Test Bench title, verbose toggle, and reset control aligned with the columns.
         /// </summary>
         private static bool DrawTestBenchHeaderDirect(
             Rect containerRect,
             string headerLabelKey,
+            Settings settings,
             Action resetAction,
             float currentY,
             out float nextY,
@@ -86,48 +88,49 @@ namespace OverHaulers
             float rightWidth,
             float columnGap)
         {
-            Rect rect = new Rect(containerRect.x, currentY, containerRect.width, 30f);
-
-            // Left Section: Section Title aligned with left column
-            Rect headerRect = new Rect(rect.x, rect.y, leftWidth, rect.height);
-
-            // Right Section: 3 equal-width buttons filling the right preview column
-            float rightX = rect.x + leftWidth + columnGap;
-            float buttonGap = 6f;
-            float buttonWidth = (rightWidth - (buttonGap * 2f)) / 3f;
-
-            Rect refreshRect = new Rect(rightX, rect.y, buttonWidth, rect.height);
-            Rect openDirectoryRect = new Rect(rightX + buttonWidth + buttonGap, rect.y, buttonWidth, rect.height);
-            Rect resetRect = new Rect(rightX + ((buttonWidth + buttonGap) * 2f), rect.y, buttonWidth, rect.height);
+            float rightX = containerRect.x + leftWidth + columnGap;
+            float buttonGap = SettingsViewUtilities.ControlGap;
+            string title = SettingsViewUtilities.CachedText(headerLabelKey);
+            string resetLabel = SettingsViewUtilities.CachedText("OverHaulers_Reset");
+            string verboseTooltip = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip");
+            string verboseLabel = SettingsViewUtilities.LabelWithTooltip(SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_VerboseBreakdown"), verboseTooltip);
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(headerRect, headerLabelKey.Translate().ToString());
+            float titleHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(title, leftWidth));
+            Widgets.Label(new Rect(containerRect.x, currentY, leftWidth, titleHeight), title);
             Text.Font = GameFont.Small;
 
-            // [Recompile Data] Button - Triggers full live re-compilation
-            if (Widgets.ButtonText(refreshRect, "OverHaulers_ToolingDialog_RecompileData".Translate().ToString()))
-            {
-                TestBench.RecompileAll();
-            }
-            TooltipHandler.TipRegion(refreshRect, "OverHaulers_ToolingDialog_RecompileData_Tooltip".Translate().ToString());
+            Vector2 resetSize = SettingsViewUtilities.ButtonSize(resetLabel, rightWidth,
+                minWidth: (rightWidth - buttonGap * 2f) / 3f, minHeight: 30f);
+            float buttonWidth = resetSize.x;
+            float verboseWidth = rightWidth - buttonWidth - buttonGap;
+            bool separateControls = verboseWidth < SettingsViewUtilities.MeasuredTextWidth(verboseLabel) + 30f;
+            if (separateControls) verboseWidth = rightWidth;
+            float verboseHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(verboseLabel, Math.Max(1f, verboseWidth - 30f)));
+            float resetHeight = resetSize.y;
+            Rect verboseRect = new Rect(rightX, currentY, verboseWidth, verboseHeight);
+            Rect resetRect = new Rect(rightX + rightWidth - buttonWidth, separateControls ? verboseRect.yMax + buttonGap : currentY, buttonWidth, resetHeight);
 
-            // [Open Folder] Button - Opens OS File Explorer / Finder
-            if (Widgets.ButtonText(openDirectoryRect, "OverHaulers_ToolingDialog_OpenDumpsFolder".Translate().ToString()))
+            bool prevVerbose = settings.verboseBreakdown;
+            Widgets.CheckboxLabeled(verboseRect, verboseLabel, ref settings.verboseBreakdown);
+            if (!string.IsNullOrEmpty(verboseTooltip)) TooltipHandler.TipRegion(verboseRect, verboseTooltip);
+            if (prevVerbose != settings.verboseBreakdown)
             {
-                DiagnosticExportUtility.OpenExportDirectory();
+                DetailedModelRegistry.Clear();
+                TestBench.MarkDirty();
+                SettingsViewUtilities.OnSettingMutated();
             }
-            TooltipHandler.TipRegion(openDirectoryRect, "OverHaulers_ToolingDialog_OpenDumpsFolder_Tooltip".Translate().ToString());
 
             // [Reset] Button - Resets Test Bench parameters to baseline
             bool isResetHovered = Mouse.IsOver(resetRect);
-            if (Widgets.ButtonText(resetRect, "OverHaulers_Reset".Translate().ToString()))
+            if (SettingsViewUtilities.DrawButton(resetRect, resetLabel))
             {
                 resetAction?.Invoke();
                 ResetPlannerViewState();
                 SettingsViewUtilities.OnSettingMutated();
             }
 
-            nextY = currentY + 38f;
+            nextY = Math.Max(currentY + titleHeight, Math.Max(verboseRect.yMax, resetRect.yMax)) + SettingsViewUtilities.ControlGap;
             return isResetHovered;
         }
 
@@ -142,50 +145,56 @@ namespace OverHaulers
             float rightWidth, 
             Settings settings)
         {
-            float barHeight = 24f;
-            Rect rightBarRect = new Rect(inner.x + rightX, localY, rightWidth, barHeight);
-
-            float halfRightWidth = (rightWidth - 10f) / 2f;
-            float dumpButtonWidth = 60f;
-
+            string infoLabel = SettingsViewUtilities.CachedText("OverHaulers_ViewMode_InfoCard");
+            string xRayLabel = SettingsViewUtilities.CachedText("OverHaulers_ViewMode_TopologyXRay");
+            string exportLabel = SettingsViewUtilities.CachedText("OverHaulers_TestBench_ExportButton");
+            float exportWidth = SettingsViewUtilities.ButtonSize(exportLabel, rightWidth, minWidth: 80f, minHeight: 24f).x;
+            float halfRightWidth = (rightWidth - SettingsViewUtilities.ControlGap) / 2f;
+            float requiredRadioWidth = Math.Max(SettingsViewUtilities.MeasuredTextWidth(infoLabel), SettingsViewUtilities.MeasuredTextWidth(xRayLabel)) + 30f;
+            bool separateRows = requiredRadioWidth + SettingsViewUtilities.CompactGap + exportWidth > halfRightWidth;
             TestSubjectEntry activeSubject = TestBench.ActiveSubject;
             string subjectLabel = activeSubject?.Label ?? "Subject";
             string bodyDefName = activeSubject?.BodyDef?.defName ?? "Body";
+            float blockWidth = separateRows ? rightWidth : halfRightWidth;
+            float blockX = inner.x + rightX;
 
-            // Block A: InfoCard Preview (O) + [Dump ▼] (TXT / XML)
-            Rect infoCardRadioRect = new Rect(rightBarRect.x, localY, halfRightWidth - dumpButtonWidth - 4f, barHeight);
-            Rect infoCardDumpRect = new Rect(rightBarRect.x + halfRightWidth - dumpButtonWidth, localY, dumpButtonWidth, barHeight);
+            float infoHeight = DrawExportViewControl(blockX, localY, blockWidth, infoLabel, exportLabel, exportWidth,
+                TestBenchViewMode.InfoCard, "OverHaulers_TestBench_ExportGrouping_Tooltip",
+                settings, subjectLabel, bodyDefName, activeSubject, groupingExport);
+            float xRayY = separateRows ? localY + infoHeight + SettingsViewUtilities.ControlGap : localY;
+            float xRayX = separateRows ? blockX : blockX + halfRightWidth + SettingsViewUtilities.ControlGap;
+            float xRayHeight = DrawExportViewControl(xRayX, xRayY, blockWidth, xRayLabel, exportLabel, exportWidth,
+                TestBenchViewMode.TopologyXRay, "OverHaulers_TestBench_ExportTopology_Tooltip",
+                settings, subjectLabel, bodyDefName, activeSubject, topologyExport);
 
-            if (Widgets.RadioButtonLabeled(infoCardRadioRect, "OverHaulers_ViewMode_InfoCard".Translate().ToString(), TestBench.activeViewMode == TestBenchViewMode.InfoCard))
+            return (separateRows ? xRayY + xRayHeight : localY + Math.Max(infoHeight, xRayHeight)) + 10f;
+        }
+
+        private static float DrawExportViewControl(
+            float x, float y, float width, string viewLabel, string exportLabel, float desiredExportWidth,
+            TestBenchViewMode mode, string tooltipKey, Settings settings, string subjectLabel, string bodyDefName,
+            TestSubjectEntry activeSubject, Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> exportAction)
+        {
+            float exportWidth = Math.Min(width, desiredExportWidth);
+            float radioWidth = width - exportWidth - SettingsViewUtilities.CompactGap;
+            bool separateControls = radioWidth < SettingsViewUtilities.MeasuredTextWidth(viewLabel) + 30f;
+            if (separateControls) radioWidth = width;
+            float radioHeight = Math.Max(24f, SettingsViewUtilities.MeasuredTextHeight(viewLabel, Math.Max(1f, radioWidth - 30f)));
+            float exportHeight = SettingsViewUtilities.ButtonSize(exportLabel, exportWidth, minHeight: 24f, fixedWidth: exportWidth).y;
+            Rect radioRect = new Rect(x, y, radioWidth, radioHeight);
+            Rect exportRect = new Rect(x + width - exportWidth, separateControls ? radioRect.yMax + SettingsViewUtilities.CompactGap : y, exportWidth, exportHeight);
+
+            if (Widgets.RadioButtonLabeled(radioRect, viewLabel, TestBench.activeViewMode == mode))
             {
-                TestBench.activeViewMode = TestBenchViewMode.InfoCard;
+                TestBench.activeViewMode = mode;
                 TestBench.MarkDirty();
             }
-
-            if (Widgets.ButtonText(infoCardDumpRect, "OverHaulers_DumpBtn".Translate().ToString()))
+            if (SettingsViewUtilities.DrawButton(exportRect, exportLabel, SettingsViewUtilities.CachedText(tooltipKey)))
             {
-                OpenDumpMenu(settings, subjectLabel, bodyDefName, activeSubject, GroupingDumpExporter.ExportGroupingDump);
+                OpenDumpMenu(settings, subjectLabel, bodyDefName, activeSubject, exportAction);
             }
-            TooltipHandler.TipRegion(infoCardDumpRect, "OverHaulers_DumpGrouping_Tooltip".Translate().ToString());
-
-            // Block B: Topology X-Ray (O) + [Dump ▼] (TXT / XML)
-            float rightBlockX = rightBarRect.x + halfRightWidth + 10f;
-            Rect xRayRadioRect = new Rect(rightBlockX, localY, halfRightWidth - dumpButtonWidth - 4f, barHeight);
-            Rect xRayDumpRect = new Rect(rightBlockX + halfRightWidth - dumpButtonWidth, localY, dumpButtonWidth, barHeight);
-
-            if (Widgets.RadioButtonLabeled(xRayRadioRect, "OverHaulers_ViewMode_TopologyXRay".Translate().ToString(), TestBench.activeViewMode == TestBenchViewMode.TopologyXRay))
-            {
-                TestBench.activeViewMode = TestBenchViewMode.TopologyXRay;
-                TestBench.MarkDirty();
-            }
-
-            if (Widgets.ButtonText(xRayDumpRect, "OverHaulers_DumpBtn".Translate().ToString()))
-            {
-                OpenDumpMenu(settings, subjectLabel, bodyDefName, activeSubject, TopologyDumpExporter.ExportTopologyDump);
-            }
-            TooltipHandler.TipRegion(xRayDumpRect, "OverHaulers_DumpTopology_Tooltip".Translate().ToString());
-
-            return localY + barHeight + 10f;
+            if (SettingsViewUtilities.MeasuredTextWidth(viewLabel) + 30f > radioWidth) TooltipHandler.TipRegion(radioRect, viewLabel);
+            return Math.Max(radioRect.yMax, exportRect.yMax) - y;
         }
 
         /// <summary>
@@ -205,32 +214,32 @@ namespace OverHaulers
         {
             List<FloatMenuOption> dumpOptions = new List<FloatMenuOption>
             {
-                new FloatMenuOption("OverHaulers_DumpOption_Selected_Format".Translate(subjectLabel, "TXT").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_Selected".Translate(subjectLabel, "TXT").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.SelectedSubject, DumpFormat.Text, activeSubject);
                     NotifyDumpResult(path);
                 }),
-                new FloatMenuOption("OverHaulers_DumpOption_Selected_Format".Translate(subjectLabel, "XML").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_Selected".Translate(subjectLabel, "XML").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.SelectedSubject, DumpFormat.Xml, activeSubject);
                     NotifyDumpResult(path);
                 }),
-                new FloatMenuOption("OverHaulers_DumpOption_Archetype_Format".Translate(bodyDefName, "TXT").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_Archetype".Translate(bodyDefName, "TXT").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.BodyDefArchetype, DumpFormat.Text, activeSubject);
                     NotifyDumpResult(path);
                 }),
-                new FloatMenuOption("OverHaulers_DumpOption_Archetype_Format".Translate(bodyDefName, "XML").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_Archetype".Translate(bodyDefName, "XML").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.BodyDefArchetype, DumpFormat.Xml, activeSubject);
                     NotifyDumpResult(path);
                 }),
-                new FloatMenuOption("OverHaulers_DumpOption_FullCensus_Format".Translate("TXT").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_FullCensus".Translate("TXT").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.FullCensus, DumpFormat.Text, activeSubject);
                     NotifyDumpResult(path);
                 }),
-                new FloatMenuOption("OverHaulers_DumpOption_FullCensus_Format".Translate("XML").ToString(), () =>
+                new FloatMenuOption("OverHaulers_TestBench_ExportOption_FullCensus".Translate("XML").ToString(), () =>
                 {
                     string path = exportAction(settings, DumpScope.FullCensus, DumpFormat.Xml, activeSubject);
                     NotifyDumpResult(path);
@@ -247,7 +256,7 @@ namespace OverHaulers
         {
             if (!string.IsNullOrEmpty(path))
             {
-                Messages.Message("OverHaulers_DumpExportedMessage".Translate(path).ToString(), MessageTypeDefOf.PositiveEvent, false);
+                Messages.Message("OverHaulers_TestBench_ExportedMessage".Translate(path).ToString(), MessageTypeDefOf.PositiveEvent, false);
             }
         }
 
@@ -272,7 +281,10 @@ namespace OverHaulers
 
             // 1. Reference Subject Picker Button
             string currentSubjectLabel = subject != null ? subject.Label : "OverHaulers_None".Translate().ToString();
-            if (Widgets.ButtonText(new Rect(inner.x, leftY, leftWidth, 26f), "OverHaulers_TestBenchSubject".Translate(currentSubjectLabel).ToString()))
+            string subjectButtonLabel = "OverHaulers_TestBench_Subject".Translate(currentSubjectLabel).ToString();
+            float subjectButtonHeight = SettingsViewUtilities.ButtonSize(subjectButtonLabel, leftWidth, minHeight: 26f, fixedWidth: leftWidth).y;
+            Rect subjectButtonRect = new Rect(inner.x, leftY, leftWidth, subjectButtonHeight);
+            if (SettingsViewUtilities.DrawButton(subjectButtonRect, subjectButtonLabel))
             {
                 Find.WindowStack.Add(new Dialog_TestSubjectPicker(
                     TestBench.activeGroupingDimension,
@@ -284,7 +296,7 @@ namespace OverHaulers
                     }
                 ));
             }
-            leftY += 28f;
+            leftY += subjectButtonHeight + 2f;
 
             // 2. Topology Readout Badge
             SpeciesTopologyTemplate speciesTemplate = null;
@@ -296,7 +308,7 @@ namespace OverHaulers
 
                 Text.Font = GameFont.Tiny;
                 GUI.color = SettingsViewUtilities.DescriptionTextColor;
-                Widgets.Label(new Rect(inner.x + 4f, leftY, leftWidth - 4f, 16f), "OverHaulers_ActiveBodyTopology".Translate(subject.BodyDef.defName, partCount, modName).ToString());
+                Widgets.Label(new Rect(inner.x + 4f, leftY, leftWidth - 4f, 16f), "OverHaulers_TestBench_ActiveTopology".Translate(subject.BodyDef.defName, partCount, modName).ToString());
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
                 leftY += 20f;
@@ -333,16 +345,29 @@ namespace OverHaulers
 
             // 1. Search Bar & Clear Button
             Rect searchBarRect = new Rect(inner.x, leftY, leftWidth, 24f);
-            DrawSandboxSearchBar(searchBarRect);
+            sandboxSearchText = SettingsViewUtilities.DrawSearchField(searchBarRect, sandboxSearchText,
+                "OverHaulers_Sandbox_SearchPlaceholder", GameFont.Tiny);
             leftY += 28f;
 
             // 2. Systemic Stimulants & Staged Conditions Dropdown
             float halfWidth = (leftWidth - 6f) / 2f;
-            Rect drugButtonRect = new Rect(inner.x, leftY, halfWidth, 22f);
-            Rect expandButtonRect = new Rect(inner.x + halfWidth + 6f, leftY, (halfWidth - 4f) / 2f, 22f);
-            Rect collapseButtonRect = new Rect(expandButtonRect.x + expandButtonRect.width + 4f, leftY, expandButtonRect.width, 22f);
+            string drugLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_AddDrug");
+            string expandLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_ExpandAll");
+            string collapseLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_CollapseAll");
+            Rect rowBounds = new Rect(inner.x, leftY, leftWidth, 0f);
+            float rowX = inner.x;
+            float rowY = leftY;
+            float rowHeight = 0f;
+            Rect drugButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
+                drugLabel, 4f, minWidth: halfWidth, minHeight: 22f);
+            Text.Font = GameFont.Tiny;
+            Rect expandButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
+                expandLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
+            Rect collapseButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
+                collapseLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
+            Text.Font = GameFont.Small;
 
-            if (Widgets.ButtonText(drugButtonRect, "OverHaulers_Sandbox_AddDrug".Translate().ToString()))
+            if (SettingsViewUtilities.DrawButton(drugButtonRect, drugLabel))
             {
                 List<FloatMenuOption> drugOptions = new List<FloatMenuOption>();
                 List<HediffDef> availableDrugs = MedicalRecipeCatalog.GetSystemicDrugs();
@@ -365,19 +390,19 @@ namespace OverHaulers
             }
 
             Text.Font = GameFont.Tiny;
-            if (Widgets.ButtonText(expandButtonRect, "OverHaulers_Sandbox_ExpandAll".Translate().ToString()))
+            if (SettingsViewUtilities.DrawButton(expandButtonRect, expandLabel))
             {
                 for (int g = 0; g < model.EvaluatedParts.Count; g++)
                 {
                     expandedGroupLabels.Add(model.EvaluatedParts[g].Label);
                 }
             }
-            if (Widgets.ButtonText(collapseButtonRect, "OverHaulers_Sandbox_CollapseAll".Translate().ToString()))
+            if (SettingsViewUtilities.DrawButton(collapseButtonRect, collapseLabel))
             {
                 expandedGroupLabels.Clear();
             }
             Text.Font = GameFont.Small;
-            leftY += 26f;
+            leftY = rowY + rowHeight + 4f;
 
             // 3. Active Simulated Condition Badges
             if (harness.ActiveSimulatedDrugs.Count > 0)
@@ -405,7 +430,6 @@ namespace OverHaulers
             if (harness.HasModifications)
             {
                 bool isLiveSubject = TestBench.ActiveSubject?.IsLivePawn == true;
-                Rect clearPlanRect = new Rect(inner.x, leftY, leftWidth, 22f);
                 Color critColor = OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
                 GUI.color = Color.Lerp(Color.white, critColor, 0.6f);
                 Text.Font = GameFont.Tiny;
@@ -414,14 +438,16 @@ namespace OverHaulers
                     ? "OverHaulers_Sandbox_RevertLive".Translate().ToString() 
                     : "OverHaulers_Sandbox_RevertBaseline".Translate().ToString();
 
-                if (Widgets.ButtonText(clearPlanRect, revertButtonLabel))
+                Vector2 revertSize = SettingsViewUtilities.ButtonSize(revertButtonLabel, leftWidth, minHeight: 22f, fixedWidth: leftWidth);
+                Rect clearPlanRect = new Rect(inner.x, leftY, revertSize.x, revertSize.y);
+                if (SettingsViewUtilities.DrawButton(clearPlanRect, revertButtonLabel))
                 {
                     harness.ResetToSource();
                     TestBench.MarkDirty();
                 }
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
-                leftY += 26f;
+                leftY += revertSize.y + 4f;
             }
 
             // 5. Flattened Accordions
@@ -442,34 +468,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5B. Search Bar & Passive Group Accordion Headers
-
-        /// <summary>
-        /// Draws the sandbox search bar, allowing the user to filter passive group accordions based on the search text.
-        /// </summary>
-        /// <param name="searchBarRect">The rectangle defining the area in which to draw the search bar.</param>
-        private static void DrawSandboxSearchBar(Rect searchBarRect)
-        {
-            float clearButtonWidth = 24f;
-            Rect inputRect = new Rect(searchBarRect.x, searchBarRect.y, searchBarRect.width - clearButtonWidth - 4f, searchBarRect.height);
-            Rect clearRect = new Rect(searchBarRect.x + searchBarRect.width - clearButtonWidth, searchBarRect.y, clearButtonWidth, searchBarRect.height);
-
-            sandboxSearchText = Widgets.TextField(inputRect, sandboxSearchText);
-
-            if (string.IsNullOrEmpty(sandboxSearchText) && Event.current.type == EventType.Repaint)
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(inputRect.x + 6f, inputRect.y + 4f, inputRect.width - 12f, inputRect.height), "OverHaulers_Sandbox_SearchPlaceholder".Translate().ToString());
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-            }
-
-            if (Widgets.ButtonText(clearRect, "✕"))
-            {
-                sandboxSearchText = string.Empty;
-            }
-        }
+        #region 5B. Passive Group Accordion Headers
 
         /// <summary>
         /// Draws a passive group accordion, including its header and any child elements, within the sandbox test bench view.
@@ -497,35 +496,37 @@ namespace OverHaulers
 
             bool isExpanded = isSearching || expandedGroupLabels.Contains(groupNode.Label);
 
-            // Accordion Header Bar
-            Rect headerRect = new Rect(viewRect.x, currentY, viewRect.width, 24f);
+            Text.Font = GameFont.Tiny;
+            string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
+            Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
+                minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
+            Rect headerRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(24f, operationSize.y + 4f));
             Widgets.DrawBoxSolid(headerRect, new Color(0.12f, 0.15f, 0.18f, 0.9f));
             Widgets.DrawHighlightIfMouseover(headerRect);
 
             string expandArrow = isExpanded ? "▼ " : "▶ ";
             string headerText = $"{expandArrow}{groupNode.Label}";
 
-            Text.Font = GameFont.Tiny;
             GUI.color = new Color(1f, 0.8f, 0.3f);
-            Widgets.Label(new Rect(headerRect.x + 6f, headerRect.y + 3f, headerRect.width - 80f, 18f), headerText.ToUpperInvariant());
+            Widgets.Label(new Rect(headerRect.x + 6f, headerRect.y + 3f, headerRect.width - operationSize.x - 10f, 18f), headerText.ToUpperInvariant());
             GUI.color = Color.white;
 
             // Group Quick Actions [Options ▼]
-            Rect bulkButtonRect = new Rect(headerRect.x + headerRect.width - 74f, headerRect.y + 2f, 70f, 20f);
-            if (Widgets.ButtonText(bulkButtonRect, "OverHaulers_Sandbox_OpBtn".Translate().ToString()))
+            Rect bulkButtonRect = new Rect(headerRect.xMax - operationSize.x - 4f, headerRect.y + 2f, operationSize.x, operationSize.y);
+            if (SettingsViewUtilities.DrawButton(bulkButtonRect, operationLabel))
             {
                 OpenGroupBulkOperationsMenu(groupNode.SubParts, harness);
             }
 
             // Click header to toggle expand/collapse
-            if (Widgets.ButtonInvisible(new Rect(headerRect.x, headerRect.y, headerRect.width - 76f, headerRect.height)))
+            if (Widgets.ButtonInvisible(new Rect(headerRect.x, headerRect.y, headerRect.width - operationSize.x - 6f, headerRect.height)))
             {
                 if (expandedGroupLabels.Contains(groupNode.Label)) expandedGroupLabels.Remove(groupNode.Label);
                 else expandedGroupLabels.Add(groupNode.Label);
             }
 
             Text.Font = GameFont.Small;
-            currentY += 26f;
+            currentY += headerRect.height + 2f;
 
             // Expanded Pre-Calculated Part Rows
             if (isExpanded && groupNode.SubParts != null)
@@ -570,14 +571,17 @@ namespace OverHaulers
 
             if (matchesFilter)
             {
-                Rect rowRect = new Rect(viewRect.x, currentY, viewRect.width, 22f);
+                Text.Font = GameFont.Tiny;
+                string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
+                Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
+                    minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
+                Rect rowRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(22f, operationSize.y + 2f));
                 Widgets.DrawHighlightIfMouseover(rowRect);
-
                 float indentOffset = Math.Min(depth * 8f, 24f);
-                float labelWidth = viewRect.width - 76f - indentOffset;
+                float labelWidth = viewRect.width - operationSize.x - 6f - indentOffset;
 
                 Rect labelRect = new Rect(rowRect.x + 4f + indentOffset, rowRect.y + 2f, labelWidth, 18f);
-                Rect buttonRect = new Rect(rowRect.x + viewRect.width - 72f, rowRect.y, 70f, 20f);
+                Rect buttonRect = new Rect(rowRect.xMax - operationSize.x - 2f, rowRect.y, operationSize.x, operationSize.y);
 
                 bool isVirtualAnchor = node.Record != null && node.Record.coverageAbs <= 0f && node.Record != node.Record.body?.corePart;
                 bool hasOperations = node.Record != null && MedicalRecipeCatalog.HasAnyOperationsFor(node.Record.def);
@@ -599,13 +603,13 @@ namespace OverHaulers
                     GUI.enabled = true;
                     TooltipHandler.TipRegion(buttonRect, "OverHaulers_VirtualAnchor_Tooltip".Translate().ToString());
                 }
-                else if (node.Record != null && Widgets.ButtonText(buttonRect, "OverHaulers_Sandbox_OpBtn".Translate().ToString()))
+                else if (node.Record != null && SettingsViewUtilities.DrawButton(buttonRect, operationLabel))
                 {
                     OpenPartSimulationMenu(node.Record, harness);
                 }
                 Text.Font = GameFont.Small;
 
-                currentY += 24f;
+                currentY += rowRect.height + 2f;
             }
 
             if (node.SubParts != null && node.SubParts.Count > 0)
@@ -662,16 +666,15 @@ namespace OverHaulers
                 }
                 if (repl.OpType == SimulatedOpType.Trauma)
                 {
-                    float hpPercent = Math.Min(99f, Math.Max(1f, repl.Efficiency * 100f));
                     labelColor = ReportFormatter.GetMedicalColor(repl.Efficiency);
-                    return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, hpPercent.ToString("F0")).Colorize(labelColor);
+                    return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
                 }
                 
                 labelColor = (repl.Efficiency > 1.0f) 
                     ? boostColor 
                     : ReportFormatter.GetMedicalColor(repl.Efficiency);
 
-                return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, repl.DisplayLabel, (repl.Efficiency * 100f).ToString("F0")).Colorize(labelColor);
+                return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, repl.DisplayLabel, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
             }
 
             // 3. Simulated Implant (User-Applied Sandbox Delta)
@@ -688,7 +691,7 @@ namespace OverHaulers
                     ? node.ProstheticColor 
                     : ReportFormatter.GetMedicalColor(node.EfficiencyRating);
 
-                return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, node.ProstheticName, (node.EfficiencyRating * 100f).ToString("F0")).Colorize(labelColor);
+                return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, node.ProstheticName, ReportFormatter.FormatPercentage(node.EfficiencyRating, true)).Colorize(labelColor);
             }
 
             // 5. Live Colonist Authentic Implant
@@ -712,7 +715,7 @@ namespace OverHaulers
             if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
             {
                 labelColor = ReportFormatter.GetMedicalColor(node.HealthFraction);
-                return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, (node.HealthFraction * 100f).ToString("F0")).Colorize(labelColor);
+                return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, ReportFormatter.FormatPercentage(node.HealthFraction, true)).Colorize(labelColor);
             }
 
             // 8. Natural Unmodified Tissue
@@ -814,7 +817,7 @@ namespace OverHaulers
                 int minPct = (int)Math.Round(minEfficiency * 100f, MidpointRounding.ToEven);
 
                 // 1. Bulk Maximum Upgrade Option
-                options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkMaxUpgrade".Translate(maxPct).ToString(), () =>
+                options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkMaxUpgrade".Translate(ReportFormatter.FormatPercentage(maxEfficiency, true)).ToString(), () =>
                 {
                     ApplyBulkReplacementTier(targetRecords, harness, pickHighest: true);
                 }));
@@ -822,7 +825,7 @@ namespace OverHaulers
                 // 2. Bulk Budget / Basic Option
                 if (minPct != maxPct)
                 {
-                    options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkBudgetUpgrade".Translate(minPct).ToString(), () =>
+                    options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkBudgetUpgrade".Translate(ReportFormatter.FormatPercentage(minEfficiency, true)).ToString(), () =>
                     {
                         ApplyBulkReplacementTier(targetRecords, harness, pickHighest: false);
                     }));
@@ -975,7 +978,7 @@ namespace OverHaulers
                     bool canInstall = !ancestorMissing && operationEntry.Recipe.Worker.AvailableOnNow(pawn, targetPart);
 
                     string label = "OverHaulers_Op_AddReplacement".Translate(operationEntry.Label,
-                        (operationEntry.Efficiency * 100f).ToString("F0")).ToString();
+                        ReportFormatter.FormatPercentage(operationEntry.Efficiency, true)).ToString();
 
                     FloatMenuOption opt = new FloatMenuOption(label, () => {
                         harness.SimulateReplacement(
@@ -1100,8 +1103,9 @@ namespace OverHaulers
             Widgets.DrawBoxSolid(bannerRect, SettingsViewUtilities.DarkTargetHighlightColor);
 
             float deltaMass = TestBench.lastCalculatedDelta;
-            float percentChange = biologicalBaseline > 0f ? (deltaMass / biologicalBaseline) * 100f : 0f;
-            string deltaFormattedText = $"{deltaMass.ToStringMassOffset()} ({(deltaMass >= 0f ? "+" : "")}{percentChange:F1}%)";
+            float percentChange = biologicalBaseline > 0f ? deltaMass / biologicalBaseline : 0f;
+            string percentText = (deltaMass >= 0f ? "+" : "") + ReportFormatter.FormatPercentage(percentChange, true);
+            string deltaFormattedText = "OverHaulers_Delta_MassChange".Translate(ReportFormatter.FormatMass(deltaMass, true, true), percentText).ToString();
             Color deltaColor = deltaMass > 0.001f ? settings.colorBoosted : (deltaMass < -0.001f ? settings.colorCritical : settings.colorHealthy);
 
             // Fetch resolution method [0/1/2/3] for the active subject
@@ -1109,8 +1113,8 @@ namespace OverHaulers
             string methodTag = $"[{(int)method}]";
 
             string baselineComparisonLine = "OverHaulers_Delta_ComparisonLine".Translate(
-                "OverHaulers_Delta_Baseline".Translate().ToString() + " " + methodTag, biologicalBaseline.ToStringMass(),
-                "OverHaulers_Delta_Simulated".Translate().ToString(), TestBench.lastCalculatedFinalMass.ToStringMass()
+                "OverHaulers_Delta_Baseline".Translate().ToString() + " " + methodTag, ReportFormatter.FormatMass(biologicalBaseline, true, false),
+                "OverHaulers_Delta_Simulated".Translate().ToString(), ReportFormatter.FormatMass(TestBench.lastCalculatedFinalMass, true, false)
             ).ToString();
 
             Text.Font = GameFont.Tiny;
@@ -1130,11 +1134,11 @@ namespace OverHaulers
 
             // 3. InfoCard Breakdown Preview Box
             string printableExplanation = liveExplanation.Replace(InfoCardOverlay.TagSentinel, "").Replace(InfoCardOverlay.TagProsthetic, "    ").Replace(InfoCardOverlay.TagAthletic, "    ").Replace(InfoCardOverlay.TagInjury, "    ");
-            float previewBoxHeight = Math.Max(leftColumnHeight - (rightY - columnStartY), Text.CalcHeight(printableExplanation, rightWidth - 16f) + 20f);
+            float previewBoxHeight = Math.Max(leftColumnHeight - (rightY - columnStartY), Text.CalcHeight(printableExplanation, rightWidth - SettingsViewUtilities.PanelPadding * 2f) + 20f);
 
             Rect previewBoxRect = new Rect(inner.x + rightX, rightY, rightWidth, previewBoxHeight);
             Widgets.DrawMenuSection(previewBoxRect);
-            InfoCardOverlay.DrawUnifiedExplanationLabel(previewBoxRect.ContractedBy(8f), liveExplanation);
+            InfoCardOverlay.DrawUnifiedExplanationLabel(previewBoxRect.ContractedBy(SettingsViewUtilities.PanelPadding), liveExplanation);
 
             return rightY + previewBoxHeight;
         }

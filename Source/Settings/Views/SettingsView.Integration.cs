@@ -7,7 +7,7 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
-    /// [SEC-08] Linear, zero-allocation presentation layout for Tab 2 (Integration &amp; Compatibility).
+    /// [SEC-08] Linear presentation layout for Tab 2 (Integration &amp; Compatibility).
     /// Controls InfoCard stat adoption, deduplication against third-party mods, and bytecode patch discovery.
     /// Resides under Source/Settings/Views/.
     /// </summary>
@@ -27,7 +27,7 @@ namespace OverHaulers
             });
 
             ui.DescriptionKey("OverHaulers_Compatibility_Desc");
-            ui.Gap(4f);
+            ui.Gap(SettingsViewUtilities.CompactGap);
 
             // 1. Active Stat Readout Banner
             DrawActiveStatBanner(ref ui, settings);
@@ -35,7 +35,7 @@ namespace OverHaulers
             // 2. Dynamic In-Game Verification & What-To-Expect Card
             VerificationGuide guide = BuildVerificationGuide(settings);
             DrawVerificationGuideCard(ref ui, in guide);
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
 
             // 3. Top-Level Mode Selection (Auto vs Standalone)
             DrawTopLevelModeSelection(ref ui, settings);
@@ -47,7 +47,7 @@ namespace OverHaulers
 
             // 5. Dynamic Bytecode Discoveries (Lazy CIL Scanning)
             DrawCilScanningSection(ref ui, settings);
-            ui.Gap(16f);
+            ui.Gap(SettingsViewUtilities.GroupGap);
         }
 
         #endregion
@@ -152,7 +152,7 @@ namespace OverHaulers
 
         private static void DrawVerificationGuideCard(ref SettingsLayout ui, in VerificationGuide guide)
         {
-            float padding = 8f;
+            float padding = SettingsViewUtilities.PanelPadding;
             float textWidth = ui.Width - (padding * 2f);
             float prefixWidth = 110f;
             float valueWidth = textWidth - prefixWidth;
@@ -227,24 +227,28 @@ namespace OverHaulers
             bool isStandaloneSelected = (currentKey == IntegrationPipeline.PresentationKeyNative);
 
             // Option A: Automatic Stat Adoption (Recommended)
-            Rect autoRowRect = new Rect(ui.X, ui.Y, ui.Width, 24f);
-            if (DrawCustomRadioRow(autoRowRect, "OverHaulers_PresentationMode_Auto".Translate().ToString(), isAutoSelected))
+            Rect autoRowRect = new Rect(ui.X, ui.Y, ui.Width, SettingsLayout.DefaultToggleHeight);
+            string autoTooltip = SettingsViewUtilities.CachedText("OverHaulers_PresentationMode_Auto_Tooltip");
+            string autoLabel = SettingsViewUtilities.LabelWithTooltip(SettingsViewUtilities.CachedText("OverHaulers_PresentationMode_Auto"), autoTooltip);
+            if (DrawCustomRadioRow(autoRowRect, autoLabel, isAutoSelected))
             {
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
-            TooltipHandler.TipRegion(autoRowRect, "OverHaulers_PresentationMode_Auto_Tooltip".Translate().ToString());
-            ui.Y += 28f;
+            if (!string.IsNullOrEmpty(autoTooltip)) TooltipHandler.TipRegion(autoRowRect, autoTooltip);
+            ui.Y += SettingsLayout.DefaultToggleHeight + SettingsViewUtilities.CompactGap;
 
             // Option B: Force Native Standalone Card
-            Rect standaloneRowRect = new Rect(ui.X, ui.Y, ui.Width, 24f);
-            if (DrawCustomRadioRow(standaloneRowRect, "OverHaulers_PresentationMode_Native".Translate().ToString(), isStandaloneSelected))
+            Rect standaloneRowRect = new Rect(ui.X, ui.Y, ui.Width, SettingsLayout.DefaultToggleHeight);
+            string standaloneTooltip = SettingsViewUtilities.CachedText("OverHaulers_PresentationMode_Native_Tooltip");
+            string standaloneLabel = SettingsViewUtilities.LabelWithTooltip(SettingsViewUtilities.CachedText("OverHaulers_PresentationMode_Native"), standaloneTooltip);
+            if (DrawCustomRadioRow(standaloneRowRect, standaloneLabel, isStandaloneSelected))
             {
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
-            TooltipHandler.TipRegion(standaloneRowRect, "OverHaulers_PresentationMode_Native_Tooltip".Translate().ToString());
-            ui.Y += 32f;
+            if (!string.IsNullOrEmpty(standaloneTooltip)) TooltipHandler.TipRegion(standaloneRowRect, standaloneTooltip);
+            ui.Y += SettingsLayout.DefaultToggleHeight + SettingsViewUtilities.ControlGap;
         }
 
         #endregion
@@ -291,7 +295,7 @@ namespace OverHaulers
 
             if (thirdPartyProfiles.Count > 0)
             {
-                ui.Gap(4f);
+                ui.Gap(SettingsViewUtilities.CompactGap);
                 ui.SubHeader("OverHaulers_ProfileGroup_ThirdParty".Translate().ToString());
                 for (int i = 0; i < thirdPartyProfiles.Count; i++)
                 {
@@ -299,7 +303,7 @@ namespace OverHaulers
                 }
             }
 
-            ui.Gap(6f);
+            ui.Gap(SettingsViewUtilities.ControlGap);
         }
 
         private static void DrawXmlProfileEntry(ref SettingsLayout ui, MassCapacityStatProfileDef def, string currentKey, Settings settings)
@@ -368,7 +372,7 @@ namespace OverHaulers
             if (!IntegrationPipeline.HasScannedThisSession)
             {
                 ui.DescriptionKey("OverHaulers_CilScanIdleDesc");
-                ui.Gap(4f);
+                ui.Gap(SettingsViewUtilities.CompactGap);
 
                 if (ui.Button("OverHaulers_ScanPatchesBtn".Translate().ToString(), 280f))
                 {
@@ -378,12 +382,14 @@ namespace OverHaulers
             else
             {
                 // Scan Completed Indicator
-                Rect scanDoneRect = new Rect(ui.X, ui.Y, Math.Min(320f, ui.Width), 26f);
+                string scanDoneLabel = "OverHaulers_ScanPatchesDone".Translate(IntegrationPipeline.DiscoveredPatches.Count).ToString();
+                Vector2 scanDoneSize = SettingsViewUtilities.ButtonSize(scanDoneLabel, ui.Width, minWidth: 320f, minHeight: 26f);
+                Rect scanDoneRect = new Rect(ui.X, ui.Y, scanDoneSize.x, scanDoneSize.y);
                 bool prevGui = GUI.enabled;
                 GUI.enabled = false;
-                Widgets.ButtonText(scanDoneRect, "OverHaulers_ScanPatchesDone".Translate(IntegrationPipeline.DiscoveredPatches.Count).ToString());
+                SettingsViewUtilities.DrawButton(scanDoneRect, scanDoneLabel);
                 GUI.enabled = prevGui;
-                ui.Y += 30f;
+                ui.Y += scanDoneSize.y + 4f;
 
                 if (IntegrationPipeline.DiscoveredPatches.Count == 0)
                 {

@@ -43,7 +43,7 @@ namespace OverHaulers
     /// [CORE-CAT-01] STATIC MEDICAL RECIPE & AUGMENTATION CATALOG
     /// Pre-indexes all loaded vanilla and modded surgery recipes, artificial parts, implants, combat stimulants,
     /// and whole-body staged conditions (pregnancies, food poisoning, hangovers, withdrawals, mechanites).
-    /// Provides zero-allocation $O(1)$ query tables for the interactive medical planner and diagnostic census tools.
+    /// Provides indexed query tables for the interactive medical planner and diagnostic census tools.
     /// Resides under Source/Core/Catalogs/.
     /// </summary>
     public static class MedicalRecipeCatalog

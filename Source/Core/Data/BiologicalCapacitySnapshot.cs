@@ -3,8 +3,7 @@ namespace OverHaulers
     #region 1. BIOLOGICAL CAPACITY SNAPSHOT
 
     /// <summary>
-    /// [SEC-02] Captures a stack-allocated snapshot of a pawn's biological capacities at a given tick.
-    /// Passes by value on the stack with 0 bytes GC allocation.
+    /// [SEC-02] Captures a pawn's biological capacities at a given tick in a value-type snapshot.
     /// Resides under Source/Core/Data/.
     /// </summary>
     public struct BiologicalCapacitySnapshot

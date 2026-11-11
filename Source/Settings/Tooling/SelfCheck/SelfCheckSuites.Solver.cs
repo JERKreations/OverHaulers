@@ -70,7 +70,7 @@ namespace OverHaulers
                     Expect.Equal(first, SolveOnce(harness.SandboxPawn, baseline), "solve " + (i + 2) + " vs solve 1");
                 }
 
-                ctx.Note("OverHaulers_SelfCheck_Note_SolverDeterminism".Translate(subject.Label, baseline.ToStringMass(), first.ToStringMassOffset()).ToString());
+                ctx.Note("OverHaulers_SelfCheck_Note_SolverDeterminism".Translate(subject.Label, baseline.ToString("F3"), first.ToString("F3")).ToString());
             }
         }
 
@@ -102,8 +102,8 @@ namespace OverHaulers
                 wounded = SolveOnce(harness.SandboxPawn, baseline);
             }
 
-            Expect.True(wounded <= pristine + PawnDataRegistry.EfficiencyEpsilon, "wounded offset " + wounded.ToString("F3") + " kg exceeds pristine offset " + pristine.ToString("F3") + " kg");
-            ctx.Note("OverHaulers_SelfCheck_Note_WoundsNeverIncrease".Translate(subject.Label, pristine.ToStringMassOffset(), wounded.ToStringMassOffset()).ToString());
+            Expect.True(wounded <= pristine + PawnDataRegistry.EfficiencyEpsilon, "wounded offset " + wounded.ToString("R") + " kg exceeds pristine offset " + pristine.ToString("R") + " kg (tolerance " + PawnDataRegistry.EfficiencyEpsilon.ToString("R") + " kg)");
+            ctx.Note("OverHaulers_SelfCheck_Note_WoundsNeverIncrease".Translate(subject.Label, pristine.ToString("F3"), wounded.ToString("F3")).ToString());
         }
 
         #endregion

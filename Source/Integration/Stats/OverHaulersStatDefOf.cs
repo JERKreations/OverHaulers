@@ -6,7 +6,7 @@ namespace OverHaulers
     #region 1. [INT-06] NATIVE CARAVAN STAT DEF-OF REGISTRY
 
     /// <summary>
-    /// [INT-06] Zero-allocation static pointer cache for native OverHaulers Def references.
+    /// [INT-06] Static cache for native OverHaulers Def references.
     /// Bound deterministically by RimWorld's DefOfHelper at engine boot.
     /// Resides under Source/Integration/Stats/.
     /// </summary>

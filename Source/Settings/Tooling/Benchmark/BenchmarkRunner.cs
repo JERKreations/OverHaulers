@@ -421,7 +421,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Runs solves back to back until the slice budget is spent or the stage completes.
-        /// GC collections are counted only across the measured loop, where only our own code is running.
+        /// Counts generation-0 collections during measured loops; other threads can also trigger collections.
         /// </summary>
         private static void RunSolveBatch(bool isWarmup)
         {

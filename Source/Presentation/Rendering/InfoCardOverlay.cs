@@ -10,8 +10,8 @@ namespace OverHaulers
     /// [VIEW-04] UNIFIED SINGLE-LABEL STAT DRAWER WITH SYNCHRONOUS ICON STAMPING
     /// Renders stat explanations using a single native Widgets.Label call to preserve
     /// exact vanilla height, font descender clearance, and hyperlink positioning.
-    /// Utilizes a true zero-allocation doubly-linked LRU layout cache with node recycling
-    /// to eliminate OnGUI string manipulation and IMGUI layout GC spikes.
+    /// Uses a doubly-linked LRU layout cache with node recycling to reduce repeated string and layout work.
+    /// Cache misses and growing buffers can allocate.
     /// Resides under Source/Presentation/Rendering/.
     /// </summary>
     public static class InfoCardOverlay
@@ -190,7 +190,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Obtains or constructs layout data via O(1) LRU promotion and recycled node eviction.
-        /// Guarantees zero node/list allocations in steady-state rendering.
+        /// Reuses cached or recycled nodes; cache misses and buffer growth can allocate.
         /// </summary>
         /// <param name="key">The cache key identifying the layout node.</param>
         /// <param name="fullText">The full text containing potential icon tags.</param>
@@ -327,11 +327,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. UNIFIED ZERO-ALLOCATION RENDER ENGINE
+        #region 4. UNIFIED RENDER ENGINE
 
         /// <summary>
         /// [VIEW-04] Draws unified stat explanation labels and stamps bionic/athletic/injury icons over space gaps.
-        /// Queries an intrusive recycled LRU cache to guarantee 0 GC allocations per frame in steady state.
+        /// Reuses cached layout data on hits; new layouts can allocate.
         /// </summary>
         /// <param name="rect">The rectangle within which to draw the label and icons.</param>
         /// <param name="fullText">The full text to render, potentially containing icon tags.</param>

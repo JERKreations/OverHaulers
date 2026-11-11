@@ -5,7 +5,7 @@ namespace OverHaulers
 {
     /// <summary>
     /// [VIEW-01 to VIEW-04] Representation model containing all calculated presentation factors of a pawn's Caravan Mass Capacity.
-    /// Manages an internal object pool of <see cref="PartViewNode"/> instances to guarantee 0 GC allocations during UI updates.
+    /// Reuses pooled <see cref="PartViewNode"/> instances; pool and lookup growth can allocate during UI updates.
     /// Resides under Source/Presentation/Projection/.
     /// </summary>
     public class MassCapacityModel
@@ -14,7 +14,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Immutable static fallback model returned during re-entrancy conflicts or invalid off-thread queries
-        /// to guarantee zero runtime heap allocations.
+        /// to avoid creating a new fallback model for each query.
         /// </summary>
         public static readonly MassCapacityModel Empty = new MassCapacityModel();
 
@@ -74,7 +74,7 @@ namespace OverHaulers
 
         #region 3. VISUAL NODE POOLING & RESET
 
-        /// <summary>Acquires or instantiates a cached visual view node, avoiding backing-array allocations.</summary>
+        /// <summary>Reuses a visual node or creates one when the pool is exhausted.</summary>
         public PartViewNode AcquireNode()
         {
             if (poolIndex < nodePool.Count)

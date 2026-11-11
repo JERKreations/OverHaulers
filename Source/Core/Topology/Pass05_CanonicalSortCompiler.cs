@@ -152,7 +152,7 @@ namespace OverHaulers
             // Child buffer, offsets, and counts populated.
             #endregion
 
-            #region 1C. CanonicalDisplayIndices (Zero-Allocation Natural Anatomical Sort)
+            #region 1C. CanonicalDisplayIndices (Natural Anatomical Sort)
 
             // Skeletal depths are computed in Pass01 during cranial traversal.
             // Build canonical display indices using a 64-bit packed composite key to eliminate lambda closures.
@@ -170,7 +170,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Builds canonical display indices using a 64-bit composite key sort.
-        /// Zero heap allocations: eliminates compiler-generated delegate/closure classes.
+        /// Allocates key and index arrays while avoiding a custom comparison delegate or closure.
         /// Key layout: (Priority << 32) | (Depth << 16) | SlotIndex
         /// </summary>
         /// <param name="template">The species topology template to populate canonical display indices for.</param>
@@ -193,7 +193,7 @@ namespace OverHaulers
                 sortKeys[i] = (priority << 32) | (depth << 16) | (long)i;
             }
 
-            // Zero-allocation primitive sort via Mono's native quicksort
+            // Sort the keys and indices together without a custom comparison delegate.
             Array.Sort(sortKeys, canonical);
 
             template.CanonicalDisplayIndices = canonical;

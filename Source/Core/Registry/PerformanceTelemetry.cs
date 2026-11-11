@@ -8,7 +8,7 @@ namespace OverHaulers
 
     /// <summary>
     /// [DIAG-01] Immutable snapshot of aggregated performance metrics across a reporting interval.
-    /// Passed by readonly reference (in) to guarantee zero GC heap allocations during report assembly.
+    /// Passed by readonly reference (in) to avoid copying the snapshot during report assembly.
     /// </summary>
     public readonly struct TelemetrySnapshot
     {

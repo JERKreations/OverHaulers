@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading;
 using RimWorld;
 
 namespace OverHaulers
@@ -5,6 +7,30 @@ namespace OverHaulers
     internal static partial class SelfCheckSuites
     {
         #region 1. CONFIGURATION CHECKS
+
+        /// <summary>Checks synthetic display fixtures independently of the active game language.</summary>
+        private static void CheckDisplayPrecision(SelfCheckContext ctx)
+        {
+            CultureInfo previous = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                Expect.Equal("100%", ReportFormatter.FormatPercentage(1f), "whole gameplay percentage");
+                Expect.Equal("87.5%", ReportFormatter.FormatPercentage(0.875f), "trimmed gameplay percentage");
+                Expect.Equal("87.543%", ReportFormatter.FormatPercentage(0.8754321f), "gameplay percentage precision");
+                Expect.Equal("87.54321%", ReportFormatter.FormatPercentage(0.8754321f, true), "diagnostic percentage precision");
+                Expect.Equal("-12.346%", ReportFormatter.FormatPercentage(-0.123456f), "negative gameplay percentage");
+                Expect.Equal("0", ReportFormatter.FormatAdaptive(0.000004f), "small gameplay value");
+                Expect.Equal("0.00001", ReportFormatter.FormatAdaptive(0.000006f, true), "small diagnostic value");
+                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+                Expect.Equal("1,25", ReportFormatter.FormatAdaptive(1.25f), "localized decimal separator");
+                Expect.Equal("-12,346%", ReportFormatter.FormatPercentage(-0.123456f), "localized negative percentage");
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = previous;
+            }
+        }
 
         /// <summary>Verifies one tunable's range is well-formed and its default lies inside it.</summary>
         private static void ExpectDefaultInRange(string name, float value, float min, float max)
