@@ -1156,10 +1156,10 @@ namespace OverHaulers
 
             if (method == CalibrationMethod.TestingFallback)
             {
-                if (SpeciesBaselineCalibration.IsPendingLiveRescue(raceDef))
+                if (SpeciesBaselineCalibration.IsPendingWorldLoadSweep(raceDef))
                 {
-                    statusTitle = "OverHaulers_Calibration_Status_PendingComps".Translate().ToString();
-                    statusDesc = "OverHaulers_Calibration_Desc_PendingComps".Translate().ToString();
+                    statusTitle = "OverHaulers_Calibration_Status_PendingWorldLoad".Translate().ToString();
+                    statusDesc = "OverHaulers_Calibration_Desc_PendingWorldLoad".Translate().ToString();
                 }
                 else
                 {
@@ -1171,11 +1171,6 @@ namespace OverHaulers
             {
                 statusTitle = "OverHaulers_Calibration_Status_Pristine".Translate().ToString();
                 statusDesc = "OverHaulers_Calibration_Desc_Pristine".Translate().ToString();
-            }
-            else if (method == CalibrationMethod.LiveRescue)
-            {
-                statusTitle = "OverHaulers_Calibration_Status_LiveRescue".Translate().ToString();
-                statusDesc = "OverHaulers_Calibration_Desc_LiveRescue".Translate().ToString();
             }
             else
             {

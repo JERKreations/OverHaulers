@@ -95,7 +95,7 @@ namespace OverHaulers
 
             // 3. Reset and re-run baseline calibration sweep
             SpeciesBaselineCalibration.Reset();
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable);
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, finalizeWorldLoad: Current.ProgramState == ProgramState.Playing);
 
             // 4. Re-index medical surgery and implant catalog
             MedicalRecipeCatalog.ClearAndReinitialize();
@@ -319,12 +319,12 @@ namespace OverHaulers
                 TopologyLayoutCompiler.CompiledTemplateCount
             ).ToString());
 
-            // 3. Reset dynamic baseline calibrations (batch sweep will run at Tick 10 and finish the journal)
+            // 3. Reset dynamic baseline calibrations for the deferred sweep.
             SpeciesBaselineCalibration.Reset();
 
             coreInitializedTick = currentTick;
 
-            // Register deferred calibration ticket and dispatch (waits until Tick 10 before printing)
+            // Register the deferred calibration ticket.
             OHLog.ActivityJournal.RegisterDeferredOperation("Calibration");
             OHLog.ActivityJournal.Dispatch();
         }
@@ -335,7 +335,7 @@ namespace OverHaulers
         /// The initial calibration sweep is deferred a short while after a session starts.
         /// Some externally-patched caravan-capacity stat providers (e.g. third-party mod stats) build their own
         /// per-species data lazily and aren't guaranteed ready immediately - a short delay lets them settle
-        /// before we pre-calibrate against them, avoiding species being misclassified as needing live-pawn rescue.
+        /// before we pre-calibrate against them and retry any earlier dummy failures.
         /// </summary>
         /// <param name="currentTick">The current game tick used to determine if the deferred calibration sweep should run.</param>
         private void MaybeRunDeferredCalibrationSweep(int currentTick)
@@ -348,7 +348,10 @@ namespace OverHaulers
             OverHaulersLifecycle.IsCalibrationSweepDone = true;
 
             // BATCH PRE-CALIBRATION SWEEP: Automatically routes bullet into active ActivityJournal
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true);
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, finalizeWorldLoad: true);
+
+            // Early fallback baselines may have changed; bypass cached offsets until they are recalculated.
+            PawnDataRegistry.MarkAllStale();
 
             // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
             OverHaulersLifecycle.WarmupActivePawns();

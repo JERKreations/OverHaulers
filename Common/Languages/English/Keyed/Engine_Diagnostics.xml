@@ -19,8 +19,8 @@
   <!-- ========================================================================= -->
   <!-- 3. SPECIES BASELINE CALIBRATION CHECKPOINTS                               -->
   <!-- ========================================================================= -->
-  <OverHaulers_Event_Calibration_SweepComplete>Species baseline calibration sweep complete ({0} ms): {1} Pristine | {2} Testing Fallback | {3} Live Rescue | {4} Emergency Failsafe across {5} species.</OverHaulers_Event_Calibration_SweepComplete>
-  <OverHaulers_Event_Calibration_PendingNotice>Notice: {0} caravan-capable species assigned temporary testing benchmarks due to Main Menu component limitations. They will calibrate automatically via live pawns in gameplay: {1}</OverHaulers_Event_Calibration_PendingNotice>
+  <OverHaulers_Event_Calibration_SweepComplete>Species baseline calibration sweep complete ({0} ms): {1} Pristine | {2} Testing Fallback | {3} Emergency Failsafe across {4} species.</OverHaulers_Event_Calibration_SweepComplete>
+  <OverHaulers_Event_Calibration_PendingNotice>Notice: {0} caravan-capable species are using temporary testing benchmarks after dummy calibration failed. They will be retried during the world-load sweep: {1}</OverHaulers_Event_Calibration_PendingNotice>
 
   <!-- ========================================================================= -->
   <!-- 4. SNAPSHOT TABLE & REGISTRY CHECKPOINTS                                  -->

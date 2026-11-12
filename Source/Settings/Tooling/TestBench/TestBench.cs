@@ -88,6 +88,7 @@ namespace OverHaulers
         {
             // Downward event subscription: automatically invalidate preview whenever Core caches are flushed
             PawnDataRegistry.OnCacheCleared += MarkDirty;
+            SpeciesBaselineCalibration.WorldLoadSweepCompleted += MarkDirty;
         }
 
         /// <summary>

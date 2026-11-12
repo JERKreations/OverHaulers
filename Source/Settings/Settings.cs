@@ -107,6 +107,10 @@ namespace OverHaulers
             MassCapacitySolver.UpdateConfiguration(ToSolverConfiguration());
             PawnDataRegistry.UpdateConfiguration(ToRuntimeConfiguration());
             ReportFormatter.SetPalette(colorHealthy, colorCritical, colorBoosted, verboseBreakdown);
+            ReportFormatter.SetProstheticPalette(prostheticColorOverride,
+                customProstheticPalette ? prostheticColorCritical : colorCritical,
+                customProstheticPalette ? prostheticColorHealthy : colorHealthy,
+                customProstheticPalette ? prostheticColorBoosted : colorBoosted);
             InfoCardOverlay.SetIconScale(iconScalePercent);
             IntegrationPipeline.SetPreferredPresentationKey(selectedPresentationKey);
         }

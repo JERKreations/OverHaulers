@@ -28,6 +28,10 @@ namespace OverHaulers
         private static Color colorCritical = PresentationDefaults.ColorCriticalDefault;
         private static Color colorBoosted = PresentationDefaults.ColorBoostedDefault;
         private static bool isVerboseBreakdown = PresentationDefaults.VerboseBreakdown;
+        private static bool prostheticColorOverride = PresentationDefaults.ProstheticColorOverride;
+        private static Color prostheticCritical = PresentationDefaults.ColorCriticalDefault;
+        private static Color prostheticHealthy = PresentationDefaults.ColorHealthyDefault;
+        private static Color prostheticBoosted = PresentationDefaults.ColorBoostedDefault;
 
         private static readonly string[] CapacityTranslationKeys = new[]
         {
@@ -52,6 +56,15 @@ namespace OverHaulers
             colorCritical = critical;
             colorBoosted = boosted;
             isVerboseBreakdown = verbose;
+        }
+
+        /// <summary>Updates the optional InfoCard-only prosthetic and implant colour gradient.</summary>
+        public static void SetProstheticPalette(bool enabled, Color critical, Color healthy, Color boosted)
+        {
+            prostheticColorOverride = enabled;
+            prostheticCritical = critical;
+            prostheticHealthy = healthy;
+            prostheticBoosted = boosted;
         }
 
         #endregion
@@ -220,8 +233,9 @@ namespace OverHaulers
             {
                 PartViewNode part = massModel.EvaluatedParts[i];
 
-                // Skip unmodified parts unless verbose is true or the part has modified descendants
-                if (!verbose && Math.Abs(part.TotalOffset) < PawnDataRegistry.EfficiencyEpsilon && !HasModifiedDescendants(part))
+                // Skip neutral groups unless they contain a prosthetic or modified descendant.
+                if (!verbose && Math.Abs(part.TotalOffset) < PawnDataRegistry.EfficiencyEpsilon &&
+                    !part.HasProsthetic && !HasModifiedDescendants(part))
                 {
                     continue;
                 }
@@ -235,12 +249,21 @@ namespace OverHaulers
                 {
                     builder.Append(" [");
                     string effStr = FormatPercentage(part.EfficiencyRating, diagnosticPrecision);
-                    builder.Append(effStr.Colorize(GetMedicalColor(part.EfficiencyRating)));
+                    Color efficiencyColor = prostheticColorOverride && part.Record != null && part.HasProsthetic
+                        ? GetProstheticColor(part.ProstheticColor, part.EfficiencyRating)
+                        : GetMedicalColor(part.EfficiencyRating);
+                    builder.Append(effStr.Colorize(efficiencyColor));
                     builder.Append("]");
                 }
 
                 builder.Append(": ");
                 builder.Append(FormatMass(part.TotalOffset, diagnosticPrecision, true));
+                if (part.Record != null && part.HasProsthetic && !string.IsNullOrEmpty(part.ProstheticName))
+                {
+                    builder.Append(" [");
+                    builder.Append(part.ProstheticName.Colorize(GetProstheticColor(part.ProstheticColor, part.EfficiencyRating)));
+                    builder.Append("]");
+                }
                 AppendAilmentSuffix(builder, part);
                 builder.AppendLine();
 
@@ -383,11 +406,12 @@ namespace OverHaulers
 
             if (hasProsthetic)
             {
+                Color prostheticColor = GetProstheticColor(sub.ProstheticColor, sub.EfficiencyRating);
                 builder.Append(": [");
-                builder.Append(sub.ProstheticName.Colorize(sub.ProstheticColor));
+                builder.Append(sub.ProstheticName.Colorize(prostheticColor));
                 builder.Append(" ");
                 string effStr = FormatPercentage(sub.EfficiencyRating, diagnosticPrecision);
-                builder.Append(effStr.Colorize(sub.ProstheticColor));
+                builder.Append(effStr.Colorize(prostheticColor));
 
                 if (isDamaged || verbose)
                 {
@@ -434,7 +458,7 @@ namespace OverHaulers
                     if (hasImplant)
                     {
                         builder.Append("[");
-                        builder.Append(sub.AthleticImplantName.Colorize(sub.AthleticImplantColor));
+                        builder.Append(sub.AthleticImplantName.Colorize(GetImplantColor(sub.AthleticImplantColor)));
                         builder.Append("]");
                     }
                 }
@@ -448,7 +472,7 @@ namespace OverHaulers
                 builder.AppendLine();
                 AppendIndent(builder, depth);
                 builder.Append("  + ");
-                builder.Append(sub.AthleticImplantName.Colorize(sub.AthleticImplantColor));
+                builder.Append(sub.AthleticImplantName.Colorize(GetImplantColor(sub.AthleticImplantColor)));
             }
         }
 
@@ -541,6 +565,28 @@ namespace OverHaulers
             }
             
             return colorCritical;
+        }
+
+        /// <summary>Returns the original colour or the 50% / 100% / 150% prosthetic gradient colour.</summary>
+        internal static Color GetProstheticColor(Color original, float efficiency)
+        {
+            if (!prostheticColorOverride) return original;
+            if (float.IsNaN(efficiency))
+            {
+                OHLog.Warn("Presentation.ProstheticColor", null, "Prosthetic efficiency is NaN; retaining the original label colour.");
+                return original;
+            }
+            if (efficiency <= 0.5f) return prostheticCritical;
+            if (efficiency >= 1.5f) return prostheticBoosted;
+            if (efficiency == 1f) return prostheticHealthy;
+            if (efficiency < 1f) return Color.Lerp(prostheticCritical, prostheticHealthy, (efficiency - 0.5f) * 2f);
+            return Color.Lerp(prostheticHealthy, prostheticBoosted, (efficiency - 1f) * 2f);
+        }
+
+        /// <summary>Separate athletic implants have no comparable part efficiency and use the neutral colour.</summary>
+        internal static Color GetImplantColor(Color original)
+        {
+            return prostheticColorOverride ? prostheticHealthy : original;
         }
 
         /// <summary>

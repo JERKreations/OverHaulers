@@ -30,6 +30,8 @@ namespace OverHaulers
 
         // When true, InfoCard instances are forced to display all grouping details regardless of part states and health conditions.
         public const bool VerboseBreakdown = false;
+        public const bool ProstheticColorOverride = false;
+        public const bool CustomProstheticPalette = false;
 
         #endregion
 

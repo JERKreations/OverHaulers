@@ -19,13 +19,13 @@
   <!-- ========================================================================= -->
   <OverHaulers_GlobalModifiersHeader>Main Scalar Settings &amp; Safety Floor Clamping</OverHaulers_GlobalModifiersHeader>
   
-  <OverHaulers_ProstheticScaling_Label>Prosthetic Scaling ({0})</OverHaulers_ProstheticScaling_Label>
+  <OverHaulers_ProstheticScaling_Label>Prosthetic Scaling ( {0} )</OverHaulers_ProstheticScaling_Label>
   <OverHaulers_ProstheticScaling_Desc>Adjusts the rate at which prosthetics and bionics influence caravan mass capacity.</OverHaulers_ProstheticScaling_Desc>
   
-  <OverHaulers_AthleticScaling_Label>Athletic Scaling ({0})</OverHaulers_AthleticScaling_Label>
+  <OverHaulers_AthleticScaling_Label>Athletic Scaling ( {0} )</OverHaulers_AthleticScaling_Label>
   <OverHaulers_AthleticScaling_Desc>Adjusts the rate at which elevated breathing, blood pumping, moving, and manipulation influence caravan mass capacity.</OverHaulers_AthleticScaling_Desc>
   
-  <OverHaulers_Deficits_Label>Physical Deficits (Floor: {0})</OverHaulers_Deficits_Label>
+  <OverHaulers_Deficits_Label>Physical Deficits ( Floor: {0} )</OverHaulers_Deficits_Label>
   <OverHaulers_Deficits_Desc>Enables caravan mass capacity penalties for physical wounds, damaged tissue, and amputated limbs. The slider sets the Maximum Impact Floor: no matter how severe the trauma, penalties will never reduce a pawn below this percentage of their base capacity (e.g. at 20%, injuries can reduce capacity by at most 80%).</OverHaulers_Deficits_Desc>
 
   <OverHaulers_EnableGlobalSafetyFloor>Global Compatibility Safety Floor</OverHaulers_EnableGlobalSafetyFloor>
@@ -37,9 +37,9 @@
   <OverHaulers_BodyPartWeightsHeader>Core Body Group Weights</OverHaulers_BodyPartWeightsHeader>
   <OverHaulers_BodyPartWeights_Desc>Controls how the pawn's total biological load budget is divided across major body regions. The torso provides vertical structural compression support, legs drive long-distance marching power, and arms act as hooks to stabilize and hold payloads.</OverHaulers_BodyPartWeights_Desc>
   
-  <OverHaulers_TorsoImpact>Torso ({0}) ({1})</OverHaulers_TorsoImpact>
-  <OverHaulers_ArmsImpact>Arms ({0}) ({1})</OverHaulers_ArmsImpact>
-  <OverHaulers_LegsImpact>Legs ({0}) ({1})</OverHaulers_LegsImpact>
+  <OverHaulers_TorsoImpact>Torso ( {0} ) ( {1} )</OverHaulers_TorsoImpact>
+  <OverHaulers_ArmsImpact>Arms ( {0} ) ( {1} )</OverHaulers_ArmsImpact>
+  <OverHaulers_LegsImpact>Legs ( {0} ) ( {1} )</OverHaulers_LegsImpact>
   
   <OverHaulers_TorsoImpact_Tooltip>The central vertical axis of the body. All load-bearing mass is vertically supported and compressed straight down through the spine and pelvis.</OverHaulers_TorsoImpact_Tooltip>
   <OverHaulers_ArmsImpact_Tooltip>Used as "hooks" to hold cargo. The arms lift the load and transfer that downward pull onto the shoulders and back.</OverHaulers_ArmsImpact_Tooltip>
@@ -69,10 +69,10 @@
   <OverHaulers_CoreBonesHeader>Torso Macro Topology</OverHaulers_CoreBonesHeader>
   <OverHaulers_CoreBones_Desc>Dynamic graph traversal isolates the primary load-bearing vertical column (Spine, Pelvis, or exo-axis) from peripheral chest bones. HitPoint density weighting automatically scales budget share based on bone sturdiness across all species.</OverHaulers_CoreBones_Desc>
 
-  <OverHaulers_TorsoAxialBias>Axial Column Weight ({0})</OverHaulers_TorsoAxialBias>
+  <OverHaulers_TorsoAxialBias>Axial Column Weight ( {0} )</OverHaulers_TorsoAxialBias>
   <OverHaulers_TorsoAxialBias_Desc>The portion of the Torso budget allocated to bones on the primary load-bearing vertical path (Spine, Pelvis, or exo-axis connecting core to legs). Higher values give spine/pelvis structural priority over ribcages and collarbones.</OverHaulers_TorsoAxialBias_Desc>
   
-  <OverHaulers_TorsoHpSensitivity>HP Density Sensitivity ({0}x)</OverHaulers_TorsoHpSensitivity>
+  <OverHaulers_TorsoHpSensitivity>HP Density Sensitivity ( {0}x )</OverHaulers_TorsoHpSensitivity>
   <OverHaulers_TorsoHpSensitivity_Desc>Scales a torso bone's budget share by its relative HitPoints volume. Higher values give sturdier, high-HP bones (e.g. heavy carapace or thick spinal columns) greater structural weight without hardcoded rules.</OverHaulers_TorsoHpSensitivity_Desc>
 
   <!-- ========================================================================= -->
@@ -81,7 +81,7 @@
   <OverHaulers_LimbDepthImpactsHeader>Limb Segment Depth Decay</OverHaulers_LimbDepthImpactsHeader>
   <OverHaulers_LimbDepth_Desc>Applies an exponential curve down limb parent-child chains. Each segment level inherits a fraction of its parent joint's structural budget (Decay^Depth) before normalized allocation across sibling branches.</OverHaulers_LimbDepth_Desc>
   
-  <OverHaulers_LimbDepthDecayFactor>Depth Decay Ratio ({0})</OverHaulers_LimbDepthDecayFactor>
+  <OverHaulers_LimbDepthDecayFactor>Depth Decay Ratio ( {0} )</OverHaulers_LimbDepthDecayFactor>
   <OverHaulers_LimbDepthDecayFactor_Desc>Controls weight loss along limb chains. Lower ratios concentrate carrying strength at major root joints (shoulders/hips), while higher ratios distribute budget deeper into hands, feet, and digits - making lost digits or hands far more impactful.</OverHaulers_LimbDepthDecayFactor_Desc>
 
   <!-- ========================================================================= -->
@@ -90,10 +90,10 @@
   <OverHaulers_ScalingConstantsHeader>Structural Scaling Anchor Values</OverHaulers_ScalingConstantsHeader>
   <OverHaulers_ScalingConstants_Desc>Base mathematical anchors that establish how strongly prosthetics and elevated athletic capacities amplify Caravan Mass Capacity (kg) above organic baselines.\n!! WARNING !! Adjusting these anchors alters the slope of positive boost equations. Setting high multipliers will scale pawn mass capacity to extreme proportions.</OverHaulers_ScalingConstants_Desc>
 
-  <OverHaulers_ProstheticImpactConstant>Bionic Upgrade Constant ({0}x)</OverHaulers_ProstheticImpactConstant>
+  <OverHaulers_ProstheticImpactConstant>Bionic Upgrade Constant ( {0}x )</OverHaulers_ProstheticImpactConstant>
   <OverHaulers_ProstheticImpactConstant_Tooltip>The structural anchor defining the rate at which prosthetics and bionics (efficiencies above 100%) influence mass capacity.</OverHaulers_ProstheticImpactConstant_Tooltip>
 
-  <OverHaulers_AthleticImpactConstant>Athletic Synergy Constant ({0}x)</OverHaulers_AthleticImpactConstant>
+  <OverHaulers_AthleticImpactConstant>Athletic Synergy Constant ( {0}x )</OverHaulers_AthleticImpactConstant>
   <OverHaulers_AthleticImpactConstant_Tooltip>The structural anchor defining the rate at which biological capacities (breathing, blood pumping, etc.) influence mass capacity.</OverHaulers_AthleticImpactConstant_Tooltip>
 
 </LanguageData>

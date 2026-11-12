@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -83,9 +82,9 @@ namespace OverHaulers
             set => subParts = value;
         }
 
-        /// <summary>[VIEW-04] Evaluates whether this part deviates from organic baseline defaults in a mass-relevant way.</summary>
+        /// <summary>[VIEW-04] Evaluates whether this part has a modification worth showing in the breakdown.</summary>
         public bool IsModified => IsMissing 
-            || (HasProsthetic && Math.Abs(EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
+            || HasProsthetic
             || HealthFraction < 1.0f 
             || !string.IsNullOrEmpty(AthleticImplantName) 
             || !string.IsNullOrEmpty(LocalAilmentName);

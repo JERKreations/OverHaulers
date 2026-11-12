@@ -58,19 +58,16 @@
   <OverHaulers_Calibration_Status_Pristine>Pristine Dummy</OverHaulers_Calibration_Status_Pristine>
   <OverHaulers_Calibration_Desc_Pristine>Verified clean stat worker resolution on unspawned pawn.</OverHaulers_Calibration_Desc_Pristine>
 
-  <OverHaulers_Calibration_Status_PendingComps>Testing Benchmark (Pending Live Comps)</OverHaulers_Calibration_Status_PendingComps>
-  <OverHaulers_Calibration_Desc_PendingComps>Caravan pack animal whose dummy evaluation failed on the Main Menu because required mod components (e.g. genetics/comps) only initialize during active gameplay. Operating on testing benchmark (35 kg/size) until evaluated in-game.</OverHaulers_Calibration_Desc_PendingComps>
+  <OverHaulers_Calibration_Status_PendingWorldLoad>Testing Benchmark (Pending World-Load Sweep)</OverHaulers_Calibration_Status_PendingWorldLoad>
+  <OverHaulers_Calibration_Desc_PendingWorldLoad>Dummy evaluation failed before the world-load sweep. The species uses the testing benchmark (35 kg/size) until the sweep retries calibration.</OverHaulers_Calibration_Desc_PendingWorldLoad>
 
   <OverHaulers_Calibration_Status_NonPack>Testing Benchmark (Non-Pack Species)</OverHaulers_Calibration_Status_NonPack>
   <OverHaulers_Calibration_Desc_NonPack>Naturally non-caravan species assigned standard testing benchmark scalar (35 kg/size) for sandbox experimentation.</OverHaulers_Calibration_Desc_NonPack>
 
-  <OverHaulers_Calibration_Status_LiveRescue>Live Rescue</OverHaulers_Calibration_Status_LiveRescue>
-  <OverHaulers_Calibration_Desc_LiveRescue>Successfully rescued and calibrated using a live, spawned pawn on an active map.</OverHaulers_Calibration_Desc_LiveRescue>
-
   <OverHaulers_Calibration_Status_Emergency>Emergency Failsafe</OverHaulers_Calibration_Status_Emergency>
-  <OverHaulers_Calibration_Desc_Emergency>Stat calculation crashed or failed both dummy and live evaluations. Clamped to emergency fallback assumption.</OverHaulers_Calibration_Desc_Emergency>
+  <OverHaulers_Calibration_Desc_Emergency>Dummy calibration failed during or after the world-load sweep. The species uses the emergency fallback assumption (35 kg/size).</OverHaulers_Calibration_Desc_Emergency>
 
-  <OverHaulers_Calibration_TaxonomyHeader>Baseline Resolution Taxonomy:&#10;• [0] Pristine Dummy: Verified unspawned pawn clean stat resolution.&#10;• [1] Testing Fallback: Non-caravan species or uninitialized modded archetypes assigned standard testing benchmark scalar (35 kg/size).&#10;• [2] Live Rescue: Caravan-capable species rescued using a spawned live pawn.&#10;• [3] Emergency Failsafe: Calculation crashed; fell back to last-resort assumption.</OverHaulers_Calibration_TaxonomyHeader>
+  <OverHaulers_Calibration_TaxonomyHeader>Baseline Resolution Taxonomy:&#10;• [0] Pristine Dummy: Clean stat resolution on an unspawned pawn.&#10;• [1] Testing Fallback: Non-caravan species or species awaiting the world-load sweep use the testing benchmark (35 kg/size).&#10;• [2] Emergency Failsafe: Dummy calibration failed during or after the sweep; the fallback assumption is used.</OverHaulers_Calibration_TaxonomyHeader>
 
   <!-- ========================================================================= -->
   <!-- [SEC-11.D] TOPOLOGY X-RAY REPORT FORMATTING                               -->

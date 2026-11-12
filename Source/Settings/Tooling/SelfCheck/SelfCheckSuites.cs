@@ -35,6 +35,8 @@ namespace OverHaulers
             list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_CaravanSubjectFilter", CheckCaravanSubjectFilter));
             list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_SubjectPickerSession", CheckSubjectPickerSession));
             list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_ButtonLayout", CheckButtonLayout));
+            list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_NeutralProstheticBreakdown", CheckNeutralProstheticBreakdown));
+            list.Add(new SelfCheckDef(GroupTestBench, "OverHaulers_SelfCheck_Check_ProstheticPalette", CheckProstheticPalette));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_PackUnpack", CheckPackUnpack));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_NeutralDefaults", CheckNeutralDefaults));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_WriteOverwriteRead", CheckWriteOverwriteRead));

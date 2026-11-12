@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [SEC-10] Linear presentation layout for Tab 3 (Accessibility &amp; UI).
     /// Provides controls for Breakdown Icon Scaling, medical health status color presets,
-    /// live 3-stop gradient previewing, and interactive RGB channel customization.
+    /// live 3-stop gradient previewing, and interactive RGB channel customization for medical and prosthetic colours.
     /// Resides under Source/Settings/Views/.
     /// </summary>
     public static partial class SettingsView
@@ -31,7 +31,7 @@ namespace OverHaulers
             });
 
             // 2. Icon Scale Slider
-            string scaleReadout = settings.iconScalePercent.ToString("P2");
+            string scaleReadout = settings.iconScalePercent.ToString("P0");
             string scaleLabel = "OverHaulers_IconScaleLabel".Translate(scaleReadout).ToString();
             ui.Slider(
                 scaleLabel,
@@ -61,6 +61,52 @@ namespace OverHaulers
             DrawColorCustomizerRow(ref ui, "OverHaulers_ColorHealthyLabel".Translate().ToString(), ref settings.colorHealthy, settings);
             ui.Gap(SettingsViewUtilities.CompactGap);
             DrawColorCustomizerRow(ref ui, "OverHaulers_ColorBoostedLabel".Translate().ToString(), ref settings.colorBoosted, settings);
+            ui.Gap(SettingsViewUtilities.GroupGap);
+
+            ui.Divider();
+            ui.SubHeader("OverHaulers_ProstheticPaletteHeader".Translate().ToString());
+            ui.DescriptionKey("OverHaulers_ProstheticPalette_Desc");
+            ui.ToggleKey("OverHaulers_ProstheticPalette_Enable", ref settings.prostheticColorOverride);
+
+            bool guiEnabled = GUI.enabled;
+            try
+            {
+                GUI.enabled = guiEnabled && settings.prostheticColorOverride;
+                ui.ToggleKey("OverHaulers_ProstheticPalette_Custom", ref settings.customProstheticPalette);
+            }
+            finally
+            {
+                GUI.enabled = guiEnabled;
+            }
+
+            Color critical = settings.customProstheticPalette ? settings.prostheticColorCritical : settings.colorCritical;
+            Color healthy = settings.customProstheticPalette ? settings.prostheticColorHealthy : settings.colorHealthy;
+            Color boosted = settings.customProstheticPalette ? settings.prostheticColorBoosted : settings.colorBoosted;
+            DrawLiveGradientPreview(ref ui, critical, healthy, boosted, prosthetic: true);
+
+            ui.Divider();
+            ui.SubHeader("OverHaulers_ProstheticPalette_CustomHeader".Translate().ToString());
+            try
+            {
+                GUI.enabled = guiEnabled && settings.prostheticColorOverride && settings.customProstheticPalette;
+                if (ui.Button(SettingsViewUtilities.CachedText("OverHaulers_ProstheticPalette_ResetColors")))
+                {
+                    settings.ResetProstheticColorsToHealthPalette();
+                }
+
+                DrawColorCustomizerRow(ref ui, "OverHaulers_ProstheticColorCriticalLabel".Translate().ToString(),
+                    ref settings.prostheticColorCritical, settings, medicalPalette: false);
+                ui.Gap(SettingsViewUtilities.CompactGap);
+                DrawColorCustomizerRow(ref ui, "OverHaulers_ProstheticColorHealthyLabel".Translate().ToString(),
+                    ref settings.prostheticColorHealthy, settings, medicalPalette: false);
+                ui.Gap(SettingsViewUtilities.CompactGap);
+                DrawColorCustomizerRow(ref ui, "OverHaulers_ProstheticColorBoostedLabel".Translate().ToString(),
+                    ref settings.prostheticColorBoosted, settings, medicalPalette: false);
+            }
+            finally
+            {
+                GUI.enabled = guiEnabled;
+            }
             ui.Gap(SettingsViewUtilities.GroupGap);
         }
 
@@ -131,13 +177,15 @@ namespace OverHaulers
         /// <param name="critical">The color representing the critical health state.</param>
         /// <param name="healthy">The color representing the healthy state.</param>
         /// <param name="boosted">The color representing the boosted health state.</param>
-        private static void DrawLiveGradientPreview(ref SettingsLayout ui, Color critical, Color healthy, Color boosted)
+        /// <param name="prosthetic">Use the prosthetic efficiency labels instead of the health labels.</param>
+        private static void DrawLiveGradientPreview(ref SettingsLayout ui, Color critical, Color healthy, Color boosted, bool prosthetic = false)
         {
             // Header
             Text.Font = GameFont.Tiny;
             Color origColor = GUI.color;
             GUI.color = SettingsLayout.MutedTextColor;
-            Widgets.Label(new Rect(ui.X, ui.Y, ui.Width, 20f), "OverHaulers_GradientPreviewHeader".Translate().ToString());
+            string headerKey = prosthetic ? "OverHaulers_ProstheticGradientPreviewHeader" : "OverHaulers_GradientPreviewHeader";
+            Widgets.Label(new Rect(ui.X, ui.Y, ui.Width, 20f), headerKey.Translate().ToString());
             GUI.color = origColor;
             Text.Font = GameFont.Small;
             ui.Y += 22f;
@@ -166,11 +214,11 @@ namespace OverHaulers
             Text.Font = GameFont.Tiny;
             GUI.color = SettingsLayout.MutedTextColor;
 
-            Widgets.Label(tickRect.LeftPart(0.20f), "0%");
+            Widgets.Label(tickRect.LeftPart(0.20f), prosthetic ? 0.5f.ToString("P0") : "0%");
             Text.Anchor = TextAnchor.UpperCenter;
             Widgets.Label(tickRect, "100%");
             Text.Anchor = TextAnchor.UpperRight;
-            Widgets.Label(tickRect.RightPart(0.20f), "200%+");
+            Widgets.Label(tickRect.RightPart(0.20f), prosthetic ? 1.5f.ToString("P0") + "+" : "200%+");
             Text.Anchor = TextAnchor.UpperLeft;
 
             GUI.color = origColor;
@@ -189,7 +237,8 @@ namespace OverHaulers
         /// <param name="label">The label describing the color being customized.</param>
         /// <param name="color">The color value to be customized.</param>
         /// <param name="settings">The settings object containing the active palette preset.</param>
-        private static void DrawColorCustomizerRow(ref SettingsLayout ui, string label, ref Color color, Settings settings)
+        /// <param name="medicalPalette">Whether editing this colour selects the custom medical preset.</param>
+        private static void DrawColorCustomizerRow(ref SettingsLayout ui, string label, ref Color color, Settings settings, bool medicalPalette = true)
         {
             // 1. Label and Live Color Swatch Box
             Rect labelRect = new Rect(ui.X, ui.Y, ui.Width - 36f, 22f);
@@ -214,7 +263,7 @@ namespace OverHaulers
 
             if (rChanged || gChanged || bChanged)
             {
-                settings.activePalettePreset = PalettePreset.Custom;
+                if (medicalPalette) settings.activePalettePreset = PalettePreset.Custom;
                 SettingsViewUtilities.OnSettingMutated();
             }
 

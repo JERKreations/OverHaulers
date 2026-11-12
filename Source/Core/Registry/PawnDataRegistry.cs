@@ -175,7 +175,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Marks every cached pawn entry stale across the registry without flushing background snapshots.
-        /// Used when global balance settings mutate so values recalculate lazily on demand.
+        /// Used when global balance settings or species baselines change so values recalculate lazily on demand.
         /// Safely no-ops during startup when the cache is empty.
         /// </summary>
         public static void MarkAllStale()

@@ -122,6 +122,8 @@
   <OverHaulers_SelfCheck_Check_CaravanSubjectFilter>Caravan-capable subject filter matches species eligibility</OverHaulers_SelfCheck_Check_CaravanSubjectFilter>
   <OverHaulers_SelfCheck_Check_SubjectPickerSession>Subject picker retains session filter and group state</OverHaulers_SelfCheck_Check_SubjectPickerSession>
   <OverHaulers_SelfCheck_Check_ButtonLayout>Button size overrides and row wrapping</OverHaulers_SelfCheck_Check_ButtonLayout>
+  <OverHaulers_SelfCheck_Check_NeutralProstheticBreakdown>Neutral prosthetics appear without inherited duplicates</OverHaulers_SelfCheck_Check_NeutralProstheticBreakdown>
+  <OverHaulers_SelfCheck_Check_ProstheticPalette>Prosthetic colour override and efficiency gradient</OverHaulers_SelfCheck_Check_ProstheticPalette>
   <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
   <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
   <OverHaulers_SelfCheck_Check_WriteOverwriteRead>Write, overwrite and read back</OverHaulers_SelfCheck_Check_WriteOverwriteRead>

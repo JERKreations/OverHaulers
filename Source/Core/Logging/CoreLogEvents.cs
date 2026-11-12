@@ -13,9 +13,9 @@ namespace OverHaulers
         #region 1. CALIBRATION
 
         /// <summary>Logs the completion of a species baseline calibration sweep.</summary>
-        public static void CalibrationSweepCompleted(double ms, int pristine, int testing, int live, int emergency, int total) =>
+        public static void CalibrationSweepCompleted(double ms, int pristine, int testing, int emergency, int total) =>
             OHLog.Event("OverHaulers_Event_Calibration_SweepComplete",
-                ms.ToString("F1"), pristine, testing, live, emergency, total);
+                ms.ToString("F1"), pristine, testing, emergency, total);
 
         /// <summary>Logs a notice that caravan-capable species are running on temporary benchmarks.</summary>
         public static void CalibrationPendingNotice(int count, string speciesList) =>

@@ -23,4 +23,15 @@
   <OverHaulers_ColorHealthyLabel>Healthy Baseline Color ( 100% )</OverHaulers_ColorHealthyLabel>
   <OverHaulers_ColorBoostedLabel>Boosted Capacity Color ( 100% ➔ 200%+ )</OverHaulers_ColorBoostedLabel>
 
+  <OverHaulers_ProstheticPaletteHeader>Prosthetic &amp; Implant Breakdown Colors</OverHaulers_ProstheticPaletteHeader>
+  <OverHaulers_ProstheticPalette_Desc>Optionally replace mod-defined prosthetic and implant label colors in the mass capacity breakdown. Prosthetic colors follow part efficiency; separate implants use the neutral color. Other game labels are unchanged.</OverHaulers_ProstheticPalette_Desc>
+  <OverHaulers_ProstheticPalette_Enable>Use prosthetic and implant color gradient</OverHaulers_ProstheticPalette_Enable>
+  <OverHaulers_ProstheticPalette_Custom>Use a separate custom palette</OverHaulers_ProstheticPalette_Custom>
+  <OverHaulers_ProstheticPalette_CustomHeader>Custom Prosthetic &amp; Implant Palette</OverHaulers_ProstheticPalette_CustomHeader>
+  <OverHaulers_ProstheticPalette_ResetColors>Reset colors to health palette</OverHaulers_ProstheticPalette_ResetColors>
+  <OverHaulers_ProstheticGradientPreviewHeader>Prosthetic Efficiency Color Gradient Preview:</OverHaulers_ProstheticGradientPreviewHeader>
+  <OverHaulers_ProstheticColorCriticalLabel>Low Efficiency Color ( 50% or less )</OverHaulers_ProstheticColorCriticalLabel>
+  <OverHaulers_ProstheticColorHealthyLabel>Neutral Efficiency Color ( 100% )</OverHaulers_ProstheticColorHealthyLabel>
+  <OverHaulers_ProstheticColorBoostedLabel>High Efficiency Color ( 150% or more )</OverHaulers_ProstheticColorBoostedLabel>
+
 </LanguageData>

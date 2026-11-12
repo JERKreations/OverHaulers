@@ -9,6 +9,124 @@ namespace OverHaulers
     {
         #region 1. TEST BENCH CHECKS
 
+        /// <summary>Checks the opt-in gradient and label rendering with synthetic, distinct colour fixtures.</summary>
+        private static void CheckProstheticPalette(SelfCheckContext ctx)
+        {
+            Settings settings = OverHaulers.settings;
+            bool originalEnabled = settings != null && settings.prostheticColorOverride;
+            bool originalCustom = settings != null && settings.customProstheticPalette;
+            Color originalCritical = settings == null ? PresentationDefaults.ColorCriticalDefault
+                : originalCustom ? settings.prostheticColorCritical : settings.colorCritical;
+            Color originalHealthy = settings == null ? PresentationDefaults.ColorHealthyDefault
+                : originalCustom ? settings.prostheticColorHealthy : settings.colorHealthy;
+            Color originalBoosted = settings == null ? PresentationDefaults.ColorBoostedDefault
+                : originalCustom ? settings.prostheticColorBoosted : settings.colorBoosted;
+
+            Color low = new Color(0.1f, 0.2f, 0.3f);
+            Color neutral = new Color(0.4f, 0.5f, 0.6f);
+            Color high = new Color(0.7f, 0.8f, 0.9f);
+            Color source = new Color(0.2f, 0.8f, 0.4f);
+
+            try
+            {
+                ReportFormatter.SetProstheticPalette(false, low, neutral, high);
+                Expect.True(ReportFormatter.GetProstheticColor(source, 0.75f).Equals(source),
+                    "disabled override must preserve the prosthetic source colour");
+                Expect.True(ReportFormatter.GetImplantColor(source).Equals(source),
+                    "disabled override must preserve the implant source colour");
+
+                ReportFormatter.SetProstheticPalette(true, low, neutral, high);
+                Expect.True(ReportFormatter.GetProstheticColor(source, 0f).Equals(low) &&
+                    ReportFormatter.GetProstheticColor(source, 0.5f).Equals(low), "low endpoint must clamp at 50%");
+                Expect.True(ReportFormatter.GetProstheticColor(source, 0.75f).Equals(Color.Lerp(low, neutral, 0.5f)),
+                    "75% must interpolate halfway to neutral");
+                Expect.True(ReportFormatter.GetProstheticColor(source, 1f).Equals(neutral), "100% must use neutral");
+                Expect.True(ReportFormatter.GetProstheticColor(source, 1.25f).Equals(Color.Lerp(neutral, high, 0.5f)),
+                    "125% must interpolate halfway to high");
+                Expect.True(ReportFormatter.GetProstheticColor(source, 1.5f).Equals(high) &&
+                    ReportFormatter.GetProstheticColor(source, 2f).Equals(high), "high endpoint must clamp at 150%");
+                Expect.True(ReportFormatter.GetImplantColor(source).Equals(neutral),
+                    "separate implants must use the neutral colour");
+
+                MassCapacityModel model = new MassCapacityModel();
+                for (int i = 0; i < model.CapacityLevels.Length; i++) model.CapacityLevels[i] = 1f;
+                PartViewNode group = new PartViewNode { Label = "fixture-group", HealthFraction = 1f, EfficiencyRating = 1f };
+                group.AddSubPart(new PartViewNode
+                {
+                    Label = "fixture-arm", HealthFraction = 1f, EfficiencyRating = 0.75f,
+                    HasProsthetic = true, ProstheticName = "fixture-prosthetic", ProstheticColor = source,
+                    AthleticImplantName = "fixture-implant", AthleticImplantColor = source
+                });
+                model.EvaluatedParts.Add(group);
+
+                string text = ReportFormatter.BuildExplanation(model);
+                Expect.True(text.IndexOf("fixture-prosthetic".Colorize(Color.Lerp(low, neutral, 0.5f)), StringComparison.Ordinal) >= 0,
+                    "prosthetic label must use the gradient");
+                Expect.True(text.IndexOf("fixture-implant".Colorize(neutral), StringComparison.Ordinal) >= 0,
+                    "implant label must use neutral");
+            }
+            finally
+            {
+                ReportFormatter.SetProstheticPalette(originalEnabled, originalCritical, originalHealthy, originalBoosted);
+            }
+        }
+
+        /// <summary>Checks compact breakdown visibility using synthetic neutral prosthetic nodes.</summary>
+        private static void CheckNeutralProstheticBreakdown(SelfCheckContext ctx)
+        {
+            Settings settings = OverHaulers.settings;
+            Color healthy = settings != null ? settings.colorHealthy : PresentationDefaults.ColorHealthyDefault;
+            Color critical = settings != null ? settings.colorCritical : PresentationDefaults.ColorCriticalDefault;
+            Color boosted = settings != null ? settings.colorBoosted : PresentationDefaults.ColorBoostedDefault;
+            bool originalVerbose = settings != null ? settings.verboseBreakdown : PresentationDefaults.VerboseBreakdown;
+
+            try
+            {
+                ReportFormatter.SetPalette(healthy, critical, boosted, false);
+
+                MassCapacityModel model = new MassCapacityModel();
+                for (int i = 0; i < model.CapacityLevels.Length; i++) model.CapacityLevels[i] = 1f;
+
+                PartViewNode group = new PartViewNode { Label = "fixture-group", HealthFraction = 1f, EfficiencyRating = 1f };
+                PartViewNode arm = new PartViewNode
+                {
+                    Record = new BodyPartRecord(), Label = "fixture-arm", HealthFraction = 1f, EfficiencyRating = 1f,
+                    HasProsthetic = true, ProstheticName = "fixture-arm-prosthetic"
+                };
+                PartViewNode inherited = new PartViewNode
+                {
+                    Record = new BodyPartRecord(), Label = "fixture-inherited", HealthFraction = 1f, EfficiencyRating = 1f,
+                    HasProsthetic = true, ProstheticName = arm.ProstheticName, IsInherited = true
+                };
+                arm.AddSubPart(inherited);
+                group.AddSubPart(arm);
+                group.AddSubPart(new PartViewNode { Label = "fixture-natural", HealthFraction = 1f, EfficiencyRating = 1f });
+                model.EvaluatedParts.Add(group);
+                model.EvaluatedParts.Add(new PartViewNode
+                {
+                    Record = new BodyPartRecord(), Label = "fixture-organ", HealthFraction = 1f, EfficiencyRating = 1f,
+                    HasProsthetic = true, ProstheticName = "fixture-organ-prosthetic"
+                });
+
+                string text = ReportFormatter.BuildExplanation(model);
+                Expect.True(text.IndexOf("fixture-group", StringComparison.Ordinal) >= 0 &&
+                    text.IndexOf("fixture-arm-prosthetic", StringComparison.Ordinal) >= 0,
+                    "neutral prosthetic must appear in its structural group");
+                Expect.True(text.IndexOf("fixture-organ", StringComparison.Ordinal) >= 0 &&
+                    text.IndexOf("fixture-organ-prosthetic", StringComparison.Ordinal) >= 0,
+                    "standalone neutral prosthetic must show its name");
+                Expect.True(text.IndexOf("fixture-inherited", StringComparison.Ordinal) < 0,
+                    "inherited prosthetic must not be duplicated");
+                Expect.True(text.IndexOf("fixture-natural", StringComparison.Ordinal) < 0,
+                    "unmodified natural parts must remain hidden");
+                Expect.Equal(0f, model.Offset, "displaying neutral prosthetics must not alter the model offset");
+            }
+            finally
+            {
+                ReportFormatter.SetPalette(healthy, critical, boosted, originalVerbose);
+            }
+        }
+
         /// <summary>Checks button overrides and row placement with synthetic geometry fixtures.</summary>
         private static void CheckButtonLayout(SelfCheckContext ctx)
         {

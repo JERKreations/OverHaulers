@@ -13,6 +13,11 @@ namespace OverHaulers
         public Color colorHealthy = PresentationDefaults.ColorHealthyDefault;
         public Color colorCritical = PresentationDefaults.ColorCriticalDefault;
         public Color colorBoosted = PresentationDefaults.ColorBoostedDefault;
+        public bool prostheticColorOverride = PresentationDefaults.ProstheticColorOverride;
+        public bool customProstheticPalette = PresentationDefaults.CustomProstheticPalette;
+        public Color prostheticColorCritical = PresentationDefaults.ColorCriticalDefault;
+        public Color prostheticColorHealthy = PresentationDefaults.ColorHealthyDefault;
+        public Color prostheticColorBoosted = PresentationDefaults.ColorBoostedDefault;
 
         #endregion
 
@@ -61,7 +66,22 @@ namespace OverHaulers
         public void ResetAccessibility()
         {
             iconScalePercent = PresentationDefaults.IconScalePercent;
+            prostheticColorOverride = PresentationDefaults.ProstheticColorOverride;
+            customProstheticPalette = PresentationDefaults.CustomProstheticPalette;
+            prostheticColorCritical = PresentationDefaults.ColorCriticalDefault;
+            prostheticColorHealthy = PresentationDefaults.ColorHealthyDefault;
+            prostheticColorBoosted = PresentationDefaults.ColorBoostedDefault;
             ApplyPreset(PresentationDefaults.DefaultPalettePreset);
+        }
+
+        /// <summary>Copies the active health colours into the custom prosthetic palette without changing its mode.</summary>
+        public void ResetProstheticColorsToHealthPalette()
+        {
+            prostheticColorCritical = colorCritical;
+            prostheticColorHealthy = colorHealthy;
+            prostheticColorBoosted = colorBoosted;
+            NotifyValuesReset();
+            NotifyValuesMutated();
         }
 
         #endregion
@@ -75,6 +95,11 @@ namespace OverHaulers
             Scribe_Values.Look(ref colorHealthy, "colorHealthy", PresentationDefaults.ColorHealthyDefault);
             Scribe_Values.Look(ref colorCritical, "colorCritical", PresentationDefaults.ColorCriticalDefault);
             Scribe_Values.Look(ref colorBoosted, "colorBoosted", PresentationDefaults.ColorBoostedDefault);
+            Scribe_Values.Look(ref prostheticColorOverride, "prostheticColorOverride", PresentationDefaults.ProstheticColorOverride);
+            Scribe_Values.Look(ref customProstheticPalette, "customProstheticPalette", PresentationDefaults.CustomProstheticPalette);
+            Scribe_Values.Look(ref prostheticColorCritical, "prostheticColorCritical", PresentationDefaults.ColorCriticalDefault);
+            Scribe_Values.Look(ref prostheticColorHealthy, "prostheticColorHealthy", PresentationDefaults.ColorHealthyDefault);
+            Scribe_Values.Look(ref prostheticColorBoosted, "prostheticColorBoosted", PresentationDefaults.ColorBoostedDefault);
         }
 
         private void SanitizeAccessibility()
@@ -85,6 +110,9 @@ namespace OverHaulers
             colorHealthy = SaneColor(colorHealthy, PresentationDefaults.ColorHealthyDefault);
             colorCritical = SaneColor(colorCritical, PresentationDefaults.ColorCriticalDefault);
             colorBoosted = SaneColor(colorBoosted, PresentationDefaults.ColorBoostedDefault);
+            prostheticColorCritical = SaneColor(prostheticColorCritical, PresentationDefaults.ColorCriticalDefault);
+            prostheticColorHealthy = SaneColor(prostheticColorHealthy, PresentationDefaults.ColorHealthyDefault);
+            prostheticColorBoosted = SaneColor(prostheticColorBoosted, PresentationDefaults.ColorBoostedDefault);
         }
 
         #endregion
