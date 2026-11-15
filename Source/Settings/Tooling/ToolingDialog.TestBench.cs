@@ -324,10 +324,10 @@ namespace OverHaulers
 
         #region 5. UNIVERSAL SANDBOX ACCORDION PLANNER VIEW (FLATTENED)
 
-        #region 5A. Planner Main Controls & Simulated Drug Badges
+        #region 5A. Planner Main Controls & Simulated Conditions
 
         /// <summary>
-        /// Draws the universal sandbox planner view, including search bar, systemic stimulants, and staged conditions controls.
+        /// Draws the universal sandbox planner view, including search, condition controls, and anatomy.
         /// </summary>
         /// <param name="inner">The rectangle defining the area in which to draw the planner view.</param>
         /// <param name="leftY">The current vertical position within the left control column, updated as elements are drawn.</param>
@@ -349,9 +349,9 @@ namespace OverHaulers
                 "OverHaulers_Sandbox_SearchPlaceholder", GameFont.Tiny);
             leftY += 28f;
 
-            // 2. Systemic Stimulants & Staged Conditions Dropdown
+            // 2. Condition and anatomy controls
             float halfWidth = (leftWidth - 6f) / 2f;
-            string drugLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_AddDrug");
+            string drugLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_AddCondition");
             string expandLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_ExpandAll");
             string collapseLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_CollapseAll");
             Rect rowBounds = new Rect(inner.x, leftY, leftWidth, 0f);
@@ -360,6 +360,7 @@ namespace OverHaulers
             float rowHeight = 0f;
             Rect drugButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
                 drugLabel, 4f, minWidth: halfWidth, minHeight: 22f);
+            TooltipHandler.TipRegion(drugButtonRect, SettingsViewUtilities.CachedText("OverHaulers_Sandbox_AddCondition_Tooltip"));
             Text.Font = GameFont.Tiny;
             Rect expandButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
                 expandLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
@@ -369,24 +370,7 @@ namespace OverHaulers
 
             if (SettingsViewUtilities.DrawButton(drugButtonRect, drugLabel))
             {
-                List<FloatMenuOption> drugOptions = new List<FloatMenuOption>();
-                List<HediffDef> availableDrugs = MedicalRecipeCatalog.GetSystemicDrugs();
-
-                for (int i = 0; i < availableDrugs.Count; i++)
-                {
-                    HediffDef drugDef = availableDrugs[i];
-                    bool isActive = harness.ActiveSimulatedDrugs.Contains(drugDef);
-                    string stageLabel = MedicalRecipeCatalog.GetFormattedConditionLabel(drugDef);
-                    string optionLabel = $"{(isActive ? "✓ " : "")}{stageLabel}";
-
-                    drugOptions.Add(new FloatMenuOption(optionLabel, () =>
-                    {
-                        harness.SimulateToggleDrug(drugDef);
-                        TestBench.MarkDirty();
-                    }));
-                }
-
-                Find.WindowStack.Add(new FloatMenu(drugOptions));
+                OpenConditionCategoryMenu(harness);
             }
 
             Text.Font = GameFont.Tiny;
@@ -404,26 +388,78 @@ namespace OverHaulers
             Text.Font = GameFont.Small;
             leftY = rowY + rowHeight + 4f;
 
-            // 3. Active Simulated Condition Badges
-            if (harness.ActiveSimulatedDrugs.Count > 0)
+            // 3. Active simulated conditions
+            if (harness.SimulatedConditions.Count > 0)
             {
                 Text.Font = GameFont.Tiny;
-                foreach (var activeDrug in harness.ActiveSimulatedDrugs)
+                for (int i = 0; i < harness.SimulatedConditions.Count; i++)
                 {
-                    Rect tagRect = new Rect(inner.x + 4f, leftY, leftWidth - 8f, 18f);
+                    SimulatedCondition condition = harness.SimulatedConditions[i];
+                    Hediff hediff = condition.Hediff;
+                    string label = MedicalRecipeCatalog.GetFormattedConditionLabel(hediff);
+                    string stageLabel = hediff.CurStage?.label;
+                    if (!string.IsNullOrEmpty(stageLabel) &&
+                        label.IndexOf(stageLabel, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        label = "OverHaulers_Sandbox_Condition_Stage".Translate(label, stageLabel.CapitalizeFirst()).ToString();
+                    }
+                    if (hediff.Part != null)
+                    {
+                        label = "OverHaulers_Sandbox_Condition_OnPart".Translate(label, hediff.Part.LabelCap.ToString()).ToString();
+                    }
+
+                    float tagHeight = Math.Max(18f, SettingsViewUtilities.MeasuredTextHeight(label, leftWidth - 36f) + 2f);
+                    Rect tagRect = new Rect(inner.x + 4f, leftY, leftWidth - 8f, tagHeight);
                     Widgets.DrawBoxSolid(tagRect, new Color(0.15f, 0.20f, 0.25f, 0.8f));
-                    Widgets.Label(new Rect(tagRect.x + 4f, tagRect.y + 1f, tagRect.width - 24f, tagRect.height), MedicalRecipeCatalog.GetFormattedConditionLabel(activeDrug));
+                    Widgets.Label(new Rect(tagRect.x + 4f, tagRect.y + 1f, tagRect.width - 24f, tagRect.height), label);
 
                     if (Widgets.ButtonText(new Rect(tagRect.x + tagRect.width - 18f, tagRect.y, 18f, 18f), "✕"))
                     {
-                        harness.SimulateToggleDrug(activeDrug);
-                        TestBench.MarkDirty();
+                        RunConditionAction(() => harness.RemoveSimulatedCondition(condition));
                         break;
                     }
-                    leftY += 20f;
+                    leftY += tagHeight + 2f;
+
+                    if (SandboxPawnHarness.TryGetConditionSeverityRange(condition, out float min, out float max))
+                    {
+                        string severityLabel = "OverHaulers_Sandbox_Condition_Severity".Translate(
+                            ReportFormatter.FormatAdaptive(hediff.Severity, true)).ToString();
+                        float labelWidth = Math.Min(leftWidth * 0.45f, SettingsViewUtilities.MeasuredTextWidth(severityLabel) + 4f);
+                        Widgets.Label(new Rect(inner.x + 4f, leftY, labelWidth, 20f), severityLabel);
+                        float severity = Widgets.HorizontalSlider(
+                            new Rect(inner.x + labelWidth + 4f, leftY, leftWidth - labelWidth - 8f, 20f),
+                            hediff.Severity, min, max, true);
+                        if (severity != hediff.Severity)
+                        {
+                            RunConditionAction(() => harness.SetConditionSeverity(condition, severity));
+                        }
+                        leftY += 22f;
+                    }
+                    else if (hediff.def.stages != null && hediff.def.stages.Count > 1)
+                    {
+                        Rect stageButton = new Rect(inner.x + 4f, leftY, leftWidth - 8f, 20f);
+                        if (SettingsViewUtilities.DrawButton(stageButton, SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_StageButton")))
+                            OpenConditionStageMenu(harness, condition);
+                        leftY += 22f;
+                    }
                 }
                 Text.Font = GameFont.Small;
                 leftY += 4f;
+            }
+
+            if (harness.HasModifications && TestBench.ImmediateDeathRisk != false)
+            {
+                string warningKey = TestBench.ImmediateDeathRisk == true
+                    ? "OverHaulers_Sandbox_ImmediateDeath"
+                    : "OverHaulers_Sandbox_DeathCheckUnavailable";
+                string warning = SettingsViewUtilities.CachedText(warningKey);
+                Text.Font = GameFont.Tiny;
+                float warningHeight = SettingsViewUtilities.MeasuredTextHeight(warning, leftWidth);
+                GUI.color = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
+                Widgets.Label(new Rect(inner.x, leftY, leftWidth, warningHeight), warning);
+                GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                leftY += warningHeight + 4f;
             }
 
             // 4. Dynamic Revert Button
@@ -464,6 +500,230 @@ namespace OverHaulers
             }
 
             return leftY;
+        }
+
+        private static void OpenConditionCategoryMenu(SandboxPawnHarness harness)
+        {
+            IReadOnlyList<MedicalConditionCategory> categories = MedicalRecipeCatalog.GetConditionCategories();
+            List<FloatMenuOption> options = new List<FloatMenuOption>(categories.Count);
+            for (int i = 0; i < categories.Count; i++)
+            {
+                MedicalConditionCategory category = categories[i];
+                string key;
+                switch (category)
+                {
+                    case MedicalConditionCategory.Ingestibles:
+                        key = "OverHaulers_Sandbox_Condition_Ingestibles";
+                        break;
+                    case MedicalConditionCategory.MedicalPhysiological:
+                        key = "OverHaulers_Sandbox_Condition_Medical";
+                        break;
+                    case MedicalConditionCategory.PsychicAndAbilities:
+                        key = "OverHaulers_Sandbox_Condition_Abilities";
+                        break;
+                    default:
+                        key = "OverHaulers_Sandbox_Condition_Other";
+                        break;
+                }
+                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText(key),
+                    () => OpenConditionEntryMenu(harness, category)));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static void OpenConditionEntryMenu(SandboxPawnHarness harness, MedicalConditionCategory category)
+        {
+            IReadOnlyList<MedicalConditionEntry> entries = MedicalRecipeCatalog.GetConditionEntries(category);
+            List<FloatMenuOption> options = new List<FloatMenuOption>(entries.Count);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                MedicalConditionEntry entry = entries[i];
+                bool wholeBody = HasWholeBodyConditionTarget(harness.SandboxPawn, entry);
+                bool hasKnownPartTarget = false;
+                for (int t = 0; t < entry.Targets.Count; t++)
+                {
+                    MedicalConditionTarget target = entry.Targets[t];
+                    if (!ConditionTargetMatchesPawn(harness.SandboxPawn, target)) continue;
+                    MedicalConditionTargetKind kind = target.Kind;
+                    if (kind == MedicalConditionTargetKind.SpecificPart || kind == MedicalConditionTargetKind.AnyLivePart)
+                    {
+                        hasKnownPartTarget = true;
+                        break;
+                    }
+                }
+
+                List<BodyPartRecord> parts = GetConditionTargetParts(harness.SandboxPawn, entry);
+                if (!wholeBody && entry.HasPartLocalImpact && !entry.HasSystemicStageImpact && parts.Count == 0)
+                    continue;
+                bool available = wholeBody || parts.Count > 0;
+                bool active = false;
+                for (int a = 0; a < harness.SimulatedConditions.Count; a++)
+                {
+                    if (harness.SimulatedConditions[a].Hediff.def == entry.Hediff)
+                    {
+                        active = true;
+                        break;
+                    }
+                }
+
+                string label = active ? "✓ " + entry.Label : entry.Label;
+                if (!available)
+                {
+                    string reason = SettingsViewUtilities.CachedText(hasKnownPartTarget
+                        ? "OverHaulers_Sandbox_Condition_NoTargets"
+                        : "OverHaulers_Sandbox_Condition_UnknownTarget");
+                    label = "OverHaulers_Sandbox_Condition_Unavailable".Translate(label, reason).ToString();
+                }
+
+                FloatMenuOption option = new FloatMenuOption(label, available
+                    ? (Action)(() =>
+                    {
+                        if (wholeBody && !hasKnownPartTarget)
+                            ToggleCondition(harness, entry.Hediff, null);
+                        else
+                            OpenConditionTargetMenu(harness, entry);
+                    })
+                    : null);
+                option.Disabled = !available;
+                options.Add(option);
+            }
+            if (options.Count == 0)
+                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_NoEntries"), null));
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static bool HasWholeBodyConditionTarget(Pawn pawn, MedicalConditionEntry entry)
+        {
+            for (int i = 0; i < entry.Targets.Count; i++)
+            {
+                MedicalConditionTarget target = entry.Targets[i];
+                if (target.Kind == MedicalConditionTargetKind.WholeBody &&
+                    ConditionTargetMatchesPawn(pawn, target)) return true;
+            }
+            return false;
+        }
+
+        internal static bool ConditionTargetMatchesPawn(Pawn pawn, MedicalConditionTarget target)
+        {
+            return pawn != null && (target.Species == null || target.Species == pawn.def);
+        }
+
+        internal static List<BodyPartRecord> GetConditionTargetParts(Pawn pawn, MedicalConditionEntry entry)
+        {
+            List<BodyPartRecord> result = new List<BodyPartRecord>();
+            List<BodyPartRecord> parts = pawn?.RaceProps?.body?.AllParts;
+            if (parts == null || entry == null) return result;
+            SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(pawn.RaceProps.body);
+
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BodyPartRecord part = parts[i];
+                if (!SandboxPawnHarness.CanApplyConditionToPart(pawn, part)) continue;
+                if (!entry.HasSystemicStageImpact && entry.HasPartLocalImpact &&
+                    !IsRelevantConditionPart(part, template)) continue;
+                for (int t = 0; t < entry.Targets.Count; t++)
+                {
+                    MedicalConditionTarget target = entry.Targets[t];
+                    if (ConditionTargetMatchesPawn(pawn, target) &&
+                        ((target.Kind == MedicalConditionTargetKind.SpecificPart && target.Part == part.def) ||
+                         (target.Kind == MedicalConditionTargetKind.AnyLivePart && part.coverageAbs > 0f)))
+                    {
+                        result.Add(part);
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static bool IsRelevantConditionPart(BodyPartRecord part, SpeciesTopologyTemplate template)
+        {
+            if (MedicalClassifier.IsCapacitySourcePart(part.def)) return true;
+            List<BodyPartTagDef> tags = part.def.tags;
+            if (tags != null &&
+                ((TopologyLayoutCompiler.BloodFiltrationSourceTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationSourceTag)) ||
+                 (TopologyLayoutCompiler.BloodFiltrationKidneyTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationKidneyTag)) ||
+                 (TopologyLayoutCompiler.BloodFiltrationLiverTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationLiverTag))))
+                return true;
+
+            if (template == null) return false;
+            PartType type = template.GetPartType(part);
+            return type == PartType.CorePart || type == PartType.ManipulationPart ||
+                type == PartType.MovingPart || type == PartType.DualLimb;
+        }
+
+        private static void OpenConditionTargetMenu(SandboxPawnHarness harness, MedicalConditionEntry entry)
+        {
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            if (HasWholeBodyConditionTarget(harness.SandboxPawn, entry))
+            {
+                string label = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_WholeBody");
+                if (harness.FindSimulatedCondition(entry.Hediff, null) != null) label = "✓ " + label;
+                options.Add(new FloatMenuOption(label, () => ToggleCondition(harness, entry.Hediff, null)));
+            }
+
+            List<BodyPartRecord> parts = GetConditionTargetParts(harness.SandboxPawn, entry);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                BodyPartRecord part = parts[i];
+                string label = part.LabelCap.ToString();
+                if (harness.FindSimulatedCondition(entry.Hediff, part) != null) label = "✓ " + label;
+                options.Add(new FloatMenuOption(label, () => ToggleCondition(harness, entry.Hediff, part)));
+            }
+            if (options.Count == 0)
+                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_NoTargets"), null));
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static void ToggleCondition(SandboxPawnHarness harness, HediffDef def, BodyPartRecord part)
+        {
+            RunConditionAction(() =>
+            {
+                SimulatedCondition active = harness.FindSimulatedCondition(def, part);
+                if (active == null) harness.SimulateCondition(def, part);
+                else harness.RemoveSimulatedCondition(active);
+            });
+        }
+
+        private static void OpenConditionStageMenu(SandboxPawnHarness harness, SimulatedCondition condition)
+        {
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            List<HediffStage> stages = condition.Hediff.def.stages;
+            for (int i = 0; i < stages.Count; i++)
+            {
+                if (!SandboxPawnHarness.TryGetConditionStageSeverity(condition, i, out float severity)) continue;
+                string stageLabel = !string.IsNullOrEmpty(stages[i].label)
+                    ? stages[i].label.CapitalizeFirst()
+                    : "OverHaulers_Sandbox_Condition_StageNumber".Translate(i + 1).ToString();
+                string label = "OverHaulers_Sandbox_Condition_StageOption".Translate(
+                    stageLabel, ReportFormatter.FormatAdaptive(severity, true)).ToString();
+                float targetSeverity = severity;
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    RunConditionAction(() => harness.SetConditionSeverity(condition, targetSeverity));
+                }));
+            }
+            if (options.Count == 0)
+                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_NoEntries"), null));
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static void RunConditionAction(Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                OHLog.Warn("TestBench.Condition", ex, "Could not update the simulated condition.");
+                Messages.Message("OverHaulers_Sandbox_Condition_Error".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
+            }
+            finally
+            {
+                TestBench.Harness.DirtyHealthCache();
+                TestBench.MarkDirty();
+            }
         }
 
         #endregion
@@ -871,7 +1131,7 @@ namespace OverHaulers
         /// <param name="targetRecords">The list of body part records to which the replacement tier should be applied.</param>
         /// <param name="harness">The sandbox pawn harness providing context for the replacement operations.</param>
         /// <param name="pickHighest">Indicates whether to pick the highest efficiency replacement (true) or the lowest efficiency replacement (false).</param>
-        private static void ApplyBulkReplacementTier(List<BodyPartRecord> targetRecords, SandboxPawnHarness harness, bool pickHighest)
+        internal static void ApplyBulkReplacementTier(List<BodyPartRecord> targetRecords, SandboxPawnHarness harness, bool pickHighest)
         {
             Pawn pawn = harness.SandboxPawn;
             if (pawn?.health?.hediffSet == null) return;
@@ -888,7 +1148,7 @@ namespace OverHaulers
                 for (int j = 0; j < repls.Count; j++)
                 {
                     var op = repls[j];
-                    if (!op.Recipe.Worker.AvailableOnNow(pawn, currentPart)) continue;
+                    if (!CanInstallReplacement(pawn, currentPart, op.Recipe)) continue;
 
                     if (!found)
                     {
@@ -908,6 +1168,14 @@ namespace OverHaulers
             }
 
             TestBench.MarkDirty();
+        }
+
+        /// <summary>Applies the same parent-socket and recipe checks to bulk and single replacements.</summary>
+        internal static bool CanInstallReplacement(Pawn pawn, BodyPartRecord part, RecipeDef recipe)
+        {
+            return !pawn.health.hediffSet.AncestorHasDirectlyAddedParts(part) &&
+                (part.parent == null || !pawn.health.hediffSet.PartIsMissing(part.parent)) &&
+                recipe.Worker.AvailableOnNow(pawn, part);
         }
 
         /// <summary>
@@ -975,7 +1243,7 @@ namespace OverHaulers
                 for (int i = 0; i < availableReplacements.Count; i++)
                 {
                     MedicalOperationEntry operationEntry = availableReplacements[i];
-                    bool canInstall = !ancestorMissing && operationEntry.Recipe.Worker.AvailableOnNow(pawn, targetPart);
+                    bool canInstall = CanInstallReplacement(pawn, targetPart, operationEntry.Recipe);
 
                     string label = "OverHaulers_Op_AddReplacement".Translate(operationEntry.Label,
                         ReportFormatter.FormatPercentage(operationEntry.Efficiency, true)).ToString();

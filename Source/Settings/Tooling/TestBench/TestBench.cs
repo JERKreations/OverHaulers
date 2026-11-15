@@ -44,6 +44,9 @@ namespace OverHaulers
         private static float cachedSpeciesBaseline = 0.0f;
         private static readonly MassCapacityModel cachedModel = new MassCapacityModel();
 
+        /// <summary>Result of the engine's immediate death check, or null if it could not be evaluated.</summary>
+        public static bool? ImmediateDeathRisk { get; private set; }
+
         private static readonly StringBuilder pooledXRayBuilder = new StringBuilder(2048);
 
         private static bool isInitialized = false;
@@ -278,6 +281,18 @@ namespace OverHaulers
             if (isDirty)
             {
                 cachedExplanation = GenerateTestExplanation(settings, out cachedSpeciesBaseline);
+                ImmediateDeathRisk = null;
+                if (Harness.SandboxPawn?.health != null)
+                {
+                    try
+                    {
+                        ImmediateDeathRisk = Harness.SandboxPawn.health.ShouldBeDead();
+                    }
+                    catch (Exception ex)
+                    {
+                        OHLog.Warn("TestBench.ImmediateDeathCheck", ex, "Could not evaluate the sandbox death predicate.");
+                    }
+                }
                 isDirty = false;
             }
         }

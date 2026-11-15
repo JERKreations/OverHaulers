@@ -93,7 +93,26 @@
   <!-- [SEC-11.E] UNIVERSAL SANDBOX SURGERY & PLANNER CONTROLS                   -->
   <!-- ========================================================================= -->
   <OverHaulers_Sandbox_SearchPlaceholder>Search body parts (e.g. spine, arm, foot)...</OverHaulers_Sandbox_SearchPlaceholder>
-  <OverHaulers_Sandbox_AddDrug>[+] Add Condition ▼</OverHaulers_Sandbox_AddDrug>
+  <OverHaulers_Sandbox_AddCondition>[+] Add Condition ▼</OverHaulers_Sandbox_AddCondition>
+  <OverHaulers_Sandbox_AddCondition_Tooltip>Choose a relevant condition to apply to the sandbox. Part-specific conditions require a compatible natural part. Severity or stage can be adjusted when supported by the condition.</OverHaulers_Sandbox_AddCondition_Tooltip>
+  <OverHaulers_Sandbox_Condition_Ingestibles>Ingestibles</OverHaulers_Sandbox_Condition_Ingestibles>
+  <OverHaulers_Sandbox_Condition_Medical>Medical / physiological</OverHaulers_Sandbox_Condition_Medical>
+  <OverHaulers_Sandbox_Condition_Abilities>Psychic &amp; abilities</OverHaulers_Sandbox_Condition_Abilities>
+  <OverHaulers_Sandbox_Condition_Other>Other</OverHaulers_Sandbox_Condition_Other>
+  <OverHaulers_Sandbox_Condition_WholeBody>Whole body</OverHaulers_Sandbox_Condition_WholeBody>
+  <OverHaulers_Sandbox_Condition_NoTargets>No compatible relevant natural parts are available.</OverHaulers_Sandbox_Condition_NoTargets>
+  <OverHaulers_Sandbox_Condition_UnknownTarget>Target not identified</OverHaulers_Sandbox_Condition_UnknownTarget>
+  <OverHaulers_Sandbox_Condition_Unavailable>{0} :: {1}</OverHaulers_Sandbox_Condition_Unavailable>
+  <OverHaulers_Sandbox_Condition_NoEntries>No conditions are available in this category.</OverHaulers_Sandbox_Condition_NoEntries>
+  <OverHaulers_Sandbox_Condition_OnPart>{0} :: {1}</OverHaulers_Sandbox_Condition_OnPart>
+  <OverHaulers_Sandbox_Condition_Stage>{0} ({1})</OverHaulers_Sandbox_Condition_Stage>
+  <OverHaulers_Sandbox_Condition_Severity>Severity: {0}</OverHaulers_Sandbox_Condition_Severity>
+  <OverHaulers_Sandbox_Condition_StageButton>Stage ▼</OverHaulers_Sandbox_Condition_StageButton>
+  <OverHaulers_Sandbox_Condition_StageNumber>Stage {0}</OverHaulers_Sandbox_Condition_StageNumber>
+  <OverHaulers_Sandbox_Condition_StageOption>{0} (severity {1})</OverHaulers_Sandbox_Condition_StageOption>
+  <OverHaulers_Sandbox_Condition_Error>Could not update the simulated condition. Check the log; reset the sandbox if its state is inconsistent.</OverHaulers_Sandbox_Condition_Error>
+  <OverHaulers_Sandbox_ImmediateDeath>Warning: the engine's immediate death check considers this state lethal.</OverHaulers_Sandbox_ImmediateDeath>
+  <OverHaulers_Sandbox_DeathCheckUnavailable>Warning: the immediate death check could not be evaluated.</OverHaulers_Sandbox_DeathCheckUnavailable>
   <OverHaulers_Sandbox_ExpandAll>Expand</OverHaulers_Sandbox_ExpandAll>
   <OverHaulers_Sandbox_CollapseAll>Collapse</OverHaulers_Sandbox_CollapseAll>
   

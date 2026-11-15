@@ -14,6 +14,7 @@ namespace OverHaulers
         #region 1. FIELDS & PROPERTIES
 
         private List<PartViewNode> subParts;
+        private List<PartImplantCold> implants;
 
         /// <summary>[VIEW-04] The engine BodyPartRecord associated with this visual view node.</summary>
         public BodyPartRecord Record { get; set; }
@@ -23,6 +24,15 @@ namespace OverHaulers
 
         /// <summary>[VIEW-03] True if this part represents a metabolic organ rather than a structural bone or limb.</summary>
         public bool IsOrgan { get; set; }
+
+        /// <summary>True when this part has a load-bearing structural role.</summary>
+        public bool IsStructural { get; set; }
+
+        /// <summary>True when this part declares a source for a modeled capacity.</summary>
+        public bool IsCapacitySource { get; set; }
+
+        /// <summary>True when the installed replacement directly modifies a modeled capacity.</summary>
+        public bool ProstheticAffectsAthletics { get; set; }
         
         /// <summary>[VIEW-04] True if this part is completely missing or destroyed.</summary>
         public bool IsMissing { get; set; }
@@ -82,16 +92,51 @@ namespace OverHaulers
             set => subParts = value;
         }
 
-        /// <summary>[VIEW-04] Evaluates whether this part has a modification worth showing in the breakdown.</summary>
-        public bool IsModified => IsMissing 
-            || HasProsthetic
-            || HealthFraction < 1.0f 
-            || !string.IsNullOrEmpty(AthleticImplantName) 
-            || !string.IsNullOrEmpty(LocalAilmentName);
+        /// <summary>Installed implant definitions attached directly to this part.</summary>
+        public List<PartImplantCold> Implants => implants ?? (implants = new List<PartImplantCold>());
+
+        public bool HasImplants => implants != null && implants.Count > 0;
+
+        public bool HasRelevantImplant
+        {
+            get
+            {
+                if (implants == null) return false;
+                for (int i = 0; i < implants.Count; i++)
+                {
+                    if (implants[i].AffectsAthletics) return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>True when an added part belongs in the standard breakdown and link tray.</summary>
+        public bool IsRelevantAddedPart => IsRelevantReplacement(ProstheticAffectsAthletics);
+
+        /// <summary>True when this part is relevant to the standard breakdown.</summary>
+        public bool IsRelevant
+        {
+            get
+            {
+                if (IsRelevantAddedPart ||
+                    (!HasProsthetic && !string.IsNullOrEmpty(AthleticImplantName))) return true;
+                if (HasRelevantImplant) return true;
+
+                if (IsNeutralized || (!IsStructural && !IsCapacitySource)) return false;
+                return IsMissing || HealthFraction < 1.0f ||
+                    !string.IsNullOrEmpty(LocalAilmentName);
+            }
+        }
 
         #endregion
 
-        #region 2. SUB-PART COLLECTION MANAGEMENT
+        #region 2. PART RELEVANCE & COLLECTION MANAGEMENT
+
+        /// <summary>Evaluates a replacement's relevance using its own capacity effects.</summary>
+        public bool IsRelevantReplacement(bool affectsAthletics)
+        {
+            return HasProsthetic && !IsNeutralized && (IsStructural || IsCapacitySource || affectsAthletics);
+        }
 
         /// <summary>
         /// Adds a sub-part to this part's collection of child sub-parts.
@@ -102,6 +147,12 @@ namespace OverHaulers
             if (sub == null) return;
             subParts = subParts ?? new List<PartViewNode>();
             subParts.Add(sub);
+        }
+
+        /// <summary>Adds a directly installed implant to this part's presentation metadata.</summary>
+        public void AddImplant(PartImplantCold implant)
+        {
+            Implants.Add(implant);
         }
 
         #endregion
@@ -119,6 +170,9 @@ namespace OverHaulers
             Record = null;
             Label = null;
             IsOrgan = false;
+            IsStructural = false;
+            IsCapacitySource = false;
+            ProstheticAffectsAthletics = false;
             IsMissing = false;
             IsNeutralized = false;
             HealthFraction = 1.0f;
@@ -138,6 +192,7 @@ namespace OverHaulers
             TotalOffset = 0f;
             
             subParts?.Clear();
+            implants?.Clear();
         }
 
         #endregion

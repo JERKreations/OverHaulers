@@ -16,7 +16,7 @@
 
   <!-- InfoCard diagnostic display -->
   <OverHaulers_ToolingDialog_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_ToolingDialog_VerboseBreakdown>
-  <OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>If checked, shows every single body part on a pawn's info page, even if they are perfectly healthy and normal.</OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>
+  <OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>Shows all body parts on the info card. Details omitted from the standard breakdown appear in muted italics; links remain limited to relevant items.</OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>
 
   <!-- Telemetry controls -->
   <OverHaulers_ToolingDialog_Telemetry_SectionHeader>Periodic Telemetry Logging</OverHaulers_ToolingDialog_Telemetry_SectionHeader>
@@ -123,6 +123,10 @@
   <OverHaulers_SelfCheck_Check_SubjectPickerSession>Subject picker retains session filter and group state</OverHaulers_SelfCheck_Check_SubjectPickerSession>
   <OverHaulers_SelfCheck_Check_ButtonLayout>Button size overrides and row wrapping</OverHaulers_SelfCheck_Check_ButtonLayout>
   <OverHaulers_SelfCheck_Check_NeutralProstheticBreakdown>Neutral prosthetics appear without inherited duplicates</OverHaulers_SelfCheck_Check_NeutralProstheticBreakdown>
+  <OverHaulers_SelfCheck_Check_PartVisibility>Part and implant visibility in compact and verbose reports</OverHaulers_SelfCheck_Check_PartVisibility>
+  <OverHaulers_SelfCheck_Check_HeadPartVisibility>Human head-part relevance follows capacity effects</OverHaulers_SelfCheck_Check_HeadPartVisibility>
+  <OverHaulers_SelfCheck_Check_BulkReplacementAncestry>Bulk replacements respect artificial ancestors</OverHaulers_SelfCheck_Check_BulkReplacementAncestry>
+  <OverHaulers_SelfCheck_Check_PartConditions>Part-specific condition tracking</OverHaulers_SelfCheck_Check_PartConditions>
   <OverHaulers_SelfCheck_Check_ProstheticPalette>Prosthetic colour override and efficiency gradient</OverHaulers_SelfCheck_Check_ProstheticPalette>
   <OverHaulers_SelfCheck_Check_PackUnpack>Pack/unpack round-trips both values</OverHaulers_SelfCheck_Check_PackUnpack>
   <OverHaulers_SelfCheck_Check_NeutralDefaults>Unknown and non-positive IDs return neutral defaults</OverHaulers_SelfCheck_Check_NeutralDefaults>
@@ -146,5 +150,9 @@
   <OverHaulers_SelfCheck_Note_WoundsNeverIncrease>{0}: pristine offset {1} kg, wounded offset {2} kg</OverHaulers_SelfCheck_Note_WoundsNeverIncrease>
   <OverHaulers_SelfCheck_Skip_NoBodies>No body definitions are loaded.</OverHaulers_SelfCheck_Skip_NoBodies>
   <OverHaulers_SelfCheck_Skip_NoSubject>No default test subject is available.</OverHaulers_SelfCheck_Skip_NoSubject>
+  <OverHaulers_SelfCheck_Skip_NoHuman>No human test subject is available.</OverHaulers_SelfCheck_Skip_NoHuman>
+  <OverHaulers_SelfCheck_Skip_NoUnrelatedTongue>The human body has no unrelated tongue classified as a head part.</OverHaulers_SelfCheck_Skip_NoUnrelatedTongue>
+  <OverHaulers_SelfCheck_Skip_NoNestedReplacements>No eligible ancestor and descendant replacement recipes are available.</OverHaulers_SelfCheck_Skip_NoNestedReplacements>
+  <OverHaulers_SelfCheck_Skip_NoConditionFixture>Asthma and two eligible lungs are required for this check.</OverHaulers_SelfCheck_Skip_NoConditionFixture>
 
 </LanguageData>

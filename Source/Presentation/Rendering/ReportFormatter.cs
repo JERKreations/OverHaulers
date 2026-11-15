@@ -233,19 +233,29 @@ namespace OverHaulers
             {
                 PartViewNode part = massModel.EvaluatedParts[i];
 
-                // Skip neutral groups unless they contain a prosthetic or modified descendant.
-                if (!verbose && Math.Abs(part.TotalOffset) < PawnDataRegistry.EfficiencyEpsilon &&
-                    !part.HasProsthetic && !HasModifiedDescendants(part))
+                if (!verbose && !part.IsRelevant && !HasRelevantDescendants(part) &&
+                    (part.Record != null || Math.Abs(part.TotalOffset) < PawnDataRegistry.EfficiencyEpsilon))
                 {
                     continue;
                 }
 
                 builder.AppendLine();
+                if (verbose && part.Record != null && !part.IsRelevant)
+                {
+                    builder.Append(Indent2);
+                    AppendInactivePart(builder, part, diagnosticPrecision);
+                    builder.AppendLine();
+                    AppendImplants(builder, part, 0, verbose);
+                    AppendStructuralSubParts(builder, part, verbose, diagnosticPrecision);
+                    continue;
+                }
                 builder.Append(Indent2);
                 builder.Append(part.Label);
 
                 // Append efficiency rating if the part has a prosthetic or if its efficiency rating deviates from 1.0 by more than the epsilon threshold
-                if (part.HasProsthetic || Math.Abs(part.EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
+                if ((part.Record == null && part.HasProsthetic) || part.IsRelevantAddedPart ||
+                    ((part.Record == null || part.IsStructural || part.IsCapacitySource) &&
+                     Math.Abs(part.EfficiencyRating - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon))
                 {
                     builder.Append(" [");
                     string effStr = FormatPercentage(part.EfficiencyRating, diagnosticPrecision);
@@ -258,7 +268,7 @@ namespace OverHaulers
 
                 builder.Append(": ");
                 builder.Append(FormatMass(part.TotalOffset, diagnosticPrecision, true));
-                if (part.Record != null && part.HasProsthetic && !string.IsNullOrEmpty(part.ProstheticName))
+                if (part.Record != null && part.IsRelevantAddedPart && !string.IsNullOrEmpty(part.ProstheticName))
                 {
                     builder.Append(" [");
                     builder.Append(part.ProstheticName.Colorize(GetProstheticColor(part.ProstheticColor, part.EfficiencyRating)));
@@ -267,6 +277,8 @@ namespace OverHaulers
                 AppendAilmentSuffix(builder, part);
                 builder.AppendLine();
 
+                AppendInactiveProsthetic(builder, part, 0, verbose, diagnosticPrecision);
+                AppendImplants(builder, part, 0, verbose);
                 AppendGroupSubtotalRow(builder, part, verbose, diagnosticPrecision);
                 AppendStructuralSubParts(builder, part, verbose, diagnosticPrecision);
             }
@@ -335,7 +347,7 @@ namespace OverHaulers
                 for (int s = 0; s < part.SubParts.Count; s++)
                 {
                     var sub = part.SubParts[s];
-                    if (sub.IsModified || HasModifiedDescendants(sub))
+                    if (sub.IsRelevant || HasRelevantDescendants(sub))
                     {
                         hasModifiedSubParts = true;
                         break;
@@ -364,7 +376,7 @@ namespace OverHaulers
             for (int i = 0; i < parent.SubParts.Count; i++)
             {
                 PartViewNode sub = parent.SubParts[i];
-                bool hasModifications = sub.IsModified || HasModifiedDescendants(sub);
+                bool hasModifications = sub.IsRelevant || HasRelevantDescendants(sub);
 
                 if (verbose || hasModifications)
                 {
@@ -374,8 +386,13 @@ namespace OverHaulers
                     }
 
                     AppendIndent(statsBuilder, depth);
-                    AppendSubPartLine(statsBuilder, sub, depth, verbose, diagnosticPrecision);
+                    bool suppressInheritedProsthetic = !verbose && sub.IsInherited && parent.HasProsthetic &&
+                        sub.ProstheticName == parent.ProstheticName &&
+                        Math.Abs(sub.EfficiencyRating - parent.EfficiencyRating) < PawnDataRegistry.EfficiencyEpsilon;
+                    AppendSubPartLine(statsBuilder, sub, depth, verbose, diagnosticPrecision, suppressInheritedProsthetic);
                     statsBuilder.AppendLine();
+                    AppendInactiveProsthetic(statsBuilder, sub, depth, verbose, diagnosticPrecision);
+                    AppendImplants(statsBuilder, sub, depth, verbose);
 
                     AppendSubPartsRecursive(statsBuilder, sub, depth + 1, verbose, diagnosticPrecision);
                 }
@@ -394,15 +411,23 @@ namespace OverHaulers
         /// <param name="depth">The current depth of the sub-part within the hierarchy, used for indentation.</param>
         /// <param name="verbose">Indicates whether to include all details regardless of modification status.</param>
         /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
-        private static void AppendSubPartLine(StringBuilder builder, PartViewNode sub, int depth, bool verbose, bool diagnosticPrecision)
+        /// <param name="suppressInheritedProsthetic">Avoid repeating the parent's replacement label.</param>
+        private static void AppendSubPartLine(
+            StringBuilder builder, PartViewNode sub, int depth, bool verbose, bool diagnosticPrecision, bool suppressInheritedProsthetic)
         {
+            if (verbose && !sub.IsRelevant)
+            {
+                AppendInactivePart(builder, sub, diagnosticPrecision);
+                return;
+            }
+
             builder.Append("- ");
             builder.Append(sub.Label);
 
             bool isDamaged = sub.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon;
-            bool hasProsthetic = sub.HasProsthetic;
+            bool hasProsthetic = sub.IsRelevantAddedPart && !suppressInheritedProsthetic;
             bool isMissing = sub.IsMissing;
-            bool hasImplant = !string.IsNullOrEmpty(sub.AthleticImplantName);
+            bool hasImplant = !sub.HasImplants && !string.IsNullOrEmpty(sub.AthleticImplantName);
 
             if (hasProsthetic)
             {
@@ -474,6 +499,73 @@ namespace OverHaulers
                 builder.Append("  + ");
                 builder.Append(sub.AthleticImplantName.Colorize(GetImplantColor(sub.AthleticImplantColor)));
             }
+        }
+
+        private static void AppendInactivePart(StringBuilder builder, PartViewNode part, bool diagnosticPrecision)
+        {
+            builder.Append("<color=#");
+            builder.Append(ColorUtility.ToHtmlStringRGB(MutedTextColor));
+            builder.Append("><i>- ");
+            builder.Append(part.Label);
+            builder.Append(": [");
+            if (part.HasProsthetic && !string.IsNullOrEmpty(part.ProstheticName))
+            {
+                builder.Append(part.ProstheticName);
+                builder.Append(" ");
+                builder.Append(FormatPercentage(part.EfficiencyRating, diagnosticPrecision));
+            }
+            else if (part.IsMissing)
+            {
+                builder.Append(part.IsNeutralized
+                    ? "OverHaulers_InfoCard_MissingIgnored".Translate().ToString()
+                    : HediffDefOf.MissingBodyPart.LabelCap.ToString());
+            }
+            else
+            {
+                builder.Append(FormatPercentage(part.HealthFraction, diagnosticPrecision));
+            }
+            builder.Append("]");
+            if (!string.IsNullOrEmpty(part.LocalAilmentName))
+            {
+                builder.Append(" ");
+                builder.Append(part.LocalAilmentName);
+            }
+            builder.Append("</i></color>");
+        }
+
+        private static void AppendImplants(StringBuilder builder, PartViewNode part, int depth, bool verbose)
+        {
+            if (!part.HasImplants) return;
+            for (int i = 0; i < part.Implants.Count; i++)
+            {
+                PartImplantCold implant = part.Implants[i];
+                if (implant.Def == null || (!verbose && !implant.AffectsAthletics)) continue;
+                AppendIndent(builder, depth);
+                builder.Append("  + ");
+                string label = implant.Def.LabelCap.ToString();
+                if (implant.AffectsAthletics)
+                {
+                    builder.Append(label.Colorize(GetImplantColor(implant.Def.defaultLabelColor)));
+                }
+                else
+                {
+                    builder.Append("<i>");
+                    builder.Append(label.Colorize(MutedTextColor));
+                    builder.Append("</i>");
+                }
+                builder.AppendLine();
+            }
+        }
+
+        private static void AppendInactiveProsthetic(StringBuilder builder, PartViewNode part, int depth, bool verbose, bool diagnosticPrecision)
+        {
+            if (!verbose || !part.IsRelevant || !part.HasProsthetic || part.IsRelevantAddedPart ||
+                string.IsNullOrEmpty(part.ProstheticName)) return;
+            AppendIndent(builder, depth);
+            builder.Append("<i>");
+            builder.Append(("  + " + part.ProstheticName + " " +
+                FormatPercentage(part.EfficiencyRating, diagnosticPrecision)).Colorize(MutedTextColor));
+            builder.AppendLine("</i>");
         }
 
         /// <summary>
@@ -599,15 +691,15 @@ namespace OverHaulers
         {
             if (sub == null || parent == null || parent.Record == null) return false;
 
-            if (parent.IsMissing && sub.IsMissing) return true;
+            if (sub.HasRelevantImplant) return false;
+            if (parent.IsMissing && sub.IsMissing) return !HasRelevantNonMissingDescendants(sub);
 
-            bool matchesParent = parent.HasProsthetic && sub.HasProsthetic
+            bool matchesParent = parent.HasProsthetic && sub.HasProsthetic && sub.IsInherited
                 && sub.ProstheticName == parent.ProstheticName
                 && Math.Abs(sub.EfficiencyRating - parent.EfficiencyRating) < PawnDataRegistry.EfficiencyEpsilon
-                && (sub.IsInherited || Math.Abs(sub.HealthFraction - parent.HealthFraction) < PawnDataRegistry.EfficiencyEpsilon)
                 && sub.IsMissing == parent.IsMissing
-                && sub.AthleticImplantName == parent.AthleticImplantName
-                && sub.LocalAilmentName == parent.LocalAilmentName;
+                && string.IsNullOrEmpty(sub.AthleticImplantName)
+                && string.IsNullOrEmpty(sub.LocalAilmentName);
 
             if (!matchesParent) return false;
 
@@ -626,20 +718,31 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines whether the specified part has any modified descendant sub-parts.
+        /// Determines whether the specified part has any relevant descendant sub-parts.
         /// </summary>
-        /// <param name="model">The part to evaluate for modified descendants.</param>
-        /// <returns>True if the part has any modified descendant sub-parts; otherwise, false.</returns>
-        private static bool HasModifiedDescendants(PartViewNode model)
+        /// <param name="model">The part to evaluate for relevant descendants.</param>
+        /// <returns>True if the part has any relevant descendant sub-parts; otherwise, false.</returns>
+        private static bool HasRelevantDescendants(PartViewNode model)
         {
             if (model?.SubParts == null) return false;
             for (int i = 0; i < model.SubParts.Count; i++)
             {
                 var sub = model.SubParts[i];
-                if (sub.IsModified || HasModifiedDescendants(sub))
+                if (sub.IsRelevant || HasRelevantDescendants(sub))
                 {
                     return true;
                 }
+            }
+            return false;
+        }
+
+        private static bool HasRelevantNonMissingDescendants(PartViewNode model)
+        {
+            for (int i = 0; i < model.SubParts.Count; i++)
+            {
+                PartViewNode sub = model.SubParts[i];
+                if ((sub.IsRelevant && (!sub.IsMissing || sub.HasRelevantImplant)) ||
+                    HasRelevantNonMissingDescendants(sub)) return true;
             }
             return false;
         }

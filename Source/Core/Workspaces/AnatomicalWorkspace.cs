@@ -49,6 +49,7 @@ namespace OverHaulers
 
         /// <summary>List of systemic ailments affecting the pawn, maintained as a unique collection.</summary>
         private readonly UniqueList<string> systemicAilments = new UniqueList<string>();
+        private readonly List<PartImplantCold> implants = new List<PartImplantCold>();
 
         /// <summary>Cached consciousness capacity level evaluated during ingress to prevent duplicate pawn hediff scans.</summary>
         public float CachedConsciousness { get; set; } = -1f;
@@ -104,6 +105,9 @@ namespace OverHaulers
 
         /// <summary>Deduplicated collection of systemic ailment display labels.</summary>
         public UniqueList<string> SystemicAilments => systemicAilments;
+
+        /// <summary>Installed implants captured only when presentation metadata is requested.</summary>
+        public List<PartImplantCold> Implants => implants;
 
         /// <summary>True if workspace internal arrays were released back for GC.</summary>
         public bool IsNullified { get; private set; } = false;
@@ -197,6 +201,7 @@ namespace OverHaulers
             }
 
             systemicAilments.Clear();
+            implants.Clear();
             CachedConsciousness = -1f;
         }
 
@@ -267,6 +272,7 @@ namespace OverHaulers
         public void Clear()
         {
             systemicAilments.Clear();
+            implants.Clear();
             CachedConsciousness = -1f;
             partCount = 0;
             partTypes = null;

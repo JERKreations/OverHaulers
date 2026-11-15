@@ -291,12 +291,14 @@ namespace OverHaulers
                     for (int i = 0; i < partList.Count; i++)
                     {
                         BodyPartRecord part = partList[i];
-                        // Attempt to retrieve the weight budget for the current part. If successful, create a corresponding view node.
-                        if (TopologyLayoutCompiler.TryGetWeightBudget(part, bodyDef, context, out float budget))
+                        // Every compiled structural part must have a resolvable budget.
+                        if (!TopologyLayoutCompiler.TryGetWeightBudget(part, bodyDef, context, out float budget))
                         {
-                            PartViewNode partModel = CreatePartViewNode(part, budget, part.LabelCap.ToString(), false, workspace, massModel);
-                            pooledGroupSubModels[typeIndex].Add(partModel);
+                            throw new InvalidOperationException("Failed to resolve a projected part's topology budget.");
                         }
+                        PartViewNode partModel = CreatePartViewNode(part, budget, part.LabelCap.ToString(), false, workspace, massModel);
+                        partModel.IsStructural = typeIndex != (int)PartType.HeadPart;
+                        pooledGroupSubModels[typeIndex].Add(partModel);
                     }
                 }
 
@@ -321,6 +323,16 @@ namespace OverHaulers
                     else
                     {
                         massModel.EvaluatedParts.Add(nonStructuralModel);
+                    }
+                }
+
+                if (workspace != null)
+                {
+                    for (int i = 0; i < workspace.Implants.Count; i++)
+                    {
+                        PartImplantCold implant = workspace.Implants[i];
+                        PartViewNode node = massModel.GetNodeForPartIndex(implant.PartIndex);
+                        if (node != null) node.AddImplant(implant);
                     }
                 }
 
@@ -650,6 +662,7 @@ namespace OverHaulers
             partViewNode.Record = part;
             partViewNode.Label = partLabel;
             partViewNode.IsOrgan = isOrganSegment;
+            partViewNode.IsCapacitySource = MedicalClassifier.IsCapacitySourcePart(part.def);
             partViewNode.ProportionalWeight = proportionalWeight;
 
             // If a workspace is provided, attempt to retrieve the part's index and associated state.
@@ -687,6 +700,8 @@ namespace OverHaulers
                     {
                         partViewNode.ProstheticName = coldState.ProstheticDef.LabelCap.ToString();
                         partViewNode.ProstheticColor = coldState.ProstheticDef.defaultLabelColor;
+                        partViewNode.ProstheticAffectsAthletics =
+                            MedicalClassifier.EvaluateHediffCapacities(coldState.ProstheticDef).AffectsAthletics;
                     }
                     else
                     {

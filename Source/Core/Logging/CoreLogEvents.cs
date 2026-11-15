@@ -40,9 +40,9 @@ namespace OverHaulers
         #region 3. MEDICAL CATALOG
 
         /// <summary>Logs the completion of medical catalog indexing.</summary>
-        public static void MedicalCatalogInitialized(float ms, int replacements, int implants, int drugs) =>
+        public static void MedicalCatalogInitialized(float ms, int replacements, int implants, int conditions) =>
             OHLog.Event("OverHaulers_Event_MedicalCatalog_Indexed",
-                ms.ToString("F1"), replacements, implants, drugs);
+                ms.ToString("F1"), replacements, implants, conditions);
 
         #endregion
     }

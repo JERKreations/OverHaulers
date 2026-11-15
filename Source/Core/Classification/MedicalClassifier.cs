@@ -92,6 +92,8 @@ namespace OverHaulers
         /// <summary>Cache for vital organ source tags to avoid repeated lookups.</summary>
         private static HashSet<BodyPartTagDef> vitalOrganSourceTags = new HashSet<BodyPartTagDef>();
 
+        private static HashSet<BodyPartDef> capacitySourceParts = new HashSet<BodyPartDef>();
+
         /// <summary>Indicates whether the metabolic organ cache has been initialized.</summary>
         private static bool metabolicInitialized = false;
 
@@ -215,6 +217,11 @@ namespace OverHaulers
         /// <returns><c>true</c> if the stage has a significant impact; otherwise, <c>false</c>.</returns>
         private static readonly Func<HediffStage, bool> stageImpactFactory = (stage) =>
         {
+            if (Math.Abs(stage.partEfficiencyOffset) >= PawnDataRegistry.EfficiencyEpsilon)
+            {
+                return true;
+            }
+
             if (stage.painOffset > 0f || Math.Abs(stage.painFactor - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
             {
                 return true;
@@ -225,7 +232,8 @@ namespace OverHaulers
                 for (int i = 0; i < stage.capMods.Count; i++)
                 {
                     PawnCapacityModifier capMod = stage.capMods[i];
-                    if (capMod != null && IsAthleticCapacity(capMod.capacity))
+                    if (capMod != null &&
+                        (IsAthleticCapacity(capMod.capacity) || capMod.capacity == PawnCapacityDefOf.BloodFiltration))
                     {
                         if (Math.Abs(capMod.offset) >= PawnDataRegistry.EfficiencyEpsilon ||
                             Math.Abs(capMod.postFactor - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon ||
@@ -297,6 +305,12 @@ namespace OverHaulers
             if (def == null) return false;
             var activeSet = Volatile.Read(ref metabolicOrgans);
             return activeSet.Contains(def);
+        }
+
+        /// <summary>True when a part declares a source tag for a modeled biological capacity.</summary>
+        public static bool IsCapacitySourcePart(BodyPartDef def)
+        {
+            return def != null && Volatile.Read(ref capacitySourceParts).Contains(def);
         }
 
         #endregion
@@ -791,6 +805,7 @@ namespace OverHaulers
                 Volatile.Write(ref vitalOrganSourceTags, sourceTags);
 
                 HashSet<BodyPartDef> freshOrgans = new HashSet<BodyPartDef>();
+                HashSet<BodyPartDef> freshCapacitySources = new HashSet<BodyPartDef>();
                 List<BodyPartDef> allParts = DefDatabase<BodyPartDef>.AllDefsListForReading;
 
                 for (int i = 0; i < allParts.Count; i++)
@@ -802,9 +817,33 @@ namespace OverHaulers
                     {
                         freshOrgans.Add(partDef);
                     }
+
+                    if (partDef.tags != null &&
+                        ((TopologyLayoutCompiler.ConsciousnessSourceTag != null &&
+                          partDef.tags.Contains(TopologyLayoutCompiler.ConsciousnessSourceTag)) ||
+                         (TopologyLayoutCompiler.BloodPumpingSourceTag != null &&
+                          partDef.tags.Contains(TopologyLayoutCompiler.BloodPumpingSourceTag)) ||
+                         (TopologyLayoutCompiler.BreathingSourceTag != null &&
+                          partDef.tags.Contains(TopologyLayoutCompiler.BreathingSourceTag))))
+                    {
+                        freshCapacitySources.Add(partDef);
+                    }
                 }
 
                 Volatile.Write(ref metabolicOrgans, freshOrgans);
+                Volatile.Write(ref capacitySourceParts, freshCapacitySources);
+
+                List<HediffDef> allHediffs = DefDatabase<HediffDef>.AllDefsListForReading;
+                for (int i = 0; i < allHediffs.Count; i++)
+                {
+                    HediffDef def = allHediffs[i];
+                    if (def?.hediffClass != null &&
+                        (typeof(Hediff_AddedPart).IsAssignableFrom(def.hediffClass) ||
+                         typeof(Hediff_Implant).IsAssignableFrom(def.hediffClass)))
+                    {
+                        EvaluateHediffCapacities(def);
+                    }
+                }
                 metabolicInitialized = true;
             }
             catch (Exception ex)

@@ -62,7 +62,7 @@ namespace OverHaulers
                             int partIndex = template.GetPartIndex(hediff.Part);
                             PartViewNode partModel = partIndex != -1 ? detailedMassModel.GetNodeForPartIndex(partIndex) : null;
 
-                            if (partModel != null && (partModel.IsOrgan || Math.Abs(partModel.TotalOffset) >= PawnDataRegistry.EfficiencyEpsilon))
+                            if (IsRelevantHediff(partModel, hediff))
                             {
                                 if (pooledDeduplicator.Add(spawnDef))
                                 {
@@ -79,6 +79,17 @@ namespace OverHaulers
             }
 
             return hyperlinks;
+        }
+
+        internal static bool IsRelevantHediff(PartViewNode part, Hediff hediff)
+        {
+            if (part == null || hediff?.def == null) return false;
+            if (hediff is Hediff_AddedPart)
+            {
+                return part.IsRelevantReplacement(MedicalClassifier.EvaluateHediffCapacities(hediff.def).AffectsAthletics);
+            }
+            return hediff is Hediff_Implant &&
+                MedicalClassifier.EvaluateHediffCapacities(hediff.def).AffectsAthletics;
         }
     }
 }

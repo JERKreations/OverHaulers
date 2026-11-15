@@ -32,6 +32,21 @@ namespace OverHaulers
         public float Efficiency;
     }
 
+    /// <summary>A simulated condition and the state needed to undo it without removing a pre-existing hediff.</summary>
+    public sealed class SimulatedCondition
+    {
+        public readonly Hediff Hediff;
+        internal readonly bool WasExisting;
+        internal readonly float OriginalSeverity;
+
+        internal SimulatedCondition(Hediff hediff, bool wasExisting, float originalSeverity)
+        {
+            Hediff = hediff;
+            WasExisting = wasExisting;
+            OriginalSeverity = originalSeverity;
+        }
+    }
+
     #endregion
 
     /// <summary>
@@ -59,9 +74,7 @@ namespace OverHaulers
         public readonly Dictionary<BodyPartRecord, List<SimulatedModification>> ImplantDeltas =
             new Dictionary<BodyPartRecord, List<SimulatedModification>>();
 
-        /// <summary>Active simulated systemic drugs, combat stimulants, and whole-body conditions.</summary>
-        public readonly HashSet<HediffDef> ActiveSimulatedDrugs =
-            new HashSet<HediffDef>();
+        private readonly List<SimulatedCondition> simulatedConditions = new List<SimulatedCondition>();
 
         #endregion
 
@@ -76,8 +89,11 @@ namespace OverHaulers
         /// <summary>Gets the test subject entry currently blueprinting the harness.</summary>
         public TestSubjectEntry BoundSubject => boundSubject;
 
+        /// <summary>Conditions applied to the sandbox, including their individual target parts.</summary>
+        public IReadOnlyList<SimulatedCondition> SimulatedConditions => simulatedConditions;
+
         /// <summary>True if any hypothetical modifications are currently applied to the sandbox pawn.</summary>
-        public bool HasModifications => ReplacementDeltas.Count > 0 || ImplantDeltas.Count > 0 || ActiveSimulatedDrugs.Count > 0;
+        public bool HasModifications => ReplacementDeltas.Count > 0 || ImplantDeltas.Count > 0 || simulatedConditions.Count > 0;
 
         #endregion
 
@@ -193,12 +209,14 @@ namespace OverHaulers
             }
 
             headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+            PruneRemovedConditions();
 
             Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
             if (appliedHediff != null)
             {
                 headlessPawn.health.AddHediff(appliedHediff, part);
             }
+            PruneRemovedConditions();
 
             ReplacementDeltas[part] = new SimulatedModification
             {
@@ -227,12 +245,14 @@ namespace OverHaulers
 
             CleanDeltasRecursive(part);
             headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+            PruneRemovedConditions();
 
             Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
             if (missingPartHediff != null)
             {
                 headlessPawn.health.AddHediff(missingPartHediff, part);
             }
+            PruneRemovedConditions();
 
             ReplacementDeltas[part] = new SimulatedModification
             {
@@ -258,6 +278,7 @@ namespace OverHaulers
             ImplantDeltas.Remove(part);
             ReplacementDeltas.Remove(part);
             headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+            PruneRemovedConditions();
 
             float maxHp = part.def.GetMaxHealth(headlessPawn);
             float damageToApply = Math.Max(1f, maxHp - 1f);
@@ -277,6 +298,7 @@ namespace OverHaulers
                     headlessPawn.health.AddHediff(injury, part);
                 }
             }
+            PruneRemovedConditions();
 
             ReplacementDeltas[part] = new SimulatedModification
             {
@@ -349,6 +371,7 @@ namespace OverHaulers
             {
                 ReplacementDeltas.Remove(part);
                 headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                PruneRemovedConditions();
             }
 
             if (!ImplantDeltas.TryGetValue(part, out var list))
@@ -404,39 +427,133 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Toggles a simulated systemic drug, combat stimulant, or whole-body condition on the sandbox pawn.
+        /// Returns whether a present, natural part can receive a simulated condition.
         /// </summary>
-        /// <param name="drugDef">The drug definition representing the condition to toggle.</param>
-        public void SimulateToggleDrug(HediffDef drugDef)
+        public static bool CanApplyConditionToPart(Pawn pawn, BodyPartRecord part)
         {
-            if (headlessPawn?.health == null || drugDef == null) return;
+            HediffSet set = pawn?.health?.hediffSet;
+            return set != null && part != null && pawn.RaceProps?.body != null &&
+                pawn.RaceProps.body.AllParts.Contains(part) &&
+                !set.PartIsMissing(part) &&
+                set.GetFirstHediffMatchingPart<Hediff_AddedPart>(part) == null &&
+                !set.AncestorHasDirectlyAddedParts(part);
+        }
 
-            if (ActiveSimulatedDrugs.Contains(drugDef))
+        /// <summary>Finds an active simulated condition on the specified target, if present.</summary>
+        public SimulatedCondition FindSimulatedCondition(HediffDef def, BodyPartRecord part)
+        {
+            for (int i = 0; i < simulatedConditions.Count; i++)
             {
-                ActiveSimulatedDrugs.Remove(drugDef);
-                Hediff existing = headlessPawn.health.hediffSet.GetFirstHediffOfDef(drugDef);
-                if (existing != null)
+                Hediff active = simulatedConditions[i].Hediff;
+                if (active.def == def && active.Part == part) return simulatedConditions[i];
+            }
+            return null;
+        }
+
+        /// <summary>Applies a condition to the whole body or a specific part of the sandbox pawn.</summary>
+        public void SimulateCondition(HediffDef def, BodyPartRecord part)
+        {
+            if (headlessPawn?.health?.hediffSet == null || def == null)
+                throw new InvalidOperationException("A bound sandbox pawn and condition are required.");
+            if (part != null && !CanApplyConditionToPart(headlessPawn, part))
+                throw new InvalidOperationException("The selected body part cannot receive a simulated condition.");
+
+            if (FindSimulatedCondition(def, part) != null)
+                throw new InvalidOperationException("The simulated condition is already active on this target.");
+
+            List<Hediff> hediffs = headlessPawn.health.hediffSet.hediffs;
+            Hediff target = null;
+            for (int i = 0; i < hediffs.Count; i++)
+            {
+                if (hediffs[i].def == def && hediffs[i].Part == part)
                 {
-                    headlessPawn.health.RemoveHediff(existing);
+                    target = hediffs[i];
+                    break;
                 }
             }
-            else
+
+            bool wasExisting = target != null;
+            float originalSeverity = wasExisting ? target.Severity : 0f;
+            if (!wasExisting)
             {
-                ActiveSimulatedDrugs.Add(drugDef);
-                Hediff drugHediff = HediffMaker.MakeHediff(drugDef, headlessPawn);
-
-                if (drugHediff != null)
-                {
-                    float peakSeverity = MedicalRecipeCatalog.GetPeakImpactSeverity(drugDef, out _);
-                    if (peakSeverity > 0f)
-                    {
-                        drugHediff.Severity = peakSeverity;
-                    }
-
-                    headlessPawn.health.AddHediff(drugHediff);
-                }
+                target = HediffMaker.MakeHediff(def, headlessPawn, part);
+                if (target == null)
+                    throw new InvalidOperationException("Could not create the simulated condition " + def.defName + ".");
             }
 
+            float severity = MedicalRecipeCatalog.GetPeakImpactSeverity(def, out _);
+            if (severity > 0f) target.Severity = severity;
+            if (!wasExisting)
+            {
+                headlessPawn.health.AddHediff(target, part);
+                if (!hediffs.Contains(target))
+                    throw new InvalidOperationException("The simulated condition was not retained: " + def.defName + ".");
+            }
+
+            simulatedConditions.Add(new SimulatedCondition(target, wasExisting, originalSeverity));
+            DirtyHealthCache();
+        }
+
+        /// <summary>Removes a simulated condition, restoring its original severity if it existed beforehand.</summary>
+        public void RemoveSimulatedCondition(SimulatedCondition condition)
+        {
+            if (condition == null || !simulatedConditions.Contains(condition))
+                throw new InvalidOperationException("The simulated condition is not active.");
+
+            if (headlessPawn.health.hediffSet.hediffs.Contains(condition.Hediff))
+            {
+                if (condition.WasExisting)
+                    condition.Hediff.Severity = condition.OriginalSeverity;
+                else
+                    headlessPawn.health.RemoveHediff(condition.Hediff);
+            }
+
+            simulatedConditions.Remove(condition);
+            DirtyHealthCache();
+        }
+
+        /// <summary>Returns defined severity bounds for conditions with multiple stages.</summary>
+        public static bool TryGetConditionSeverityRange(SimulatedCondition condition, out float min, out float max)
+        {
+            min = 0f;
+            max = 0f;
+            HediffDef def = condition?.Hediff?.def;
+            if (def?.stages == null || def.stages.Count < 2) return false;
+            min = def.minSeverity;
+            max = def.maxSeverity;
+            return !float.IsNaN(min) && !float.IsInfinity(min) &&
+                !float.IsNaN(max) && !float.IsInfinity(max) &&
+                max < float.MaxValue && max > min &&
+                condition.Hediff.Severity >= min && condition.Hediff.Severity <= max;
+        }
+
+        /// <summary>Returns a reachable severity at the start of a condition's defined stage.</summary>
+        public static bool TryGetConditionStageSeverity(SimulatedCondition condition, int stageIndex, out float severity)
+        {
+            severity = 0f;
+            HediffDef def = condition?.Hediff?.def;
+            if (def?.stages == null || stageIndex < 0 || stageIndex >= def.stages.Count ||
+                def.stages[stageIndex] == null) return false;
+
+            severity = Math.Max(def.minSeverity, def.stages[stageIndex].minSeverity);
+            if (float.IsNaN(severity) || float.IsInfinity(severity) || severity > def.maxSeverity)
+                return false;
+            return stageIndex + 1 >= def.stages.Count || def.stages[stageIndex + 1] == null ||
+                severity < def.stages[stageIndex + 1].minSeverity;
+        }
+
+        /// <summary>Sets the severity of an active condition within its defined bounds.</summary>
+        public void SetConditionSeverity(SimulatedCondition condition, float severity)
+        {
+            if (!simulatedConditions.Contains(condition))
+                throw new InvalidOperationException("The simulated condition is not active.");
+
+            HediffDef def = condition.Hediff.def;
+            if (float.IsNaN(severity) || float.IsInfinity(severity) ||
+                severity < def.minSeverity || severity > def.maxSeverity)
+                throw new ArgumentOutOfRangeException(nameof(severity), "The condition severity is outside its defined range.");
+
+            condition.Hediff.Severity = severity;
             DirtyHealthCache();
         }
 
@@ -492,6 +609,7 @@ namespace OverHaulers
             }
 
             CleanDeltasRecursive(part);
+            PruneRemovedConditions();
             DirtyHealthCache();
         }
 
@@ -537,6 +655,16 @@ namespace OverHaulers
             }
         }
 
+        private void PruneRemovedConditions()
+        {
+            List<Hediff> hediffs = headlessPawn.health.hediffSet.hediffs;
+            for (int i = simulatedConditions.Count - 1; i >= 0; i--)
+            {
+                if (!hediffs.Contains(simulatedConditions[i].Hediff))
+                    simulatedConditions.RemoveAt(i);
+            }
+        }
+
         /// <summary>
         /// Clears all active modification tracking collections.
         /// </summary>
@@ -544,7 +672,7 @@ namespace OverHaulers
         {
             ReplacementDeltas.Clear();
             ImplantDeltas.Clear();
-            ActiveSimulatedDrugs.Clear();
+            simulatedConditions.Clear();
         }
 
         #endregion

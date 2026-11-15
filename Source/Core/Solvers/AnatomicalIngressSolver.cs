@@ -8,7 +8,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-01] UNIFIED INGRESS TRANSLATION &amp; TOPOLOGICAL SWEEP SOLVER
     /// Single source of truth translating Pawn HediffSets onto contiguous SoA workspace arrays.
-    /// Executes unified graph sweeps to handle bionic efficiency inheritance, missing part cascading,
+    /// Executes unified graph sweeps to handle prosthetic efficiency inheritance, missing part cascading,
     /// and normalized injury health fractions using reusable workspace buffers.
     /// Resides under Source/Core/Solvers/.
     /// </summary>
@@ -20,8 +20,14 @@ namespace OverHaulers
     ///    Cold metadata (Def references) is only recorded when explicitly requested for UI presentation.
     /// 2. Stage 2 (Topological Sweeps):
     ///    - Sweep 1: Normalizes direct injury HP loss against part maximum health.
-    ///    - Sweep 2: Propagates state top-down in topological depth order. When a parent part is bionic, child limbs
-    ///      inherit the bionic efficiency rating, while non-limb internal parts are safely neutralized.
+    ///    - Sweep 2: Propagates state top-down in topological depth order. Limb slots without a directly added part
+    ///      inherit their parent's prosthetic efficiency; non-limb descendants without a directly added part are neutralized.
+    ///
+    /// Inherited limb slots are solver bookkeeping, not restored body parts or vanilla hediff state. Their precompiled
+    /// weights let a replacement affect the covered limb budget without changing the pawn's anatomy or hediffs.
+    /// The sweep clears missing, injury and local ailment state in those inherited slots; a descendant with its own
+    /// added-part hediff keeps its directly recorded state instead. This model does not establish how vanilla or
+    /// third-party mods handle damage and other hediffs on covered or missing parts.
     /// </remarks>
     public static class AnatomicalIngressSolver
     {
@@ -195,6 +201,16 @@ namespace OverHaulers
                 {
                     ImplantCharacteristics characteristics = MedicalClassifier.EvaluateHediffCapacities(implant.def);
 
+                    if (populateColdMetadata)
+                    {
+                        workspace.Implants.Add(new PartImplantCold
+                        {
+                            PartIndex = partIndex,
+                            Def = implant.def,
+                            AffectsAthletics = characteristics.AffectsAthletics
+                        });
+                    }
+
                     // Ingress each organ/tissue implant
                     if (characteristics.AffectsAthletics || Math.Abs(characteristics.EfficiencyModifier - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                     {
@@ -325,7 +341,7 @@ namespace OverHaulers
                                 workspace.SetFlag(i, PartFlags.HasDirectDamage, false);
                                 workspace.SetFlag(i, PartFlags.IsNeutralized, false);
 
-                                // Propagate biological Def reference to inherited child limb
+                                // Copy the replacement definition into the inherited presentation slot.
                                 if (populateColdMetadata)
                                 {
                                     coldStates[i].ProstheticDef = coldStates[parentIdx].ProstheticDef;

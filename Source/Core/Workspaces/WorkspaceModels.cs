@@ -25,6 +25,14 @@ namespace OverHaulers
 
     #region 2. COLD PRESENTATION METADATA
 
+    /// <summary>Installed implant metadata retained for presentation without changing solver state.</summary>
+    public struct PartImplantCold
+    {
+        public int PartIndex;
+        public HediffDef Def;
+        public bool AffectsAthletics;
+    }
+
     /// <summary>
     /// Memory-aligned metadata storing biological HediffDef references per body part for UI presentation.
     /// Free of managed strings and Color structs to keep Core data models decoupled from presentation rendering.
