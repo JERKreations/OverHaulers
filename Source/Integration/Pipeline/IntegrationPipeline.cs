@@ -62,6 +62,9 @@ namespace OverHaulers
         /// <summary>Capacity factors stripped from the adopted stat, kept so they can be restored on detach.</summary>
         private static List<PawnCapacityFactor> cachedRemovedCapacityFactors;
 
+        /// <summary>Active XML profile definition bound during foreign stat adoption, if any.</summary>
+        private static MassCapacityStatProfileDef activeProfileDef;
+
         /// <summary>Indicates whether the integration pipeline has been initialized.</summary>
         private static bool isInitialized = false;
 
@@ -115,6 +118,9 @@ namespace OverHaulers
         /// <summary>A list of all discovered patches relevant to mass capacity stat adoption.</summary>
         public static List<DiscoveredPatchInfo> DiscoveredPatches { get; } = new List<DiscoveredPatchInfo>();
 
+        /// <summary>True if at least one loaded XML MassCapacityStatProfileDef targets an active mod.</summary>
+        public static bool HasAnyActiveXmlProfile => TryResolveHighestPriorityXmlProfile(out _, out _);
+
         #endregion
 
         #region 2. PRESENTATION BINDING & RE-BINDING
@@ -126,6 +132,43 @@ namespace OverHaulers
         public static void SetPreferredPresentationKey(string key)
         {
             preferredPresentationKey = string.IsNullOrEmpty(key) ? PresentationKeyAuto : key;
+        }
+
+        /// <summary>
+        /// Idempotently verifies that an adopted stat still holds <see cref="MassCapacityStatPart"/> and
+        /// neutralized capacity factors after all mods complete static startup initialization.
+        /// </summary>
+        public static void VerifyAdoptedStatIntegrity()
+        {
+            if (!isInitialized)
+            {
+                if (HarmonySetup.HarmonyInstance != null)
+                {
+                    Initialize(HarmonySetup.HarmonyInstance);
+                }
+                return;
+            }
+
+            StatDef nativeStat = OverHaulersStatDefOf.OverHaulers_CaravanMassCapacity;
+
+            if (IsForeignStatAdopted && ActiveMassCapacityStat != null)
+            {
+                if (nativeStat != null)
+                {
+                    nativeStat.showOnPawns = false;
+                }
+
+                AttachStatPart(ActiveMassCapacityStat);
+
+                if (IsAuthoritativeTakeoverActive)
+                {
+                    NeutralizeForeignCapacityFactors(ActiveMassCapacityStat, activeProfileDef);
+                }
+            }
+            else if (nativeStat != null)
+            {
+                nativeStat.showOnPawns = true;
+            }
         }
 
         /// <summary>
@@ -221,6 +264,7 @@ namespace OverHaulers
             ActiveMassCapacityStat = nativeStat;
             ActiveStatOwner = "Native";
             IsForeignStatAdopted = false;
+            activeProfileDef = null;
             ActiveProfileHostLabelShort = null;
             ActiveProfileAllowsAuthoritativeTakeover = false;
             IsAuthoritativeTakeoverActive = false;
@@ -300,6 +344,7 @@ namespace OverHaulers
             ActiveMassCapacityStat = foreignStat;
             ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
             IsForeignStatAdopted = true;
+            activeProfileDef = profile;
 
             // 1. Emit primary adoption bullet first: "Stat Integration: Adopted ..."
             IntegrationLogEvents.StatPresentationBound(ActiveStatOwner, foreignStat.defName, localizedSuffix);
@@ -380,6 +425,7 @@ namespace OverHaulers
                 }
             }
 
+            activeProfileDef = null;
             IsAuthoritativeTakeoverActive = false;
             ActiveProfileAllowsAuthoritativeTakeover = false;
             ActiveProfileSyncFormationCapacity = false;

@@ -160,10 +160,9 @@ namespace OverHaulers
                     : null;
             }
 
-            int currentTick = PawnDataRegistry.CurrentTick;
-
-            // Check if Core considers its numerical cache fresh
+            // Check if Core considers its numerical cache fresh (also synchronizes main-thread tick)
             bool coreIsFresh = PawnDataRegistry.TryGetFreshOffset(pawnId, out float coreFreshOffset);
+            int currentTick = PawnDataRegistry.CurrentTick;
 
             // BREAKPOINT ANCHOR: Presentation LRU Lookup & Validation
             if (presentationLookup.TryGetValue(pawnId, out PresentationCacheEntry entry) && entry.IsValid)
@@ -209,8 +208,8 @@ namespace OverHaulers
                 entry.CalculatedTick = currentTick;
                 entry.IsValid = true;
 
-                // Synchronize fresh solve to background snapshot cache for pathfinding threads
-                MassSnapshotCache.WriteState(pawnId, result.SolvedOffset);
+                // Synchronize fresh solve back into both main-thread Core cache and background snapshot table
+                PawnDataRegistry.PublishEvaluation(pawnId, in result, currentTick);
 
                 return entry.Model;
             }
@@ -284,7 +283,7 @@ namespace OverHaulers
             if (presentationLookup.Count >= activeCapacity && lruTail != null)
             {
                 // BREAKPOINT ANCHOR: Recycle Velocity Evaluation
-                if (currentTick - velocityWindowStartTick > VelocityWindowTicks)
+                if (currentTick < velocityWindowStartTick || currentTick - velocityWindowStartTick > VelocityWindowTicks)
                 {
                     velocityWindowStartTick = currentTick;
                     velocityRecycleCount = 0;

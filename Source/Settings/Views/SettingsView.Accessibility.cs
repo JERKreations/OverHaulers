@@ -27,8 +27,7 @@ namespace OverHaulers
             {
                 settings.ResetAccessibility();
                 SettingsLayout.ClearInputBuffers();
-                SettingsViewUtilities.OnSettingMutated();
-            });
+            }, SettingMutationScope.Presentation);
 
             // 2. Icon Scale Slider
             string scaleReadout = settings.iconScalePercent.ToString("P0");
@@ -38,7 +37,8 @@ namespace OverHaulers
                 ref settings.iconScalePercent,
                 PresentationDefaults.IconScalePercentMin,
                 PresentationDefaults.IconScalePercentMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Presentation
             );
             ui.DescriptionKey("OverHaulers_IconScale_Desc");
             ui.Divider();
@@ -66,13 +66,13 @@ namespace OverHaulers
             ui.Divider();
             ui.SubHeader("OverHaulers_ProstheticPaletteHeader".Translate().ToString());
             ui.DescriptionKey("OverHaulers_ProstheticPalette_Desc");
-            ui.ToggleKey("OverHaulers_ProstheticPalette_Enable", ref settings.prostheticColorOverride);
+            ui.ToggleKey("OverHaulers_ProstheticPalette_Enable", ref settings.prostheticColorOverride, mutationScope: SettingMutationScope.Presentation);
 
             bool guiEnabled = GUI.enabled;
             try
             {
                 GUI.enabled = guiEnabled && settings.prostheticColorOverride;
-                ui.ToggleKey("OverHaulers_ProstheticPalette_Custom", ref settings.customProstheticPalette);
+                ui.ToggleKey("OverHaulers_ProstheticPalette_Custom", ref settings.customProstheticPalette, mutationScope: SettingMutationScope.Presentation);
             }
             finally
             {
@@ -257,14 +257,14 @@ namespace OverHaulers
             Rect gRect = new Rect(ui.X + colWidth + gap, ui.Y, colWidth, 26f);
             Rect bRect = new Rect(ui.X + (colWidth * 2f) + (gap * 2f), ui.Y, colWidth, 26f);
 
-            bool rChanged = ui.DrawSliderInputUnit(rRect, "R:", ref color.r, 0f, 1f, step: 0.01f);
-            bool gChanged = ui.DrawSliderInputUnit(gRect, "G:", ref color.g, 0f, 1f, step: 0.01f);
-            bool bChanged = ui.DrawSliderInputUnit(bRect, "B:", ref color.b, 0f, 1f, step: 0.01f);
+            bool rChanged = ui.DrawSliderInputUnit(rRect, "R:", ref color.r, 0f, 1f, step: 0.01f, notifyOnMutate: false);
+            bool gChanged = ui.DrawSliderInputUnit(gRect, "G:", ref color.g, 0f, 1f, step: 0.01f, notifyOnMutate: false);
+            bool bChanged = ui.DrawSliderInputUnit(bRect, "B:", ref color.b, 0f, 1f, step: 0.01f, notifyOnMutate: false);
 
             if (rChanged || gChanged || bChanged)
             {
                 if (medicalPalette) settings.activePalettePreset = PalettePreset.Custom;
-                SettingsViewUtilities.OnSettingMutated();
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Presentation);
             }
 
             ui.Y += 30f;

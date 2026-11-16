@@ -14,6 +14,11 @@ namespace OverHaulers
     {
         #region 1. CANONICAL TAB ENTRY POINT
 
+        /// <summary>
+        /// Draws the contents of the Tuning tab in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the tab contents in.</param>
+        /// <param name="settings">The current settings.</param>
         public static void DrawTuningTabContents(ref SettingsLayout ui, Settings settings)
         {
             // 1. [SEC-01] Main Modifiers & Safety Floors
@@ -41,9 +46,14 @@ namespace OverHaulers
 
         #region 2. [SEC-01] BASIC MODIFIERS & SAFETY FLOORS
 
+        /// <summary>
+        /// Draws the basic modifiers and safety floors section in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the section in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawBasicModifiersSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_GlobalModifiersHeader", settings.ResetGlobals);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_GlobalModifiersHeader", settings.ResetGlobals, SettingMutationScope.Solver);
 
             // Row 1: Prosthetics Scaling
             ui.ToggleSlider(
@@ -52,7 +62,8 @@ namespace OverHaulers
                 ref settings.prostheticScaling,
                 CoreDefaults.ProstheticScalingMin,
                 CoreDefaults.ProstheticScalingMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Solver
             );
             ui.DescriptionKey("OverHaulers_ProstheticScaling_Desc");
             ui.Gap(SettingsViewUtilities.CompactGap);
@@ -64,7 +75,8 @@ namespace OverHaulers
                 ref settings.athleticScaling,
                 CoreDefaults.AthleticScalingMin,
                 CoreDefaults.AthleticScalingMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Solver
             );
             ui.DescriptionKey("OverHaulers_AthleticScaling_Desc");
             ui.Gap(SettingsViewUtilities.CompactGap);
@@ -76,7 +88,8 @@ namespace OverHaulers
                 ref settings.configurablePercentileFloor,
                 CoreDefaults.ConfigurablePercentileFloorMin,
                 CoreDefaults.ConfigurablePercentileFloorMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Solver
             );
             ui.DescriptionKey("OverHaulers_Deficits_Desc");
             ui.Gap(SettingsViewUtilities.CompactGap);
@@ -85,7 +98,8 @@ namespace OverHaulers
             ui.ToggleKey(
                 "OverHaulers_EnableGlobalSafetyFloor",
                 ref settings.enableHardCompatibilitySafetyFloor,
-                "OverHaulers_EnableGlobalSafetyFloor_Tooltip"
+                "OverHaulers_EnableGlobalSafetyFloor_Tooltip",
+                mutationScope: SettingMutationScope.Solver
             );
         }
 
@@ -93,54 +107,179 @@ namespace OverHaulers
 
         #region 3. [SEC-02] CORE BODY GROUP WEIGHTS
 
+        /// <summary>
+        /// Draws the coupled normalized core body group weights and the missing-limb redistribution sub-section.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the section in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawCoreBodyWeightsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_BodyPartWeightsHeader", settings.ResetBodyParts);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_BodyPartWeightsHeader", settings.ResetBodyParts, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_BodyPartWeights_Desc");
 
-            float sumBodyParts = settings.anatomyWeightTorso + settings.anatomyWeightArm + settings.anatomyWeightLeg;
-            float pctTorso = sumBodyParts > 0f ? (settings.anatomyWeightTorso / sumBodyParts) : 0f;
-            float pctArm = sumBodyParts > 0f ? (settings.anatomyWeightArm / sumBodyParts) : 0f;
-            float pctLeg = sumBodyParts > 0f ? (settings.anatomyWeightLeg / sumBodyParts) : 0f;
-
-            string torsoLabel = "OverHaulers_TorsoImpact".Translate(pctTorso.ToString("P0"), settings.anatomyWeightTorso.ToString("P0")).ToString();
-            ui.Slider(
+            string torsoLabel = "OverHaulers_TorsoImpact".Translate(settings.anatomyWeightTorso.ToString("P0")).ToString();
+            bool torsoChanged = ui.Slider(
                 torsoLabel,
                 ref settings.anatomyWeightTorso,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                tooltip: SettingsViewUtilities.CachedText("OverHaulers_TorsoImpact_Tooltip")
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_TorsoImpact_Tooltip"),
+                mutationScope: SettingMutationScope.Topology,
+                notifyOnMutate: false
             );
 
-            string armLabel = "OverHaulers_ArmsImpact".Translate(pctArm.ToString("P0"), settings.anatomyWeightArm.ToString("P0")).ToString();
-            ui.Slider(
+            string armLabel = "OverHaulers_ArmsImpact".Translate(settings.anatomyWeightArm.ToString("P0")).ToString();
+            bool armChanged = ui.Slider(
                 armLabel,
                 ref settings.anatomyWeightArm,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                tooltip: SettingsViewUtilities.CachedText("OverHaulers_ArmsImpact_Tooltip")
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_ArmsImpact_Tooltip"),
+                mutationScope: SettingMutationScope.Topology,
+                notifyOnMutate: false
             );
 
-            string legLabel = "OverHaulers_LegsImpact".Translate(pctLeg.ToString("P0"), settings.anatomyWeightLeg.ToString("P0")).ToString();
-            ui.Slider(
+            string legLabel = "OverHaulers_LegsImpact".Translate(settings.anatomyWeightLeg.ToString("P0")).ToString();
+            bool legChanged = ui.Slider(
                 legLabel,
                 ref settings.anatomyWeightLeg,
                 CoreDefaults.PercentageMin,
                 CoreDefaults.PercentageMax,
                 step: 0.01f,
-                tooltip: SettingsViewUtilities.CachedText("OverHaulers_LegsImpact_Tooltip")
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_LegsImpact_Tooltip"),
+                mutationScope: SettingMutationScope.Topology,
+                notifyOnMutate: false
             );
+
+            if (torsoChanged)
+            {
+                NormalizeCoupledTriplet(
+                    ref settings.anatomyWeightTorso,
+                    ref settings.anatomyWeightArm,
+                    ref settings.anatomyWeightLeg,
+                    CoreDefaults.AnatomyWeightArm,
+                    CoreDefaults.AnatomyWeightLeg);
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Topology);
+            }
+            else if (armChanged)
+            {
+                NormalizeCoupledTriplet(
+                    ref settings.anatomyWeightArm,
+                    ref settings.anatomyWeightTorso,
+                    ref settings.anatomyWeightLeg,
+                    CoreDefaults.AnatomyWeightTorso,
+                    CoreDefaults.AnatomyWeightLeg);
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Topology);
+            }
+            else if (legChanged)
+            {
+                NormalizeCoupledTriplet(
+                    ref settings.anatomyWeightLeg,
+                    ref settings.anatomyWeightTorso,
+                    ref settings.anatomyWeightArm,
+                    CoreDefaults.AnatomyWeightTorso,
+                    CoreDefaults.AnatomyWeightArm);
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Topology);
+            }
+
+            // Sub-section: Conditional Missing-Limb Redistribution Splits
+            ui.Gap(SettingsViewUtilities.CompactGap);
+            ui.SubHeader(SettingsViewUtilities.CachedText("OverHaulers_RedistributionSubHeader"));
+            ui.DescriptionKey("OverHaulers_Redistribution_Desc");
+
+            float missingArmsLegShare = 1.0f - settings.missingArmsTorsoShare;
+            string missingArmsLabel = "OverHaulers_MissingArmsSplit".Translate(
+                settings.missingArmsTorsoShare.ToString("P0"),
+                missingArmsLegShare.ToString("P0")
+            ).ToString();
+            ui.Slider(
+                missingArmsLabel,
+                ref settings.missingArmsTorsoShare,
+                CoreDefaults.PercentageMin,
+                CoreDefaults.PercentageMax,
+                step: 0.01f,
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_MissingArmsSplit_Tooltip"),
+                mutationScope: SettingMutationScope.Topology
+            );
+
+            float missingLegsArmShare = 1.0f - settings.missingLegsTorsoShare;
+            string missingLegsLabel = "OverHaulers_MissingLegsSplit".Translate(
+                settings.missingLegsTorsoShare.ToString("P0"),
+                missingLegsArmShare.ToString("P0")
+            ).ToString();
+            ui.Slider(
+                missingLegsLabel,
+                ref settings.missingLegsTorsoShare,
+                CoreDefaults.PercentageMin,
+                CoreDefaults.PercentageMax,
+                step: 0.01f,
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_MissingLegsSplit_Tooltip"),
+                mutationScope: SettingMutationScope.Topology
+            );
+        }
+
+        /// <summary>
+        /// Proportionally scales the two sibling weights so the coupled triplet always sums exactly to 1.00.
+        /// Falls back to factory ratios when both siblings were previously at 0.00.
+        /// </summary>
+        /// <param name="changed">The value that was changed and needs normalization.</param>
+        /// <param name="siblingA">The first sibling weight to be adjusted.</param>
+        /// <param name="siblingB">The second sibling weight to be adjusted.</param>
+        /// <param name="defaultA">The default value for the first sibling if both siblings are zero.</param>
+        /// <param name="defaultB">The default value for the second sibling if both siblings are zero.</param>
+        /// <remarks>
+        /// This method ensures that the sum of the changed value and its two siblings always equals 1.00.
+        /// If both siblings are initially zero, it falls back to the provided default ratios.
+        /// </remarks>
+        private static void NormalizeCoupledTriplet(
+            ref float changed,
+            ref float siblingA,
+            ref float siblingB,
+            float defaultA,
+            float defaultB)
+        {
+            changed = (float)Math.Round(Math.Min(1.0f, Math.Max(0.0f, changed)), 2, MidpointRounding.ToEven);
+            float remainder = (float)Math.Round(1.0f - changed, 2, MidpointRounding.ToEven);
+
+            if (remainder <= 0f)
+            {
+                siblingA = 0f;
+                siblingB = 0f;
+                return;
+            }
+
+            float siblingSum = siblingA + siblingB;
+            float ratioA;
+            if (siblingSum > 0.0001f)
+            {
+                ratioA = siblingA / siblingSum;
+            }
+            else
+            {
+                float defaultSum = defaultA + defaultB;
+                ratioA = defaultSum > 0.0001f ? (defaultA / defaultSum) : 0.5f;
+            }
+
+            siblingA = (float)Math.Round(remainder * ratioA, 2, MidpointRounding.ToEven);
+            siblingA = Math.Min(remainder, Math.Max(0.0f, siblingA));
+            siblingB = (float)Math.Round(remainder - siblingA, 2, MidpointRounding.ToEven);
+            siblingB = Math.Min(remainder, Math.Max(0.0f, siblingB));
         }
 
         #endregion
 
         #region 4. [SEC-03 & SEC-04] SYSTEMIC HEALTH WEIGHTINGS
 
+        /// <summary>
+        /// Draws the systemic health weights section in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the section in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawSystemicHealthWeightsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_SystemicWeightingsHeader", settings.ResetSystemicWeightings);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_SystemicWeightingsHeader", settings.ResetSystemicWeightings, SettingMutationScope.Solver);
             ui.DescriptionKey("OverHaulers_SystemicWeightings_Desc");
 
             bool prevLink = settings.linkSystemicWeights;
@@ -181,6 +320,14 @@ namespace OverHaulers
             DrawDualCapacityRow(ref ui, "OverHaulers_Prefix_Manipulation".Translate().ToString(), ref settings.legPositiveManipulation, ref settings.legDeficitManipulation, settings.linkSystemicWeights);
         }
 
+        /// <summary>
+        /// Draws a row for dual capacity settings (positive and deficit) with an optional link between them.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the row in.</param>
+        /// <param name="prefix">The prefix text for the row label.</param>
+        /// <param name="posValue">The positive capacity value.</param>
+        /// <param name="defValue">The deficit capacity value.</param>
+        /// <param name="isLinked">Whether the positive and deficit values are linked.</param>
         private static void DrawDualCapacityRow(
             ref SettingsLayout ui,
             string prefix,
@@ -209,28 +356,32 @@ namespace OverHaulers
 
             // 2. Middle: Boost Unit [+]
             Rect boostRect = new Rect(boostX, rowRect.y, unitWidth, 26f);
-            float oldPos = posValue;
-            bool boostChanged = ui.DrawSliderInputUnit(boostRect, "[+]", ref posValue, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, step: 0.01f);
+            bool boostChanged = ui.DrawSliderInputUnit(boostRect, "[+]", ref posValue,
+                CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, step: 0.01f, notifyOnMutate: false);
 
             // 3. Right: Deficit Unit [-] (Flush to right margin)
             Rect defRect = new Rect(defX, rowRect.y, unitWidth, 26f);
-            float oldDef = defValue;
-            bool defChanged = ui.DrawSliderInputUnit(defRect, "[-]", ref defValue, CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, step: 0.01f);
+            bool defChanged = ui.DrawSliderInputUnit(defRect, "[-]", ref defValue,
+                CoreDefaults.PercentageMin, CoreDefaults.PercentageMax, step: 0.01f, notifyOnMutate: false);
 
-            if (boostChanged && isLinked)
+            if (boostChanged || defChanged)
             {
-                defValue = posValue;
-                SettingsViewUtilities.OnSettingMutated();
-            }
-            else if (defChanged && isLinked)
-            {
-                posValue = defValue;
-                SettingsViewUtilities.OnSettingMutated();
+                if (isLinked)
+                {
+                    if (boostChanged) defValue = posValue;
+                    else posValue = defValue;
+                }
+
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Solver);
             }
 
             ui.Y += 28f;
         }
 
+        /// <summary>
+        /// Synchronizes the linked systemic weights for torso, arm, and leg deficits based on their positive counterparts.
+        /// </summary>
+        /// <param name="settings">The current settings.</param>
         private static void SynchronizeLinkedSystemicWeights(Settings settings)
         {
             settings.torsoDeficitBreathing = settings.torsoPositiveBreathing;
@@ -248,17 +399,22 @@ namespace OverHaulers
             settings.legDeficitMoving = settings.legPositiveMoving;
             settings.legDeficitManipulation = settings.legPositiveManipulation;
 
-            SettingsViewUtilities.OnSettingMutated();
+            SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Solver);
         }
 
         #endregion
 
         #region 5. [SEC-05 & SEC-06] TORSO MACRO TOPOLOGY & LIMB DEPTH DECAY
 
+        /// <summary>
+        /// Draws the torso and limb depths section in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the section in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawTorsoAndLimbDepthsSection(ref SettingsLayout ui, Settings settings)
         {
             // Part A: Torso Macro Topology
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_CoreBonesHeader", settings.ResetTorsoParts);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_CoreBonesHeader", settings.ResetTorsoParts, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_CoreBones_Desc");
 
             string axialLabel = "OverHaulers_TorsoAxialBias".Translate(settings.torsoAxialBias.ToString("P0")).ToString();
@@ -267,7 +423,8 @@ namespace OverHaulers
                 ref settings.torsoAxialBias,
                 CoreDefaults.TorsoAxialBiasMin,
                 CoreDefaults.TorsoAxialBiasMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Topology
             );
             ui.DescriptionKey("OverHaulers_TorsoAxialBias_Desc");
             ui.Gap(SettingsViewUtilities.CompactGap);
@@ -278,13 +435,14 @@ namespace OverHaulers
                 ref settings.torsoHpSensitivity,
                 CoreDefaults.TorsoHpSensitivityMin,
                 CoreDefaults.TorsoHpSensitivityMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Topology
             );
             ui.DescriptionKey("OverHaulers_TorsoHpSensitivity_Desc");
             ui.Gap(SettingsViewUtilities.ControlGap);
 
             // Part B: Geometric Limb Depth Decay
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_LimbDepth_Desc");
 
             string decayPctLabel = "OverHaulers_LimbDepthDecayFactor".Translate(settings.limbDepthDecayFactor.ToString("P0")).ToString();
@@ -293,7 +451,8 @@ namespace OverHaulers
                 ref settings.limbDepthDecayFactor,
                 CoreDefaults.LimbDepthDecayFactorMin,
                 CoreDefaults.LimbDepthDecayFactorMax,
-                step: 0.01f
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Topology
             );
             ui.DescriptionKey("OverHaulers_LimbDepthDecayFactor_Desc");
         }
@@ -302,9 +461,14 @@ namespace OverHaulers
 
         #region 6. [SEC-07] STRUCTURAL SCALING CONSTANTS
 
+        /// <summary>
+        /// Draws the scaling constants section in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the section in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawScalingConstantsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_ScalingConstantsHeader", settings.ResetScalingConstants);
+            DrawSectionHeaderWithReset(ref ui, "OverHaulers_ScalingConstantsHeader", settings.ResetScalingConstants, SettingMutationScope.Solver);
             ui.DescriptionKey("OverHaulers_ScalingConstants_Desc");
 
             string prostheticImpactLabel = "OverHaulers_ProstheticImpactConstant".Translate(settings.prostheticImpactConstant.ToString("F2")).ToString();
@@ -314,7 +478,8 @@ namespace OverHaulers
                 CoreDefaults.ProstheticImpactConstantMin,
                 CoreDefaults.ProstheticImpactConstantMax,
                 step: 0.01f,
-                tooltip: SettingsViewUtilities.CachedText("OverHaulers_ProstheticImpactConstant_Tooltip")
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_ProstheticImpactConstant_Tooltip"),
+                mutationScope: SettingMutationScope.Solver
             );
 
             string athleticImpactLabel = "OverHaulers_AthleticImpactConstant".Translate(settings.athleticImpactConstant.ToString("F2")).ToString();
@@ -324,7 +489,8 @@ namespace OverHaulers
                 CoreDefaults.AthleticImpactConstantMin,
                 CoreDefaults.AthleticImpactConstantMax,
                 step: 0.01f,
-                tooltip: SettingsViewUtilities.CachedText("OverHaulers_AthleticImpactConstant_Tooltip")
+                tooltip: SettingsViewUtilities.CachedText("OverHaulers_AthleticImpactConstant_Tooltip"),
+                mutationScope: SettingMutationScope.Solver
             );
         }
 
@@ -332,7 +498,21 @@ namespace OverHaulers
 
         #region 7. PRIVATE HELPERS
 
-        private static void DrawSectionHeaderWithReset(ref SettingsLayout ui, string headerKey, Action resetAction)
+        /// <summary>
+        /// Draws a section header with an optional reset button in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the header in.</param>
+        /// <param name="headerKey">The translation key for the header text.</param>
+        /// <param name="resetAction">The action to invoke when the reset button is clicked. If null, no reset button is drawn.</param>
+        /// <param name="mutationScope">The scope of the setting mutation for the reset action.</param>
+        /// <remarks>
+        /// The header will automatically adjust its layout to accommodate the reset button if necessary.
+        /// </remarks>
+        private static void DrawSectionHeaderWithReset(
+            ref SettingsLayout ui,
+            string headerKey,
+            Action resetAction,
+            SettingMutationScope? mutationScope = null)
         {
             string headerText = SettingsViewUtilities.CachedText(headerKey);
             string resetLabel = SettingsViewUtilities.CachedText("OverHaulers_Reset");
@@ -356,7 +536,7 @@ namespace OverHaulers
                 {
                     resetAction();
                     SettingsLayout.ClearInputBuffers();
-                    SettingsViewUtilities.OnSettingMutated();
+                    SettingsViewUtilities.OnSettingMutated(mutationScope);
                 }
                 bottom = Math.Max(bottom, resetBtnRect.yMax);
             }

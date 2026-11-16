@@ -50,9 +50,6 @@ namespace OverHaulers
         /// <summary>List of capacity factors from the host mod to neutralize when applying the adopted stat.</summary>
         public List<string> neutraliseCapacityFactors;
 
-        /// <summary>List of stat factors from the host mod to neutralize when applying the adopted stat.</summary>
-        public List<string> neutraliseStatFactors;
-
         #endregion
 
         #region 2. VALIDATION & ACTIVE STAT RESOLUTION

@@ -58,28 +58,30 @@ namespace OverHaulers
                 }
             }
 
-            // At this point, branchMaxDepth and branchMaxSibling contain the maximum depth and sibling count for each limb branch.
-            for (int i = 0; i < partCount; i++)
+            // Traverse in parent-before-child DepthSortedIndices order so forked limb segments inherit
+            // strictly from their immediate parent (parentWeight * decay / directSiblingCount).
+            int[] depthSorted = template.DepthSortedIndices;
+            for (int d = 0; d < partCount; d++)
             {
+                int i = depthSorted != null ? depthSorted[d] : d;
                 ref PartTopologyInfo topology = ref tempPartTopologies[i];
                 if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
                 {
                     var ext = bodyDef.AllParts[i].def?.GetCachedModExtension();
-                    float rawDepthWeight;
 
-                    // Determine the raw depth weight for the current limb part based on various conditions and extensions.
+                    // Check for explicit mod extension overrides for limb weight.
                     if (ext != null && ext.relativeLimbWeight >= 0f)
                     {
-                        rawDepthWeight = ext.relativeLimbWeight;
                         template.WeightModels[i] = LimbWeightModel.ExplicitOverride;
+                        topology.UnnormalizedLimbWeight = ext.relativeLimbWeight / topology.SafeSiblingDivisor;
                     }
-                    // Check if the limb should ignore depth decay based on the extension.
+                    // Check for explicit mod extension overrides for ignoring limb depth decay.
                     else if (ext != null && ext.ignoreLimbDepthDecay)
                     {
-                        rawDepthWeight = 1.0f;
                         template.WeightModels[i] = LimbWeightModel.ExplicitOverride;
+                        topology.UnnormalizedLimbWeight = 1.0f / topology.SafeSiblingDivisor;
                     }
-                    // If no explicit weight or ignore flag is set, calculate the weight based on branch characteristics.
+                    // If no explicit mod extension overrides are present, fall back to geometric decay or other heuristics.
                     else
                     {
                         long branchKey = ((long)topology.Type << 32) | (long)(topology.RootPartIndex + 1);
@@ -93,24 +95,35 @@ namespace OverHaulers
                             float rootHp = (rootPart.def != null && rootPart.def.hitPoints > 0) ? (float)rootPart.def.hitPoints : 10f;
                             float partHp = (part.def != null && part.def.hitPoints > 0) ? (float)part.def.hitPoints : 10f;
 
-                            // Calculate the raw depth weight based on the hit point ratio between the part and its root part.
-                            rawDepthWeight = Pass03_AxialTrunkSubCompiler.FastPow(partHp / rootHp, hpSensitivity);
+                            // For long serial chains, use the HP ratio between the part and its root as the unnormalized weight.
                             template.WeightModels[i] = LimbWeightModel.HpRatio;
+                            topology.UnnormalizedLimbWeight = Pass03_AxialTrunkSubCompiler.FastPow(partHp / rootHp, hpSensitivity) / topology.SafeSiblingDivisor;
                         }
-                        // If the limb is not part of a long serial chain, use the geometric decay model.
+                        // If not a long serial chain, fall back to geometric decay based on depth and sibling divisor.
                         else
                         {
-                            rawDepthWeight = FastIntPow(decayFactor, topology.Depth);
+                            bool continuesChain = topology.ParentIndex != -1 && tempPartTopologies[topology.ParentIndex].Type == topology.Type;
+                            float unnormalizedWeight;
+
+                            if (continuesChain && template.WeightModels[topology.ParentIndex] == LimbWeightModel.GeometricDecay)
+                            {
+                                unnormalizedWeight = (tempPartTopologies[topology.ParentIndex].UnnormalizedLimbWeight * decayFactor) / topology.SafeSiblingDivisor;
+                            }
+                            else
+                            {
+                                unnormalizedWeight = FastIntPow(decayFactor, topology.Depth) / topology.SafeSiblingDivisor;
+                            }
+
                             template.WeightModels[i] = LimbWeightModel.GeometricDecay;
+                            topology.UnnormalizedLimbWeight = unnormalizedWeight;
                         }
                     }
-
-                    topology.UnnormalizedLimbWeight = rawDepthWeight / topology.SafeSiblingDivisor;
                 }
             }
 
             // At this point, all limb parts have their unnormalized weights calculated based on depth and branch characteristics.
-            // Proceed to branch summation and normalization to ensure the limb weights are properly scaled within each branch.
+            // The next step involves summing the unnormalized weights for each branch and normalizing them across the three channels:
+            //  core, manipulation, and moving parts.
             #endregion
 
             #region 1B. Branch Summation & 3-Channel Normalization
@@ -137,33 +150,12 @@ namespace OverHaulers
             float manipRootFactor = 1.0f / (totalManipRoots <= 1 ? 1.0f : (float)totalManipRoots);
             float movingRootFactor = 1.0f / (totalMovingRoots <= 1 ? 1.0f : (float)totalMovingRoots);
 
-            float budgetTorso = config.BudgetCorePart;
-            float budgetManip = config.BudgetManipulationPart;
-            float budgetMove = config.BudgetMovingPart;
-
-            // Redistribute manipulation and moving budgets if the archetype lacks corresponding roots
-            if (totalManipRoots == 0 && budgetManip > 0f)
-            {
-                budgetTorso += budgetManip * 0.67f;
-                budgetMove += budgetManip * 0.33f;
-                budgetManip = 0f;
-            }
-
-            if (totalMovingRoots == 0 && budgetMove > 0f)
-            {
-                budgetTorso += budgetMove;
-                budgetMove = 0f;
-            }
-
-            float totalBudget = budgetTorso + budgetManip + budgetMove;
-
-            // Ensure the total budget is positive to avoid division by zero during normalization.
-            if (totalBudget <= 0f) totalBudget = 1.0f;
-
-            // Calculate the normalized budget fractions for torso, manipulation, and moving parts.
-            float normTorso = budgetTorso / totalBudget;
-            float normManip = budgetManip / totalBudget;
-            float normMove = budgetMove / totalBudget;
+            SystemicEvaluationContext.ResolveNormalizedBudgets(
+                in counts,
+                in config,
+                out float normTorso,
+                out float normManip,
+                out float normMove);
 
             // Iterate through all parts and assign normalized weights based on their type and branch characteristics.
             for (int i = 0; i < partCount; i++)

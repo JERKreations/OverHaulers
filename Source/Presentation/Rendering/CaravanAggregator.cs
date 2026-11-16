@@ -267,7 +267,8 @@ namespace OverHaulers
             float totalWithGear = MassUtility.Capacity(pawn, null);
             float gearOffset = totalWithGear - physicalValue;
 
-            if (gearOffset > PawnDataRegistry.EfficiencyEpsilon)
+            // Only display gear +/- offset if it is significant
+            if (Math.Abs(gearOffset) > PawnDataRegistry.EfficiencyEpsilon)
             {
                 sb.AppendLine("OverHaulers_Caravan_PerformerDetail_Gear".Translate(
                     physicalValue.ToStringMassOffset(),

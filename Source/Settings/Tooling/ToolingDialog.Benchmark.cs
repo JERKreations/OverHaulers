@@ -329,8 +329,9 @@ namespace OverHaulers
 
             try
             {
-                Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkStartupLine);
-                localY += BenchmarkRowHeight + 4f;
+                float startupHeight = Math.Max(BenchmarkRowHeight, SettingsViewUtilities.CalcTextHeight(benchmarkStartupLine, inner.width, GameFont.Tiny));
+                Widgets.Label(new Rect(inner.x, localY, inner.width, startupHeight), benchmarkStartupLine);
+                localY += startupHeight + 4f;
 
                 GUI.color = SettingsViewUtilities.DescriptionTextColor;
                 DrawBenchmarkRow(inner, localY, BenchmarkSolverColumns, benchmarkSolverHeaders);
@@ -345,8 +346,10 @@ namespace OverHaulers
 
                 localY += 8f;
 
-                Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), SettingsViewUtilities.CachedText("OverHaulers_Benchmark_RampHeader"));
-                localY += BenchmarkRowHeight;
+                string rampHeader = SettingsViewUtilities.CachedText("OverHaulers_Benchmark_RampHeader");
+                float rampHeaderHeight = Math.Max(BenchmarkRowHeight, SettingsViewUtilities.CalcTextHeight(rampHeader, inner.width, GameFont.Tiny));
+                Widgets.Label(new Rect(inner.x, localY, inner.width, rampHeaderHeight), rampHeader);
+                localY += rampHeaderHeight;
 
                 GUI.color = SettingsViewUtilities.DescriptionTextColor;
                 DrawBenchmarkRow(inner, localY, BenchmarkRampColumns, benchmarkRampHeaders);
@@ -383,14 +386,18 @@ namespace OverHaulers
 
         private static float DrawBenchmarkSnapshotTable(Rect inner, float localY)
         {
-            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), SettingsViewUtilities.CachedText("OverHaulers_Benchmark_TableHeader"));
-            localY += BenchmarkRowHeight;
+            string tableHeader = SettingsViewUtilities.CachedText("OverHaulers_Benchmark_TableHeader");
+            float headerH = Math.Max(BenchmarkRowHeight, SettingsViewUtilities.CalcTextHeight(tableHeader, inner.width, GameFont.Tiny));
+            Widgets.Label(new Rect(inner.x, localY, inner.width, headerH), tableHeader);
+            localY += headerH;
 
-            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkSnapshotBaselineLine);
-            localY += BenchmarkRowHeight;
+            float baseH = Math.Max(BenchmarkRowHeight, SettingsViewUtilities.CalcTextHeight(benchmarkSnapshotBaselineLine, inner.width, GameFont.Tiny));
+            Widgets.Label(new Rect(inner.x, localY, inner.width, baseH), benchmarkSnapshotBaselineLine);
+            localY += baseH;
 
-            Widgets.Label(new Rect(inner.x, localY, inner.width, BenchmarkRowHeight), benchmarkSnapshotSurgeLine);
-            localY += BenchmarkRowHeight + 2f;
+            float surgeH = Math.Max(BenchmarkRowHeight, SettingsViewUtilities.CalcTextHeight(benchmarkSnapshotSurgeLine, inner.width, GameFont.Tiny));
+            Widgets.Label(new Rect(inner.x, localY, inner.width, surgeH), benchmarkSnapshotSurgeLine);
+            localY += surgeH + 2f;
 
             GUI.color = SettingsViewUtilities.DescriptionTextColor;
             DrawBenchmarkRow(inner, localY, BenchmarkSnapshotColumns, benchmarkSnapshotHeaders);

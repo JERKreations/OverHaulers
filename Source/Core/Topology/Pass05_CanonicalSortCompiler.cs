@@ -34,10 +34,12 @@ namespace OverHaulers
             // Initialize nearest ancestor and structural ancestor matrices.
             int[] nearestAncestorMatrix = template.NearestAncestorMatrix ?? new int[partCount * SpeciesTopologyTemplate.PartTypeStride];
             int[] nearestStructuralAncestor = template.NearestStructuralAncestor ?? new int[partCount];
+            int[] depthSorted = template.DepthSortedIndices;
 
-            // Populate the nearest ancestor and structural ancestor matrices for each part.
-            for (int i = 0; i < partCount; i++)
+            // Populate the nearest ancestor and structural ancestor matrices in topological depth order.
+            for (int d = 0; d < partCount; d++)
             {
+                int i = depthSorted != null ? depthSorted[d] : d;
                 int parentIdx = parentIndicesArr[i];
                 int rowOffset = i * SpeciesTopologyTemplate.PartTypeStride;
 
@@ -154,11 +156,11 @@ namespace OverHaulers
 
             #region 1C. CanonicalDisplayIndices (Natural Anatomical Sort)
 
-            // Skeletal depths are computed in Pass01 during cranial traversal.
-            // Build canonical display indices using a 64-bit packed composite key to eliminate lambda closures.
+            // Resolve unsorted per-slot skeletal depths in topological depth order for canonical display sorting.
             int[] skeletalDepths = new int[partCount];
-            for (int i = 0; i < partCount; i++)
+            for (int d = 0; d < partCount; d++)
             {
+                int i = depthSorted != null ? depthSorted[d] : d;
                 int parentIdx = parentIndicesArr[i];
                 skeletalDepths[i] = parentIdx != -1 ? skeletalDepths[parentIdx] + 1 : 0;
             }

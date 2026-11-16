@@ -116,18 +116,15 @@ namespace OverHaulers
             if (!string.IsNullOrEmpty(verboseTooltip)) TooltipHandler.TipRegion(verboseRect, verboseTooltip);
             if (prevVerbose != settings.verboseBreakdown)
             {
-                DetailedModelRegistry.Clear();
-                TestBench.MarkDirty();
-                SettingsViewUtilities.OnSettingMutated();
+                SettingsViewUtilities.OnSettingMutated(SettingMutationScope.Presentation);
             }
 
-            // [Reset] Button - Resets Test Bench parameters to baseline
+            // [Reset] Button - Resets Test Bench sandbox state only
             bool isResetHovered = Mouse.IsOver(resetRect);
             if (SettingsViewUtilities.DrawButton(resetRect, resetLabel))
             {
                 resetAction?.Invoke();
                 ResetPlannerViewState();
-                SettingsViewUtilities.OnSettingMutated();
             }
 
             nextY = Math.Max(currentY + titleHeight, Math.Max(verboseRect.yMax, resetRect.yMax)) + SettingsViewUtilities.ControlGap;
@@ -429,7 +426,9 @@ namespace OverHaulers
                         float severity = Widgets.HorizontalSlider(
                             new Rect(inner.x + labelWidth + 4f, leftY, leftWidth - labelWidth - 8f, 20f),
                             hediff.Severity, min, max, true);
-                        if (severity != hediff.Severity)
+                        
+                        // Only update the condition severity if it has changed significantly
+                        if (Math.Abs(severity - hediff.Severity) > 0.0001f)
                         {
                             RunConditionAction(() => harness.SetConditionSeverity(condition, severity));
                         }
@@ -930,9 +929,10 @@ namespace OverHaulers
                     return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
                 }
                 
-                labelColor = (repl.Efficiency > 1.0f) 
-                    ? boostColor 
+                Color defaultColor = (repl.Efficiency > 1.0f)
+                    ? boostColor
                     : ReportFormatter.GetMedicalColor(repl.Efficiency);
+                labelColor = ReportFormatter.GetProstheticColor(defaultColor, repl.Efficiency);
 
                 return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, repl.DisplayLabel, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
             }
@@ -1401,7 +1401,11 @@ namespace OverHaulers
             rightY += 30f;
 
             // 3. InfoCard Breakdown Preview Box
-            string printableExplanation = liveExplanation.Replace(InfoCardOverlay.TagSentinel, "").Replace(InfoCardOverlay.TagProsthetic, "    ").Replace(InfoCardOverlay.TagAthletic, "    ").Replace(InfoCardOverlay.TagInjury, "    ");
+            string printableExplanation = liveExplanation
+                .Replace(InfoCardOverlay.TagSentinel, "")
+                .Replace(InfoCardOverlay.TagProsthetic, "   ")
+                .Replace(InfoCardOverlay.TagAthletic, "   ")
+                .Replace(InfoCardOverlay.TagInjury, "   ");
             float previewBoxHeight = Math.Max(leftColumnHeight - (rightY - columnStartY), Text.CalcHeight(printableExplanation, rightWidth - SettingsViewUtilities.PanelPadding * 2f) + 20f);
 
             Rect previewBoxRect = new Rect(inner.x + rightX, rightY, rightWidth, previewBoxHeight);

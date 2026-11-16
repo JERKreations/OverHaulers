@@ -193,19 +193,20 @@ namespace OverHaulers
 
     /// <summary>
     /// Per-frame driver that detects game sessions (new game, load, return to menu) by tracking the identity of
-    /// <see cref=\"Current.Game\"/>, initialises runtime state once per session and performs the periodic tick work
-    /// (cache cleanup, deferred calibration sweep, telemetry reports). Holds runtime state only; persists nothing.
+    /// <see cref="Current.Game"/>, initialises runtime state once per session and performs the periodic tick work
+    /// (cache cleanup, adaptive calibration verification, telemetry reports). Holds runtime state only; persists nothing.
     /// </summary>
     public sealed class OverHaulersLifecycleDriver : MonoBehaviour
     {
         #region 2A. Backing State
-        /// <summary>Delay in ticks between world load and the deferred calibration sweep.</summary>
+        /// <summary>Maximum delay in ticks between world load and final sentinel/fallback verification.</summary>
         private const int WorldLoadCalibrationDelayTicks = 120;
 
         private Game trackedGame;
         private int lastSeenTick = int.MinValue;
         private int lastReportTick = -1;
         private int coreInitializedTick = -1;
+        private int nextAdaptiveRetryTick = -1;
         #endregion
 
         #region 2B. Unity Callbacks
@@ -262,7 +263,7 @@ namespace OverHaulers
             if (currentTick == lastSeenTick) return;
             lastSeenTick = currentTick;
 
-            MaybeRunDeferredCalibrationSweep(currentTick);
+            MaybeRunAdaptiveCalibrationChecks(currentTick);
             PawnDataRegistry.UpdateTick(currentTick);
             MaybeReportTelemetry(currentTick);
         }
@@ -279,22 +280,27 @@ namespace OverHaulers
             DetailedModelRegistry.Clear();
             InfoCardOverlay.ClearCache();
             SpeciesBaselineCalibration.Reset();
+            nextAdaptiveRetryTick = -1;
         }
 
         /// <summary>
-        /// Resets all runtime state for a freshly started or loaded game session.
+        /// Resets all runtime state for a freshly started or loaded game session and runs immediate tick-0 calibration.
         /// </summary>
         private void BeginSession(int currentTick)
         {
             LifecycleHooks.RaiseRuntimeResetting();
             lastSeenTick = int.MinValue;
             lastReportTick = -1;
+            nextAdaptiveRetryTick = -1;
             OverHaulersLifecycle.IsCalibrationSweepDone = false;
 
-            // Open the multi-tick World Session Journal
+            // Open the World Session Journal
             OHLog.ActivityJournal.BeginSession("OverHaulers_Journal_WorldSessionHeader".Translate().ToString());
 
-            // 1. Clear all cached pawn data, presentation models, and UI layout typography
+            // 1. Verify stat adoption integrity against late static startup mods
+            IntegrationPipeline.VerifyAdoptedStatIntegrity();
+
+            // 2. Clear all cached pawn data, presentation models, and UI layout typography
             int snapshotPurged = MassSnapshotCache.OccupiedSlotsCount;
             PawnDataRegistry.ClearAllCaches();
             OHLog.ActivityJournal.RecordBullet("OverHaulers_Event_Snapshot_Cleared".Translate(
@@ -308,56 +314,105 @@ namespace OverHaulers
             if (presPurged > 0)
             {
                 OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_PresentationReset".Translate(
-                    presPurged, 
+                    presPurged,
                     DetailedModelRegistry.DefaultBaseCapacity
                 ).ToString());
             }
 
-            // 2. Preserve static topologies (idempotent: does NOT recompile if already initialized at boot!)
+            // 3. Preserve static topologies if still compiled; otherwise EnsureInitialized() logs the recompile directly.
+            bool topologiesPreserved = TopologyLayoutCompiler.IsCompiled;
             TopologyLayoutCompiler.EnsureInitialized();
-            OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_TopologyPreserved".Translate(
-                TopologyLayoutCompiler.CompiledTemplateCount
-            ).ToString());
+            if (topologiesPreserved)
+            {
+                OHLog.ActivityJournal.RecordBullet("OverHaulers_Journal_TopologyPreserved".Translate(
+                    TopologyLayoutCompiler.CompiledTemplateCount
+                ).ToString());
+            }
 
-            // 3. Reset dynamic baseline calibrations for the deferred sweep.
+            // 4. Immediately calibrate species ready at FinalizeInit (pre-finalization so slow external mods stay retryable)
             SpeciesBaselineCalibration.Reset();
+            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, finalizeWorldLoad: false);
+            SpeciesBaselineCalibration.CaptureSentinelSnapshot();
+
+            // 5. Warm up active caravan pawns immediately so even paused sessions start with populated snapshots
+            OverHaulersLifecycle.WarmupActivePawns();
 
             coreInitializedTick = currentTick;
+            if (SpeciesBaselineCalibration.HasPendingWorldLoadEntries)
+            {
+                nextAdaptiveRetryTick = currentTick + 1;
+            }
 
-            // Register the deferred calibration ticket.
-            OHLog.ActivityJournal.RegisterDeferredOperation("Calibration");
             OHLog.ActivityJournal.Dispatch();
         }
         #endregion
 
-        #region 2D. Maintenance Drivers & Deferred Sweeps
+        #region 2D. Maintenance Drivers & Adaptive Calibration Verification
         /// <summary>
-        /// The initial calibration sweep is deferred a short while after a session starts.
-        /// Some externally-patched caravan-capacity stat providers (e.g. third-party mod stats) build their own
-        /// per-species data lazily and aren't guaranteed ready immediately - a short delay lets them settle
-        /// before we pre-calibrate against them and retry any earlier dummy failures.
+        /// Incrementally retries only species that failed tick-0 calibration as early as tick 1/15/60,
+        /// then executes a lightweight sentinel check at tick 120 to catch external mods that swap in
+        /// real carry-weight formulas only after their first game tick.
         /// </summary>
-        /// <param name="currentTick">The current game tick used to determine if the deferred calibration sweep should run.</param>
-        private void MaybeRunDeferredCalibrationSweep(int currentTick)
+        /// <param name="currentTick">The current game tick.</param>
+        private void MaybeRunAdaptiveCalibrationChecks(int currentTick)
         {
             if (OverHaulersLifecycle.IsCalibrationSweepDone || coreInitializedTick < 0) return;
 
             int elapsed = currentTick - coreInitializedTick;
-            if (elapsed < WorldLoadCalibrationDelayTicks && elapsed >= 0) return;
+            if (elapsed < 0)
+            {
+                coreInitializedTick = currentTick;
+                return;
+            }
 
+            // 1. Dynamic early retry for any species that failed tick-0 calibration
+            if (nextAdaptiveRetryTick != -1 &&
+                currentTick >= nextAdaptiveRetryTick &&
+                elapsed < WorldLoadCalibrationDelayTicks)
+            {
+                if (SpeciesBaselineCalibration.HasPendingWorldLoadEntries)
+                {
+                    SpeciesBaselineCalibration.RetryPendingWorldLoadEntries(finalizeWorldLoad: false);
+                    PawnDataRegistry.MarkAllStale();
+                    OverHaulersLifecycle.WarmupActivePawns();
+                }
+
+                if (!SpeciesBaselineCalibration.HasPendingWorldLoadEntries)
+                {
+                    nextAdaptiveRetryTick = -1;
+                }
+                else
+                {
+                    nextAdaptiveRetryTick = elapsed < 15
+                        ? coreInitializedTick + 15
+                        : coreInitializedTick + 60;
+                }
+            }
+
+            if (elapsed < WorldLoadCalibrationDelayTicks) return;
+
+            // 2. Final checkpoint: verify sentinel parity and finalize any remaining pending species
             OverHaulersLifecycle.IsCalibrationSweepDone = true;
+            nextAdaptiveRetryTick = -1;
 
-            // BATCH PRE-CALIBRATION SWEEP: Automatically routes bullet into active ActivityJournal
-            SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, finalizeWorldLoad: true);
+            if (SpeciesBaselineCalibration.HasSentinelDrifted())
+            {
+                SpeciesBaselineCalibration.Reset();
+                SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable: true, finalizeWorldLoad: true);
+                PawnDataRegistry.MarkAllStale();
+                OverHaulersLifecycle.WarmupActivePawns();
+                return;
+            }
 
-            // Early fallback baselines may have changed; bypass cached offsets until they are recalculated.
-            PawnDataRegistry.MarkAllStale();
+            if (SpeciesBaselineCalibration.HasPendingWorldLoadEntries)
+            {
+                SpeciesBaselineCalibration.RetryPendingWorldLoadEntries(finalizeWorldLoad: true);
+                PawnDataRegistry.MarkAllStale();
+                OverHaulersLifecycle.WarmupActivePawns();
+                return;
+            }
 
-            // WARM-UP SWEEP: Pre-populate background MassSnapshotCache for active caravan pawns
-            OverHaulersLifecycle.WarmupActivePawns();
-
-            // BREAKPOINT ANCHOR: Complete deferred calibration operation (triggers atomic report emission)
-            OHLog.ActivityJournal.CompleteDeferredOperation("Calibration");
+            SpeciesBaselineCalibration.MarkWorldLoadSweepCompleted();
         }
 
         /// <summary>

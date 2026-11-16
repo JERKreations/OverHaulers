@@ -359,16 +359,20 @@ namespace OverHaulers
                 pooledXRayBuilder.AppendLine("OverHaulers_XRay_Header".Translate(subject.BodyDef.defName, template.PartCount).ToString().Colorize(Color.cyan));
                 pooledXRayBuilder.AppendLine();
 
-                float budgetTorso = settings.GetBudget(PartType.CorePart);
-                float budgetArm = settings.GetBudget(PartType.ManipulationPart);
-                float budgetLeg = settings.GetBudget(PartType.MovingPart);
-                float totalBudget = budgetTorso + budgetArm + budgetLeg;
+                PartCounts counts = template.Counts;
+                SolverConfiguration solverConfig = settings.ToSolverConfiguration();
+                SystemicEvaluationContext.ResolveNormalizedBudgets(
+                    in counts,
+                    in solverConfig,
+                    out float normTorso,
+                    out float normArm,
+                    out float normLeg);
 
                 pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgets".Translate().ToString());
                 pooledXRayBuilder.AppendLine("OverHaulers_XRay_RegionalBudgetsValues".Translate(
-                    ReportFormatter.FormatPercentage(budgetTorso / totalBudget, true),
-                    ReportFormatter.FormatPercentage(budgetArm / totalBudget, true),
-                    ReportFormatter.FormatPercentage(budgetLeg / totalBudget, true)
+                    ReportFormatter.FormatPercentage(normTorso, true),
+                    ReportFormatter.FormatPercentage(normArm, true),
+                    ReportFormatter.FormatPercentage(normLeg, true)
                 ).ToString());
                 pooledXRayBuilder.AppendLine();
 

@@ -473,7 +473,7 @@ namespace OverHaulers
             float cumulativeWeightedEfficiency = 0f;
             float totalRelativeWeight = 0f;
             bool containsProstheticComponent = false;
-            float highestProstheticEfficiency = 0f;
+            float highestProstheticEfficiency = -1f;
             string dominantProstheticName = string.Empty;
             Color dominantProstheticColor = Color.white;
 
@@ -521,7 +521,7 @@ namespace OverHaulers
                 {
                     float healthLoss = 1.0f - subModel.HealthFraction;
                     float athleticDifference = context.AthleticMultiplier - 1.0f;
-                    effectiveEfficiency = 1.0f + athleticDifference - healthLoss;
+                    effectiveEfficiency = Math.Max(0f, 1.0f + athleticDifference - healthLoss);
                 }
 
                 cumulativeWeightedEfficiency += effectiveEfficiency * subPartWeight;

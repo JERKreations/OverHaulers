@@ -41,7 +41,12 @@ namespace OverHaulers
             MethodInfo postfix = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Postfix));
             MethodInfo finalizer = AccessTools.Method(typeof(HarmonySetup), nameof(MassUtility_Capacity_Finalizer));
 
-            harmony.Patch(targetMethod, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix), finalizer: new HarmonyMethod(finalizer));
+            harmony.Patch(
+                targetMethod,
+                prefix: new HarmonyMethod(prefix),
+                postfix: new HarmonyMethod(postfix) { priority = Priority.Last },
+                finalizer: new HarmonyMethod(finalizer)
+            );
         }
 
         #endregion
@@ -63,6 +68,7 @@ namespace OverHaulers
         /// <param name="p">The pawn whose mass capacity is being evaluated.</param>
         /// <param name="__result">The running capacity calculation result, modified by our anatomical offset.</param>
         /// <param name="explanation">A StringBuilder containing the explanation for the calculation, if requested.</param>
+        [HarmonyPriority(Priority.Last)]
         private static void MassUtility_Capacity_Postfix(Pawn p, ref float __result, StringBuilder explanation)
         {
             if (p == null) return;
@@ -133,7 +139,8 @@ namespace OverHaulers
 
         /// <summary>
         /// Synchronizes the numeric capacity entry written into vanilla's caravan formation explanation buffer.
-        /// Scans character indices backwards directly within the StringBuilder without allocating intermediate strings.
+        /// Scans character indices backwards directly within the StringBuilder without allocating intermediate strings,
+        /// validating left/right label delimiters to avoid prefix collisions on numbered pawns.
         /// </summary>
         /// <param name="explanation">The explanation StringBuilder being populated by vanilla.</param>
         /// <param name="pawn">The pawn entity whose mass capacity was updated.</param>
@@ -143,13 +150,23 @@ namespace OverHaulers
             if (explanation == null || pawn == null || explanation.Length == 0) return;
 
             string pawnLabel = pawn.LabelShortCap.ToString();
+            if (string.IsNullOrEmpty(pawnLabel)) return;
+
             int labelLen = pawnLabel.Length;
             int sbLen = explanation.Length;
 
-            // 1. Scan backwards to locate the pawn's label without allocating explanation.ToString()
+            // 1. Scan backwards to locate an exact pawn label entry followed immediately by ':'
             int pawnIndex = -1;
-            for (int i = sbLen - labelLen; i >= 0; i--)
+            for (int i = sbLen - labelLen - 1; i >= 0; i--)
             {
+                if (explanation[i + labelLen] != ':') continue;
+
+                // Validate left boundary: start of buffer, newline, or vanilla "- " list bullet
+                bool validLeftBoundary = (i == 0) ||
+                                         (explanation[i - 1] == '\n') ||
+                                         (i >= 2 && explanation[i - 2] == '-' && explanation[i - 1] == ' ');
+                if (!validLeftBoundary) continue;
+
                 bool match = true;
                 for (int j = 0; j < labelLen; j++)
                 {
@@ -168,21 +185,9 @@ namespace OverHaulers
 
             if (pawnIndex < 0) return;
 
-            // 2. Scan forward from the label to find the colon separator
-            int colonIndex = -1;
-            for (int i = pawnIndex + labelLen; i < sbLen; i++)
-            {
-                if (explanation[i] == ':')
-                {
-                    colonIndex = i;
-                    break;
-                }
-                if (explanation[i] == '\n') break;
-            }
+            int colonIndex = pawnIndex + labelLen;
 
-            if (colonIndex < 0) return;
-
-            // 3. Scan for the end of the line (or end of buffer)
+            // 2. Scan for the end of the line (or end of buffer)
             int lineEndIndex = sbLen;
             for (int i = colonIndex + 1; i < sbLen; i++)
             {
@@ -193,7 +198,7 @@ namespace OverHaulers
                 }
             }
 
-            // 4. In-place replacement of the numeric substring
+            // 3. In-place replacement of the numeric substring
             int oldLength = lineEndIndex - (colonIndex + 1);
             if (oldLength > 0)
             {
@@ -201,58 +206,6 @@ namespace OverHaulers
             }
 
             explanation.Insert(colonIndex + 1, " " + finalCapacity.ToStringMassOffset());
-        }
-
-        /// <summary>
-        /// Performs an allocation-free reverse search through the StringBuilder for a target substring.
-        /// </summary>
-        /// <param name="sb">The StringBuilder to search within.</param>
-        /// <param name="target">The substring to search for.</param>
-        /// <returns>The index of the last occurrence of the target substring, or -1 if not found.</returns>
-        private static int LastIndexOfSubstring(StringBuilder sb, string target)
-        {
-            if (sb == null || string.IsNullOrEmpty(target) || sb.Length < target.Length) return -1;
-
-            int targetLen = target.Length;
-            int startIdx = sb.Length - targetLen;
-
-            for (int i = startIdx; i >= 0; i--)
-            {
-                bool match = true;
-                for (int j = 0; j < targetLen; j++)
-                {
-                    if (sb[i + j] != target[j])
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-
-                if (match) return i;
-            }
-
-            return -1;
-        }
-
-        /// <summary>
-        /// Scans forward from a startIndex in the StringBuilder to find the nearest newline character or end of buffer.
-        /// </summary>
-        /// <param name="sb">The StringBuilder to search within.</param>
-        /// <param name="startIndex">The index to start scanning from.</param>
-        /// <returns>The index of the nearest newline character or the end of the buffer if none is found.</returns>
-        private static int IndexOfLineEnd(StringBuilder sb, int startIndex)
-        {
-            if (sb == null) return 0;
-
-            for (int i = startIndex; i < sb.Length; i++)
-            {
-                if (sb[i] == '\r' || sb[i] == '\n')
-                {
-                    return i;
-                }
-            }
-
-            return sb.Length;
         }
 
         #endregion

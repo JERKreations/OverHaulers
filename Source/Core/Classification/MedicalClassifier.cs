@@ -430,8 +430,8 @@ namespace OverHaulers
         /// <summary>
         /// Safely reads Pawn.BodySize, shielding against third-party Harmony patches on the vanilla getter
         /// (e.g. gene mods) that can throw for pawn states they don't expect (test-bench dummies, etc.).
-        /// Falls back to the race's own default body size rather than a flat 1.0 so non-human-scale races
-        /// (mechs, animals, xenotypes) don't get silently treated as human-sized while the patch is broken.
+        /// Attempts the live getter inside a ring-buffered guard before falling back to race/life-stage defaults
+        /// so clean race BodySize patches stay synchronized with <see cref="MassUtility.Capacity"/>.
         /// </summary>
         /// <param name="pawn">The pawn whose body size is to be safely evaluated.</param>
         /// <returns>The safe body size for the given pawn, considering potential third-party Harmony patches and race-specific defaults.</returns>
@@ -440,6 +440,7 @@ namespace OverHaulers
             if (pawn == null) return 1.0f;
 
             float raceFallback = (pawn.RaceProps != null && pawn.RaceProps.baseBodySize > 0f) ? pawn.RaceProps.baseBodySize : 1.0f;
+            float fallback = raceFallback;
 
             // BREAKPOINT ANCHOR: Headless Sandbox Dummy Shield
             // Evaluates native body size directly to prevent broken third-party postfixes
@@ -447,32 +448,36 @@ namespace OverHaulers
             if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
             {
                 float lifeStageFactor = pawn.ageTracker?.CurLifeStage?.bodySizeFactor ?? 1f;
-                return raceFallback * lifeStageFactor;
+                fallback = raceFallback * lifeStageFactor;
             }
 
-            // 1-Cycle Fast-Path: If no pawn in the session has ever thrown a BodySize exception, bypass immediately
+            // 1-Cycle Fast-Path: If this pawn ID previously threw on BodySize access, bypass immediately
             if (IsKnownBrokenBodySize(pawn.thingIDNumber))
             {
-                return raceFallback;
+                return fallback;
             }
 
             try
             {
-                return pawn.BodySize;
+                float bodySize = pawn.BodySize;
+                if (bodySize > 0f)
+                {
+                    return bodySize;
+                }
             }
             catch (Exception ex)
             {
                 // Record into the bounded circular buffer to avoid repeated exception handling
                 RecordBrokenBodySize(pawn.thingIDNumber);
 
-                if (UnityData.IsInMainThread)
+                if (UnityData.IsInMainThread && pawn.thingIDNumber != HeadlessPawnShell.HeadlessPawnThingId)
                 {
                     string safeLabel = pawn.def?.label ?? "Pawn";
                     OHLog.Warn("Integration.BodySizeAccess", ex, $"Failed to access body size for pawn ID {pawn.thingIDNumber}: {safeLabel}");
                 }
             }
 
-            return raceFallback;
+            return fallback;
         }
 
         /// <summary>
@@ -553,6 +558,9 @@ namespace OverHaulers
                     {
                         return vanillaEff / hpFraction;
                     }
+
+                    // At <= 1% HP, avoid magnifying division error or double-multiplying hpFraction in Sweep 1
+                    return defaultRatedEfficiency;
                 }
 
                 return vanillaEff;

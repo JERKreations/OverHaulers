@@ -54,6 +54,8 @@ namespace OverHaulers
             list.Add(new SelfCheckDef(GroupTopology, "OverHaulers_SelfCheck_Check_TopologyIntegrity", CheckTopologyIntegrity));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_SolverDeterminism", CheckSolverDeterminism));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_WoundsNeverIncrease", CheckWoundsNeverIncrease));
+            list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_DualLimbConservation", CheckDualLimbBudgetConservation));
+            list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_ProstheticDamageAndAthletics", CheckProstheticDamageAndAthletics));
         }
 
         #endregion

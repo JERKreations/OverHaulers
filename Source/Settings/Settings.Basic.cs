@@ -24,6 +24,9 @@ namespace OverHaulers
         public float anatomyWeightArm = CoreDefaults.AnatomyWeightArm;
         public float anatomyWeightLeg = CoreDefaults.AnatomyWeightLeg;
 
+        public float missingArmsTorsoShare = CoreDefaults.MissingArmsTorsoShare;
+        public float missingLegsTorsoShare = CoreDefaults.MissingLegsTorsoShare;
+
         /// <summary>
         /// Retrieves the budget value for the specified body part type.
         /// </summary>
@@ -67,6 +70,8 @@ namespace OverHaulers
             anatomyWeightTorso = CoreDefaults.AnatomyWeightTorso;
             anatomyWeightArm = CoreDefaults.AnatomyWeightArm;
             anatomyWeightLeg = CoreDefaults.AnatomyWeightLeg;
+            missingArmsTorsoShare = CoreDefaults.MissingArmsTorsoShare;
+            missingLegsTorsoShare = CoreDefaults.MissingLegsTorsoShare;
             NotifyValuesReset();
         }
 
@@ -74,6 +79,9 @@ namespace OverHaulers
 
         #region 4. [SEC-01..02] SERIALIZATION & SANITISATION
 
+        /// <summary>
+        /// Exposes the basic settings for serialization using the Scribe system.
+        /// </summary>
         private void ExposeBasic()
         {
             Scribe_Values.Look(ref enableProsthetics, "enableProsthetics", CoreDefaults.EnableProsthetics);
@@ -87,8 +95,15 @@ namespace OverHaulers
             Scribe_Values.Look(ref anatomyWeightTorso, "anatomyWeightTorso", CoreDefaults.AnatomyWeightTorso);
             Scribe_Values.Look(ref anatomyWeightArm, "anatomyWeightArm", CoreDefaults.AnatomyWeightArm);
             Scribe_Values.Look(ref anatomyWeightLeg, "anatomyWeightLeg", CoreDefaults.AnatomyWeightLeg);
+
+            Scribe_Values.Look(ref missingArmsTorsoShare, "missingArmsTorsoShare", CoreDefaults.MissingArmsTorsoShare);
+            Scribe_Values.Look(ref missingLegsTorsoShare, "missingLegsTorsoShare", CoreDefaults.MissingLegsTorsoShare);
         }
 
+        /// <summary>
+        /// Sanitizes and applies the basic settings from the provided solver configuration. This includes scaling factors, body part weights, and missing part shares.
+        /// </summary>
+        /// <param name="solver">The solver configuration containing the basic settings to be sanitized and applied.</param>
         private void SanitizeBasic(in SolverConfiguration solver)
         {
             prostheticScaling = solver.ProstheticScaling;
@@ -98,6 +113,33 @@ namespace OverHaulers
             anatomyWeightTorso = solver.BudgetCorePart;
             anatomyWeightArm = solver.BudgetManipulationPart;
             anatomyWeightLeg = solver.BudgetMovingPart;
+            NormalizeLoadedBodyWeights();
+
+            missingArmsTorsoShare = solver.MissingArmsTorsoShare;
+            missingLegsTorsoShare = solver.MissingLegsTorsoShare;
+        }
+
+        /// <summary>
+        /// Normalizes the loaded body part weights to ensure they sum to 1. If the sum is too small or zero, default values are used.
+        /// </summary>
+        private void NormalizeLoadedBodyWeights()
+        {
+            float sum = anatomyWeightTorso + anatomyWeightArm + anatomyWeightLeg;
+            if (sum <= 0.0001f)
+            {
+                anatomyWeightTorso = CoreDefaults.AnatomyWeightTorso;
+                anatomyWeightArm = CoreDefaults.AnatomyWeightArm;
+                anatomyWeightLeg = CoreDefaults.AnatomyWeightLeg;
+                return;
+            }
+
+            if (System.Math.Abs(sum - 1.0f) > 0.0001f)
+            {
+                anatomyWeightTorso = (float)System.Math.Round(anatomyWeightTorso / sum, 2, System.MidpointRounding.ToEven);
+                anatomyWeightArm = (float)System.Math.Round(anatomyWeightArm / sum, 2, System.MidpointRounding.ToEven);
+                anatomyWeightLeg = (float)System.Math.Round(1.0f - anatomyWeightTorso - anatomyWeightArm, 2, System.MidpointRounding.ToEven);
+                if (anatomyWeightLeg < 0f) anatomyWeightLeg = 0f;
+            }
         }
 
         #endregion

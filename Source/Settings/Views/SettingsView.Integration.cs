@@ -15,6 +15,11 @@ namespace OverHaulers
     {
         #region 1. CANONICAL TAB ENTRY POINT
 
+        /// <summary>
+        /// Draws the contents of the Integration tab in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the tab contents in.</param>
+        /// <param name="settings">The current settings.</param>
         public static void DrawIntegrationTabContents(ref SettingsLayout ui, Settings settings)
         {
             // 0. Section Header & Reset Action
@@ -54,6 +59,11 @@ namespace OverHaulers
 
         #region 2. ACTIVE STAT BANNER & VERIFICATION ENGINE
 
+        /// <summary>
+        /// Draws the verification guide card in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the card in.</param>
+        /// <param name="guide">The verification guide containing the information to display.</param>
         private static void DrawActiveStatBanner(ref SettingsLayout ui, Settings settings)
         {
             string activeStatName = IntegrationPipeline.ActiveStatOwner;
@@ -74,6 +84,11 @@ namespace OverHaulers
             ui.Y += 32f;
         }
 
+        /// <summary>
+        /// Draws the verification guide card in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the card in.</param>
+        /// <param name="guide">The verification guide containing the information to display.</param>
         private struct VerificationGuide
         {
             public string StatusTitle;
@@ -83,6 +98,11 @@ namespace OverHaulers
             public string ConfirmLine;
         }
 
+        /// <summary>
+        /// Builds a verification guide based on the current integration settings and active stat.
+        /// </summary>
+        /// <param name="settings">The current settings.</param>
+        /// <returns>A VerificationGuide containing the appropriate messages and colors.</returns>
         private static VerificationGuide BuildVerificationGuide(Settings settings)
         {
             StatDef stat = IntegrationPipeline.ActiveMassCapacityStat;
@@ -98,7 +118,7 @@ namespace OverHaulers
             string key = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
             bool isForcedStandalone = (key == IntegrationPipeline.PresentationKeyNative);
             bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
-            bool hasExternalPatches = IntegrationPipeline.DiscoveredPatches.Count > 0;
+            bool hasExternalPatches = IntegrationPipeline.HasAnyActiveXmlProfile || IntegrationPipeline.DiscoveredPatches.Count > 0;
 
             // Scenario C: Side-by-Side (Forced Standalone with external patches active)
             if (isForcedStandalone && hasExternalPatches)
@@ -150,6 +170,11 @@ namespace OverHaulers
             };
         }
 
+        /// <summary>
+        /// Draws a verification guide card in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the card in.</param>
+        /// <param name="guide">The verification guide containing the information to display.</param>
         private static void DrawVerificationGuideCard(ref SettingsLayout ui, in VerificationGuide guide)
         {
             float padding = SettingsViewUtilities.PanelPadding;
@@ -193,9 +218,12 @@ namespace OverHaulers
             curY += 22f;
 
             // 3 Verification Lines
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay, "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear, "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm, "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay,
+                "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear,
+                "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
+            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm,
+                "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
 
             Text.Font = GameFont.Small;
             GUI.color = origColor;
@@ -203,7 +231,20 @@ namespace OverHaulers
             ui.Y += cardHeight + 10f;
         }
 
-        private static void DrawVerificationLine(float startX, ref float curY, float prefixWidth, float valueWidth, float lineHeight, string prefix, string text)
+        /// <summary>
+        /// Draws a single verification line in the settings UI, including the prefix and the corresponding text.
+        /// </summary>
+        /// <param name="startX">The starting X coordinate for the line.</param>
+        /// <param name="curY">The current Y coordinate, passed by reference and updated after drawing.</param>
+        /// <param name="prefixWidth">The width allocated for the prefix label.</param>
+        /// <param name="valueWidth">The width allocated for the value text.</param>
+        /// <param name="lineHeight">The height of the line.</param>
+        /// <param name="prefix">The prefix text to display.</param>
+        /// <param name="text">The value text to display.</param>
+        private static void DrawVerificationLine(
+            float startX, ref float curY,
+            float prefixWidth, float valueWidth, float lineHeight,
+            string prefix, string text)
         {
             Rect prefixRect = new Rect(startX, curY, prefixWidth, lineHeight);
             Rect textRect = new Rect(startX + prefixWidth, curY, valueWidth, lineHeight);
@@ -220,6 +261,11 @@ namespace OverHaulers
 
         #region 3. TOP-LEVEL MODE SELECTION (AUTO VS STANDALONE)
 
+        /// <summary>
+        /// Draws the top-level mode selection section in the settings UI, allowing the user to choose between automatic and standalone modes.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawTopLevelModeSelection(ref SettingsLayout ui, Settings settings)
         {
             string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
@@ -255,6 +301,11 @@ namespace OverHaulers
 
         #region 4. DECLARATIVE XML PROFILES
 
+        /// <summary>
+        /// Draws the XML profiles section in the settings UI, including built-in and third-party profiles.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawXmlProfilesSection(ref SettingsLayout ui, Settings settings)
         {
             string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
@@ -306,6 +357,13 @@ namespace OverHaulers
             ui.Gap(SettingsViewUtilities.ControlGap);
         }
 
+        /// <summary>
+        /// Draws the UI entry for a single XML profile, including its selection radio button and status badge.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="def">The XML profile definition.</param>
+        /// <param name="currentKey">The currently selected presentation key.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawXmlProfileEntry(ref SettingsLayout ui, MassCapacityStatProfileDef def, string currentKey, Settings settings)
         {
             bool isActive = def.IsValidAndActive(out _);
@@ -363,6 +421,11 @@ namespace OverHaulers
 
         #region 5. DYNAMIC BYTECODE DISCOVERIES (CIL SCANNER)
 
+        /// <summary>
+        /// Draws the CIL scanning section in the settings UI, including scan status and discovered patches.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawCilScanningSection(ref SettingsLayout ui, Settings settings)
         {
             string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
@@ -405,6 +468,13 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Draws the UI for a discovered CIL patch, including its candidate stats and selection options.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="patch">The discovered patch information.</param>
+        /// <param name="currentKey">The currently selected presentation key.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawCilDiscoveredPatch(ref SettingsLayout ui, DiscoveredPatchInfo patch, string currentKey, Settings settings)
         {
             Rect patchHeaderRect = new Rect(ui.X + 8f, ui.Y, ui.Width - 8f, 22f);
@@ -455,6 +525,11 @@ namespace OverHaulers
 
         #region 6. PRIVATE UI HELPERS
 
+        /// <summary>
+        /// Draws an empty group note in the settings UI.
+        /// </summary>
+        /// <param name="ui">The settings layout reference.</param>
+        /// <param name="note">The note text to display.</param>
         private static void DrawEmptyGroupNote(ref SettingsLayout ui, string note)
         {
             Rect rect = new Rect(ui.X + 12f, ui.Y, ui.Width - 12f, 20f);
@@ -467,6 +542,10 @@ namespace OverHaulers
             ui.Y += 22f;
         }
 
+        /// <summary>
+        /// Resolves the badge text for the current stat presentation based on its source.
+        /// </summary>
+        /// <returns>The resolved badge text for the current stat presentation.</returns>
         private static string ResolveStatPresentationBadge()
         {
             if (!IntegrationPipeline.IsForeignStatAdopted)
@@ -496,18 +575,26 @@ namespace OverHaulers
             return "OverHaulers_Badge_AdoptedStat".Translate().ToString();
         }
 
+        /// <summary>
+        /// Draws a custom radio button row with a label.
+        /// </summary>
+        /// <param name="rect">The rectangle area for the row.</param>
+        /// <param name="label">The label text for the row.</param>
+        /// <param name="chosen">Whether the radio button is selected.</param>
+        /// <returns>True if the radio button or row was clicked, otherwise false.</returns>
         private static bool DrawCustomRadioRow(Rect rect, string label, bool chosen)
         {
             float radioSize = 20f;
             Rect circleRect = new Rect(rect.x, rect.y + (rect.height - radioSize) / 2f, radioSize, radioSize);
             Rect labelRect = new Rect(rect.x + radioSize + 6f, rect.y, rect.width - radioSize - 6f, rect.height);
 
-            bool clicked = Widgets.RadioButton(circleRect.x, circleRect.y, chosen) || Widgets.ButtonInvisible(rect);
+            bool radioClicked = Widgets.RadioButton(circleRect.x, circleRect.y, chosen);
+            bool rowClicked = Widgets.ButtonInvisible(rect);
 
             Text.Font = GameFont.Small;
             Widgets.Label(labelRect, label);
 
-            return clicked;
+            return radioClicked || rowClicked;
         }
 
         #endregion

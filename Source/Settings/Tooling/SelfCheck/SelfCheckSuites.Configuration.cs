@@ -62,6 +62,8 @@ namespace OverHaulers
             ExpectDefaultInRange("AnatomyWeightTorso", CoreDefaults.AnatomyWeightTorso, pMin, pMax);
             ExpectDefaultInRange("AnatomyWeightArm", CoreDefaults.AnatomyWeightArm, pMin, pMax);
             ExpectDefaultInRange("AnatomyWeightLeg", CoreDefaults.AnatomyWeightLeg, pMin, pMax);
+            ExpectDefaultInRange("MissingArmsTorsoShare", CoreDefaults.MissingArmsTorsoShare, pMin, pMax);
+            ExpectDefaultInRange("MissingLegsTorsoShare", CoreDefaults.MissingLegsTorsoShare, pMin, pMax);
 
             ExpectDefaultInRange("TorsoPositiveBreathing", CoreDefaults.TorsoPositiveBreathing, pMin, pMax);
             ExpectDefaultInRange("TorsoPositiveBlood", CoreDefaults.TorsoPositiveBlood, pMin, pMax);

@@ -74,8 +74,23 @@ namespace OverHaulers
 
         private static readonly Dictionary<ThingDef, CalibrationEntry> speciesCache = new Dictionary<ThingDef, CalibrationEntry>(128);
         private static readonly List<string> pendingSweepNoticeSpecies = new List<string>(64);
+        private static readonly List<ThingDef> pendingRetryDefs = new List<ThingDef>(32);
         private static readonly object calibrationLock = new object();
         private static bool worldLoadSweepStarted;
+
+        private static ThingDef sentinelPrimaryDef;
+        private static float sentinelPrimaryScalar;
+        private static ThingDef sentinelAnimalDef;
+        private static float sentinelAnimalScalar;
+
+        /// <summary>True if any species failed pre-finalization and awaits adaptive retry.</summary>
+        public static bool HasPendingWorldLoadEntries
+        {
+            get
+            {
+                lock (calibrationLock) return pendingRetryDefs.Count > 0;
+            }
+        }
 
         /// <summary>Raised after a world-load calibration sweep so dependent previews can refresh.</summary>
         public static event Action WorldLoadSweepCompleted;
@@ -199,7 +214,12 @@ namespace OverHaulers
         /// Classifies a dummy-pawn evaluation result into a cache entry, applying strongly-typed fallback rules.
         /// Single source of truth for this mapping - used by both PrecalibrateDef and ResolveSpeciesBaseline.
         /// </summary>
-        private static CalibrationEntry ClassifyDummyResult(ThingDef raceDef, bool success, float dummyScalar, string errorDetail)
+        private static CalibrationEntry ClassifyDummyResult(
+            ThingDef raceDef,
+            bool success,
+            float dummyScalar,
+            string errorDetail,
+            bool finalizeWorldLoad = false)
         {
             if (!PawnDataRegistry.IsSpeciesCaravanCapable(raceDef))
             {
@@ -215,7 +235,7 @@ namespace OverHaulers
 
             if (!success || dummyScalar <= 0f)
             {
-                if (worldLoadSweepStarted)
+                if (worldLoadSweepStarted || finalizeWorldLoad)
                 {
                     CountEmergencyFallback++;
                     string failureDetail = !string.IsNullOrEmpty(errorDetail)
@@ -237,11 +257,15 @@ namespace OverHaulers
                     ? $"Dummy evaluation failed: {errorDetail}. Operating on testing fallback pending the world-load sweep."
                     : "Pristine dummy returned 0 capacity. Operating on testing fallback pending the world-load sweep.";
 
-                // Track for consolidated "Don't Panic" sweep notice
+                // Track for consolidated "Don't Panic" sweep notice and incremental adaptive retries
                 string label = raceDef.label ?? raceDef.defName;
                 if (!pendingSweepNoticeSpecies.Contains(label))
                 {
                     pendingSweepNoticeSpecies.Add(label);
+                }
+                if (!pendingRetryDefs.Contains(raceDef))
+                {
+                    pendingRetryDefs.Add(raceDef);
                 }
 
                 return new CalibrationEntry
@@ -268,7 +292,10 @@ namespace OverHaulers
         /// The slow dummy evaluation runs outside <c>calibrationLock</c> so background readers are never blocked behind it;
         /// only the cache lookup and the publication of the result are locked.
         /// </summary>
-        private static CalibrationEntry ResolveEntryOnMainThread(ThingDef raceDef, bool retryPendingWorldLoad = false)
+        private static CalibrationEntry ResolveEntryOnMainThread(
+            ThingDef raceDef,
+            bool retryPendingWorldLoad = false,
+            bool finalizeWorldLoad = false)
         {
             lock (calibrationLock)
             {
@@ -287,7 +314,7 @@ namespace OverHaulers
                 if (!exists || (retryPendingWorldLoad && entry.Status == CalibrationStatus.PendingWorldLoadSweep))
                 {
                     if (exists) CountTestingFallback--;
-                    entry = ClassifyDummyResult(raceDef, success, scalar, errorDetail);
+                    entry = ClassifyDummyResult(raceDef, success, scalar, errorDetail, finalizeWorldLoad);
                     speciesCache[raceDef] = entry;
                 }
 
@@ -428,6 +455,156 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Incrementally retries only species that previously landed in <see cref="CalibrationStatus.PendingWorldLoadSweep"/>.
+        /// Stops immediately once all pending species resolve cleanly.
+        /// </summary>
+        /// <param name="finalizeWorldLoad">If true, promotes any remaining failures to EmergencyFailsafe and logs the final summary.</param>
+        /// <returns>The number of species retried in this pass.</returns>
+        public static int RetryPendingWorldLoadEntries(bool finalizeWorldLoad = false)
+        {
+            if (!UnityData.IsInMainThread)
+                throw new InvalidOperationException("Species calibration retries must run on the main thread.");
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            List<ThingDef> batch;
+            int totalCached;
+
+            lock (calibrationLock)
+            {
+                if (finalizeWorldLoad) worldLoadSweepStarted = true;
+                pendingSweepNoticeSpecies.Clear();
+
+                if (pendingRetryDefs.Count == 0)
+                {
+                    if (finalizeWorldLoad) WorldLoadSweepCompleted?.Invoke();
+                    return 0;
+                }
+
+                batch = new List<ThingDef>(pendingRetryDefs);
+                pendingRetryDefs.Clear();
+            }
+
+            int retried = 0;
+            for (int i = 0; i < batch.Count; i++)
+            {
+                ThingDef def = batch[i];
+                if (def == null) continue;
+
+                ResolveEntryOnMainThread(def, retryPendingWorldLoad: true, finalizeWorldLoad: finalizeWorldLoad);
+                retried++;
+            }
+
+            watch.Stop();
+
+            bool noPendingRemaining;
+            lock (calibrationLock)
+            {
+                noPendingRemaining = pendingRetryDefs.Count == 0;
+                totalCached = speciesCache.Count;
+            }
+
+            if (retried > 0 && (finalizeWorldLoad || noPendingRemaining))
+            {
+                LogBatchSweepSummary(watch.Elapsed.TotalMilliseconds, totalCached);
+            }
+
+            if (finalizeWorldLoad || noPendingRemaining)
+            {
+                WorldLoadSweepCompleted?.Invoke();
+            }
+
+            return retried;
+        }
+
+        /// <summary>
+        /// Captures up to two resolved sentinel scalars (one humanlike, one animal) right after session start
+        /// so a later verification probe can detect external mods that swap in real carry-weight data after tick 0.
+        /// </summary>
+        public static void CaptureSentinelSnapshot()
+        {
+            lock (calibrationLock)
+            {
+                sentinelPrimaryDef = null;
+                sentinelPrimaryScalar = 0f;
+                sentinelAnimalDef = null;
+                sentinelAnimalScalar = 0f;
+
+                if (ThingDefOf.Human != null &&
+                    speciesCache.TryGetValue(ThingDefOf.Human, out CalibrationEntry humanEntry) &&
+                    humanEntry.Status == CalibrationStatus.Resolved)
+                {
+                    sentinelPrimaryDef = ThingDefOf.Human;
+                    sentinelPrimaryScalar = humanEntry.Scalar;
+                }
+
+                foreach (KeyValuePair<ThingDef, CalibrationEntry> kvp in speciesCache)
+                {
+                    if (kvp.Value.Status != CalibrationStatus.Resolved || kvp.Key.race == null) continue;
+
+                    if (sentinelPrimaryDef == null)
+                    {
+                        sentinelPrimaryDef = kvp.Key;
+                        sentinelPrimaryScalar = kvp.Value.Scalar;
+                    }
+                    else if (sentinelAnimalDef == null && kvp.Key.race.Animal)
+                    {
+                        sentinelAnimalDef = kvp.Key;
+                        sentinelAnimalScalar = kvp.Value.Scalar;
+                    }
+
+                    if (sentinelPrimaryDef != null && sentinelAnimalDef != null) break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Re-evaluates the captured sentinel species to detect silent external carry-weight shifts after tick 0.
+        /// </summary>
+        public static bool HasSentinelDrifted()
+        {
+            ThingDef primaryDef;
+            float primaryPrev;
+            ThingDef animalDef;
+            float animalPrev;
+
+            lock (calibrationLock)
+            {
+                primaryDef = sentinelPrimaryDef;
+                primaryPrev = sentinelPrimaryScalar;
+                animalDef = sentinelAnimalDef;
+                animalPrev = sentinelAnimalScalar;
+            }
+
+            if (primaryDef != null && primaryPrev > 0f &&
+                EvaluateDummyPawn(primaryDef, out float currentPrimary, out _) &&
+                Math.Abs(currentPrimary - primaryPrev) > 0.01f)
+            {
+                return true;
+            }
+
+            if (animalDef != null && animalPrev > 0f &&
+                EvaluateDummyPawn(animalDef, out float currentAnimal, out _) &&
+                Math.Abs(currentAnimal - animalPrev) > 0.01f)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Marks the world-load verification window complete and notifies listeners when tick-0 calibration already succeeded.
+        /// </summary>
+        public static void MarkWorldLoadSweepCompleted()
+        {
+            lock (calibrationLock)
+            {
+                worldLoadSweepStarted = true;
+            }
+            WorldLoadSweepCompleted?.Invoke();
+        }
+
+        /// <summary>
         /// Pre-calibrates an archetype species directly from its ThingDef during batch sweeps.
         /// Guaranteed to return a non-negative scalar (>= 0.0f).
         /// </summary>
@@ -500,6 +677,11 @@ namespace OverHaulers
             {
                 speciesCache.Clear();
                 pendingSweepNoticeSpecies.Clear();
+                pendingRetryDefs.Clear();
+                sentinelPrimaryDef = null;
+                sentinelPrimaryScalar = 0f;
+                sentinelAnimalDef = null;
+                sentinelAnimalScalar = 0f;
                 worldLoadSweepStarted = false;
                 CountDummySuccess = 0;
                 CountTestingFallback = 0;

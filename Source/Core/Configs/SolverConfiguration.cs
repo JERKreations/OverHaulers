@@ -58,6 +58,9 @@ namespace OverHaulers
         public readonly float BudgetManipulationPart;
         public readonly float BudgetMovingPart;
 
+        public readonly float MissingArmsTorsoShare;
+        public readonly float MissingLegsTorsoShare;
+
         #endregion
 
         #region 2. LIFECYCLE: CONSTRUCTOR
@@ -81,7 +84,9 @@ namespace OverHaulers
             float torsoDefBreathe, float torsoDefBlood, float torsoDefMove, float torsoDefManip,
             float armDefBreathe,   float armDefBlood,   float armDefMove,   float armDefManip,
             float legDefBreathe,   float legDefBlood,   float legDefMove,   float legDefManip,
-            float budgetCore,      float budgetManip,   float budgetMove)
+            float budgetCore,      float budgetManip,   float budgetMove,
+            float missingArmsTorsoShare = CoreDefaults.MissingArmsTorsoShare,
+            float missingLegsTorsoShare = CoreDefaults.MissingLegsTorsoShare)
         {
             ConfigurablePercentileFloor = configurablePercentileFloor;
             EnableProsthetics = enableProsthetics;
@@ -131,6 +136,9 @@ namespace OverHaulers
             BudgetCorePart = budgetCore;
             BudgetManipulationPart = budgetManip;
             BudgetMovingPart = budgetMove;
+
+            MissingArmsTorsoShare = missingArmsTorsoShare;
+            MissingLegsTorsoShare = missingLegsTorsoShare;
         }
 
         #endregion
@@ -185,7 +193,9 @@ namespace OverHaulers
                 ConfigBounds.ClampPercent(LegDeficitManipulation, CoreDefaults.LegDeficitManipulation, ref c),
                 ConfigBounds.ClampPercent(BudgetCorePart, CoreDefaults.AnatomyWeightTorso, ref c),
                 ConfigBounds.ClampPercent(BudgetManipulationPart, CoreDefaults.AnatomyWeightArm, ref c),
-                ConfigBounds.ClampPercent(BudgetMovingPart, CoreDefaults.AnatomyWeightLeg, ref c));
+                ConfigBounds.ClampPercent(BudgetMovingPart, CoreDefaults.AnatomyWeightLeg, ref c),
+                ConfigBounds.ClampPercent(MissingArmsTorsoShare, CoreDefaults.MissingArmsTorsoShare, ref c),
+                ConfigBounds.ClampPercent(MissingLegsTorsoShare, CoreDefaults.MissingLegsTorsoShare, ref c));
 
             wasModified = c;
             return result;

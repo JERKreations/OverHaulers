@@ -211,21 +211,33 @@ namespace OverHaulers
             headlessPawn.health.RestorePart(part, null, checkStateChange: false);
             PruneRemovedConditions();
 
-            Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
-            if (appliedHediff != null)
+            bool added = false;
+            try
             {
-                headlessPawn.health.AddHediff(appliedHediff, part);
+                Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
+                if (appliedHediff != null)
+                {
+                    headlessPawn.health.AddHediff(appliedHediff, part);
+                    added = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                OHLog.Warn("TestBench.SimulateReplacement", ex, $"Could not simulate replacement '{hediff.defName}' on '{part.Label}'.");
             }
             PruneRemovedConditions();
 
-            ReplacementDeltas[part] = new SimulatedModification
+            if (added)
             {
-                OpType = SimulatedOpType.InstallReplacement,
-                SourceRecipe = recipe,
-                TargetHediff = hediff,
-                DisplayLabel = label,
-                Efficiency = efficiency
-            };
+                ReplacementDeltas[part] = new SimulatedModification
+                {
+                    OpType = SimulatedOpType.InstallReplacement,
+                    SourceRecipe = recipe,
+                    TargetHediff = hediff,
+                    DisplayLabel = label,
+                    Efficiency = efficiency
+                };
+            }
 
             DirtyHealthCache();
         }
@@ -382,19 +394,27 @@ namespace OverHaulers
 
             if (!list.Exists(m => m.TargetHediff == hediff))
             {
-                Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
-                if (appliedHediff != null)
+                try
                 {
-                    headlessPawn.health.AddHediff(appliedHediff, part);
-
-                    list.Add(new SimulatedModification
+                    Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
+                    if (appliedHediff != null)
                     {
-                        OpType = SimulatedOpType.InstallImplant,
-                        SourceRecipe = recipe,
-                        TargetHediff = hediff,
-                        DisplayLabel = label,
-                        Efficiency = 1.0f
-                    });
+                        headlessPawn.health.AddHediff(appliedHediff, part);
+
+                        list.Add(new SimulatedModification
+                        {
+                            OpType = SimulatedOpType.InstallImplant,
+                            SourceRecipe = recipe,
+                            TargetHediff = hediff,
+                            DisplayLabel = label,
+                            Efficiency = 1.0f
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OHLog.Warn("TestBench.SimulateAddImplant", ex, $"Could not simulate implant '{hediff.defName}' on '{part.Label}'.");
+                    if (list.Count == 0) ImplantDeltas.Remove(part);
                 }
             }
 

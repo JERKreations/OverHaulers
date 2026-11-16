@@ -57,7 +57,7 @@ namespace OverHaulers
             }
 
             NotifyValuesReset();
-            NotifyValuesMutated();
+            NotifyPresentationMutated();
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace OverHaulers
             prostheticColorHealthy = colorHealthy;
             prostheticColorBoosted = colorBoosted;
             NotifyValuesReset();
-            NotifyValuesMutated();
+            NotifyPresentationMutated();
         }
 
         #endregion

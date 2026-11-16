@@ -30,12 +30,17 @@ namespace OverHaulers
         /// <summary>Raised after settings values are reset programmatically, so views can discard stale text-input buffers.</summary>
         public static event System.Action ValuesReset;
 
-        /// <summary>Raised after a programmatic reset that must also push configuration and invalidate dependent runtime caches.</summary>
+        /// <summary>Raised after a programmatic reset that must also push configuration and invalidate all dependent runtime caches.</summary>
         public static event System.Action ValuesMutated;
+
+        /// <summary>Raised after a programmatic reset affecting only presentation/palette state.</summary>
+        public static event System.Action PresentationMutated;
 
         private static void NotifyValuesReset() => ValuesReset?.Invoke();
 
         private static void NotifyValuesMutated() => ValuesMutated?.Invoke();
+
+        private static void NotifyPresentationMutated() => PresentationMutated?.Invoke();
 
         #endregion
 
@@ -72,7 +77,8 @@ namespace OverHaulers
                 torsoDeficitBreathing,  torsoDeficitBlood,  torsoDeficitMoving,  torsoDeficitManipulation,
                 armDeficitBreathing,    armDeficitBlood,    armDeficitMoving,    armDeficitManipulation,
                 legDeficitBreathing,    legDeficitBlood,    legDeficitMoving,    legDeficitManipulation,
-                anatomyWeightTorso,     anatomyWeightArm,   anatomyWeightLeg
+                anatomyWeightTorso,     anatomyWeightArm,   anatomyWeightLeg,
+                missingArmsTorsoShare,  missingLegsTorsoShare
             );
         }
 

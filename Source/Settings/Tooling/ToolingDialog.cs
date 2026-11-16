@@ -263,25 +263,27 @@ namespace OverHaulers
             ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_SectionHeader");
             ui.DescriptionKey("OverHaulers_ToolingDialog_Telemetry_Desc");
 
-            float interval = settings.reportMetricsIntervalHours;
-            string intervalReadout = interval <= 0.001f
+            string intervalReadout = settings.reportMetricsIntervalHours <= 0
                 ? "OverHaulers_ToolingDialog_Telemetry_ReportIntervalDisabled".Translate().ToString()
-                : interval.ToString("F0");
-            string intervalLabel = interval <= 0.001f
+                : settings.reportMetricsIntervalHours.ToString();
+            string intervalLabel = settings.reportMetricsIntervalHours <= 0
                 ? intervalReadout
                 : "OverHaulers_ToolingDialog_Telemetry_ReportInterval".Translate(intervalReadout).ToString();
-            if (ui.Slider(intervalLabel, ref interval, 0f, 24f, step: 1f))
-            {
-                settings.reportMetricsIntervalHours = (int)interval;
-            }
+            ui.IntSlider(
+                intervalLabel,
+                ref settings.reportMetricsIntervalHours,
+                CoreDefaults.ReportMetricsIntervalHoursMin,
+                CoreDefaults.ReportMetricsIntervalHoursMax,
+                mutationScope: SettingMutationScope.ConfigOnly);
 
-            float eviction = settings.pawnEvictionTimeframeHours;
-            string evictionReadout = eviction.ToString("F0");
-            string evictionLabel = "OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours".Translate(evictionReadout).ToString();
-            if (ui.Slider(evictionLabel, ref eviction, 1f, 72f, step: 1f))
-            {
-                settings.pawnEvictionTimeframeHours = (int)eviction;
-            }
+            string evictionLabel = "OverHaulers_ToolingDialog_Telemetry_CacheInactivityEvictionHours"
+                .Translate(settings.pawnEvictionTimeframeHours.ToString()).ToString();
+            ui.IntSlider(
+                evictionLabel,
+                ref settings.pawnEvictionTimeframeHours,
+                CoreDefaults.PawnEvictionTimeframeHoursMin,
+                CoreDefaults.PawnEvictionTimeframeHoursMax,
+                mutationScope: SettingMutationScope.ConfigOnly);
 
             ui.Gap(SettingsViewUtilities.ControlGap);
             ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_ActiveMetricsHeader");
@@ -294,14 +296,22 @@ namespace OverHaulers
             right.X = ui.X + columnWidth + columnGap;
             right.Width = columnWidth;
 
-            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics", ref settings.logQueryMetrics, "OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc");
-            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics", ref settings.logCacheMetrics, "OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc");
-            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics", ref settings.logSnapshotTableMetrics, "OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc");
-            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics", ref settings.logPresentationMetrics, "OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc");
-            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics", ref settings.logLifecycleMetrics, "OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc");
-            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics", ref settings.logWorkspaceMetrics, "OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc");
-            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps", ref settings.logSafetyFloorClamps, "OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc");
-            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions", ref settings.logPawnEvictions, "OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc");
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics", ref settings.logQueryMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogQueryMetrics_Desc", SettingMutationScope.ConfigOnly);
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics", ref settings.logCacheMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogCacheMetrics_Desc", SettingMutationScope.ConfigOnly);
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics", ref settings.logSnapshotTableMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogSnapshotTableMetrics_Desc", SettingMutationScope.ConfigOnly);
+            left.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics", ref settings.logPresentationMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogPresentationMetrics_Desc", SettingMutationScope.ConfigOnly);
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics", ref settings.logLifecycleMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogLifecycleMetrics_Desc", SettingMutationScope.ConfigOnly);
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics", ref settings.logWorkspaceMetrics,
+                "OverHaulers_ToolingDialog_Telemetry_LogWorkspaceMetrics_Desc", SettingMutationScope.ConfigOnly);
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps", ref settings.logSafetyFloorClamps,
+                "OverHaulers_ToolingDialog_Telemetry_LogSafetyFloorClamps_Desc", SettingMutationScope.ConfigOnly);
+            right.ToggleKey("OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions", ref settings.logPawnEvictions,
+                "OverHaulers_ToolingDialog_Telemetry_LogPawnEvictions_Desc", SettingMutationScope.ConfigOnly);
             ui.Y = Math.Max(left.Y, right.Y);
 
             ui.Divider();
@@ -309,7 +319,8 @@ namespace OverHaulers
             // Section 2: High-Load Population Stress Testing
             ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_StressTestingHeader");
             ui.DescriptionKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna_Desc");
-            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna", ref settings.devStressTestAllFauna);
+            ui.ToggleKey("OverHaulers_ToolingDialog_Telemetry_StressTestAllFauna", ref settings.devStressTestAllFauna,
+                mutationScope: SettingMutationScope.Solver);
 
             Widgets.EndScrollView();
             lastDumpsHeight = ui.Y + ScrollContentBottomPadding;

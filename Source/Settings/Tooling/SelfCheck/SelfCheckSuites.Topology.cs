@@ -8,7 +8,8 @@ namespace OverHaulers
         #region 1. TOPOLOGY CHECKS
 
         /// <summary>
-        /// Verifies that every compiled body template matches its body definition and has valid parent indices and static weight factors.
+        /// Verifies that every compiled body template matches its body definition, maintains acyclic parent-before-child
+        /// depth ordering, and conserves regional and total static weight budgets.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
         private static void CheckTopologyIntegrity(SelfCheckContext ctx)
@@ -22,8 +23,12 @@ namespace OverHaulers
 
             TopologyLayoutCompiler.EnsureInitialized();
 
+            ref readonly SolverConfiguration activeConfig = ref MassCapacitySolver.ActiveConfiguration;
+            bool hasNonZeroSettingsBudget = (activeConfig.BudgetCorePart + activeConfig.BudgetManipulationPart + activeConfig.BudgetMovingPart) > 0f;
+
             int checkedCount = 0;
             int uncompiled = 0;
+            bool[] visitedScratch = new bool[64];
 
             for (int b = 0; b < bodies.Count; b++)
             {
@@ -42,7 +47,22 @@ namespace OverHaulers
                 Expect.True(template.IndexedParts.Length >= count, who + ": IndexedParts shorter than part count");
                 Expect.True(template.PartTypes.Length >= count, who + ": PartTypes shorter than part count");
                 Expect.True(template.ParentIndices.Length >= count, who + ": ParentIndices shorter than part count");
+                Expect.True(template.DepthSortedIndices.Length >= count, who + ": DepthSortedIndices shorter than part count");
                 Expect.True(template.StaticWeightFactors.Length >= count, who + ": StaticWeightFactors shorter than part count");
+
+                if (visitedScratch.Length < count)
+                {
+                    visitedScratch = new bool[count];
+                }
+                else
+                {
+                    System.Array.Clear(visitedScratch, 0, count);
+                }
+
+                float torsoSum = 0f;
+                float manipSum = 0f;
+                float moveSum = 0f;
+                float staticSum = 0f;
 
                 for (int i = 0; i < count; i++)
                 {
@@ -51,6 +71,56 @@ namespace OverHaulers
 
                     float weight = template.StaticWeightFactors[i];
                     Expect.True(!float.IsNaN(weight) && !float.IsInfinity(weight) && weight >= 0f, who + ": part " + i + " has invalid static weight factor " + weight);
+
+                    if (template.WeightModels[i] == LimbWeightModel.GeometricDecay &&
+                        parent != -1 &&
+                        template.PartTypes[parent] == template.PartTypes[i] &&
+                        template.WeightModels[parent] == LimbWeightModel.GeometricDecay)
+                    {
+                        Expect.True(
+                            weight <= template.StaticWeightFactors[parent] + 1e-5f,
+                            who + ": child limb segment " + i + " outweighs parent " + parent);
+                    }
+
+                    torsoSum += template.WeightCore[i];
+                    manipSum += template.WeightManipulation[i];
+                    moveSum += template.WeightMoving[i];
+                    staticSum += weight;
+                }
+
+                for (int d = 0; d < count; d++)
+                {
+                    int idx = template.DepthSortedIndices[d];
+                    Expect.True(idx >= 0 && idx < count, who + ": DepthSortedIndices[" + d + "] out of range (" + idx + ")");
+                    Expect.True(!visitedScratch[idx], who + ": duplicate slot " + idx + " in DepthSortedIndices");
+
+                    int parent = template.ParentIndices[idx];
+                    if (parent != -1)
+                    {
+                        Expect.True(visitedScratch[parent], who + ": DepthSortedIndices placed child " + idx + " before parent " + parent);
+                    }
+
+                    visitedScratch[idx] = true;
+                }
+
+                if (torsoSum > 0f)
+                {
+                    Expect.True(System.Math.Abs(torsoSum - 1.0f) < 0.002f, who + ": WeightCore sum expected ~1.0 but got " + torsoSum);
+                }
+
+                if (template.Counts.TotalManipulationRoots > 0)
+                {
+                    Expect.True(System.Math.Abs(manipSum - 1.0f) < 0.002f, who + ": WeightManipulation sum expected ~1.0 but got " + manipSum);
+                }
+
+                if (template.Counts.TotalMovingRoots > 0)
+                {
+                    Expect.True(System.Math.Abs(moveSum - 1.0f) < 0.002f, who + ": WeightMoving sum expected ~1.0 but got " + moveSum);
+                }
+
+                if (hasNonZeroSettingsBudget && (torsoSum > 0f || template.Counts.TotalManipulationRoots > 0 || template.Counts.TotalMovingRoots > 0))
+                {
+                    Expect.True(System.Math.Abs(staticSum - 1.0f) < 0.002f, who + ": StaticWeightFactors sum expected ~1.0 but got " + staticSum);
                 }
 
                 checkedCount++;

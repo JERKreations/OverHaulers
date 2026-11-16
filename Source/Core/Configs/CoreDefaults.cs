@@ -42,6 +42,9 @@ namespace OverHaulers
         public const float AnatomyWeightArm = 0.15f;
         public const float AnatomyWeightLeg = 0.35f;
 
+        public const float MissingArmsTorsoShare = 0.66f;
+        public const float MissingLegsTorsoShare = 1.00f;
+
         #endregion
 
         #region 3. [SEC-03] POSITIVE SYSTEMIC COUPLING WEIGHTS
@@ -171,7 +174,8 @@ namespace OverHaulers
                 TorsoDeficitBreathing,  TorsoDeficitBlood,  TorsoDeficitMoving,  TorsoDeficitManipulation,
                 ArmDeficitBreathing,    ArmDeficitBlood,    ArmDeficitMoving,    ArmDeficitManipulation,
                 LegDeficitBreathing,    LegDeficitBlood,    LegDeficitMoving,    LegDeficitManipulation,
-                AnatomyWeightTorso,     AnatomyWeightArm,   AnatomyWeightLeg
+                AnatomyWeightTorso,     AnatomyWeightArm,   AnatomyWeightLeg,
+                MissingArmsTorsoShare,  MissingLegsTorsoShare
             );
         }
 

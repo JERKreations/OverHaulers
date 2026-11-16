@@ -141,6 +141,8 @@
   <OverHaulers_SelfCheck_Check_TopologyIntegrity>Every compiled body template is structurally sound</OverHaulers_SelfCheck_Check_TopologyIntegrity>
   <OverHaulers_SelfCheck_Check_SolverDeterminism>Repeated solves are deterministic</OverHaulers_SelfCheck_Check_SolverDeterminism>
   <OverHaulers_SelfCheck_Check_WoundsNeverIncrease>Amputation and trauma never increase mass capacity</OverHaulers_SelfCheck_Check_WoundsNeverIncrease>
+  <OverHaulers_SelfCheck_Check_DualLimbConservation>Dual-limb amputation conserves full regional limb budget</OverHaulers_SelfCheck_Check_DualLimbConservation>
+  <OverHaulers_SelfCheck_Check_ProstheticDamageAndAthletics>Prosthetic damage scales operational rating and excludes athletic coupling</OverHaulers_SelfCheck_Check_ProstheticDamageAndAthletics>
 
   <!-- Self-check notes and skip reasons -->
   <OverHaulers_SelfCheck_Note_ConcurrentReaders>{0} writer cycles checked against {1} concurrent reads</OverHaulers_SelfCheck_Note_ConcurrentReaders>

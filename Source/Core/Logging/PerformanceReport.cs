@@ -9,6 +9,7 @@ namespace OverHaulers
     /// </summary>
     public struct SafetyClampRecord
     {
+        public string Label;
         public float RawMass;
         public float ClampedMass;
     }
@@ -24,7 +25,7 @@ namespace OverHaulers
         #region 1. STATE BUFFERS & TOGGLES
 
         private static readonly HashSet<int> pendingEvictedPawnIds = new HashSet<int>(64);
-        private static readonly Dictionary<string, SafetyClampRecord> pendingClampedPawns = new Dictionary<string, SafetyClampRecord>(16);
+        private static readonly Dictionary<int, SafetyClampRecord> pendingClampedPawns = new Dictionary<int, SafetyClampRecord>(16);
         private static readonly StringBuilder pooledReportBuilder = new StringBuilder(1024);
         private static readonly object bufferLock = new object();
 
@@ -109,14 +110,28 @@ namespace OverHaulers
         /// <param name="pawnName">The name of the pawn whose mass was clamped.</param>
         /// <param name="rawMass">The original mass of the pawn before clamping.</param>
         /// <param name="clampedMass">The mass of the pawn after being clamped to the safety floor.</param>
-        public static void RecordHardSafetyFloorClamped(string pawnName, float rawMass, float clampedMass)
+        /// <param name="pawnId">The unique ID of the pawn, used to generate a stable record key. If zero, a hash of the pawn name is used instead.</param>
+        public static void RecordHardSafetyFloorClamped(string pawnName, float rawMass, float clampedMass, int pawnId = 0)
         {
             if (!isLogSafetyFloorClampsActive) return;
 
+            string safeLabel = !string.IsNullOrEmpty(pawnName) ? pawnName : "Pawn";
+            int recordKey;
+            if (pawnId > 0)
+            {
+                recordKey = pawnId;
+            }
+            else
+            {
+                int hash = safeLabel.GetHashCode() & 0x7FFFFFFF;
+                recordKey = -(hash == 0 ? 1 : hash);
+            }
+
             lock (bufferLock)
             {
-                pendingClampedPawns[pawnName] = new SafetyClampRecord
+                pendingClampedPawns[recordKey] = new SafetyClampRecord
                 {
+                    Label = safeLabel,
                     RawMass = rawMass,
                     ClampedMass = clampedMass
                 };
@@ -258,7 +273,7 @@ namespace OverHaulers
                         {
                             pooledReportBuilder.AppendLine();
                             pooledReportBuilder.Append("OverHaulers_Log_SafetyFloorClampEntry".Translate(
-                                kvp.Key,
+                                kvp.Value.Label,
                                 kvp.Value.RawMass.ToString("F2"),
                                 kvp.Value.ClampedMass.ToString("F2")
                             ).ToString());

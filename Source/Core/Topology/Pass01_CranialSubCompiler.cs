@@ -32,20 +32,64 @@ namespace OverHaulers
             int partCount = bodyDef.AllParts.Count;
             parentIndicesArr = new int[partCount];
             int[] skeletalDepths = new int[partCount];
+            int[] chainBuffer = new int[partCount];
             headAncestry = new bool[partCount];
             maxDepthInBody = 0;
 
-            // Single-pass skeletal traversal: populates parent indices, computes skeletal depths,
-            //  identifies cranial root bones, and propagates cranial ancestry down the tree.
+            // 1. Populate parent indices and initialize unsorted depth scratchpad
             for (int i = 0; i < partCount; i++)
             {
                 BodyPartRecord part = bodyDef.AllParts[i];
-                int parentIdx = part.parent != null ? template.GetPartIndex(part.parent) : -1;
-                parentIndicesArr[i] = parentIdx;
+                parentIndicesArr[i] = part.parent != null ? template.GetPartIndex(part.parent) : -1;
+                skeletalDepths[i] = -1;
+                template.DepthSortedIndices[i] = i;
+            }
 
-                int depth = parentIdx != -1 ? skeletalDepths[parentIdx] + 1 : 0;
-                skeletalDepths[i] = depth;
-                if (depth > maxDepthInBody) maxDepthInBody = depth;
+            // 2. Order-independent, cycle-safe skeletal depth resolution (supports non-preorder BodyDefs)
+            for (int i = 0; i < partCount; i++)
+            {
+                if (skeletalDepths[i] != -1) continue;
+
+                int chainLen = 0;
+                int curr = i;
+                int baseDepth = 0;
+
+                while (curr != -1)
+                {
+                    if (skeletalDepths[curr] != -1)
+                    {
+                        baseDepth = skeletalDepths[curr] + 1;
+                        break;
+                    }
+
+                    if (chainLen >= partCount)
+                    {
+                        break;
+                    }
+
+                    chainBuffer[chainLen++] = curr;
+                    curr = parentIndicesArr[curr];
+                }
+
+                for (int k = chainLen - 1; k >= 0; k--)
+                {
+                    int node = chainBuffer[k];
+                    skeletalDepths[node] = baseDepth;
+                    if (baseDepth > maxDepthInBody) maxDepthInBody = baseDepth;
+                    baseDepth++;
+                }
+            }
+
+            // BREAKPOINT ANCHOR: Pre-populate DepthSortedIndices in Pass 1 for downstream sweeps
+            // Sort parallel arrays without a custom comparison delegate or closure.
+            Array.Sort(skeletalDepths, template.DepthSortedIndices);
+
+            // 3. Propagate cranial ancestry in verified parent-before-child topological depth order
+            for (int d = 0; d < partCount; d++)
+            {
+                int i = template.DepthSortedIndices[d];
+                BodyPartRecord part = bodyDef.AllParts[i];
+                int parentIdx = parentIndicesArr[i];
 
                 bool isHeadRoot = IsHeadRoot(part, bodyDef);
                 if (isHeadRoot && template.HeadPart == null)
@@ -55,15 +99,6 @@ namespace OverHaulers
 
                 headAncestry[i] = isHeadRoot || (parentIdx != -1 && headAncestry[parentIdx]);
             }
-
-            // BREAKPOINT ANCHOR: Pre-populate DepthSortedIndices in Pass 1 for downstream sweeps
-            for (int i = 0; i < partCount; i++)
-            {
-                template.DepthSortedIndices[i] = i;
-            }
-
-            // Sort parallel arrays without a custom comparison delegate or closure.
-            Array.Sort(skeletalDepths, template.DepthSortedIndices);
         }
 
         #endregion

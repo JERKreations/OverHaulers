@@ -6,6 +6,17 @@ using Verse;
 namespace OverHaulers
 {
     /// <summary>
+    /// [SEC-00] Identifies the downstream synchronization and invalidation tier required when a setting changes.
+    /// </summary>
+    public enum SettingMutationScope
+    {
+        ConfigOnly = 0,
+        Presentation = 1,
+        Solver = 2,
+        Topology = 3
+    }
+
+    /// <summary>
     /// [SEC-00] High-performance presentation utilities, cached translations and text measurements,
     /// accessibility palette adapters, and centralized settings mutation sink.
     /// Resides under Source/Settings/Views/.
@@ -90,19 +101,45 @@ namespace OverHaulers
             isBoundToSettings = true;
 
             Settings.ValuesReset += SettingsLayout.ClearInputBuffers;
-            Settings.ValuesMutated += OnSettingMutated;
+            Settings.ValuesMutated += OnAllSettingsMutated;
+            Settings.PresentationMutated += OnPresentationSettingsMutated;
+        }
+
+        private static void OnAllSettingsMutated()
+        {
+            OnSettingMutated(SettingMutationScope.Topology);
+        }
+
+        private static void OnPresentationSettingsMutated()
+        {
+            OnSettingMutated(SettingMutationScope.Presentation);
         }
 
         /// <summary>
-        /// Centralized notification sink triggered whenever any slider, toggle, or setting mutates.
-        /// Synchronizes core configurations, invalidates biological mass caches, and marks presentation registries dirty.
+        /// Centralized notification sink triggered whenever a slider, toggle, or setting mutates.
+        /// A <c>null</c> scope performs no Core push or cache invalidation; non-null scopes push configuration
+        /// and invalidate strictly up to the declared tier.
         /// </summary>
-        public static void OnSettingMutated()
+        public static void OnSettingMutated(SettingMutationScope? scope = null)
         {
+            if (!scope.HasValue) return;
+
             OverHaulers.settings?.PushConfigurationToCore();
+
+            if (scope.Value == SettingMutationScope.ConfigOnly) return;
+
             TestBench.MarkDirty();
-            TopologyLayoutCompiler.InvalidateAllTopologies();
-            PawnDataRegistry.MarkAllStale();
+
+            if (scope.Value >= SettingMutationScope.Topology)
+            {
+                TopologyLayoutCompiler.InvalidateAllTopologies();
+            }
+
+            if (scope.Value >= SettingMutationScope.Solver)
+            {
+                PawnDataRegistry.MarkAllStale();
+            }
+
             DetailedModelRegistry.Clear();
         }
 
@@ -122,6 +159,10 @@ namespace OverHaulers
         /// <summary>
         /// Calculates the height required to render text within the specified width and font.
         /// </summary>
+        /// <param name="text">The text to measure.</param>
+        /// <param name="width">The width constraint for the text.</param>
+        /// <param name="font">The font to use for measurement.</param>
+        /// <returns>The height required to render the text within the specified width.</returns>
         public static float CalcTextHeight(string text, float width, GameFont font = GameFont.Tiny)
         {
             if (string.IsNullOrEmpty(text) || width <= 0f) return 0f;
@@ -130,7 +171,7 @@ namespace OverHaulers
             Text.Font = font;
             try
             {
-                return MeasureText(text, width);
+                return MeasuredTextHeight(text, width);
             }
             finally
             {
@@ -138,13 +179,22 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>Measures text in the current font without a width constraint.</summary>
+        /// <summary>
+        /// Measures text in the current font without a width constraint.
+        /// </summary>
+        /// <param name="text">The text to measure.</param>
+        /// <returns>The width required to render the text without wrapping.</returns>
         public static float MeasuredTextWidth(string text)
         {
             return MeasureText(text, 0f);
         }
 
-        /// <summary>Measures wrapped text in the current font, restoring the previous wrapping mode.</summary>
+        /// <summary>
+        /// Measures wrapped text in the current font, restoring the previous wrapping mode.
+        /// </summary>
+        /// <param name="text">The text to measure.</param>
+        /// <param name="width">The width constraint for wrapping.</param>
+        /// <returns>The height required to render the text within the specified width.</returns>
         public static float MeasuredTextHeight(string text, float width)
         {
             bool originalWrap = Text.WordWrap;
@@ -163,6 +213,15 @@ namespace OverHaulers
         /// Sizes a button to its label. Fixed dimensions replace the adaptive size; maximum dimensions and
         /// available width remain hard limits.
         /// </summary>
+        /// <param name="label">The text label of the button.</param>
+        /// <param name="availableWidth">The available width for the button.</param>
+        /// <param name="minWidth">The minimum width of the button.</param>
+        /// <param name="minHeight">The minimum height of the button.</param>
+        /// <param name="maxWidth">The maximum width of the button.</param>
+        /// <param name="fixedWidth">The fixed width of the button, if specified.</param>
+        /// <param name="fixedHeight">The fixed height of the button, if specified.</param>
+        /// <param name="maxHeight">The maximum height of the button.</param>
+        /// <returns>The size of the button as a Vector2.</returns>
         public static Vector2 ButtonSize(string label, float availableWidth, float minWidth = 0f,
             float minHeight = SettingsLayout.DefaultButtonHeight, float? maxWidth = null,
             float? fixedWidth = null, float? fixedHeight = null, float? maxHeight = null)
@@ -176,7 +235,22 @@ namespace OverHaulers
             return new Vector2(width, height);
         }
 
-        /// <summary>Places a button in a wrapping row and advances the row cursor.</summary>
+        /// <summary>
+        /// Places a button in a wrapping row and advances the row cursor.
+        /// </summary>
+        /// <param name="bounds">The bounding rectangle for the row of buttons.</param>
+        /// <param name="x">The current x-coordinate of the row cursor.</param>
+        /// <param name="y">The current y-coordinate of the row cursor.</param>
+        /// <param name="rowHeight">The current height of the row.</param>
+        /// <param name="label">The text label of the button.</param>
+        /// <param name="gap">The gap between buttons in the row.</param>
+        /// <param name="minWidth">The minimum width of the button.</param>
+        /// <param name="minHeight">The minimum height of the button.</param>
+        /// <param name="maxWidth">The maximum width of the button.</param>
+        /// <param name="fixedWidth">The fixed width of the button, if specified.</param>
+        /// <param name="fixedHeight">The fixed height of the button, if specified.</param>
+        /// <param name="maxHeight">The maximum height of the button.</param>
+        /// <returns>The rectangle defining the position and size of the placed button.</returns>
         public static Rect PlaceButton(Rect bounds, ref float x, ref float y, ref float rowHeight,
             string label, float gap, float minWidth = 0f, float minHeight = SettingsLayout.DefaultButtonHeight,
             float? maxWidth = null, float? fixedWidth = null, float? fixedHeight = null, float? maxHeight = null)
@@ -194,7 +268,13 @@ namespace OverHaulers
             return result;
         }
 
-        /// <summary>Draws a button with its descriptive tooltip, or the full label when constrained.</summary>
+        /// <summary>
+        /// Draws a button with its descriptive tooltip, or the full label when constrained.
+        /// </summary>
+        /// <param name="rect">The rectangle defining the position and size of the button.</param>
+        /// <param name="label">The text label of the button.</param>
+        /// <param name="tooltip">The tooltip text to display when hovering over the button.</param>
+        /// <returns>True if the button was clicked; otherwise, false.</returns>
         public static bool DrawButton(Rect rect, string label, string tooltip = null)
         {
             bool clicked = Widgets.ButtonText(rect, label);
@@ -206,7 +286,14 @@ namespace OverHaulers
             return clicked;
         }
 
-        /// <summary>Draws a search field with a localized placeholder and clear button.</summary>
+        /// <summary>
+        /// Draws a search field with a localized placeholder and clear button.
+        /// </summary>
+        /// <param name="rect">The rectangle defining the position and size of the search field.</param>
+        /// <param name="text">The current text in the search field.</param>
+        /// <param name="placeholderKey">The localization key for the placeholder text.</param>
+        /// <param name="placeholderFont">The font to use for the placeholder text.</param>
+        /// <returns>The updated text after user input.</returns>
         public static string DrawSearchField(Rect rect, string text, string placeholderKey, GameFont placeholderFont)
         {
             const float clearWidth = 24f;

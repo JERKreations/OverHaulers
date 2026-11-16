@@ -62,11 +62,15 @@ namespace OverHaulers
         /// </summary>
         public static double LastCompileDurationMs { get; private set; } = 0.0;
 
-        /// <summary>
-        /// Total count of successfully compiled, validated species skeletal topology templates currently resident in cache.
-        /// </summary>
+        /// <summary>True when all loaded species skeletal topologies are currently compiled and cached.</summary>
+        public static bool IsCompiled => isCompiled;
+
+        /// <summary>Total count of successfully compiled, validated species skeletal topology templates currently resident in cache.</summary>
         public static int CompiledTemplateCount => speciesTopologyCache.Count;
 
+        /// <summary>
+        /// Initializes the static members of the <see cref="TopologyLayoutCompiler"/> class.
+        /// </summary>
         static TopologyLayoutCompiler()
         {
             // Initialize static def pointers and cached tags.
@@ -276,14 +280,6 @@ namespace OverHaulers
                 globalMaxSkeletalDepth = 0;
                 isCompiled = false; // UN-LOCK: Allows EnsureInitialized() to run cleanly again
             }
-        }
-
-        /// <summary>
-        /// Flushes all cached topology templates, resets global part metrics, and un-locks the compilation lifecycle.
-        /// </summary>
-        public static void ClearStaticCaches()
-        {
-            InvalidateAllTopologies();
         }
 
         #endregion

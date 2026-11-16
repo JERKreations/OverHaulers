@@ -174,6 +174,7 @@ namespace OverHaulers
                 LruCacheNode next = curr.Next;
                 curr.Prev = null;
                 curr.Next = null;
+                curr.Key = default(OverlayCacheKey);
                 curr.PrintableText = null;
                 curr.Icons.Clear();
                 if (nodePool.Count < MaxCacheCapacity)
@@ -431,7 +432,8 @@ namespace OverHaulers
                 {
                     string line = pooledLineBuffer[i];
 
-                    if (line.Contains(TagProsthetic) || line.Contains(TagAthletic) || line.Contains(TagInjury))
+                    bool hasIconTag = line.Contains(TagProsthetic) || line.Contains(TagAthletic) || line.Contains(TagInjury);
+                    if (hasIconTag)
                     {
                         float targetY = relativeY + iconOffsetYBase;
                         if (line.Contains(TagProsthetic)) ExtractIconCommand('P', TagProsthetic, line, tagReplacement, iconSize, targetY, node.Icons);
@@ -439,11 +441,19 @@ namespace OverHaulers
                         if (line.Contains(TagInjury)) ExtractIconCommand('I', TagInjury, line, tagReplacement, iconSize, targetY, node.Icons);
                     }
 
-                    // Calculate visual rows wrapped
-                    float measuredLineWidth = string.IsNullOrEmpty(line) ? 0f : Text.CalcSize(line).x;
-                    int lineVisualRows = (measuredLineWidth > rectWidth && rectWidth > 0f)
-                        ? Math.Max(1, (int)Math.Ceiling(measuredLineWidth / rectWidth))
-                        : 1;
+                    // Measure true Unity word-wrapped row count on the printable line
+                    int lineVisualRows = 1;
+                    if (!string.IsNullOrEmpty(line) && rectWidth > 0f && exactFontPitch > 0.01f)
+                    {
+                        string printableLine = hasIconTag
+                            ? line.Replace(TagProsthetic, tagReplacement)
+                                  .Replace(TagAthletic, tagReplacement)
+                                  .Replace(TagInjury, tagReplacement)
+                            : line;
+
+                        float lineHeight = Text.CalcHeight(printableLine, rectWidth);
+                        lineVisualRows = Math.Max(1, 1 + (int)Math.Round((lineHeight - singleLineHeight) / exactFontPitch));
+                    }
 
                     relativeY += (lineVisualRows * exactFontPitch);
                 }

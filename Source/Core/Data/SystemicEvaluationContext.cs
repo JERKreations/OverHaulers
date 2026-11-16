@@ -38,7 +38,6 @@ namespace OverHaulers
         public bool EnablePartHealth;
 
         // Scaling Multipliers
-        public float PartHealthScalingMultiplier;
         public float AthleticScalingMultiplier;
 
         // Pre-Calculated Anchor Scales
@@ -181,33 +180,16 @@ namespace OverHaulers
             context.LegDeficitMoving = config.LegDeficitMoving;
             context.LegDeficitManipulation = config.LegDeficitManipulation;
 
-            context.BudgetCorePart = config.BudgetCorePart;
-            context.BudgetManipulationPart = config.BudgetManipulationPart;
-            context.BudgetMovingPart = config.BudgetMovingPart;
+            // Canonical Regional Budget Redistribution & Normalization (SSoT)
+            ResolveNormalizedBudgets(
+                in partCounts,
+                in config,
+                out context.BudgetCorePart,
+                out context.BudgetManipulationPart,
+                out context.BudgetMovingPart);
 
-            // Redistribute manipulation and moving budgets if there are no corresponding roots
-            if (partCounts.TotalManipulationRoots == 0 && context.BudgetManipulationPart > 0f)
-            {
-                context.BudgetCorePart += context.BudgetManipulationPart * 0.67f;
-                context.BudgetMovingPart += context.BudgetManipulationPart * 0.33f;
-                context.BudgetManipulationPart = 0f;
-            }
-
-            // Redistribute moving budget if there are no corresponding roots
-            if (partCounts.TotalMovingRoots == 0 && context.BudgetMovingPart > 0f)
-            {
-                context.BudgetCorePart += context.BudgetMovingPart;
-                context.BudgetMovingPart = 0f;
-            }
-
-            // Calculate total mass impact weight
-            context.TotalMassImpactWeight = context.BudgetCorePart + context.BudgetManipulationPart + context.BudgetMovingPart;
-
-            // Ensure total mass impact weight is positive
-            if (context.TotalMassImpactWeight <= 0f)
-            {
-                context.TotalMassImpactWeight = 1.0f;
-            }
+            float totalBudget = context.BudgetCorePart + context.BudgetManipulationPart + context.BudgetMovingPart;
+            context.TotalMassImpactWeight = totalBudget > 0f ? totalBudget : 1.0f;
 
             // Calculate athletic multiplier based on capacity deviations
             if (!context.EnableAthletics)
@@ -228,14 +210,115 @@ namespace OverHaulers
 
                 context.AthleticMultiplier = 1.0f + athleticDeltaSum;
 
-                // Ensure multiplier is never non-positive
-                if (context.AthleticMultiplier <= 0f)
+                // Clamp non-positive aggregate efficiency to 0%
+                if (context.AthleticMultiplier < 0f)
                 {
-                    context.AthleticMultiplier = 1.0f;
+                    context.AthleticMultiplier = 0f;
                 }
             }
 
             return context;
+        }
+
+        /// <summary>
+        /// [SOLV-SSOT] Canonical Single Source of Truth for regional mass budget redistribution and normalization.
+        /// Consumed symmetrically by <see cref="Pass04_AppendageWeightSubCompiler"/>, <see cref="CreateFromSnapshot"/>,
+        /// Test Bench X-Ray views, and topology exporters.
+        /// </summary>
+        /// <param name="counts">The part counts for the current pawn.</param>
+        /// <param name="config">The solver configuration containing budget and share settings.</param>
+        /// <param name="normTorso">Normalized torso budget output.</param>
+        /// <param name="normManip">Normalized manipulation budget output.</param>
+        /// <param name="normMove">Normalized moving budget output.</param>
+        public static void ResolveNormalizedBudgets(
+            in PartCounts counts,
+            in SolverConfiguration config,
+            out float normTorso,
+            out float normManip,
+            out float normMove)
+        {
+            float budgetTorso = config.BudgetCorePart;
+            float budgetManip = config.BudgetManipulationPart;
+            float budgetMove = config.BudgetMovingPart;
+
+            bool hasCore = counts.CoreParts > 0;
+            bool hasManip = counts.TotalManipulationRoots > 0;
+            bool hasMove = counts.TotalMovingRoots > 0;
+
+            // 1. Missing Manipulation Limbs -> configurable split between Torso and Moving Limbs
+            if (!hasManip && budgetManip > 0f)
+            {
+                if (hasCore && hasMove)
+                {
+                    float torsoShare = config.MissingArmsTorsoShare;
+                    budgetTorso += budgetManip * torsoShare;
+                    budgetMove += budgetManip * (1.0f - torsoShare);
+                }
+                else if (hasCore)
+                {
+                    budgetTorso += budgetManip;
+                }
+                else if (hasMove)
+                {
+                    budgetMove += budgetManip;
+                }
+                budgetManip = 0f;
+            }
+
+            // 2. Missing Moving Limbs -> configurable split between Torso and Manipulation Limbs
+            if (!hasMove && budgetMove > 0f)
+            {
+                if (hasCore && hasManip)
+                {
+                    float torsoShare = config.MissingLegsTorsoShare;
+                    budgetTorso += budgetMove * torsoShare;
+                    budgetManip += budgetMove * (1.0f - torsoShare);
+                }
+                else if (hasCore)
+                {
+                    budgetTorso += budgetMove;
+                }
+                else if (hasManip)
+                {
+                    budgetManip += budgetMove;
+                }
+                budgetMove = 0f;
+            }
+
+            // 3. Defensive fallback for exotic archetypes with CoreParts == 0 via mod extensions
+            if (!hasCore && budgetTorso > 0f)
+            {
+                if (hasManip && hasMove)
+                {
+                    float limbSum = budgetManip + budgetMove;
+                    if (limbSum > 0f)
+                    {
+                        budgetManip += budgetTorso * (budgetManip / limbSum);
+                        budgetMove += budgetTorso * (budgetMove / limbSum);
+                    }
+                    else
+                    {
+                        budgetManip += budgetTorso * 0.5f;
+                        budgetMove += budgetTorso * 0.5f;
+                    }
+                }
+                else if (hasManip)
+                {
+                    budgetManip += budgetTorso;
+                }
+                else if (hasMove)
+                {
+                    budgetMove += budgetTorso;
+                }
+                budgetTorso = 0f;
+            }
+
+            float totalBudget = budgetTorso + budgetManip + budgetMove;
+            if (totalBudget <= 0f) totalBudget = 1.0f;
+
+            normTorso = budgetTorso / totalBudget;
+            normManip = budgetManip / totalBudget;
+            normMove = budgetMove / totalBudget;
         }
 
         #endregion

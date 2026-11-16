@@ -181,9 +181,9 @@ namespace OverHaulers
                 }
             }
 
-            torsoRelativeWeightSum = Math.Max(0.1f, torsoRawWeightSum);
+            torsoRelativeWeightSum = torsoRawWeightSum > 1e-6f ? torsoRawWeightSum : 1.0f;
 
-            // Finalize the torso weight calculations, ensuring that the relative weight sum is at least 0.1f.
+            // Finalize torso weight calculations, avoiding division by zero without inflating small valid sums.
             #endregion
         }
 

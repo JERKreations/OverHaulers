@@ -176,14 +176,16 @@ namespace OverHaulers
                             break;
                     }
 
-                    Rect tagRect = new Rect(inner.x, localY, SelfCheckTagWidth, SelfCheckRowHeight);
-                    Rect nameRect = new Rect(tagRect.xMax, localY, inner.width - SelfCheckTagWidth, SelfCheckRowHeight);
+                    float nameWidth = Math.Max(1f, inner.width - SelfCheckTagWidth);
+                    float nameHeight = Math.Max(SelfCheckRowHeight, SettingsViewUtilities.CalcTextHeight(selfCheckRowLabels[i], nameWidth, GameFont.Tiny));
+                    Rect tagRect = new Rect(inner.x, localY, SelfCheckTagWidth, nameHeight);
+                    Rect nameRect = new Rect(tagRect.xMax, localY, nameWidth, nameHeight);
 
                     GUI.color = color;
                     Widgets.Label(tagRect, SettingsViewUtilities.CachedText(tagKey));
                     GUI.color = Color.white;
                     Widgets.Label(nameRect, selfCheckRowLabels[i]);
-                    localY += SelfCheckRowHeight;
+                    localY += nameHeight;
 
                     // Failures and skips always show their reason; passes show their note only when there is one.
                     float detailHeight = selfCheckDetailHeights[i];

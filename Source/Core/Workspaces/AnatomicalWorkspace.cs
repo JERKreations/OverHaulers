@@ -21,7 +21,6 @@ namespace OverHaulers
         // Parallel float streams for mathematical solver passes
         private float[] healthFractions;
         private float[] efficiencyRatings;
-        private float[] athleticEfficiencies;
 
         private float[] calculatedProsthetics;
         private float[] calculatedAthletics;
@@ -40,6 +39,8 @@ namespace OverHaulers
         // Bound topology references (shared, read-only from template)
         private PartType[] partTypes;
         private float[] staticWeightFactors;
+        private float[] weightManipulation;
+        private float[] weightMoving;
         private int[] parentIndices;
         private BodyPartRecord[] indexedParts;
         private int[] depthSortedIndices;
@@ -63,9 +64,6 @@ namespace OverHaulers
 
         /// <summary>Contiguous float stream of prosthetic/biological efficiency ratings.</summary>
         public float[] EfficiencyRatings => efficiencyRatings;
-
-        /// <summary>Contiguous float stream of athletic implant efficiency multipliers.</summary>
-        public float[] AthleticEfficiencies => athleticEfficiencies;
 
         /// <summary>Contiguous float stream of solved prosthetic mass capacity offsets in kg.</summary>
         public float[] CalculatedProsthetics => calculatedProsthetics;
@@ -93,6 +91,12 @@ namespace OverHaulers
 
         /// <summary>Static weight factors per part index (borrowed from template).</summary>
         public float[] StaticWeightFactors => staticWeightFactors;
+
+        /// <summary>Normalized manipulation-channel weight factors per part index (borrowed from template).</summary>
+        public float[] WeightManipulation => weightManipulation;
+
+        /// <summary>Normalized moving-channel weight factors per part index (borrowed from template).</summary>
+        public float[] WeightMoving => weightMoving;
 
         /// <summary>Parent index per part index (borrowed from template).</summary>
         public int[] ParentIndices => parentIndices;
@@ -138,7 +142,6 @@ namespace OverHaulers
         {
             healthFractions = new float[capacity];
             efficiencyRatings = new float[capacity];
-            athleticEfficiencies = new float[capacity];
 
             calculatedProsthetics = new float[capacity];
             calculatedAthletics = new float[capacity];
@@ -158,6 +161,8 @@ namespace OverHaulers
             this.partCount = template.PartCount;
             this.partTypes = template.PartTypes;
             this.staticWeightFactors = template.StaticWeightFactors;
+            this.weightManipulation = template.WeightManipulation;
+            this.weightMoving = template.WeightMoving;
             this.parentIndices = template.ParentIndices;
             this.indexedParts = template.IndexedParts;
             this.partToIndexMap = template.PartToIndex;
@@ -189,7 +194,6 @@ namespace OverHaulers
             {
                 healthFractions[i] = 1.0f;
                 efficiencyRatings[i] = 1.0f;
-                athleticEfficiencies[i] = 1.0f;
 
                 calculatedProsthetics[i] = 0f;
                 calculatedAthletics[i] = 0f;
@@ -234,7 +238,6 @@ namespace OverHaulers
                 {
                     Array.Resize(ref healthFractions, targetSize);
                     Array.Resize(ref efficiencyRatings, targetSize);
-                    Array.Resize(ref athleticEfficiencies, targetSize);
 
                     Array.Resize(ref calculatedProsthetics, targetSize);
                     Array.Resize(ref calculatedAthletics, targetSize);
@@ -277,6 +280,8 @@ namespace OverHaulers
             partCount = 0;
             partTypes = null;
             staticWeightFactors = null;
+            weightManipulation = null;
+            weightMoving = null;
             parentIndices = null;
             indexedParts = null;
             partToIndexMap = null;

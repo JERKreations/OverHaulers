@@ -206,18 +206,19 @@ namespace OverHaulers
             // Constructs temporary topology information for each part, capturing depth, root indices, and initial sibling counts.
             // This information will later be used to determine sibling relationships and branch depths for appendage parts.
             PartTopologyInfo[] tempPartTopologies = new PartTopologyInfo[partCount];
-            for (int i = 0; i < partCount; i++)
+            for (int d = 0; d < partCount; d++)
             {
+                int i = template.DepthSortedIndices[d];
                 PartType type = resolvedTypes[i];
                 int parentIndex = parentIndicesArr[i];
 
                 PartTopologyInfo topologyInfo = new PartTopologyInfo
                 {
-                    Type = type, 
-                    ParentIndex = parentIndex, 
-                    RootPartIndex = -1, 
-                    Depth = 0, 
-                    SiblingCount = 1, 
+                    Type = type,
+                    ParentIndex = parentIndex,
+                    RootPartIndex = -1,
+                    Depth = 0,
+                    SiblingCount = 1,
                     StaticWeightFactor = 0f
                 };
 
@@ -240,27 +241,30 @@ namespace OverHaulers
                 tempPartTopologies[i] = topologyInfo;
             }
 
-            // Computes sibling counts for each part based on type, root part index, and depth, ensuring accurate representation of parallel appendages.
-            Dictionary<long, int> siblingCountsMap = new Dictionary<long, int>(partCount);
+            // Computes direct-parent child counts for same-type limb chains so forked sub-branches
+            // never distort sibling divisors of unrelated branches sharing the same depth.
+            int[] directLimbChildCounts = new int[partCount];
             for (int i = 0; i < partCount; i++)
             {
                 PartTopologyInfo other = tempPartTopologies[i];
-                if (other.Type != PartType.None)
+                if ((other.Type == PartType.ManipulationPart || other.Type == PartType.MovingPart || other.Type == PartType.DualLimb) &&
+                    other.ParentIndex != -1 &&
+                    tempPartTopologies[other.ParentIndex].Type == other.Type)
                 {
-                    long key = ((long)other.Type << 32) | ((long)(other.RootPartIndex + 1) << 16) | (long)other.Depth;
-                    siblingCountsMap[key] = siblingCountsMap.TryGetValue(key, out int c) ? c + 1 : 1;
+                    directLimbChildCounts[other.ParentIndex]++;
                 }
             }
 
-            // Updates each part's sibling count based on the previously computed map, ensuring that each part is aware of its parallel counterparts.
+            // Assigns parent-relative sibling counts onto each limb segment (roots and core/head parts keep SiblingCount = 1).
             for (int i = 0; i < partCount; i++)
             {
                 ref PartTopologyInfo topology = ref tempPartTopologies[i];
-                if (topology.Type != PartType.None)
-                {
-                    long key = ((long)topology.Type << 32) | ((long)(topology.RootPartIndex + 1) << 16) | (long)topology.Depth;
-                    topology.SiblingCount = Math.Max(1, siblingCountsMap[key]);
-                }
+                bool continuesChain =
+                    (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb) &&
+                    topology.ParentIndex != -1 &&
+                    tempPartTopologies[topology.ParentIndex].Type == topology.Type;
+
+                topology.SiblingCount = continuesChain ? Math.Max(1, directLimbChildCounts[topology.ParentIndex]) : 1;
 
                 template.Depth[i] = topology.Depth;
                 template.SiblingCount[i] = topology.SiblingCount;

@@ -119,13 +119,16 @@ namespace OverHaulers
                 builder.AppendLine();
                 builder.AppendLine($"=== BODYDEF: {body.defName} ({tmpl.PartCount} Total Parts) | Core: {tmpl.CorePart?.LabelCap ?? "None"} | Head: {tmpl.HeadPart?.LabelCap ?? "None"} ===");
 
-                float budgetTorso = settings.GetBudget(PartType.CorePart);
-                float budgetArm = settings.GetBudget(PartType.ManipulationPart);
-                float budgetLeg = settings.GetBudget(PartType.MovingPart);
-                float totalBudget = budgetTorso + budgetArm + budgetLeg;
-                if (totalBudget <= 0f) totalBudget = 1.0f;
+                PartCounts counts = tmpl.Counts;
+                SolverConfiguration solverConfig = settings.ToSolverConfiguration();
+                SystemicEvaluationContext.ResolveNormalizedBudgets(
+                    in counts,
+                    in solverConfig,
+                    out float normTorso,
+                    out float normArm,
+                    out float normLeg);
 
-                builder.AppendLine($"Regional Mass Budgets: Torso {(budgetTorso / totalBudget):P3} | Arms {(budgetArm / totalBudget):P3} | Legs {(budgetLeg / totalBudget):P3}");
+                builder.AppendLine($"Regional Mass Budgets: Torso {normTorso:P3} | Arms {normArm:P3} | Legs {normLeg:P3}");
                 builder.AppendLine();
                 builder.AppendLine("Compiled Canonical Skeletal Hierarchy:");
 
@@ -212,11 +215,7 @@ namespace OverHaulers
             // Detailed BodyDef Archetypes
             builder.AppendLine("  <BodyDefArchetypes>");
 
-            float budgetTorso = settings.GetBudget(PartType.CorePart);
-            float budgetArm = settings.GetBudget(PartType.ManipulationPart);
-            float budgetLeg = settings.GetBudget(PartType.MovingPart);
-            float totalBudget = budgetTorso + budgetArm + budgetLeg;
-            if (totalBudget <= 0f) totalBudget = 1.0f;
+            SolverConfiguration solverConfig = settings.ToSolverConfiguration();
 
             for (int b = 0; b < targetBodies.Count; b++)
             {
@@ -224,8 +223,16 @@ namespace OverHaulers
                 SpeciesTopologyTemplate tmpl = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(body);
                 if (tmpl == null) continue;
 
+                PartCounts counts = tmpl.Counts;
+                SystemicEvaluationContext.ResolveNormalizedBudgets(
+                    in counts,
+                    in solverConfig,
+                    out float normTorso,
+                    out float normArm,
+                    out float normLeg);
+
                 builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{DiagnosticExportUtility.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{DiagnosticExportUtility.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
-                builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{(budgetTorso / totalBudget):P3}\" armsPct=\"{(budgetArm / totalBudget):P3}\" legsPct=\"{(budgetLeg / totalBudget):P3}\" />");
+                builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{normTorso:P3}\" armsPct=\"{normArm:P3}\" legsPct=\"{normLeg:P3}\" />");
 
                 builder.AppendLine("      <SkeletalHierarchy>");
                 for (int c = 0; c < tmpl.PartCount; c++)

@@ -61,11 +61,20 @@ namespace OverHaulers
                 if (type == PartType.MovingPart) return RawMovingNegative > 0f ? (ClampedMovingDeficit / RawMovingNegative) : 1.0f;
                 if (type == PartType.DualLimb)
                 {
-                    float rManip = RawManipulationNegative > 0f ? (ClampedManipulationDeficit / RawManipulationNegative) : 1.0f;
-                    float rMove = RawMovingNegative > 0f ? (ClampedMovingDeficit / RawMovingNegative) : 1.0f;
-                    return (rManip + rMove) * 0.5f;
+                    return GetDualLimbRatio(0.5f, 0.5f);
                 }
                 return 1.0f;
+            }
+
+            /// <summary>
+            /// Computes the exact weighted clamping ratio for a dual-purpose limb given its manipulation and moving budget shares.
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public float GetDualLimbRatio(float manipShare, float moveShare)
+            {
+                float rManip = RawManipulationNegative > 0f ? (ClampedManipulationDeficit / RawManipulationNegative) : 1.0f;
+                float rMove = RawMovingNegative > 0f ? (ClampedMovingDeficit / RawMovingNegative) : 1.0f;
+                return (rManip * manipShare) + (rMove * moveShare);
             }
         }
 
@@ -231,6 +240,9 @@ namespace OverHaulers
         /// Evaluates numerical mass capacity metrics for a live <see cref="Pawn"/> instance.
         /// Wraps the pawn in a <see cref="PawnAnatomicalSource"/> value and delegates to the canonical solver.
         /// </summary>
+        /// <param name="pawn">The pawn instance to evaluate.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity for the pawn.</param>
+        /// <returns>The evaluated mass capacity result for the pawn.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MassCapacityEvaluationResult EvaluateMassCapacityForPawn(
             Pawn pawn,
@@ -248,6 +260,9 @@ namespace OverHaulers
         /// Evaluates numerical mass capacity metrics for an abstract <see cref="IAnatomicalDataSource"/> instance.
         /// Wraps the interface reference in a struct for the generic solver without additional wrapper boxing.
         /// </summary>
+        /// <param name="source">The anatomical data source to evaluate.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity for the source.</param>
+        /// <returns>The evaluated mass capacity result for the source.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MassCapacityEvaluationResult EvaluateMassCapacityForSource(
             IAnatomicalDataSource source,
@@ -268,7 +283,7 @@ namespace OverHaulers
         /// <param name="finalCapacity">The calculated final capacity in kilograms to be clamped.</param>
         /// <param name="targetLabel">The label of the target entity for diagnostic logging purposes.</param>
         /// <returns>The clamped final capacity in kilograms, ensuring it meets the minimum threshold.</returns>
-        public static float EnforceHardCompatibilitySafetyFloor(float finalCapacity, string targetLabel = "Pawn")
+        public static float EnforceHardCompatibilitySafetyFloor(float finalCapacity, string targetLabel = "Pawn", int pawnId = 0)
         {
             if (!activeConfig.EnableHardCompatibilitySafetyFloor)
             {
@@ -278,7 +293,7 @@ namespace OverHaulers
             if (finalCapacity < HardCompatibilitySafetyFloorKg)
             {
                 float clampedValue = HardCompatibilitySafetyFloorKg;
-                PerformanceReport.RecordHardSafetyFloorClamped(targetLabel, finalCapacity, clampedValue);
+                PerformanceReport.RecordHardSafetyFloorClamped(targetLabel, finalCapacity, clampedValue, pawnId);
                 return clampedValue;
             }
 
@@ -300,8 +315,9 @@ namespace OverHaulers
                 string targetLabel = pawn != null
                     ? (UnityData.IsInMainThread ? pawn.LabelShortCap.ToString() : pawn.def?.label ?? "Pawn")
                     : "Pawn";
+                int pawnId = pawn != null ? pawn.thingIDNumber : 0;
 
-                return EnforceHardCompatibilitySafetyFloor(finalCapacity, targetLabel);
+                return EnforceHardCompatibilitySafetyFloor(finalCapacity, targetLabel, pawnId);
             }
 
             return finalCapacity;
@@ -315,6 +331,11 @@ namespace OverHaulers
         /// [SOLV-05] Ingress compiler bridge translating anatomical source data into workspace lanes
         /// and executing the canonical internal solver pipeline.
         /// </summary>
+        /// <param name="source">The anatomical data source representing the pawn.</param>
+        /// <param name="biologicalBaseline">The baseline biological mass capacity for the pawn.</param>
+        /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
+        /// <param name="populateColdMetadata">Flag indicating whether to populate cold metadata during compilation.</param>
+        /// <returns>The evaluated mass capacity result for the pawn.</returns>
         internal static MassCapacityEvaluationResult SolveSource<TSource>(
             TSource source,
             float biologicalBaseline,
@@ -354,18 +375,24 @@ namespace OverHaulers
                 biologicalBaseline, partCounts, in activeConfig, in snapshot);
 
             // BREAKPOINT ANCHOR: Execute canonical numerical pipeline
-            return SolveInternal(workspace, in context, biologicalBaseline, source.EntityLabel);
+            return SolveInternal(workspace, in context, biologicalBaseline, source.EntityLabel, source.EntityId);
         }
 
         /// <summary>
         /// [SOLV-05] Canonical Single Source of Truth (SSoT) executing the numerical solving pipeline.
         /// Operates directly on contiguous memory in the leased <see cref="AnatomicalWorkspace"/>.
         /// </summary>
+        /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
+        /// <param name="context">The systemic evaluation context derived from the active configuration snapshot.</param>
+        /// <param name="biologicalBaseline">The baseline biological mass capacity for the pawn.</param>
+        /// <param name="entityLabel">The label of the pawn entity.</param>
+        /// <param name="entityId">The unique identifier of the pawn entity.</param>
         internal static MassCapacityEvaluationResult SolveInternal(
             AnatomicalWorkspace workspace,
             in SystemicEvaluationContext context,
             float biologicalBaseline,
-            string entityLabel)
+            string entityLabel,
+            int entityId = 0)
         {
             // When Physical Deficits is disabled, the playable deficit budget is zeroed out,
             // ensuring no negative penalties (wounds, missing limbs, sub-par prosthetics, or athletic strain)
@@ -387,12 +414,13 @@ namespace OverHaulers
             // Normalize workspace calculated totals and aggregate summary breakdown metrics in a single streaming loop
             NormalizeAndAggregateMetrics(
                 workspace,
+                in context,
                 in deficits,
                 out float prostheticBoost,
                 out float healthDeficit,
                 out float athleticOffset);
 
-            float finalCapacity = EnforceHardCompatibilitySafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel);
+            float finalCapacity = EnforceHardCompatibilitySafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel, entityId);
             float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
 
             // 1. HARD COMPATIBILITY SAFETY FLOOR CHECK (0.01 kg emergency crash guard)
@@ -421,8 +449,15 @@ namespace OverHaulers
         /// Normalizes calculated totals and aggregates breakdown metrics in a single contiguous memory pass.
         /// Eliminates a redundant array traversal across active workspace slots.
         /// </summary>
+        /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
+        /// <param name="context">The systemic evaluation context derived from the active configuration snapshot.</param>
+        /// <param name="deficits">The regional deficits calculated for the pawn.</param>
+        /// <param name="prostheticBoost">Output parameter for the aggregated prosthetic boost.</param>
+        /// <param name="healthDeficit">Output parameter for the aggregated health deficit.</param>
+        /// <param name="athleticOffset">Output parameter for the aggregated athletic offset.</param>
         private static void NormalizeAndAggregateMetrics(
             AnatomicalWorkspace workspace,
+            in SystemicEvaluationContext context,
             in RegionalDeficits deficits,
             out float prostheticBoost,
             out float healthDeficit,
@@ -435,6 +470,10 @@ namespace OverHaulers
             var calcHealths = workspace.CalculatedHealths;
             var calcTotals = workspace.CalculatedTotals;
             PartType[] partTypes = workspace.PartTypes;
+            float[] weightManip = workspace.WeightManipulation;
+            float[] weightMove = workspace.WeightMoving;
+            float normManip = context.GetNormalizedBudget(PartType.ManipulationPart);
+            float normMove = context.GetNormalizedBudget(PartType.MovingPart);
 
             prostheticBoost = 0f;
             healthDeficit = 0f;
@@ -443,7 +482,16 @@ namespace OverHaulers
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
-                float ratio = deficits.GetRatio(type);
+                float ratio;
+                if (type == PartType.DualLimb)
+                {
+                    GetDualLimbShares(i, weightManip, weightMove, normManip, normMove, out float manipShare, out float moveShare);
+                    ratio = deficits.GetDualLimbRatio(manipShare, moveShare);
+                }
+                else
+                {
+                    ratio = deficits.GetRatio(type);
+                }
 
                 float finalProsthetic = calcProsthetics[i];
                 if (finalProsthetic < 0f) finalProsthetic *= ratio;
@@ -496,6 +544,9 @@ namespace OverHaulers
         /// Solves the raw part offsets across contiguous SoA memory lanes.
         /// Wounds, amputations, and kinetic systemic strain accumulate smoothly without premature part-level clamping.
         /// </summary>
+        /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
+        /// <param name="context">The systemic evaluation context derived from the active configuration snapshot.</param>
+        /// <param name="totalPlayableBudget">The total playable mass capacity budget for the pawn.</param>
         private static void SolveRawPartOffsets(
             AnatomicalWorkspace workspace,
             in SystemicEvaluationContext context,
@@ -628,6 +679,11 @@ namespace OverHaulers
                             calculatedProsthetic = -partPlayableBudget * efficiencyDeficit;
                         }
                     }
+                    else if (context.EnablePartHealth && healths[i] < 1.0f)
+                    {
+                        float healthLoss = 1.0f - healths[i];
+                        calculatedProsthetic = -partPlayableBudget * healthLoss;
+                    }
                 }
                 // 3. Organic Part Wounds
                 else if (context.EnablePartHealth && healths[i] < 1.0f)
@@ -636,12 +692,12 @@ namespace OverHaulers
                     calculatedHealth = -partPlayableBudget * healthLoss;
                 }
 
-                // 4. Granular Systemic Athletic Coupling
-                if (context.EnableAthletics && !isMissing)
+                // 4. Granular Systemic Athletic Coupling (natural parts only)
+                if (context.EnableAthletics && !isMissing && !hasAddedPart)
                 {
                     regionalDeltas.GetDeltas(type, out float regionalPositiveDelta, out float regionalNegativeDelta);
 
-                    if (regionalPositiveDelta > 0f && !hasAddedPart)
+                    if (regionalPositiveDelta > 0f)
                     {
                         calculatedAthletic += partNormalizedWeight * regionalPositiveDelta * context.AthleticAnchorScale;
                     }
@@ -686,10 +742,16 @@ namespace OverHaulers
             var calcHealths = workspace.CalculatedHealths;
 
             PartType[] partTypes = workspace.PartTypes;
+            float[] weightManip = workspace.WeightManipulation;
+            float[] weightMove = workspace.WeightMoving;
 
-            float maxTorsoNegative = totalPlayableBudget * context.GetNormalizedBudget(PartType.CorePart);
-            float maxArmNegative = totalPlayableBudget * context.GetNormalizedBudget(PartType.ManipulationPart);
-            float maxLegNegative = totalPlayableBudget * context.GetNormalizedBudget(PartType.MovingPart);
+            float normTorso = context.GetNormalizedBudget(PartType.CorePart);
+            float normManip = context.GetNormalizedBudget(PartType.ManipulationPart);
+            float normMove = context.GetNormalizedBudget(PartType.MovingPart);
+
+            float maxTorsoNegative = totalPlayableBudget * normTorso;
+            float maxArmNegative = totalPlayableBudget * normManip;
+            float maxLegNegative = totalPlayableBudget * normMove;
 
             totalPositiveBoosts = 0f;
 
@@ -722,8 +784,9 @@ namespace OverHaulers
                         deficits.RawMovingNegative += partNegative;
                         break;
                     case PartType.DualLimb:
-                        deficits.RawManipulationNegative += partNegative * 0.5f;
-                        deficits.RawMovingNegative += partNegative * 0.5f;
+                        GetDualLimbShares(i, weightManip, weightMove, normManip, normMove, out float manipShare, out float moveShare);
+                        deficits.RawManipulationNegative += partNegative * manipShare;
+                        deficits.RawMovingNegative += partNegative * moveShare;
                         break;
                 }
             }
@@ -736,44 +799,48 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Normalizes the calculated totals for each part in the anatomical workspace based on the regional deficit ratios.
-        /// Scales negative prosthetics, athletic strain, and injury deficits proportionally to prevent regional budget overruns.
+        /// Resolves the normalized manipulation and moving budget fractions for a specific dual-limb part slot.
         /// </summary>
-        /// <param name="workspace">The anatomical workspace containing calculated part vectors.</param>
-        /// <param name="deficits">The calculated regional deficit scaling ratios.</param>
-        private static void NormalizeWorkspaceCalculatedTotals(
-            AnatomicalWorkspace workspace,
-            in RegionalDeficits deficits)
+        /// <param name="partIndex">The index of the dual-limb part slot being evaluated.</param>
+        /// <param name="weightManip">The array of manipulation weights for each part slot.</param>
+        /// <param name="weightMove">The array of moving weights for each part slot.</param>
+        /// <param name="normManip">The normalized manipulation budget fraction.</param>
+        /// <param name="normMove">The normalized moving budget fraction.</param>
+        /// <param name="manipShare">Output parameter for the manipulation share of the dual-limb part.</param>
+        /// <param name="moveShare">Output parameter for the moving share of the dual-limb part.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void GetDualLimbShares(
+            int partIndex,
+            float[] weightManip,
+            float[] weightMove,
+            float normManip,
+            float normMove,
+            out float manipShare,
+            out float moveShare)
         {
-            int partCount = workspace.PartCount;
-
-            var calcProsthetics = workspace.CalculatedProsthetics;
-            var calcAthletics = workspace.CalculatedAthletics;
-            var calcHealths = workspace.CalculatedHealths;
-            var calcTotals = workspace.CalculatedTotals;
-
-            PartType[] partTypes = workspace.PartTypes;
-
-            for (int i = 0; i < partCount; i++)
+            if (weightManip != null && weightMove != null)
             {
-                PartType type = partTypes[i];
-                float ratio = deficits.GetRatio(type);
-
-                float finalProsthetic = calcProsthetics[i];
-                if (finalProsthetic < 0f) finalProsthetic *= ratio;
-
-                float finalAthletic = calcAthletics[i];
-                if (finalAthletic < 0f) finalAthletic *= ratio;
-
-                float finalHealth = calcHealths[i];
-                if (finalHealth < 0f) finalHealth *= ratio;
-
-                calcProsthetics[i] = finalProsthetic;
-                calcAthletics[i] = finalAthletic;
-                calcHealths[i] = finalHealth;
-
-                calcTotals[i] = finalProsthetic + finalAthletic + finalHealth;
+                float manipWeight = weightManip[partIndex] * normManip;
+                float moveWeight = weightMove[partIndex] * normMove;
+                float combined = manipWeight + moveWeight;
+                if (combined > 0f)
+                {
+                    manipShare = manipWeight / combined;
+                    moveShare = moveWeight / combined;
+                    return;
+                }
             }
+
+            float budgetSum = normManip + normMove;
+            if (budgetSum > 0f)
+            {
+                manipShare = normManip / budgetSum;
+                moveShare = normMove / budgetSum;
+                return;
+            }
+
+            manipShare = 0.5f;
+            moveShare = 0.5f;
         }
 
         #endregion

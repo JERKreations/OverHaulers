@@ -16,7 +16,7 @@ namespace OverHaulers
     /// ARCHITECTURAL DESIGN RATIONALE (INGRESS PIPELINE):
     /// Ingress executes in two deterministic stages:
     /// 1. Stage 1 (Hediff Translation): Sweeps live HediffSet, mapping direct wounds, added parts, and organ implants
-    ///    into primitive SoA lanes (HealthFractions, EfficiencyRatings, AthleticEfficiencies, and Flags bitmasks).
+    ///    into primitive SoA lanes (HealthFractions, EfficiencyRatings, and Flags bitmasks).
     ///    Cold metadata (Def references) is only recorded when explicitly requested for UI presentation.
     /// 2. Stage 2 (Topological Sweeps):
     ///    - Sweep 1: Normalizes direct injury HP loss against part maximum health.
@@ -62,7 +62,7 @@ namespace OverHaulers
             StampLiveHediffs(pawn, safeHediffs, workspace, populateColdMetadata, source);
 
             // Stage 2: Unified Topological Graph Sweeps
-            FinalizeTopologicalSweeps(pawn, workspace, populateColdMetadata);
+            FinalizeTopologicalSweeps(pawn, workspace, populateColdMetadata, source);
         }
 
         #endregion
@@ -96,7 +96,6 @@ namespace OverHaulers
             var flags = workspace.Flags;
             var healths = workspace.HealthFractions;
             var effs = workspace.EfficiencyRatings;
-            var athEffs = workspace.AthleticEfficiencies;
             var coldStates = workspace.PartStatesColdArray;
 
             float consciousness = source != null 
@@ -178,11 +177,10 @@ namespace OverHaulers
                     workspace.SetFlag(partIndex, PartFlags.HasAddedPart, true);
                     effs[partIndex] = liveEfficiency;
 
-                    // Ingress each added part
+                    // Record athletic impact flag for presentation relevance
                     if (characteristics.AffectsAthletics)
                     {
                         workspace.SetFlag(partIndex, PartFlags.HasAthleticImplant, true);
-                        athEffs[partIndex] = characteristics.EfficiencyModifier;
                     }
 
                     // Record Def references for presentation without formatting names here.
@@ -211,11 +209,10 @@ namespace OverHaulers
                         });
                     }
 
-                    // Ingress each organ/tissue implant
+                    // Record athletic impact flag and cold metadata for presentation relevance
                     if (characteristics.AffectsAthletics || Math.Abs(characteristics.EfficiencyModifier - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
                     {
                         workspace.SetFlag(partIndex, PartFlags.HasAthleticImplant, true);
-                        athEffs[partIndex] = characteristics.EfficiencyModifier;
 
                         // Record biological Def reference for UI presentation
                         if (populateColdMetadata)
@@ -254,10 +251,12 @@ namespace OverHaulers
         /// <param name="pawn">The pawn whose anatomical workspace is being finalized.</param>
         /// <param name="workspace">The anatomical workspace containing part states and efficiencies.</param>
         /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during the finalization process.</param>
+        /// <param name="source">Optional anatomical data source providing contextual max part health.</param>
         private static void FinalizeTopologicalSweeps(
             Pawn pawn,
             AnatomicalWorkspace workspace,
-            bool populateColdMetadata)
+            bool populateColdMetadata,
+            IAnatomicalDataSource source)
         {
             int partCount = workspace.PartCount;
             var healths = workspace.HealthFractions;
@@ -269,7 +268,7 @@ namespace OverHaulers
             // =========================================================================
             // Sweep 1: Injury Health Fraction Normalization
             // =========================================================================
-            if (pawn != null)
+            if (pawn != null || source != null)
             {
                 float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
 
@@ -283,7 +282,7 @@ namespace OverHaulers
                         // Normalize injury health fraction
                         if (part != null)
                         {
-                            float maxHp = part.def.GetMaxHealth(pawn);
+                            float maxHp = source != null ? source.GetPartMaxHealth(part) : part.def.GetMaxHealth(pawn);
 
                             // Calculate current health based on lost HP
                             if (maxHp > 0f)
@@ -301,7 +300,7 @@ namespace OverHaulers
 
                         if (workspace.HasFlag(i, PartFlags.HasAddedPart))
                         {
-                            effs[i] *= healths[i]; // Adjust efficiency based on normalized health fraction
+                            effs[i] *= healths[i]; // Couple prosthetic performance to physical HP fraction
                         }
                     }
                 }

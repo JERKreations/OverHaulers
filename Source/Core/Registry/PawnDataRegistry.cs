@@ -618,14 +618,32 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Solves the mass capacity for the specified pawn and caches the numerical results in the provided node.
-        /// Pure Core implementation: zero UI compilation, zero ViewProjection dependencies.
+        /// Publishes a freshly evaluated solver result produced by a projection pass into both the main-thread
+        /// numerical cache and the background snapshot table so consecutive InfoCard queries observe fresh state.
         /// </summary>
-        /// <param name="pawn">The pawn whose mass capacity is being solved.</param>
-        /// <param name="node">The cache node where solved numerical values will be stored.</param>
-        /// <param name="baselineCapacity">The species baseline capacity in kilograms.</param>
-        /// <param name="currentTick">The current game tick timestamp.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name="pawnId">The unique identifier of the pawn being evaluated.</param>
+        /// <param name="result">The mass capacity evaluation result to publish.</param>
+        /// <param name="currentTick">The active game tick.</param>
+        internal static void PublishEvaluation(int pawnId, in MassCapacityEvaluationResult result, int currentTick)
+        {
+            if (!UnityData.IsInMainThread || pawnId <= 0) return;
+
+            if (!capacityCache.TryGetValue(pawnId, out CachedMassData node))
+            {
+                node = new CachedMassData();
+                capacityCache.Add(pawnId, node);
+            }
+
+            CommitEvaluationToNode(pawnId, node, result.BiologicalBaseline, in result, currentTick);
+        }
+
+        /// <summary>
+        /// Solves the mass capacity for a pawn and caches the result in the provided node.
+        /// </summary>
+        /// <param name="pawn">The pawn to evaluate.</param>
+        /// <param name="node">The cache node to populate with the evaluation result.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity for the pawn.</param>
+        /// <param name="currentTick">The active game tick.</param>
         private static void SolveAndCacheEntry(
             Pawn pawn, 
             CachedMassData node, 
@@ -635,7 +653,26 @@ namespace OverHaulers
             MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
                 pawn, baselineCapacity);
 
-            // Commit complete numerical state to the cache entry
+            CommitEvaluationToNode(pawn.thingIDNumber, node, baselineCapacity, in result, currentTick);
+            PerformanceTelemetry.IncrementCacheMisses();
+        }
+
+        /// <summary>
+        /// Commits the evaluated mass capacity result to the cache node and updates the background snapshot.
+        /// </summary>
+        /// <param name="pawnId">The unique identifier of the pawn being evaluated.</param>
+        /// <param name="node">The cache node to populate with the evaluation result.</param>
+        /// <param name="baselineCapacity">The baseline mass capacity for the pawn.</param>
+        /// <param name="result">The mass capacity evaluation result to commit.</param>
+        /// <param name="currentTick">The active game tick.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CommitEvaluationToNode(
+            int pawnId,
+            CachedMassData node,
+            float baselineCapacity,
+            in MassCapacityEvaluationResult result,
+            int currentTick)
+        {
             node.Offset = result.SolvedOffset;
             node.FinalCapacity = result.FinalCapacity;
             node.TotalMultiplier = result.TotalMultiplier;
@@ -647,9 +684,7 @@ namespace OverHaulers
             node.IsStale = false;
 
             // Publish state atomically to the background snapshot table for pathfinding threads
-            MassSnapshotCache.WriteState(pawn.thingIDNumber, result.SolvedOffset);
-
-            PerformanceTelemetry.IncrementCacheMisses();
+            MassSnapshotCache.WriteState(pawnId, result.SolvedOffset);
         }
 
         /// <summary>
