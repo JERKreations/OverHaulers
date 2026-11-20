@@ -14,7 +14,7 @@ namespace OverHaulers
     /// <list type="bullet">
     ///   <item><description><b>Outward Protection:</b> Completely suppresses state changes and death handlers on <see cref="HeadlessPawnShell"/> instances via <see cref="Priority.First"/> prefixes, preventing foreign mods from observing unspawned pawns.</description></item>
     ///   <item><description><b>Inward Protection:</b> Catches third-party mod exceptions thrown during dummy pawn evaluation via <see cref="Priority.Last"/> Harmony Finalizers, neutralizing foreign errors.</description></item>
-    ///   <item><description><b>Main-Menu Fallbacks:</b> Provides fallback managers when <see cref="Current.Game"/> is null, preventing NREs during Main Menu calibration.</description></item>
+    ///   <item><description><b>Main-Menu Fallbacks:</b> Provides scoped fallback managers when <see cref="Current.Game"/> is null and <see cref="HeadlessPawnShell.IsSafetyFallbackScopeActive"/> is active, preventing NREs during Main Menu calibration and Test Bench evaluation without altering <see cref="Find"/> invariants for external callers.</description></item>
     /// </list>
     /// Resides under Source/Integration/Patches/.
     /// </summary>
@@ -100,13 +100,14 @@ namespace OverHaulers
         #region 3. [INT-SAFE-03] FALLBACK GETTER PREFIXES
 
         /// <summary>
-        /// Provides a prefix patch for UniqueIDsManager, returning a fallback instance if the game is not yet initialized.
+        /// Provides a scoped prefix patch for UniqueIDsManager, returning a fallback instance only when
+        /// <see cref="Current.Game"/> is null inside an active <see cref="HeadlessPawnShell"/> safety scope.
         /// </summary>
         /// <param name="__result">The result of the UniqueIDsManager retrieval.</param>
-        /// <returns>False if the game is not yet initialized, preventing the original method from executing; true otherwise.</returns>
+        /// <returns>False when a scoped fallback manager was supplied; true to preserve native engine semantics.</returns>
         private static bool UniqueIDsManager_Prefix(ref UniqueIDsManager __result)
         {
-            if (Current.Game == null)
+            if (Current.Game == null && HeadlessPawnShell.IsSafetyFallbackScopeActive)
             {
                 if (fallbackUniqueIDsManager == null) fallbackUniqueIDsManager = new UniqueIDsManager();
                 __result = fallbackUniqueIDsManager;
@@ -116,13 +117,14 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Provides a prefix patch for TickManager, returning a fallback instance if the game is not yet initialized.
+        /// Provides a scoped prefix patch for TickManager, returning a fallback instance only when
+        /// <see cref="Current.Game"/> is null inside an active <see cref="HeadlessPawnShell"/> safety scope.
         /// </summary>
         /// <param name="__result">The result of the TickManager retrieval.</param>
-        /// <returns>False if the game is not yet initialized, preventing the original method from executing; true otherwise.</returns>
+        /// <returns>False when a scoped fallback manager was supplied; true to preserve native engine semantics.</returns>
         private static bool TickManager_Prefix(ref TickManager __result)
         {
-            if (Current.Game == null)
+            if (Current.Game == null && HeadlessPawnShell.IsSafetyFallbackScopeActive)
             {
                 if (fallbackTickManager == null) fallbackTickManager = new TickManager();
                 __result = fallbackTickManager;
@@ -132,13 +134,14 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Provides a prefix patch for FactionManager, returning a fallback instance if the game is not yet initialized.
+        /// Provides a scoped prefix patch for FactionManager, returning a fallback instance only when
+        /// <see cref="Current.Game"/> is null inside an active <see cref="HeadlessPawnShell"/> safety scope.
         /// </summary>
         /// <param name="__result">The result of the FactionManager retrieval.</param>
-        /// <returns>False if the game is not yet initialized, preventing the original method from executing; true otherwise.</returns>
+        /// <returns>False when a scoped fallback manager was supplied; true to preserve native engine semantics.</returns>
         private static bool FactionManager_Prefix(ref FactionManager __result)
         {
-            if (Current.Game == null)
+            if (Current.Game == null && HeadlessPawnShell.IsSafetyFallbackScopeActive)
             {
                 if (fallbackFactionManager == null) fallbackFactionManager = new FactionManager();
                 __result = fallbackFactionManager;

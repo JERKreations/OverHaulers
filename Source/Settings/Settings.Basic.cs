@@ -59,7 +59,6 @@ namespace OverHaulers
             enableProsthetics = CoreDefaults.EnableProsthetics;
             enableAthletics = CoreDefaults.EnableAthletics;
             enablePartHealth = CoreDefaults.EnablePartHealth;
-            NotifyValuesReset();
         }
 
         /// <summary>
@@ -72,7 +71,6 @@ namespace OverHaulers
             anatomyWeightLeg = CoreDefaults.AnatomyWeightLeg;
             missingArmsTorsoShare = CoreDefaults.MissingArmsTorsoShare;
             missingLegsTorsoShare = CoreDefaults.MissingLegsTorsoShare;
-            NotifyValuesReset();
         }
 
         #endregion

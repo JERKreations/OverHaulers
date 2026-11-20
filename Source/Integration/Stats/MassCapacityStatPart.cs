@@ -41,7 +41,7 @@ namespace OverHaulers
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 // BREAKPOINT ANCHOR: Headless Dummy Shield
-                if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId) return;
+                if (pawn.thingIDNumber <= 0) return;
 
                 isTransforming = true;
                 try
@@ -80,8 +80,8 @@ namespace OverHaulers
             // If the stat request has a valid pawn and the pawn can carry caravan mass, proceed with the explanation.
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
-                // EARLY EXIT: If the pawn is a headless shell, skip the explanation entirely.
-                if (pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId) return null;
+                // EARLY EXIT: If the pawn is a headless shell, or otherwise invalid, skip the explanation entirely.
+                if (pawn.thingIDNumber <= 0) return null;
 
                 float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 MassCapacityModel detailedMassModel = DetailedModelRegistry.GetDetailedModel(pawn, bioBaseline);
@@ -112,7 +112,7 @@ namespace OverHaulers
 
             // EARLY EXIT: If the foreign stat is not adopted, skip the hyperlinks entirely.
             if (statRequest.HasThing && statRequest.Thing is Pawn pawn &&
-                pawn.thingIDNumber == HeadlessPawnShell.HeadlessPawnThingId)
+                pawn.thingIDNumber <= 0)
             {
                 return null;
             }

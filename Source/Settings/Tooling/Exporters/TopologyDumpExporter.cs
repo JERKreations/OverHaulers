@@ -35,25 +35,16 @@ namespace OverHaulers
             DumpFormat format = DumpFormat.Text, 
             TestSubjectEntry subject = null)
         {
+            dumpBuilder.Clear();
             try
             {
-                TopologyLayoutCompiler.EnsureInitialized();
-                dumpBuilder.Clear();
-
-                string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                List<ThingDef> allPawnThings = DefDatabase<ThingDef>.AllDefsListForReading.FindAll(t => t.category == ThingCategory.Pawn && t.race?.body != null);
-                List<BodyDef> allBodies = new List<BodyDef>(DefDatabase<BodyDef>.AllDefsListForReading);
-
-                allPawnThings.Sort((a, b) => string.Compare(a.LabelCap.ToString(), b.LabelCap.ToString(), StringComparison.OrdinalIgnoreCase));
-                allBodies.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
-
-                BodyDef targetBody = subject?.BodyDef;
-                if (scope != DumpScope.FullCensus && targetBody == null)
-                {
-                    scope = DumpScope.FullCensus;
-                }
-
-                List<BodyDef> targetBodies = DiagnosticExportUtility.ResolveTargetBodies(scope, targetBody, allBodies);
+                DiagnosticExportUtility.PrepareCensusExport(
+                    ref scope,
+                    subject,
+                    out string timestamp,
+                    out BodyDef targetBody,
+                    out List<ThingDef> allPawnThings,
+                    out List<BodyDef> targetBodies);
 
                 if (format == DumpFormat.Xml)
                 {
@@ -71,6 +62,10 @@ namespace OverHaulers
             {
                 OHLog.Warn("TestBench.ExportTopologyDumpFailed", ex, "Failed to export topology dump.");
                 return null;
+            }
+            finally
+            {
+                dumpBuilder.Clear();
             }
         }
 
@@ -144,7 +139,7 @@ namespace OverHaulers
                     PartType type = tmpl.PartTypes[idx];
 
                     float weightFactor = tmpl.StaticWeightFactors[idx];
-                    string typeTag = TestBench.GetLocalizedPartTypeTag(type, part);
+                    string typeTag = DiagnosticExportUtility.FormatPartTypeTag(type, part);
                     string weightPct = weightFactor.ToString("P3");
                     int parentIdx = tmpl.ParentIndices[idx];
                     string parentName = parentIdx != -1 ? tmpl.IndexedParts[parentIdx].Label : defaultParent;
@@ -152,10 +147,8 @@ namespace OverHaulers
                     string modelTag = tmpl.WeightModels[idx] == LimbWeightModel.NotApplicable ? "" : $" | Model: {tmpl.WeightModels[idx]}";
                     string tagsSuffix = string.IsNullOrEmpty(tmpl.TagsDisplay[idx]) ? "" : $" | Tags: {tmpl.TagsDisplay[idx]}";
 
-                    List<string> flags = new List<string>();
-                    if (tmpl.IsOrgan[idx]) flags.Add("ORGAN");
-                    if (tmpl.WasReclaimedAsAnchor[idx]) flags.Add("RECLAIMED");
-                    string flagsSuffix = flags.Count > 0 ? $" | Flags: {string.Join("+", flags)}" : "";
+                    string flagsFormatted = DiagnosticExportUtility.FormatPartFlags(tmpl.IsOrgan[idx], tmpl.WasReclaimedAsAnchor[idx], string.Empty);
+                    string flagsSuffix = flagsFormatted.Length > 0 ? $" | Flags: {flagsFormatted}" : "";
 
                     builder.AppendLine(string.Format("  - {0,-32} : {1,6} | Parent: {2,-24} | [{3}] | HP: {4,3}{5}{6}{7}",
                         part.LabelCap, weightPct, DiagnosticExportUtility.PadOrTruncate(parentName, 24), typeTag, tmpl.HitPoints[idx], modelTag, flagsSuffix, tagsSuffix));

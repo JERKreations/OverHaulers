@@ -62,113 +62,41 @@ namespace OverHaulers
         #region 5. [SEC-03..06] RESET
 
         /// <summary>
-        /// Resets all positive torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoPositives()
-        {
-            torsoPositiveBreathing = CoreDefaults.TorsoPositiveBreathing;
-            torsoPositiveBlood = CoreDefaults.TorsoPositiveBlood;
-            torsoPositiveMoving = CoreDefaults.TorsoPositiveMoving;
-            torsoPositiveManipulation = CoreDefaults.TorsoPositiveManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all positive arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmPositives()
-        {
-            armPositiveBreathing = CoreDefaults.ArmPositiveBreathing;
-            armPositiveBlood = CoreDefaults.ArmPositiveBlood;
-            armPositiveMoving = CoreDefaults.ArmPositiveMoving;
-            armPositiveManipulation = CoreDefaults.ArmPositiveManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all positive leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegPositives()
-        {
-            legPositiveBreathing = CoreDefaults.LegPositiveBreathing;
-            legPositiveBlood = CoreDefaults.LegPositiveBlood;
-            legPositiveMoving = CoreDefaults.LegPositiveMoving;
-            legPositiveManipulation = CoreDefaults.LegPositiveManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all negative torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoDeficits()
-        {
-            torsoDeficitBreathing = CoreDefaults.TorsoDeficitBreathing;
-            torsoDeficitBlood = CoreDefaults.TorsoDeficitBlood;
-            torsoDeficitMoving = CoreDefaults.TorsoDeficitMoving;
-            torsoDeficitManipulation = CoreDefaults.TorsoDeficitManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all negative arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmDeficits()
-        {
-            armDeficitBreathing = CoreDefaults.ArmDeficitBreathing;
-            armDeficitBlood = CoreDefaults.ArmDeficitBlood;
-            armDeficitMoving = CoreDefaults.ArmDeficitMoving;
-            armDeficitManipulation = CoreDefaults.ArmDeficitManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all negative leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegDeficits()
-        {
-            legDeficitBreathing = CoreDefaults.LegDeficitBreathing;
-            legDeficitBlood = CoreDefaults.LegDeficitBlood;
-            legDeficitMoving = CoreDefaults.LegDeficitMoving;
-            legDeficitManipulation = CoreDefaults.LegDeficitManipulation;
-            NotifyValuesReset();
-        }
-
-        /// <summary>
-        /// Resets all systemic torso-related settings to their default values.
-        /// </summary>
-        public void ResetTorsoSystemic()
-        {
-            ResetTorsoPositives();
-            ResetTorsoDeficits();
-        }
-
-        /// <summary>
-        /// Resets all systemic arm-related settings to their default values.
-        /// </summary>
-        public void ResetArmSystemic()
-        {
-            ResetArmPositives();
-            ResetArmDeficits();
-        }
-
-        /// <summary>
-        /// Resets all systemic leg-related settings to their default values.
-        /// </summary>
-        public void ResetLegSystemic()
-        {
-            ResetLegPositives();
-            ResetLegDeficits();
-        }
-
-        /// <summary>
         /// Resets all systemic weightings to their default values.
         /// </summary>
         public void ResetSystemicWeightings()
         {
             linkSystemicWeights = DefaultLinkSystemicWeights;
-            ResetTorsoSystemic();
-            ResetArmSystemic();
-            ResetLegSystemic();
+
+            torsoPositiveBreathing = CoreDefaults.TorsoPositiveBreathing;
+            torsoPositiveBlood = CoreDefaults.TorsoPositiveBlood;
+            torsoPositiveMoving = CoreDefaults.TorsoPositiveMoving;
+            torsoPositiveManipulation = CoreDefaults.TorsoPositiveManipulation;
+
+            armPositiveBreathing = CoreDefaults.ArmPositiveBreathing;
+            armPositiveBlood = CoreDefaults.ArmPositiveBlood;
+            armPositiveMoving = CoreDefaults.ArmPositiveMoving;
+            armPositiveManipulation = CoreDefaults.ArmPositiveManipulation;
+
+            legPositiveBreathing = CoreDefaults.LegPositiveBreathing;
+            legPositiveBlood = CoreDefaults.LegPositiveBlood;
+            legPositiveMoving = CoreDefaults.LegPositiveMoving;
+            legPositiveManipulation = CoreDefaults.LegPositiveManipulation;
+
+            torsoDeficitBreathing = CoreDefaults.TorsoDeficitBreathing;
+            torsoDeficitBlood = CoreDefaults.TorsoDeficitBlood;
+            torsoDeficitMoving = CoreDefaults.TorsoDeficitMoving;
+            torsoDeficitManipulation = CoreDefaults.TorsoDeficitManipulation;
+
+            armDeficitBreathing = CoreDefaults.ArmDeficitBreathing;
+            armDeficitBlood = CoreDefaults.ArmDeficitBlood;
+            armDeficitMoving = CoreDefaults.ArmDeficitMoving;
+            armDeficitManipulation = CoreDefaults.ArmDeficitManipulation;
+
+            legDeficitBreathing = CoreDefaults.LegDeficitBreathing;
+            legDeficitBlood = CoreDefaults.LegDeficitBlood;
+            legDeficitMoving = CoreDefaults.LegDeficitMoving;
+            legDeficitManipulation = CoreDefaults.LegDeficitManipulation;
         }
 
         /// <summary>
@@ -178,7 +106,6 @@ namespace OverHaulers
         {
             torsoAxialBias = CoreDefaults.TorsoAxialBias;
             torsoHpSensitivity = CoreDefaults.TorsoHpSensitivity;
-            NotifyValuesReset();
         }
 
         /// <summary>
@@ -187,7 +114,6 @@ namespace OverHaulers
         public void ResetLimbDecay()
         {
             limbDepthDecayFactor = CoreDefaults.LimbDepthDecayFactor;
-            NotifyValuesReset();
         }
 
         #endregion

@@ -23,12 +23,10 @@ namespace OverHaulers
         public static void DrawIntegrationTabContents(ref SettingsLayout ui, Settings settings)
         {
             // 0. Section Header & Reset Action
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_CompatibilityHeader", () =>
+            ui.HeaderWithResetKey("OverHaulers_CompatibilityHeader", () =>
             {
                 settings.ResetCompatibility();
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
-                SettingsLayout.ClearInputBuffers();
-                SettingsViewUtilities.OnSettingMutated();
             });
 
             ui.DescriptionKey("OverHaulers_Compatibility_Desc");
@@ -74,12 +72,19 @@ namespace OverHaulers
             Widgets.DrawBoxSolid(bannerRect, new Color(0.12f, 0.15f, 0.18f, 0.85f));
             Widgets.DrawBox(bannerRect);
 
-            Text.Font = GameFont.Tiny;
+            GameFont origFont = Text.Font;
             Color origColor = GUI.color;
-            GUI.color = settings.colorBoosted;
-            Widgets.Label(new Rect(bannerRect.x + 8f, bannerRect.y + 5f, bannerRect.width - 16f, 18f), activeLabel);
-            GUI.color = origColor;
-            Text.Font = GameFont.Small;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = settings.colorBoosted;
+                Widgets.Label(new Rect(bannerRect.x + 8f, bannerRect.y + 5f, bannerRect.width - 16f, 18f), activeLabel);
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = origFont;
+            }
 
             ui.Y += 32f;
         }
@@ -118,23 +123,10 @@ namespace OverHaulers
             string key = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
             bool isForcedStandalone = (key == IntegrationPipeline.PresentationKeyNative);
             bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
-            bool hasExternalPatches = IntegrationPipeline.HasAnyActiveXmlProfile || IntegrationPipeline.DiscoveredPatches.Count > 0;
+            bool hasExternalStatCards = IntegrationPipeline.HasAnyActiveXmlProfile || HasDiscoveredCandidateStats();
 
-            // Scenario C: Side-by-Side (Forced Standalone with external patches active)
-            if (isForcedStandalone && hasExternalPatches)
-            {
-                return new VerificationGuide
-                {
-                    StatusTitle = "OverHaulers_Verify_SideBySide_Title".Translate().ToString(),
-                    StatusColor = Color.yellow,
-                    DisplayLine = "OverHaulers_Verify_SideBySide_Display".Translate(statLabel).ToString(),
-                    GearLine = "OverHaulers_Verify_SideBySide_Gear".Translate().ToString(),
-                    ConfirmLine = "OverHaulers_Verify_SideBySide_Confirm".Translate().ToString()
-                };
-            }
-
-            // Scenario D: Custom Dynamic CIL Hook
-            if (isCilLocked)
+            // Case 4: Adopted via dynamic CIL discovery
+            if (isCilLocked && IntegrationPipeline.IsForeignStatAdopted)
             {
                 return new VerificationGuide
                 {
@@ -146,7 +138,7 @@ namespace OverHaulers
                 };
             }
 
-            // Scenario A: Optimal Unified Integration (Adopted Foreign Stat Card)
+            // Case 2: Adoption (XML profile or automatic adoption) -> single unified card
             if (IntegrationPipeline.IsForeignStatAdopted)
             {
                 return new VerificationGuide
@@ -159,13 +151,30 @@ namespace OverHaulers
                 };
             }
 
-            // Scenario B: Native Standalone Mode (Vanilla Game)
+            // Case 3: Third-party stat mod active while running un-adopted native card (Forced Standalone or unscanned/AUTO unlisted stat) -> multiple cards
+            if (hasExternalStatCards && (isForcedStandalone || !IntegrationPipeline.IsForeignStatAdopted))
+            {
+                string confirmKey = isForcedStandalone
+                    ? "OverHaulers_Verify_SideBySide_Confirm"
+                    : "OverHaulers_Verify_SideBySide_ConfirmCil";
+
+                return new VerificationGuide
+                {
+                    StatusTitle = "OverHaulers_Verify_SideBySide_Title".Translate().ToString(),
+                    StatusColor = Color.yellow,
+                    DisplayLine = "OverHaulers_Verify_SideBySide_Display".Translate(statLabel, categoryLabel).ToString(),
+                    GearLine = "OverHaulers_Verify_SideBySide_Gear".ToString(),
+                    ConfirmLine = confirmKey.Translate().ToString()
+                };
+            }
+
+            // Case 1: Default / Pure Standalone (no competing external stat card active) -> single native card
             return new VerificationGuide
             {
                 StatusTitle = "OverHaulers_Verify_Standalone_Title".Translate().ToString(),
                 StatusColor = settings.colorHealthy,
                 DisplayLine = "OverHaulers_Verify_Standalone_Display".Translate(statLabel, categoryLabel).ToString(),
-                GearLine = "OverHaulers_Verify_Standalone_Gear".Translate().ToString(),
+                GearLine = "OverHaulers_Verify_Standalone_Gear".ToString(),
                 ConfirmLine = "OverHaulers_Verify_Standalone_Confirm".Translate(statLabel).ToString()
             };
         }
@@ -190,6 +199,7 @@ namespace OverHaulers
             float hGear;
             float hConfirm;
 
+            Text.Font = GameFont.Tiny;
             try
             {
                 hDisplay = Math.Max(18f, Text.CalcHeight(guide.DisplayLine, valueWidth));
@@ -209,24 +219,29 @@ namespace OverHaulers
 
             float curY = cardRect.y + padding;
 
-            // Title Line
-            Rect titleRect = new Rect(cardRect.x + padding, curY, textWidth, 20f);
             Text.Font = GameFont.Tiny;
-            GUI.color = guide.StatusColor;
-            Widgets.Label(titleRect, string.Format("● {0}", guide.StatusTitle.ToUpperInvariant()));
-            GUI.color = Color.white;
-            curY += 22f;
+            try
+            {
+                // Title Line
+                Rect titleRect = new Rect(cardRect.x + padding, curY, textWidth, 20f);
+                GUI.color = guide.StatusColor;
+                Widgets.Label(titleRect, string.Format("● {0}", guide.StatusTitle.ToUpperInvariant()));
+                GUI.color = Color.white;
+                curY += 22f;
 
-            // 3 Verification Lines
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay,
-                "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear,
-                "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
-            DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm,
-                "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
-
-            Text.Font = GameFont.Small;
-            GUI.color = origColor;
+                // 3 Verification Lines
+                DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hDisplay,
+                    "OverHaulers_Verify_Field_Display".Translate().ToString(), guide.DisplayLine);
+                DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hGear,
+                    "OverHaulers_Verify_Field_Gear".Translate().ToString(), guide.GearLine);
+                DrawVerificationLine(cardRect.x + padding, ref curY, prefixWidth, valueWidth, hConfirm,
+                    "OverHaulers_Verify_Field_Confirm".Translate().ToString(), guide.ConfirmLine);
+            }
+            finally
+            {
+                Text.Font = origFont;
+                GUI.color = origColor;
+            }
 
             ui.Y += cardHeight + 10f;
         }
@@ -279,6 +294,8 @@ namespace OverHaulers
             if (DrawCustomRadioRow(autoRowRect, autoLabel, isAutoSelected))
             {
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
+                settings.ResetCustomCilNeutralization();
+                IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
             if (!string.IsNullOrEmpty(autoTooltip)) TooltipHandler.TipRegion(autoRowRect, autoTooltip);
@@ -291,6 +308,8 @@ namespace OverHaulers
             if (DrawCustomRadioRow(standaloneRowRect, standaloneLabel, isStandaloneSelected))
             {
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
+                settings.ResetCustomCilNeutralization();
+                IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
             if (!string.IsNullOrEmpty(standaloneTooltip)) TooltipHandler.TipRegion(standaloneRowRect, standaloneTooltip);
@@ -389,29 +408,45 @@ namespace OverHaulers
                 if (DrawCustomRadioRow(radioRect, profileLabel, isSelected))
                 {
                     settings.selectedPresentationKey = expectedKey;
+                    settings.ResetCustomCilNeutralization();
+                    IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
                     IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 }
 
-                Text.Font = GameFont.Tiny;
+                GameFont origFont = Text.Font;
                 Color origColor = GUI.color;
-                GUI.color = isSelected ? settings.colorBoosted : settings.colorHealthy;
-                Widgets.Label(badgeRect, "OverHaulers_ModActive".Translate().ToString());
-                GUI.color = origColor;
-                Text.Font = GameFont.Small;
+                try
+                {
+                    Text.Font = GameFont.Tiny;
+                    GUI.color = isSelected ? settings.colorBoosted : settings.colorHealthy;
+                    Widgets.Label(badgeRect, "OverHaulers_ModActive".Translate().ToString());
+                }
+                finally
+                {
+                    GUI.color = origColor;
+                    Text.Font = origFont;
+                }
             }
             else
             {
                 bool prevGui = GUI.enabled;
-                GUI.enabled = false;
-                DrawCustomRadioRow(radioRect, profileLabel, false);
-
-                Text.Font = GameFont.Tiny;
+                GameFont origFont = Text.Font;
                 Color origColor = GUI.color;
-                GUI.color = SettingsLayout.MutedTextColor;
-                Widgets.Label(badgeRect, "OverHaulers_ModNotLoaded".Translate().ToString());
-                GUI.color = origColor;
-                Text.Font = GameFont.Small;
-                GUI.enabled = prevGui;
+                try
+                {
+                    GUI.enabled = false;
+                    DrawCustomRadioRow(radioRect, profileLabel, false);
+
+                    Text.Font = GameFont.Tiny;
+                    GUI.color = SettingsLayout.MutedTextColor;
+                    Widgets.Label(badgeRect, "OverHaulers_ModNotLoaded".Translate().ToString());
+                }
+                finally
+                {
+                    GUI.color = origColor;
+                    Text.Font = origFont;
+                    GUI.enabled = prevGui;
+                }
             }
 
             ui.Y += 26f;
@@ -420,6 +455,12 @@ namespace OverHaulers
         #endregion
 
         #region 5. DYNAMIC BYTECODE DISCOVERIES (CIL SCANNER)
+
+        /// <summary>Pooled list of ascertained capacity factors discovered during CIL scanning.</summary>
+        private static readonly List<AscertainedCapacityFactor> pooledCilFactors = new List<AscertainedCapacityFactor>(8);
+
+        /// <summary>Pooled string builder for summarizing CIL-discovered capacity factors.</summary>
+        private static readonly System.Text.StringBuilder pooledCilFactorSummary = new System.Text.StringBuilder(128);
 
         /// <summary>
         /// Draws the CIL scanning section in the settings UI, including scan status and discovered patches.
@@ -449,9 +490,15 @@ namespace OverHaulers
                 Vector2 scanDoneSize = SettingsViewUtilities.ButtonSize(scanDoneLabel, ui.Width, minWidth: 320f, minHeight: 26f);
                 Rect scanDoneRect = new Rect(ui.X, ui.Y, scanDoneSize.x, scanDoneSize.y);
                 bool prevGui = GUI.enabled;
-                GUI.enabled = false;
-                SettingsViewUtilities.DrawButton(scanDoneRect, scanDoneLabel);
-                GUI.enabled = prevGui;
+                try
+                {
+                    GUI.enabled = false;
+                    SettingsViewUtilities.DrawButton(scanDoneRect, scanDoneLabel);
+                }
+                finally
+                {
+                    GUI.enabled = prevGui;
+                }
                 ui.Y += scanDoneSize.y + 4f;
 
                 if (IntegrationPipeline.DiscoveredPatches.Count == 0)
@@ -478,12 +525,19 @@ namespace OverHaulers
         private static void DrawCilDiscoveredPatch(ref SettingsLayout ui, DiscoveredPatchInfo patch, string currentKey, Settings settings)
         {
             Rect patchHeaderRect = new Rect(ui.X + 8f, ui.Y, ui.Width - 8f, 22f);
-            Text.Font = GameFont.Tiny;
+            GameFont origFont = Text.Font;
             Color origColor = GUI.color;
-            GUI.color = SettingsLayout.MutedTextColor;
-            Widgets.Label(patchHeaderRect, "OverHaulers_PatchHeader_OwnerFormat".Translate(patch.Owner, patch.PrimaryType).ToString());
-            GUI.color = origColor;
-            Text.Font = GameFont.Small;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = SettingsLayout.MutedTextColor;
+                Widgets.Label(patchHeaderRect, "OverHaulers_PatchHeader_OwnerFormat".Translate(patch.Owner, patch.PrimaryType).ToString());
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = origFont;
+            }
             ui.Y += 22f;
 
             if (patch.CandidateStats != null && patch.CandidateStats.Count > 0)
@@ -500,30 +554,204 @@ namespace OverHaulers
                     Rect statRadioRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 24f);
                     if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
                     {
-                        settings.selectedPresentationKey = targetKey;
-                        IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+                        if (!isSelected)
+                        {
+                            settings.selectedPresentationKey = targetKey;
+                            settings.ResetCustomCilNeutralization();
+                            IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                            IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+                        }
                     }
                     ui.Y += 24f;
+
+                    DrawCilCandidateFactors(ref ui, stat, isSelected, settings);
                 }
             }
             else
             {
                 Rect emptyRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 18f);
-                Text.Font = GameFont.Tiny;
+                GameFont origFont2 = Text.Font;
                 Color origColor2 = GUI.color;
-                GUI.color = SettingsLayout.MutedTextColor;
-                Widgets.Label(emptyRect, "OverHaulers_NoCandidateStatsInPatch".Translate().ToString());
-                GUI.color = origColor2;
-                Text.Font = GameFont.Small;
+                try
+                {
+                    Text.Font = GameFont.Tiny;
+                    GUI.color = SettingsLayout.MutedTextColor;
+                    Widgets.Label(emptyRect, "OverHaulers_NoCandidateStatsInPatch".Translate().ToString());
+                }
+                finally
+                {
+                    GUI.color = origColor2;
+                    Text.Font = origFont2;
+                }
                 ui.Y += 20f;
             }
 
             ui.Y += 6f;
         }
 
+        /// <summary>
+        /// Draws the CIL candidate factors for the specified stat, highlighting those that overlap with Over Haulers' simulation.
+        /// </summary>
+        /// <param name="ui">The UI layout context.</param>
+        /// <param name="stat">The stat for which to draw candidate factors.</param>
+        /// <param name="isSelected">Indicates whether the stat is currently selected.</param>
+        /// <param name="settings">The current settings instance.</param>
+        private static void DrawCilCandidateFactors(ref SettingsLayout ui, StatDef stat, bool isSelected, Settings settings)
+        {
+            pooledCilFactors.Clear();
+            GameFont origFont = Text.Font;
+            Color origColor = GUI.color;
+            try
+            {
+                IntegrationPipeline.PopulateAscertainedCapacityFactors(stat, pooledCilFactors);
+
+                if (pooledCilFactors.Count == 0)
+                {
+                    if (isSelected)
+                    {
+                        Rect noneRect = new Rect(ui.X + 42f, ui.Y, ui.Width - 42f, 18f);
+                        Text.Font = GameFont.Tiny;
+                        GUI.color = SettingsLayout.MutedTextColor;
+                        Widgets.Label(noneRect, SettingsViewUtilities.CachedText("OverHaulers_CilFactors_None"));
+                        ui.Y += 20f;
+                    }
+                    return;
+                }
+
+                if (!isSelected)
+                {
+                    pooledCilFactorSummary.Clear();
+                    for (int i = 0; i < pooledCilFactors.Count; i++)
+                    {
+                        if (i > 0) pooledCilFactorSummary.Append(", ");
+                        AscertainedCapacityFactor f = pooledCilFactors[i];
+                        pooledCilFactorSummary.Append(f.OverlapsOverHaulers
+                            ? "OverHaulers_CilFactors_AutoTag".Translate(f.Label).ToString()
+                            : f.Label);
+                    }
+
+                    string summaryText = "OverHaulers_CilFactors_Summary".Translate(pooledCilFactorSummary.ToString()).ToString();
+                    float h = Math.Max(18f, SettingsViewUtilities.CalcTextHeight(summaryText, ui.Width - 42f, GameFont.Tiny));
+                    Rect summaryRect = new Rect(ui.X + 42f, ui.Y, ui.Width - 42f, h);
+                    Text.Font = GameFont.Tiny;
+                    GUI.color = SettingsLayout.MutedTextColor;
+                    Widgets.Label(summaryRect, summaryText);
+                    ui.Y += h + 2f;
+                    return;
+                }
+
+                // Selected CIL candidate: render interactive factor neutralization checkboxes
+                Rect headerRect = new Rect(ui.X + 42f, ui.Y, ui.Width - 42f, 18f);
+                Text.Font = GameFont.Tiny;
+                GUI.color = SettingsLayout.MutedTextColor;
+                Widgets.Label(headerRect, SettingsViewUtilities.CachedText("OverHaulers_CilFactors_Header"));
+                GUI.color = origColor;
+                ui.Y += 20f;
+
+                bool listModified = false;
+                for (int i = 0; i < pooledCilFactors.Count; i++)
+                {
+                    AscertainedCapacityFactor f = pooledCilFactors[i];
+                    bool isChecked = settings.useCustomCilNeutralization
+                        ? ContainsIgnoreCase(settings.cilNeutralizedFactors, f.DefName)
+                        : f.OverlapsOverHaulers;
+
+                    string weightText = f.Weight.ToString("0.##");
+                    string rowLabel = (f.OverlapsOverHaulers
+                        ? "OverHaulers_CilFactors_RowOverlap".Translate(f.Label, weightText)
+                        : "OverHaulers_CilFactors_Row".Translate(f.Label, weightText)).ToString();
+
+                    float rowWidth = ui.Width - 52f;
+                    float rowH = Math.Max(22f, SettingsViewUtilities.CalcTextHeight(rowLabel, Math.Max(1f, rowWidth - 30f), GameFont.Tiny));
+                    Rect checkRect = new Rect(ui.X + 52f, ui.Y, rowWidth, rowH);
+
+                    bool nextChecked = isChecked;
+                    Text.Font = GameFont.Tiny;
+                    Widgets.CheckboxLabeled(checkRect, rowLabel, ref nextChecked);
+                    ui.Y += rowH + 2f;
+
+                    if (nextChecked != isChecked)
+                    {
+                        if (!settings.useCustomCilNeutralization)
+                        {
+                            // Materialize current auto-detected defaults before toggling one factor
+                            settings.cilNeutralizedFactors.Clear();
+                            for (int d = 0; d < pooledCilFactors.Count; d++)
+                            {
+                                if (pooledCilFactors[d].OverlapsOverHaulers)
+                                {
+                                    settings.cilNeutralizedFactors.Add(pooledCilFactors[d].DefName);
+                                }
+                            }
+                            settings.useCustomCilNeutralization = true;
+                        }
+
+                        if (nextChecked)
+                        {
+                            if (!ContainsIgnoreCase(settings.cilNeutralizedFactors, f.DefName))
+                            {
+                                settings.cilNeutralizedFactors.Add(f.DefName);
+                            }
+                        }
+                        else
+                        {
+                            settings.cilNeutralizedFactors.RemoveAll(s => string.Equals(s, f.DefName, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        listModified = true;
+                    }
+                }
+
+                if (listModified)
+                {
+                    IntegrationPipeline.SetCustomCilNeutralizedFactors(settings.cilNeutralizedFactors);
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+                }
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = origFont;
+                pooledCilFactors.Clear();
+                pooledCilFactorSummary.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Determines whether the specified list contains the given value, ignoring case.
+        /// </summary>
+        /// <param name="list">The list of strings to search.</param>
+        /// <param name="value">The value to look for.</param>
+        /// <returns>True if the list contains the value, ignoring case; otherwise, false.</returns>
+        private static bool ContainsIgnoreCase(List<string> list, string value)
+        {
+            if (list == null || string.IsNullOrEmpty(value)) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (string.Equals(list[i], value, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+
         #endregion
 
         #region 6. PRIVATE UI HELPERS
+
+        /// <summary>
+        /// Returns true if CIL discovery has identified at least one external candidate StatDef.
+        /// </summary>
+        private static bool HasDiscoveredCandidateStats()
+        {
+            var patches = IntegrationPipeline.DiscoveredPatches;
+            for (int i = 0; i < patches.Count; i++)
+            {
+                if (patches[i].CandidateStats != null && patches[i].CandidateStats.Count > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         /// <summary>
         /// Draws an empty group note in the settings UI.
@@ -533,12 +761,19 @@ namespace OverHaulers
         private static void DrawEmptyGroupNote(ref SettingsLayout ui, string note)
         {
             Rect rect = new Rect(ui.X + 12f, ui.Y, ui.Width - 12f, 20f);
-            Text.Font = GameFont.Tiny;
+            GameFont origFont = Text.Font;
             Color origColor = GUI.color;
-            GUI.color = SettingsLayout.MutedTextColor;
-            Widgets.Label(rect, string.Format("— {0}", note));
-            GUI.color = origColor;
-            Text.Font = GameFont.Small;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = SettingsLayout.MutedTextColor;
+                Widgets.Label(rect, string.Format("- {0}", note));
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = origFont;
+            }
             ui.Y += 22f;
         }
 

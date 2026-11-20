@@ -16,6 +16,7 @@ namespace OverHaulers
         public bool devStressTestAllFauna = CoreDefaults.DevStressTestAllFauna;
 
         public int reportMetricsIntervalHours = CoreDefaults.ReportMetricsIntervalHours;
+
         public bool logQueryMetrics = CoreDefaults.LogQueryMetrics;
         public bool logCacheMetrics = CoreDefaults.LogCacheMetrics;
         public bool logSnapshotTableMetrics = CoreDefaults.LogSnapshotTableMetrics;
@@ -24,19 +25,8 @@ namespace OverHaulers
         public bool logWorkspaceMetrics = CoreDefaults.LogWorkspaceMetrics;
         public bool logSafetyFloorClamps = CoreDefaults.LogSafetyFloorClamps;
         public bool logPawnEvictions = CoreDefaults.LogPawnEvictions;
+
         public int pawnEvictionTimeframeHours = CoreDefaults.PawnEvictionTimeframeHours;
-
-        /// <summary>
-        /// Backwards-compatible alias for <see cref="devStressTestAllFauna"/>.
-        /// </summary>
-        [System.Obsolete("Use devStressTestAllFauna instead.")]
-        public bool devAllowNonPackSpeciesInLivePlay
-        {
-            get => devStressTestAllFauna;
-            set => devStressTestAllFauna = value;
-        }
-
-        public int ReportMetricsIntervalTicks => reportMetricsIntervalHours * GenDate.TicksPerHour;
         public int PawnEvictionTimeframeTicks => pawnEvictionTimeframeHours * GenDate.TicksPerHour;
 
         #endregion
@@ -44,11 +34,10 @@ namespace OverHaulers
         #region 2. [SEC-09] RESET
 
         /// <summary>
-        /// Resets all diagnostic-related settings to their default values.
+        /// Resets telemetry logging and population stress-test settings exposed on the Tooling Telemetry tab.
         /// </summary>
-        public void ResetDiagnostics()
+        public void ResetTelemetrySettings()
         {
-            verboseBreakdown = PresentationDefaults.VerboseBreakdown;
             devStressTestAllFauna = CoreDefaults.DevStressTestAllFauna;
             reportMetricsIntervalHours = CoreDefaults.ReportMetricsIntervalHours;
             logQueryMetrics = CoreDefaults.LogQueryMetrics;
@@ -60,13 +49,13 @@ namespace OverHaulers
             logSafetyFloorClamps = CoreDefaults.LogSafetyFloorClamps;
             logPawnEvictions = CoreDefaults.LogPawnEvictions;
             pawnEvictionTimeframeHours = CoreDefaults.PawnEvictionTimeframeHours;
-            NotifyValuesReset();
         }
 
         #endregion
 
         #region 3. [SEC-09] SERIALIZATION & SANITISATION
 
+        /// <summary>Exposes the diagnostics settings for serialization.</summary>
         private void ExposeDiagnostics()
         {
             Scribe_Values.Look(ref verboseBreakdown, "verboseBreakdown", PresentationDefaults.VerboseBreakdown);
@@ -83,6 +72,7 @@ namespace OverHaulers
             Scribe_Values.Look(ref pawnEvictionTimeframeHours, "pawnEvictionTimeframeHours", CoreDefaults.PawnEvictionTimeframeHours);
         }
 
+        /// <summary>Sanitizes the diagnostics settings to ensure they are within valid bounds and defaults.</summary>
         private void SanitizeDiagnostics(in RuntimeConfiguration runtime)
         {
             reportMetricsIntervalHours = runtime.ReportMetricsIntervalHours;

@@ -90,8 +90,8 @@ namespace OverHaulers
             base.PostClose();
 
             // Flush temporary sandbox allocations and mark test bench dirty
+            SettingsLayout.ClearInputBuffers("Tooling");
             TestBench.MarkDirty();
-            DetailedModelRegistry.Clear();
         }
 
         #endregion
@@ -100,7 +100,7 @@ namespace OverHaulers
 
         public override void DoWindowContents(Rect inRect)
         {
-            SettingsLayout.ResetControlIndex();
+            SettingsLayout.ResetControlIndex("Tooling");
 
             float curY = inRect.y;
 
@@ -210,7 +210,12 @@ namespace OverHaulers
                 GUI.color = isActive ? TabActiveColor : TabInactiveColor;
                 if (SettingsViewUtilities.DrawButton(btnRect, label))
                 {
-                    activeTab = tab;
+                    if (activeTab != tab)
+                    {
+                        activeTab = tab;
+                        SettingsLayout.ClearInputBuffers("Tooling");
+                        SettingsLayout.ResetControlIndex("Tooling");
+                    }
                 }
             }
             finally
@@ -260,7 +265,11 @@ namespace OverHaulers
             SettingsLayout ui = new SettingsLayout(viewRect);
 
             // Section 1: Periodic Telemetry Logging
-            ui.HeaderKey("OverHaulers_ToolingDialog_Telemetry_SectionHeader");
+            ui.HeaderWithResetKey(
+                "OverHaulers_ToolingDialog_Telemetry_SectionHeader",
+                settings.ResetTelemetrySettings,
+                SettingMutationScope.Solver,
+                "Tooling");
             ui.DescriptionKey("OverHaulers_ToolingDialog_Telemetry_Desc");
 
             string intervalReadout = settings.reportMetricsIntervalHours <= 0

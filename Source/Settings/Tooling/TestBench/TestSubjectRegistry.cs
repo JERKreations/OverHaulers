@@ -82,9 +82,15 @@ namespace OverHaulers
         private static readonly List<TestSubjectGroup> groupsByFleshType = new List<TestSubjectGroup>();
         private static readonly Dictionary<GroupingDimension, List<TestSubjectGroup>> caravanGroups = new Dictionary<GroupingDimension, List<TestSubjectGroup>>();
 
+        private static GroupingDimension lastFilterDimension;
+        private static string lastFilterText;
+        private static bool lastFilterCaravanOnly;
+        private static List<TestSubjectGroup> lastFilteredGroups;
+
         private static bool isInitialized = false;
         private static readonly object initLock = new object();
 
+        /// <summary>Gets the list of all test subject entries in the registry.</summary>
         public static List<TestSubjectEntry> AllSubjects
         {
             get
@@ -160,39 +166,62 @@ namespace OverHaulers
                 sourceGroups = eligibleGroups;
             }
 
-            if (string.IsNullOrEmpty(filterText))
+            if (string.IsNullOrWhiteSpace(filterText))
             {
                 return sourceGroups;
             }
 
-            string cleanFilter = filterText.Trim().ToLowerInvariant();
+            if (lastFilteredGroups != null &&
+                lastFilterDimension == dimension &&
+                lastFilterCaravanOnly == caravanCapableOnly &&
+                string.Equals(lastFilterText, filterText, StringComparison.Ordinal))
+            {
+                return lastFilteredGroups;
+            }
+
+            string cleanFilter = filterText.Trim();
             List<TestSubjectGroup> filteredResult = new List<TestSubjectGroup>();
 
             for (int g = 0; g < sourceGroups.Count; g++)
             {
                 TestSubjectGroup group = sourceGroups[g];
-                bool groupMatches = group.GroupLabel != null && group.GroupLabel.ToLowerInvariant().Contains(cleanFilter);
+                bool groupMatches = group.GroupLabel != null &&
+                    group.GroupLabel.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0;
 
-                TestSubjectGroup matchingGroup = new TestSubjectGroup(group.GroupLabel);
+                TestSubjectGroup matchingGroup = null;
 
                 for (int i = 0; i < group.Entries.Count; i++)
                 {
                     TestSubjectEntry entry = group.Entries[i];
                     if (groupMatches || MatchesFilter(entry, cleanFilter))
                     {
+                        if (matchingGroup == null)
+                        {
+                            matchingGroup = new TestSubjectGroup(group.GroupLabel);
+                        }
                         matchingGroup.Entries.Add(entry);
                     }
                 }
 
-                if (matchingGroup.Entries.Count > 0)
+                if (matchingGroup != null)
                 {
                     filteredResult.Add(matchingGroup);
                 }
             }
 
+            lastFilterDimension = dimension;
+            lastFilterText = filterText;
+            lastFilterCaravanOnly = caravanCapableOnly;
+            lastFilteredGroups = filteredResult;
+
             return filteredResult;
         }
 
+        /// <summary>
+        /// Filters the provided test subject groups to include only those entries that are capable of joining a caravan.
+        /// </summary>
+        /// <param name="sourceGroups">The list of test subject groups to filter.</param>
+        /// <returns>A list of test subject groups containing only entries capable of joining a caravan.</returns>
         private static List<TestSubjectGroup> FilterCaravanGroups(List<TestSubjectGroup> sourceGroups)
         {
             List<TestSubjectGroup> result = new List<TestSubjectGroup>();
@@ -214,15 +243,15 @@ namespace OverHaulers
         /// Determines whether a given test subject entry matches the specified filter text.
         /// </summary>
         /// <param name="entry">The test subject entry to evaluate against the filter.</param>
-        /// <param name="cleanFilter">The normalized filter text to match against the entry's properties.</param>
+        /// <param name="cleanFilter">The trimmed filter text to match against the entry's properties.</param>
         /// <returns>True if the entry matches the filter; otherwise, false.</returns>
         private static bool MatchesFilter(TestSubjectEntry entry, string cleanFilter)
         {
-            if (entry.Label != null && entry.Label.ToLowerInvariant().Contains(cleanFilter)) return true;
-            if (entry.ModName != null && entry.ModName.ToLowerInvariant().Contains(cleanFilter)) return true;
-            if (entry.BodyDef?.defName != null && entry.BodyDef.defName.ToLowerInvariant().Contains(cleanFilter)) return true;
-            if (entry.CategoryName != null && entry.CategoryName.ToLowerInvariant().Contains(cleanFilter)) return true;
-            if (entry.FleshTypeName != null && entry.FleshTypeName.ToLowerInvariant().Contains(cleanFilter)) return true;
+            if (entry.Label != null && entry.Label.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (entry.ModName != null && entry.ModName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (entry.BodyDef?.defName != null && entry.BodyDef.defName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (entry.CategoryName != null && entry.CategoryName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (entry.FleshTypeName != null && entry.FleshTypeName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
             return false;
         }
 
@@ -239,6 +268,8 @@ namespace OverHaulers
                 groupsByCategory.Clear();
                 groupsByFleshType.Clear();
                 caravanGroups.Clear();
+                lastFilterText = null;
+                lastFilteredGroups = null;
                 isInitialized = false;
             }
         }
@@ -269,7 +300,7 @@ namespace OverHaulers
             TestSubjectGroup animalGroup = new TestSubjectGroup("OverHaulers_GroupColony_Animals".Translate().ToString());
             TestSubjectGroup mechGroup = new TestSubjectGroup("OverHaulers_GroupColony_Mechanoids".Translate().ToString());
 
-            string cleanFilter = string.IsNullOrEmpty(filterText) ? null : filterText.Trim().ToLowerInvariant();
+            string cleanFilter = string.IsNullOrWhiteSpace(filterText) ? null : filterText.Trim();
 
             List<Map> maps = Find.Maps;
             for (int m = 0; m < maps.Count; m++)
@@ -326,9 +357,9 @@ namespace OverHaulers
 
             if (cleanFilter != null)
             {
-                bool matches = displayLabel.ToLowerInvariant().Contains(cleanFilter) ||
-                               pawn.def.defName.ToLowerInvariant().Contains(cleanFilter) ||
-                               pawn.RaceProps.body.defName.ToLowerInvariant().Contains(cleanFilter);
+                bool matches = displayLabel.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                               pawn.def.defName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                               pawn.RaceProps.body.defName.IndexOf(cleanFilter, StringComparison.OrdinalIgnoreCase) >= 0;
 
                 if (!matches) return;
             }
@@ -368,6 +399,8 @@ namespace OverHaulers
                 groupsByCategory.Clear();
                 groupsByFleshType.Clear();
                 caravanGroups.Clear();
+                lastFilterText = null;
+                lastFilteredGroups = null;
 
                 Dictionary<ModContentPack, List<TestSubjectEntry>> modMap = new Dictionary<ModContentPack, List<TestSubjectEntry>>();
                 Dictionary<BodyDef, List<TestSubjectEntry>> bodyMap = new Dictionary<BodyDef, List<TestSubjectEntry>>();

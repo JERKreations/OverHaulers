@@ -188,6 +188,7 @@ namespace OverHaulers
             foreach (var keyValuePair in capacityCache)
             {
                 keyValuePair.Value.IsStale = true;
+                keyValuePair.Value.AdvanceStateVersion();
             }
 
             cachedActiveCount = -1;
@@ -207,7 +208,7 @@ namespace OverHaulers
         /// <returns>The physical capacity offset in kilograms (kg).</returns>
         public static float GetOffset(Pawn pawn, float baselineCapacity)
         {
-            if (pawn == null || !CanCarryCaravanMass(pawn)) return 0f;
+            if (pawn == null || pawn.thingIDNumber <= 0 || !CanCarryCaravanMass(pawn)) return 0f;
 
             if (!UnityData.IsInMainThread)
             {
@@ -234,6 +235,7 @@ namespace OverHaulers
 
             int currentTick = GetSafeCurrentTick();
 
+            // Check if the cache node is valid for the current baseline capacity and tick
             if (!capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode))
             {
                 cachedNode = new CachedMassData();
@@ -241,6 +243,7 @@ namespace OverHaulers
                 cachedNode.IsStale = true;
             }
 
+            // Mark the cache node as stale if the baseline capacity has changed
             if (IsCacheNodeValid(cachedNode, baselineCapacity, currentTick, cachedNode.CalculatedTick))
             {
                 cachedNode.BaselineCapacity = baselineCapacity;
@@ -251,7 +254,8 @@ namespace OverHaulers
             int jitteredExpiryDuration = GetCacheExpiryDuration(pawnId);
             int elapsedTicks = currentTick - cachedNode.CalculatedTick;
 
-            if (elapsedTicks >= jitteredExpiryDuration || cachedNode.IsStale)
+            // Invalidate the cache entry if it is stale or has exceeded its jittered expiry duration
+            if (elapsedTicks < 0 || elapsedTicks >= jitteredExpiryDuration || cachedNode.IsStale)
             {
                 int prevEvaluatingPawnId = currentEvaluatingPawnId;
                 try
@@ -280,7 +284,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float GetCapacity(Pawn pawn, float baselineCapacity)
         {
-            if (pawn == null || !CanCarryCaravanMass(pawn)) return 0f;
+            if (pawn == null || pawn.thingIDNumber <= 0 || !CanCarryCaravanMass(pawn)) return 0f;
 
             if (!UnityData.IsInMainThread)
             {
@@ -312,6 +316,8 @@ namespace OverHaulers
         /// <param name="thingID">The unique ThingIDNumber of the pawn to invalidate.</param>
         public static void Invalidate(int thingID)
         {
+            if (thingID <= 0) return;
+
             if (!UnityData.IsInMainThread)
             {
                 if (System.Threading.Interlocked.Increment(ref deferredInvalidationCount) <= MaxDeferredInvalidations)
@@ -328,6 +334,7 @@ namespace OverHaulers
             if (capacityCache.TryGetValue(thingID, out CachedMassData cachedNode))
             {
                 cachedNode.LastInvalidatedTick = GetSafeCurrentTick();
+                cachedNode.AdvanceStateVersion();
                 if (!cachedNode.IsStale)
                 {
                     cachedNode.IsStale = true;
@@ -341,55 +348,18 @@ namespace OverHaulers
         #region 6. SECONDARY FAST-PATH GATES & QUERIES
 
         /// <summary>
-        /// Attempts to retrieve a fresh, non-stale cached mass capacity offset for the specified pawn ID.
-        /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
+        /// Canonical fast-path query retrieving a fresh, non-stale cached mass snapshot (offset, final capacity, and state version)
+        /// for the specified pawn ID. Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on hits.
         /// </summary>
         /// <param name="pawnId">The unique ThingIDNumber of the pawn.</param>
-        /// <param name="offset">Outputs the cached capacity offset in kilograms if valid.</param>
-        /// <returns>True if a valid, unexpired cached offset was found; otherwise, false.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGetFreshOffset(int pawnId, out float offset)
-        {
-            if (!UnityData.IsInMainThread || currentEvaluatingPawnId == pawnId)
-            {
-                offset = 0f;
-                return false;
-            }
-
-            if (capacityCache.TryGetValue(pawnId, out CachedMassData cachedNode) && !cachedNode.IsStale)
-            {
-                int currentTick = GetSafeCurrentTick();
-                int elapsedTicks = currentTick - cachedNode.CalculatedTick;
-
-                if (elapsedTicks >= 0)
-                {
-                    if (elapsedTicks < MinFastPathTicks ||
-                        elapsedTicks < GetCacheExpiryDuration(pawnId))
-                    {
-                        PerformanceTelemetry.IncrementCacheHits();
-                        offset = cachedNode.Offset;
-                        return true;
-                    }
-                }
-            }
-
-            offset = 0f;
-            return false;
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the fresh, non-stale final clamped mass capacity (kg) for the specified pawn ID.
-        /// Bypasses species baseline calibration, monitor locks, and Pawn.BodySize evaluations on cache hits.
-        /// </summary>
-        /// <param name="pawnId">The unique ThingIDNumber of the pawn.</param>
-        /// <param name="finalCapacity">Outputs the cached final clamped capacity in kilograms if valid.</param>
+        /// <param name="snapshot">Outputs the cached snapshot values if fresh; otherwise <see cref="FreshMassSnapshot.Empty"/>.</param>
         /// <returns>True if a valid, unexpired cached entry was found; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGetFreshCapacity(int pawnId, out float finalCapacity)
+        public static bool TryGetFreshSnapshot(int pawnId, out FreshMassSnapshot snapshot)
         {
-            if (!UnityData.IsInMainThread || currentEvaluatingPawnId == pawnId)
+            if (pawnId <= 0 || !UnityData.IsInMainThread || currentEvaluatingPawnId == pawnId)
             {
-                finalCapacity = 0f;
+                snapshot = FreshMassSnapshot.Empty;
                 return false;
             }
 
@@ -404,13 +374,16 @@ namespace OverHaulers
                         elapsedTicks < GetCacheExpiryDuration(pawnId))
                     {
                         PerformanceTelemetry.IncrementCacheHits();
-                        finalCapacity = cachedNode.FinalCapacity;
+                        snapshot = new FreshMassSnapshot(
+                            cachedNode.Offset,
+                            cachedNode.FinalCapacity,
+                            cachedNode.StateVersion);
                         return true;
                     }
                 }
             }
 
-            finalCapacity = 0f;
+            snapshot = FreshMassSnapshot.Empty;
             return false;
         }
 
@@ -624,9 +597,10 @@ namespace OverHaulers
         /// <param name="pawnId">The unique identifier of the pawn being evaluated.</param>
         /// <param name="result">The mass capacity evaluation result to publish.</param>
         /// <param name="currentTick">The active game tick.</param>
-        internal static void PublishEvaluation(int pawnId, in MassCapacityEvaluationResult result, int currentTick)
+        /// <returns>The committed Core state version for presentation validation, or 0 if not committed.</returns>
+        internal static int PublishEvaluation(int pawnId, in MassCapacityEvaluationResult result, int currentTick)
         {
-            if (!UnityData.IsInMainThread || pawnId <= 0) return;
+            if (!UnityData.IsInMainThread || pawnId <= 0) return 0;
 
             if (!capacityCache.TryGetValue(pawnId, out CachedMassData node))
             {
@@ -635,6 +609,7 @@ namespace OverHaulers
             }
 
             CommitEvaluationToNode(pawnId, node, result.BiologicalBaseline, in result, currentTick);
+            return node.StateVersion;
         }
 
         /// <summary>
@@ -703,6 +678,7 @@ namespace OverHaulers
             if (Math.Abs(node.BaselineCapacity - baselineCapacity) >= EfficiencyEpsilon)
             {
                 node.IsStale = true;
+                node.AdvanceStateVersion();
             }
 
             int age = currentTick - calculatedTick;
@@ -731,7 +707,7 @@ namespace OverHaulers
 
             int expiryJitter = cachedExpiryBase / 4; // 25% staggered jitter window
 
-            return cachedExpiryBase + (expiryJitter > 0 ? (pawnId % expiryJitter) : 0);
+            return cachedExpiryBase + (expiryJitter > 0 ? (int)((uint)pawnId % (uint)expiryJitter) : 0);
         }
 
         /// <summary>

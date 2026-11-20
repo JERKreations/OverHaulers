@@ -45,6 +45,7 @@ namespace OverHaulers
             // Initialize dictionaries to track the maximum depth and sibling count for each limb branch.
             Dictionary<long, int> branchMaxDepth = new Dictionary<long, int>(partCount);
             Dictionary<long, int> branchMaxSibling = new Dictionary<long, int>(partCount);
+            bool[] isDecayExempt = new bool[partCount];
 
             // Iterate through all parts to populate the branch depth and sibling count dictionaries.
             for (int i = 0; i < partCount; i++)
@@ -58,8 +59,8 @@ namespace OverHaulers
                 }
             }
 
-            // Traverse in parent-before-child DepthSortedIndices order so forked limb segments inherit
-            // strictly from their immediate parent (parentWeight * decay / directSiblingCount).
+            // Traverse in parent-before-child DepthSortedIndices order so forked limb segments and decay-exempt
+            // subtrees inherit strictly from their immediate same-type parent.
             int[] depthSorted = template.DepthSortedIndices;
             for (int d = 0; d < partCount; d++)
             {
@@ -68,20 +69,32 @@ namespace OverHaulers
                 if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
                 {
                     var ext = bodyDef.AllParts[i].def?.GetCachedModExtension();
+                    bool continuesChain = topology.ParentIndex != -1 && tempPartTopologies[topology.ParentIndex].Type == topology.Type;
+                    bool directExempt = ext != null && ext.ignoreLimbDepthDecay;
+                    bool parentExempt = continuesChain && isDecayExempt[topology.ParentIndex];
 
                     // Check for explicit mod extension overrides for limb weight.
                     if (ext != null && ext.relativeLimbWeight >= 0f)
                     {
+                        isDecayExempt[i] = directExempt || parentExempt;
                         template.WeightModels[i] = LimbWeightModel.ExplicitOverride;
                         topology.UnnormalizedLimbWeight = ext.relativeLimbWeight / topology.SafeSiblingDivisor;
                     }
-                    // Check for explicit mod extension overrides for ignoring limb depth decay.
-                    else if (ext != null && ext.ignoreLimbDepthDecay)
+                    // Direct or inherited exemption from geometric limb depth decay (Decay = 1.0 across subtree).
+                    else if (directExempt)
                     {
+                        isDecayExempt[i] = true;
                         template.WeightModels[i] = LimbWeightModel.ExplicitOverride;
                         topology.UnnormalizedLimbWeight = 1.0f / topology.SafeSiblingDivisor;
                     }
-                    // If no explicit mod extension overrides are present, fall back to geometric decay or other heuristics.
+                    // If the parent is exempt, but the current part is not directly exempt, inherit the exemption.
+                    else if (parentExempt)
+                    {
+                        isDecayExempt[i] = true;
+                        template.WeightModels[i] = LimbWeightModel.ExplicitOverride;
+                        topology.UnnormalizedLimbWeight = tempPartTopologies[topology.ParentIndex].UnnormalizedLimbWeight / topology.SafeSiblingDivisor;
+                    }
+                    // If no explicit or inherited overrides apply, fall back to serial HP ratio or geometric depth decay.
                     else
                     {
                         long branchKey = ((long)topology.Type << 32) | (long)(topology.RootPartIndex + 1);
@@ -102,7 +115,6 @@ namespace OverHaulers
                         // If not a long serial chain, fall back to geometric decay based on depth and sibling divisor.
                         else
                         {
-                            bool continuesChain = topology.ParentIndex != -1 && tempPartTopologies[topology.ParentIndex].Type == topology.Type;
                             float unnormalizedWeight;
 
                             if (continuesChain && template.WeightModels[topology.ParentIndex] == LimbWeightModel.GeometricDecay)

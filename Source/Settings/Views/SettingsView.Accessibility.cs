@@ -23,11 +23,7 @@ namespace OverHaulers
         public static void DrawAccessibilityTabContents(ref SettingsLayout ui, Settings settings)
         {
             // 1. Header with Reset Action
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_AccessibilityHeader", () =>
-            {
-                settings.ResetAccessibility();
-                SettingsLayout.ClearInputBuffers();
-            }, SettingMutationScope.Presentation);
+            ui.HeaderWithResetKey("OverHaulers_AccessibilityHeader", settings.ResetAccessibility, SettingMutationScope.Presentation);
 
             // 2. Icon Scale Slider
             string scaleReadout = settings.iconScalePercent.ToString("P0");

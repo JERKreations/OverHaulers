@@ -39,7 +39,7 @@ namespace OverHaulers
             public readonly MassCapacityModel Model = new MassCapacityModel();
             public float SolvedOffset;
             public float BaselineCapacity;
-            public int CalculatedTick;
+            public int CoreStateVersion;
             public bool IsValid;
 
             public PresentationCacheEntry Prev;
@@ -51,7 +51,7 @@ namespace OverHaulers
                 PawnId = newPawnId;
                 SolvedOffset = 0f;
                 BaselineCapacity = 0f;
-                CalculatedTick = 0;
+                CoreStateVersion = 0;
                 IsValid = false;
                 Prev = null;
                 Next = null;
@@ -160,17 +160,18 @@ namespace OverHaulers
                     : null;
             }
 
-            // Check if Core considers its numerical cache fresh (also synchronizes main-thread tick)
-            bool coreIsFresh = PawnDataRegistry.TryGetFreshOffset(pawnId, out float coreFreshOffset);
+            // Check if Core considers its numerical cache fresh and matches this presentation snapshot's version
+            bool coreIsFresh = PawnDataRegistry.TryGetFreshSnapshot(pawnId, out FreshMassSnapshot coreSnapshot);
             int currentTick = PawnDataRegistry.CurrentTick;
 
             // BREAKPOINT ANCHOR: Presentation LRU Lookup & Validation
             if (presentationLookup.TryGetValue(pawnId, out PresentationCacheEntry entry) && entry.IsValid)
             {
+                bool versionMatches = entry.CoreStateVersion == coreSnapshot.StateVersion;
                 bool baselineMatches = Math.Abs(entry.BaselineCapacity - baselineCapacity) < PawnDataRegistry.EfficiencyEpsilon;
-                bool offsetMatches = Math.Abs(entry.SolvedOffset - coreFreshOffset) < PawnDataRegistry.EfficiencyEpsilon;
+                bool offsetMatches = Math.Abs(entry.SolvedOffset - coreSnapshot.Offset) < PawnDataRegistry.EfficiencyEpsilon;
 
-                if (coreIsFresh && baselineMatches && offsetMatches)
+                if (coreIsFresh && versionMatches && baselineMatches && offsetMatches)
                 {
                     totalHits++;
                     PerformanceTelemetry.RecordPresentationHit();
@@ -205,11 +206,10 @@ namespace OverHaulers
 
                 entry.SolvedOffset = result.SolvedOffset;
                 entry.BaselineCapacity = result.BiologicalBaseline;
-                entry.CalculatedTick = currentTick;
                 entry.IsValid = true;
 
                 // Synchronize fresh solve back into both main-thread Core cache and background snapshot table
-                PawnDataRegistry.PublishEvaluation(pawnId, in result, currentTick);
+                entry.CoreStateVersion = PawnDataRegistry.PublishEvaluation(pawnId, in result, currentTick);
 
                 return entry.Model;
             }

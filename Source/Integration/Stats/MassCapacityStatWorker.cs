@@ -48,12 +48,12 @@ namespace OverHaulers
         /// <returns>The calculated unfinalized mass capacity in kilograms.</returns>
         public override float GetValueUnfinalized(StatRequest req, bool applyPostProcess = true)
         {
-            if (req.HasThing && req.Thing is Pawn pawn)
+            if (req.HasThing && req.Thing is Pawn pawn && pawn.thingIDNumber > 0)
             {
                 // FAST-PATH: Bypass baseline resolution, locks, and BodySize if cache entry is fresh
-                if (PawnDataRegistry.TryGetFreshCapacity(pawn.thingIDNumber, out float fastCapacity))
+                if (PawnDataRegistry.TryGetFreshSnapshot(pawn.thingIDNumber, out FreshMassSnapshot cached))
                 {
-                    return fastCapacity;
+                    return cached.FinalCapacity;
                 }
 
                 float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);

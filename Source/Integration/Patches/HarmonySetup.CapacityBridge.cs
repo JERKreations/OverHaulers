@@ -95,13 +95,13 @@ namespace OverHaulers
             // BREAKPOINT ANCHOR: Dummy Evaluation Bypass
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
 
-            // INGRESS GATE: Completely skip non-caravan species during live play
-            if (!PawnDataRegistry.CanCarryCaravanMass(p)) return;
+            // INGRESS GATE: Completely skip un-ID'd / headless dummy shells and non-caravan species during live play
+            if (p.thingIDNumber <= 0 || !PawnDataRegistry.CanCarryCaravanMass(p)) return;
 
             // FAST-PATH: If cache node is fresh and valid, bypass baseline resolution and BodySize getters
-            if (PawnDataRegistry.TryGetFreshOffset(p.thingIDNumber, out float fastOffset))
+            if (PawnDataRegistry.TryGetFreshSnapshot(p.thingIDNumber, out FreshMassSnapshot cached))
             {
-                __result += fastOffset;
+                __result += cached.Offset;
                 __result = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(__result, p);
                 if (explanation != null)
                 {

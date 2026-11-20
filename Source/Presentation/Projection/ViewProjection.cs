@@ -125,10 +125,9 @@ namespace OverHaulers
                     targetModel.Offset = result.SolvedOffset;
                     targetModel.FinalCapacity = result.FinalCapacity;
                     targetModel.TotalMultiplier = result.TotalMultiplier;
-                    targetModel.IsAtHardCompatibilitySafetyFloor = result.IsAtHardCompatibilitySafetyFloor;
-                    targetModel.IsLimitedByConfigurablePercentileFloor = result.IsLimitedByConfigurablePercentileFloor;
 
-                    float floorFactor = MassCapacitySolver.ActiveConfiguration.ConfigurablePercentileFloor;
+                    ref readonly SolverConfiguration activeConfig = ref MassCapacitySolver.ActiveConfiguration;
+                    float floorFactor = activeConfig.EnablePartHealth ? activeConfig.ConfigurablePercentileFloor : 0f;
                     targetModel.ConfigurablePercentileFloorPercent = floorFactor * 100f;
                     targetModel.ConfigurablePercentileFloorKg = baselineCapacity * floorFactor;
 
@@ -337,11 +336,21 @@ namespace OverHaulers
                 }
 
                 // BREAKPOINT ANCHOR: Consolidate & Nest Visual Group Wrappers
-                // Iterate through each presentation group, consolidate its sub-models into a single wrapper, and nest them appropriately.
+                // Compute regional athletic deltas once and project them across group wrappers.
+                MassCapacitySolver.SystemicRegionalDeltas regionalDeltas = MassCapacitySolver.ComputeRegionalAthleticDeltas(in context);
+                bool allowAthleticDeficits = context.EnablePartHealth && biologicalBaseline > context.ConfigurablePercentileFloorKg;
+
                 for (int g = 0; g < PresentationGroupOrder.Length; g++)
                 {
                     int typeIndex = (int)PresentationGroupOrder[g];
-                    ProcessAndAddGroupWrapper(pooledGroupSubModels[typeIndex], (PartType)typeIndex, context, massModel, template);
+                    ProcessAndAddGroupWrapper(
+                        pooledGroupSubModels[typeIndex],
+                        (PartType)typeIndex,
+                        in context,
+                        in regionalDeltas,
+                        allowAthleticDeficits,
+                        massModel,
+                        template);
                 }
 
                 massModel.Explanation = ReportFormatter.BuildExplanation(massModel, diagnosticPrecision);
@@ -390,16 +399,20 @@ namespace OverHaulers
         /// <param name="subModels">The list of sub-models to be processed and added.</param>
         /// <param name="type">The type of the part group being processed.</param>
         /// <param name="context">The systemic evaluation context for the consolidation process.</param>
+        /// <param name="regionalDeltas">The compiled regional athletic capacity deltas for the pawn.</param>
+        /// <param name="allowAthleticDeficits">True when physical deficit penalties are active above the percentile floor.</param>
         /// <param name="massModel">The mass model to which the consolidated group will be added.</param>
         /// <param name="template">The species topology template providing structural information.</param>
         private static void ProcessAndAddGroupWrapper(
             List<PartViewNode> subModels,
             PartType type,
             in SystemicEvaluationContext context,
+            in MassCapacitySolver.SystemicRegionalDeltas regionalDeltas,
+            bool allowAthleticDeficits,
             MassCapacityModel massModel,
             SpeciesTopologyTemplate template)
         {
-            PartViewNode wrapper = ConsolidateGroup(subModels, type, context, massModel, template);
+            PartViewNode wrapper = ConsolidateGroup(subModels, type, in regionalDeltas, allowAthleticDeficits, massModel, template);
             if (wrapper != null)
             {
                 NestModelsInPlace(wrapper.SubParts, template);
@@ -453,14 +466,16 @@ namespace OverHaulers
         /// </summary>
         /// <param name="subModels">The list of sub-models to be consolidated.</param>
         /// <param name="type">The type of the part group being consolidated.</param>
-        /// <param name="context">The systemic evaluation context for the consolidation process.</param>
+        /// <param name="regionalDeltas">The compiled regional athletic capacity deltas for the pawn.</param>
+        /// <param name="allowAthleticDeficits">True when physical deficit penalties are active above the percentile floor.</param>
         /// <param name="massModel">The mass model to which the consolidated group will be added.</param>
         /// <param name="template">The species topology template providing structural information.</param>
         /// <returns>The consolidated part view node representing the group, or null if no valid sub-models are present.</returns>
         private static PartViewNode ConsolidateGroup(
             List<PartViewNode> subModels,
             PartType type,
-            in SystemicEvaluationContext context,
+            in MassCapacitySolver.SystemicRegionalDeltas regionalDeltas,
+            bool allowAthleticDeficits,
             MassCapacityModel massModel,
             SpeciesTopologyTemplate template)
         {
@@ -479,6 +494,10 @@ namespace OverHaulers
 
             float healthSum = 0f;
             int healthCount = 0;
+
+            regionalDeltas.GetDeltas(type, out float regionalPositive, out float regionalNegative);
+            float effectiveNegative = allowAthleticDeficits ? regionalNegative : 0f;
+            float regionalAthleticDifference = (regionalPositive - effectiveNegative) * 0.25f;
 
             // Iterate through each sub-model to accumulate offsets, efficiencies, and health metrics.
             for (int i = 0; i < subModels.Count; i++)
@@ -503,12 +522,11 @@ namespace OverHaulers
                 {
                     effectiveEfficiency = 0f;
                 }
-                // If the sub-model is neither missing nor has a prosthetic, it is considered a natural part and its efficiency is calculated accordingly.
                 else if (subModel.HasProsthetic)
                 {
                     effectiveEfficiency = subModel.EfficiencyRating;
                     containsProstheticComponent = true;
-                    
+
                     if (subModel.EfficiencyRating > highestProstheticEfficiency)
                     {
                         highestProstheticEfficiency = subModel.EfficiencyRating;
@@ -516,17 +534,15 @@ namespace OverHaulers
                         dominantProstheticColor = subModel.ProstheticColor;
                     }
                 }
-                // If the sub-model has a prosthetic, its efficiency is taken directly from its rating and it may influence the dominant prosthetic tracking.
                 else
                 {
                     float healthLoss = 1.0f - subModel.HealthFraction;
-                    float athleticDifference = context.AthleticMultiplier - 1.0f;
-                    effectiveEfficiency = Math.Max(0f, 1.0f + athleticDifference - healthLoss);
+                    effectiveEfficiency = Math.Max(0f, 1.0f + regionalAthleticDifference - healthLoss);
                 }
 
                 cumulativeWeightedEfficiency += effectiveEfficiency * subPartWeight;
                 totalRelativeWeight += subPartWeight;
-                
+
                 healthSum += subModel.HealthFraction;
                 healthCount++;
             }

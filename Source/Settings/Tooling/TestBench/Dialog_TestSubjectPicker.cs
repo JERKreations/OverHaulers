@@ -234,11 +234,19 @@ namespace OverHaulers
 
             if (totalMatchingSpecies == 0)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = Color.gray;
-                Widgets.Label(rect, "OverHaulers_NoSearchResults".Translate());
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
+                TextAnchor origAnchor = Text.Anchor;
+                Color origColor = GUI.color;
+                try
+                {
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    GUI.color = Color.gray;
+                    Widgets.Label(rect, "OverHaulers_NoSearchResults".Translate());
+                }
+                finally
+                {
+                    GUI.color = origColor;
+                    Text.Anchor = origAnchor;
+                }
                 return;
             }
 
@@ -265,16 +273,23 @@ namespace OverHaulers
                         expandedGroups.Add(group.GroupLabel);
                 }
 
-                GUI.color = new Color(1f, 0.8f, 0.3f);
-                Text.Font = GameFont.Tiny;
-                
-                string arrow = isExpanded ? "▼" : "▶";
-                string headerLabel = $"{arrow} {group.GroupLabel} ({group.Entries.Count})".ToUpperInvariant();
+                GameFont origHeaderFont = Text.Font;
+                Color origHeaderColor = GUI.color;
+                try
+                {
+                    GUI.color = new Color(1f, 0.8f, 0.3f);
+                    Text.Font = GameFont.Tiny;
 
-                Widgets.Label(new Rect(groupHeaderRect.x + 6f, groupHeaderRect.y + 3f, groupHeaderRect.width - 16f, groupHeaderRect.height - 3f), headerLabel);
-                
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
+                    string arrow = isExpanded ? "▼" : "▶";
+                    string headerLabel = $"{arrow} {group.GroupLabel} ({group.Entries.Count})".ToUpperInvariant();
+
+                    Widgets.Label(new Rect(groupHeaderRect.x + 6f, groupHeaderRect.y + 3f, groupHeaderRect.width - 16f, groupHeaderRect.height - 3f), headerLabel);
+                }
+                finally
+                {
+                    GUI.color = origHeaderColor;
+                    Text.Font = origHeaderFont;
+                }
                 curY += GroupHeaderHeight + GroupHeaderGap;
 
                 // 2. Group Rows (Only drawn if expanded)
@@ -308,10 +323,19 @@ namespace OverHaulers
                         string secondaryFormatted = $"• {secondaryTag}".Colorize(SettingsViewUtilities.DescriptionTextColor);
                         string fullRowText = $"{primaryLabel} {secondaryFormatted}";
 
-                        Text.Font = GameFont.Tiny;
-                        Text.WordWrap = false;
-                        Widgets.Label(fullLabelRect, fullRowText);
-                        Text.WordWrap = true;
+                        GameFont origRowFont = Text.Font;
+                        bool origWordWrap = Text.WordWrap;
+                        try
+                        {
+                            Text.Font = GameFont.Tiny;
+                            Text.WordWrap = false;
+                            Widgets.Label(fullLabelRect, fullRowText);
+                        }
+                        finally
+                        {
+                            Text.WordWrap = origWordWrap;
+                            Text.Font = origRowFont;
+                        }
 
                         // Click Trigger
                         if (Widgets.ButtonInvisible(rowRect))

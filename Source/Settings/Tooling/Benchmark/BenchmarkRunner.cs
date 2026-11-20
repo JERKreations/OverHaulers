@@ -113,6 +113,7 @@ namespace OverHaulers
         public static readonly int[] RampPawnCounts = { 10, 50, 100, 250, 500, 1000 };
 
         public static readonly List<BenchmarkSolverResult> Results = new List<BenchmarkSolverResult>(8);
+        private static readonly StringBuilder pooledReportBuilder = new StringBuilder(2048);
 
         private static Stage stage;
         private static readonly List<BenchJob> jobs = new List<BenchJob>(8);
@@ -399,7 +400,7 @@ namespace OverHaulers
             gcAccumulated = 0;
             measuredTicks = 0;
 
-            harness = SandboxPawnHarness.CreateForCurrentProgramState();
+            harness = new SandboxPawnHarness();
             harness.BindSubject(job.Subject);
 
             if (!harness.IsValid)
@@ -429,42 +430,45 @@ namespace OverHaulers
             int gcBefore = GC.CollectionCount(0);
             long sliceStart = Stopwatch.GetTimestamp();
 
-            while (true)
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
-                long t0 = Stopwatch.GetTimestamp();
-
-                MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
-                    sandboxPawn, baseline);
-
-                bool solved = result.BiologicalBaseline > 0f;
-
-                long t1 = Stopwatch.GetTimestamp();
-                optimiserDefeatSink += result.SolvedOffset;
-                unitsDone++;
-
-                if (isWarmup)
+                while (true)
                 {
-                    warmupDone++;
-                    if (warmupDone >= WarmupIterations)
-                    {
-                        stage = Stage.JobMeasure;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (!solved) failedSolves++;
-                    samples[sampleCount++] = t1 - t0;
-                    measuredTicks += t1 - t0;
+                    long t0 = Stopwatch.GetTimestamp();
 
-                    if (sampleCount >= SampleCount)
-                    {
-                        stage = Stage.JobTeardown;
-                        break;
-                    }
-                }
+                    MassCapacityEvaluationResult result = MassCapacitySolver.EvaluateMassCapacityForPawn(
+                        sandboxPawn, baseline);
 
-                if (t1 - sliceStart >= budgetTicks) break;
+                    bool solved = result.BiologicalBaseline > 0f;
+
+                    long t1 = Stopwatch.GetTimestamp();
+                    optimiserDefeatSink += result.SolvedOffset;
+                    unitsDone++;
+
+                    if (isWarmup)
+                    {
+                        warmupDone++;
+                        if (warmupDone >= WarmupIterations)
+                        {
+                            stage = Stage.JobMeasure;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (!solved) failedSolves++;
+                        samples[sampleCount++] = t1 - t0;
+                        measuredTicks += t1 - t0;
+
+                        if (sampleCount >= SampleCount)
+                        {
+                            stage = Stage.JobTeardown;
+                            break;
+                        }
+                    }
+
+                    if (t1 - sliceStart >= budgetTicks) break;
+                }
             }
 
             if (!isWarmup)
@@ -581,8 +585,20 @@ namespace OverHaulers
         /// </summary>
         public static string BuildReport()
         {
-            StringBuilder report = new StringBuilder(2048);
+            pooledReportBuilder.Clear();
+            try
+            {
+                BuildReportToBuilder(pooledReportBuilder);
+                return pooledReportBuilder.ToString();
+            }
+            finally
+            {
+                pooledReportBuilder.Clear();
+            }
+        }
 
+        private static void BuildReportToBuilder(StringBuilder report)
+        {
             report.AppendLine("=== Over Haulers Benchmark Report ===");
             report.AppendLine("Generated:       " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             report.AppendLine("Over Haulers:    " + typeof(BenchmarkRunner).Assembly.GetName().Version);
@@ -659,8 +675,6 @@ namespace OverHaulers
             report.AppendLine("- Cached lookups (the normal case) are far cheaper than a from-scratch solve; a full re-solve only happens after health, gear or settings changes.");
             report.AppendLine("- 'GC' counts garbage collections during the measured loops. 0 is expected; a non-zero value can also come from other threads allocating at the same time.");
             report.AppendLine("- Results vary between runs and machines. Compare runs on the same machine, not across different ones.");
-
-            return report.ToString();
         }
 
         /// <summary>
@@ -689,12 +703,19 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>
-        /// Writes the report to the diagnostic dumps folder and returns the file path.
-        /// </summary>
+        /// <summary>Writes the report to the diagnostic dumps folder and returns the file path.</summary>
         public static string ExportReport()
         {
-            return DiagnosticExportUtility.WriteExportFile(new StringBuilder(BuildReport()), "Benchmark", "Report");
+            pooledReportBuilder.Clear();
+            try
+            {
+                BuildReportToBuilder(pooledReportBuilder);
+                return DiagnosticExportUtility.WriteExportFile(pooledReportBuilder, "Benchmark", "Report");
+            }
+            finally
+            {
+                pooledReportBuilder.Clear();
+            }
         }
 
         #endregion

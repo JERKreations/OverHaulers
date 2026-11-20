@@ -291,6 +291,7 @@ namespace OverHaulers
             int index = template.GetPartIndex(tongue);
             Expect.True(index >= 0, "human tongue must be indexed in the topology");
 
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
             {
                 MassCapacityModel model = new MassCapacityModel();
@@ -321,6 +322,7 @@ namespace OverHaulers
                 return;
             }
 
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
             {
                 Pawn pawn = harness.SandboxPawn;
@@ -439,6 +441,7 @@ namespace OverHaulers
                 return;
             }
 
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
             {
                 Pawn pawn = harness.SandboxPawn;

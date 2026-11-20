@@ -31,6 +31,12 @@
   <OverHaulers_NoCandidateStatsInPatch>- No caravan-related stats detected in this patch.</OverHaulers_NoCandidateStatsInPatch>
   <OverHaulers_SuggestedStat>Suggested</OverHaulers_SuggestedStat>
   <OverHaulers_NoExternalPatchesDiscovered>No external mod patches detected on MassUtility.Capacity.</OverHaulers_NoExternalPatchesDiscovered>
+  <OverHaulers_CilFactors_Summary>Capacity factors: {0}</OverHaulers_CilFactors_Summary>
+  <OverHaulers_CilFactors_AutoTag>{0} (auto)</OverHaulers_CilFactors_AutoTag>
+  <OverHaulers_CilFactors_Header>Neutralize capacity factors on this stat:</OverHaulers_CilFactors_Header>
+  <OverHaulers_CilFactors_None>No active capacity factors detected on this stat.</OverHaulers_CilFactors_None>
+  <OverHaulers_CilFactors_Row>{0} ({1}x weight)</OverHaulers_CilFactors_Row>
+  <OverHaulers_CilFactors_RowOverlap>{0} ({1}x weight - overlaps Over Haulers)</OverHaulers_CilFactors_RowOverlap>
 
   <!-- Badges & Format Strings -->
   <OverHaulers_ProfileLabel_StatFormat>{0}  [Stat: {1}]</OverHaulers_ProfileLabel_StatFormat>
@@ -50,26 +56,27 @@
 
   <!-- Scenario A: Optimal Unified Integration -->
   <OverHaulers_Verify_Unified_Title>Unified InfoCard Integration</OverHaulers_Verify_Unified_Title>
-  <OverHaulers_Verify_Unified_Display>1 single card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Unified_Display>
-  <OverHaulers_Verify_Unified_Gear>External gear (backpacks) and OverHaulers biological ratings are merged cleanly into this card.</OverHaulers_Verify_Unified_Gear>
-  <OverHaulers_Verify_Unified_Confirm>Inspect '{0}' on any colonist to view the combined OverHaulers anatomical breakdown.</OverHaulers_Verify_Unified_Confirm>
+  <OverHaulers_Verify_Unified_Display>1 single card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab); Over Haulers' native card is hidden.</OverHaulers_Verify_Unified_Display>
+  <OverHaulers_Verify_Unified_Gear>External modifiers (backpacks, gear, traits) and Over Haulers biological ratings are merged cleanly into this card.</OverHaulers_Verify_Unified_Gear>
+  <OverHaulers_Verify_Unified_Confirm>Inspect '{0}' on any colonist to view the combined Over Haulers anatomical breakdown.</OverHaulers_Verify_Unified_Confirm>
 
   <!-- Scenario B: Native Standalone Mode -->
   <OverHaulers_Verify_Standalone_Title>Native Standalone Card</OverHaulers_Verify_Standalone_Title>
-  <OverHaulers_Verify_Standalone_Display>1 native card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Standalone_Display>
-  <OverHaulers_Verify_Standalone_Gear>Standard vanilla gear calculations without external stat redirects.</OverHaulers_Verify_Standalone_Gear>
+  <OverHaulers_Verify_Standalone_Display>1 single card: '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Standalone_Display>
+  <OverHaulers_Verify_Standalone_Gear>No external stat card is adopted; Over Haulers evaluates biological offsets on its standalone card.</OverHaulers_Verify_Standalone_Gear>
   <OverHaulers_Verify_Standalone_Confirm>Inspect '{0}' on any colonist to view biological ratings, bionics, and injury breakdowns.</OverHaulers_Verify_Standalone_Confirm>
 
   <!-- Scenario C: Side-by-Side Execution -->
   <OverHaulers_Verify_SideBySide_Title>Side-by-Side Stat Cards</OverHaulers_Verify_SideBySide_Title>
-  <OverHaulers_Verify_SideBySide_Display>May show 2 separate listings: '{0}' alongside the external mod's stat under pawn 'i' ➔ Stats tab.</OverHaulers_Verify_SideBySide_Display>
-  <OverHaulers_Verify_SideBySide_Gear>Both stats remain visible on pawns. All caravan capacity and gear bonuses calculate safely without loss.</OverHaulers_Verify_SideBySide_Gear>
-  <OverHaulers_Verify_SideBySide_Confirm>If you prefer a single clean entry, select 'Automatic Selection' above or choose a matching profile below.</OverHaulers_Verify_SideBySide_Confirm>
+  <OverHaulers_Verify_SideBySide_Display>Multiple cards: '{0}' under the '{1}' section alongside external mod stat(s) (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_SideBySide_Display>
+  <OverHaulers_Verify_SideBySide_Gear>All active stats remain visible on pawns. Caravan capacity and external gear bonuses continue to calculate without loss.</OverHaulers_Verify_SideBySide_Gear>
+  <OverHaulers_Verify_SideBySide_Confirm>If you prefer a single clean entry, select 'Automatic Stat Adoption (Recommended)' above or choose a matching profile below.</OverHaulers_Verify_SideBySide_Confirm>
+  <OverHaulers_Verify_SideBySide_ConfirmCil>If you prefer a single clean entry, select a discovered candidate stat below.</OverHaulers_Verify_SideBySide_ConfirmCil>
 
   <!-- Scenario D: Custom Dynamic CIL Hook -->
   <OverHaulers_Verify_Cil_Title>Adopted Discovered Stat: [{0}]</OverHaulers_Verify_Cil_Title>
-  <OverHaulers_Verify_Cil_Display>Breakdown attached to '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab).</OverHaulers_Verify_Cil_Display>
+  <OverHaulers_Verify_Cil_Display>1 single card: breakdown attached to '{0}' under the '{1}' section (pawn 'i' ➔ Stats tab); Over Haulers' native card is hidden.</OverHaulers_Verify_Cil_Display>
   <OverHaulers_Verify_Cil_Gear>Caravan InfoCard explanation is injected directly into this external stat.</OverHaulers_Verify_Cil_Gear>
-  <OverHaulers_Verify_Cil_Confirm>Inspect '{0}' on a colonist. If no OverHaulers breakdown appears or numbers do not update, select another candidate or revert to Automatic.</OverHaulers_Verify_Cil_Confirm>
+  <OverHaulers_Verify_Cil_Confirm>Inspect '{0}' on a colonist. If no Over Haulers breakdown appears or numbers do not update, select another candidate or revert to 'Automatic Stat Adoption (Recommended)'.</OverHaulers_Verify_Cil_Confirm>
 
 </LanguageData>

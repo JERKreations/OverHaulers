@@ -53,7 +53,7 @@ namespace OverHaulers
         /// <param name="settings">The current settings.</param>
         private static void DrawBasicModifiersSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_GlobalModifiersHeader", settings.ResetGlobals, SettingMutationScope.Solver);
+            ui.HeaderWithResetKey("OverHaulers_GlobalModifiersHeader", settings.ResetGlobals, SettingMutationScope.Solver);
 
             // Row 1: Prosthetics Scaling
             ui.ToggleSlider(
@@ -114,7 +114,7 @@ namespace OverHaulers
         /// <param name="settings">The current settings.</param>
         private static void DrawCoreBodyWeightsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_BodyPartWeightsHeader", settings.ResetBodyParts, SettingMutationScope.Topology);
+            ui.HeaderWithResetKey("OverHaulers_BodyPartWeightsHeader", settings.ResetBodyParts, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_BodyPartWeights_Desc");
 
             string torsoLabel = "OverHaulers_TorsoImpact".Translate(settings.anatomyWeightTorso.ToString("P0")).ToString();
@@ -279,7 +279,7 @@ namespace OverHaulers
         /// <param name="settings">The current settings.</param>
         private static void DrawSystemicHealthWeightsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_SystemicWeightingsHeader", settings.ResetSystemicWeightings, SettingMutationScope.Solver);
+            ui.HeaderWithResetKey("OverHaulers_SystemicWeightingsHeader", settings.ResetSystemicWeightings, SettingMutationScope.Solver);
             ui.DescriptionKey("OverHaulers_SystemicWeightings_Desc");
 
             bool prevLink = settings.linkSystemicWeights;
@@ -414,7 +414,7 @@ namespace OverHaulers
         private static void DrawTorsoAndLimbDepthsSection(ref SettingsLayout ui, Settings settings)
         {
             // Part A: Torso Macro Topology
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_CoreBonesHeader", settings.ResetTorsoParts, SettingMutationScope.Topology);
+            ui.HeaderWithResetKey("OverHaulers_CoreBonesHeader", settings.ResetTorsoParts, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_CoreBones_Desc");
 
             string axialLabel = "OverHaulers_TorsoAxialBias".Translate(settings.torsoAxialBias.ToString("P0")).ToString();
@@ -442,7 +442,7 @@ namespace OverHaulers
             ui.Gap(SettingsViewUtilities.ControlGap);
 
             // Part B: Geometric Limb Depth Decay
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay, SettingMutationScope.Topology);
+            ui.HeaderWithResetKey("OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_LimbDepth_Desc");
 
             string decayPctLabel = "OverHaulers_LimbDepthDecayFactor".Translate(settings.limbDepthDecayFactor.ToString("P0")).ToString();
@@ -468,7 +468,7 @@ namespace OverHaulers
         /// <param name="settings">The current settings.</param>
         private static void DrawScalingConstantsSection(ref SettingsLayout ui, Settings settings)
         {
-            DrawSectionHeaderWithReset(ref ui, "OverHaulers_ScalingConstantsHeader", settings.ResetScalingConstants, SettingMutationScope.Solver);
+            ui.HeaderWithResetKey("OverHaulers_ScalingConstantsHeader", settings.ResetScalingConstants, SettingMutationScope.Solver);
             ui.DescriptionKey("OverHaulers_ScalingConstants_Desc");
 
             string prostheticImpactLabel = "OverHaulers_ProstheticImpactConstant".Translate(settings.prostheticImpactConstant.ToString("F2")).ToString();
@@ -492,56 +492,6 @@ namespace OverHaulers
                 tooltip: SettingsViewUtilities.CachedText("OverHaulers_AthleticImpactConstant_Tooltip"),
                 mutationScope: SettingMutationScope.Solver
             );
-        }
-
-        #endregion
-
-        #region 7. PRIVATE HELPERS
-
-        /// <summary>
-        /// Draws a section header with an optional reset button in the settings UI.
-        /// </summary>
-        /// <param name="ui">The settings layout to draw the header in.</param>
-        /// <param name="headerKey">The translation key for the header text.</param>
-        /// <param name="resetAction">The action to invoke when the reset button is clicked. If null, no reset button is drawn.</param>
-        /// <param name="mutationScope">The scope of the setting mutation for the reset action.</param>
-        /// <remarks>
-        /// The header will automatically adjust its layout to accommodate the reset button if necessary.
-        /// </remarks>
-        private static void DrawSectionHeaderWithReset(
-            ref SettingsLayout ui,
-            string headerKey,
-            Action resetAction,
-            SettingMutationScope? mutationScope = null)
-        {
-            string headerText = SettingsViewUtilities.CachedText(headerKey);
-            string resetLabel = SettingsViewUtilities.CachedText("OverHaulers_Reset");
-            Vector2 resetSize = resetAction != null
-                ? SettingsViewUtilities.ButtonSize(resetLabel, ui.Width, minWidth: 75f, minHeight: 24f)
-                : Vector2.zero;
-            Text.Font = GameFont.Medium;
-            bool separateReset = resetAction != null &&
-                SettingsViewUtilities.MeasuredTextWidth(headerText) + resetSize.x + 5f > ui.Width;
-            float headerWidth = resetAction != null && !separateReset ? ui.Width - resetSize.x - 5f : ui.Width;
-            float headerHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(headerText, headerWidth));
-            Widgets.Label(new Rect(ui.X, ui.Y, headerWidth, headerHeight), headerText);
-            Text.Font = GameFont.Small;
-
-            float bottom = ui.Y + headerHeight;
-            if (resetAction != null)
-            {
-                float resetY = separateReset ? bottom + 4f : ui.Y + 2f;
-                Rect resetBtnRect = new Rect(ui.X + ui.Width - resetSize.x, resetY, resetSize.x, resetSize.y);
-                if (SettingsViewUtilities.DrawButton(resetBtnRect, resetLabel))
-                {
-                    resetAction();
-                    SettingsLayout.ClearInputBuffers();
-                    SettingsViewUtilities.OnSettingMutated(mutationScope);
-                }
-                bottom = Math.Max(bottom, resetBtnRect.yMax);
-            }
-
-            ui.Y = bottom + 4f;
         }
 
         #endregion

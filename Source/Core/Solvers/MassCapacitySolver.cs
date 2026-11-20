@@ -81,7 +81,7 @@ namespace OverHaulers
         /// <summary>
         /// Value-type accumulator aggregating positive and negative systemic deltas across anatomical regions.
         /// </summary>
-        private struct SystemicRegionalDeltas
+        internal struct SystemicRegionalDeltas
         {
             public float TorsoPositive;
             public float ArmPositive;
@@ -126,13 +126,17 @@ namespace OverHaulers
             }
 
             /// <summary>
-            /// Averages manipulation and moving deltas to derive bilateral dual-limb contributions.
+            /// Blends manipulation and moving deltas by the specified shares to derive dual-limb contributions.
             /// </summary>
+            /// <param name="manipShare">The share of the manipulation delta to apply.</param>
+            /// <param name="moveShare">The share of the moving delta to apply.</param>
+            /// <param name="positiveDelta">Outputs the blended positive delta for the dual-limb.</param>
+            /// <param name="negativeDelta">Outputs the blended negative delta for the dual-limb.</param>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void FinalizeDualLimbs()
+            public void GetDualLimbDeltas(float manipShare, float moveShare, out float positiveDelta, out float negativeDelta)
             {
-                DualPositive = (ArmPositive + LegPositive) * 0.5f;
-                DualNegative = (ArmNegative + LegNegative) * 0.5f;
+                positiveDelta = (ArmPositive * manipShare) + (LegPositive * moveShare);
+                negativeDelta = (ArmNegative * manipShare) + (LegNegative * moveShare);
             }
 
             /// <summary>
@@ -352,8 +356,7 @@ namespace OverHaulers
                     1f,
                     0f,
                     0f,
-                    0f,
-                    false);
+                    0f);
             }
 
             // Ingress sweep populates SoA contiguous parallel arrays
@@ -423,15 +426,6 @@ namespace OverHaulers
             float finalCapacity = EnforceHardCompatibilitySafetyFloor(biologicalBaseline + netBiologicalOffset, entityLabel, entityId);
             float totalMultiplier = biologicalBaseline > 0f ? (finalCapacity / biologicalBaseline) : 1f;
 
-            // 1. HARD COMPATIBILITY SAFETY FLOOR CHECK (0.01 kg emergency crash guard)
-            bool isAtHardCompatibilitySafetyFloor = finalCapacity <= HardCompatibilitySafetyFloorKg;
-
-            // 2. CONFIGURABLE PERCENTILE DEFICIT FLOOR CHECK (Gameplay slider, e.g. 20% or 50%)
-            float rawDeficitSum = deficits.RawCoreNegative + deficits.RawManipulationNegative + deficits.RawMovingNegative;
-            bool isLimitedByConfigurablePercentileFloor = context.ConfigurablePercentileFloorKg > 0f &&
-                ((rawDeficitSum > deficits.TotalClampedDeficit + 0.01f) ||
-                 (finalCapacity <= (context.ConfigurablePercentileFloorKg + 0.05f) && deficits.TotalClampedDeficit > 0f));
-
             return new MassCapacityEvaluationResult(
                 netBiologicalOffset,
                 biologicalBaseline,
@@ -439,9 +433,7 @@ namespace OverHaulers
                 totalMultiplier,
                 prostheticBoost,
                 healthDeficit,
-                athleticOffset,
-                isAtHardCompatibilitySafetyFloor,
-                isLimitedByConfigurablePercentileFloor
+                athleticOffset
             );
         }
 
@@ -541,6 +533,45 @@ namespace OverHaulers
         #region 6. [PASS-03] STREAMING SoA VECTOR MATHEMATICS
 
         /// <summary>
+        /// [SOLV-SSOT] Compiles regional positive and negative athletic deltas from systemic capacities
+        /// and configured regional weights. Shared between the solver vector pass and UI group summaries.
+        /// </summary>
+        internal static SystemicRegionalDeltas ComputeRegionalAthleticDeltas(in SystemicEvaluationContext context)
+        {
+            SystemicRegionalDeltas regionalDeltas = default(SystemicRegionalDeltas);
+
+            if (context.EnableAthletics)
+            {
+                regionalDeltas.Accumulate(
+                    context.SnappedBreathing,
+                    context.TorsoPositiveBreathing, context.ArmPositiveBreathing, context.LegPositiveBreathing,
+                    context.TorsoDeficitBreathing, context.ArmDeficitBreathing, context.LegDeficitBreathing);
+
+                regionalDeltas.Accumulate(
+                    context.SnappedBloodPumping,
+                    context.TorsoPositiveBlood, context.ArmPositiveBlood, context.LegPositiveBlood,
+                    context.TorsoDeficitBlood, context.ArmDeficitBlood, context.LegDeficitBlood);
+
+                regionalDeltas.Accumulate(
+                    context.SnappedMoving,
+                    context.TorsoPositiveMoving, context.ArmPositiveMoving, context.LegPositiveMoving,
+                    context.TorsoDeficitMoving, context.ArmDeficitMoving, context.LegDeficitMoving);
+
+                regionalDeltas.Accumulate(
+                    context.SnappedManipulation,
+                    context.TorsoPositiveManipulation, context.ArmPositiveManipulation, context.LegPositiveManipulation,
+                    context.TorsoDeficitManipulation, context.ArmDeficitManipulation, context.LegDeficitManipulation);
+
+                float normManip = context.GetNormalizedBudget(PartType.ManipulationPart);
+                float normMove = context.GetNormalizedBudget(PartType.MovingPart);
+                GetDualLimbShares(-1, null, null, normManip, normMove, out float manipShare, out float moveShare);
+                regionalDeltas.GetDualLimbDeltas(manipShare, moveShare, out regionalDeltas.DualPositive, out regionalDeltas.DualNegative);
+            }
+
+            return regionalDeltas;
+        }
+
+        /// <summary>
         /// Solves the raw part offsets across contiguous SoA memory lanes.
         /// Wounds, amputations, and kinetic systemic strain accumulate smoothly without premature part-level clamping.
         /// </summary>
@@ -563,6 +594,10 @@ namespace OverHaulers
 
             PartType[] partTypes = workspace.PartTypes;
             int[] parentIndices = workspace.ParentIndices;
+            float[] weightManip = workspace.WeightManipulation;
+            float[] weightMove = workspace.WeightMoving;
+            float normManip = context.GetNormalizedBudget(PartType.ManipulationPart);
+            float normMove = context.GetNormalizedBudget(PartType.MovingPart);
 
             #region 6A. Bilateral Root Symmetry Evaluation
             // BREAKPOINT ANCHOR: Bilateral Root Symmetry Evaluation Gate
@@ -593,36 +628,12 @@ namespace OverHaulers
 
             float armRootSymmetry = totalRootArms > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootArms / totalRootArms)) : 1.0f;
             float legRootSymmetry = totalRootLegs > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootLegs / totalRootLegs)) : 1.0f;
-            float dualRootSymmetry = (armRootSymmetry + legRootSymmetry) * 0.5f;
+            GetDualLimbShares(-1, null, null, normManip, normMove, out float dualManipShare, out float dualMoveShare);
+            float dualRootSymmetry = (armRootSymmetry * dualManipShare) + (legRootSymmetry * dualMoveShare);
             #endregion
 
             #region 6B. Branchless Direct Systemic Regional Deltas
-            SystemicRegionalDeltas regionalDeltas = default(SystemicRegionalDeltas);
-
-            if (context.EnableAthletics)
-            {
-                regionalDeltas.Accumulate(
-                    context.SnappedBreathing,
-                    context.TorsoPositiveBreathing, context.ArmPositiveBreathing, context.LegPositiveBreathing,
-                    context.TorsoDeficitBreathing, context.ArmDeficitBreathing, context.LegDeficitBreathing);
-
-                regionalDeltas.Accumulate(
-                    context.SnappedBloodPumping,
-                    context.TorsoPositiveBlood, context.ArmPositiveBlood, context.LegPositiveBlood,
-                    context.TorsoDeficitBlood, context.ArmDeficitBlood, context.LegDeficitBlood);
-
-                regionalDeltas.Accumulate(
-                    context.SnappedMoving,
-                    context.TorsoPositiveMoving, context.ArmPositiveMoving, context.LegPositiveMoving,
-                    context.TorsoDeficitMoving, context.ArmDeficitMoving, context.LegDeficitMoving);
-
-                regionalDeltas.Accumulate(
-                    context.SnappedManipulation,
-                    context.TorsoPositiveManipulation, context.ArmPositiveManipulation, context.LegPositiveManipulation,
-                    context.TorsoDeficitManipulation, context.ArmDeficitManipulation, context.LegDeficitManipulation);
-
-                regionalDeltas.FinalizeDualLimbs();
-            }
+            SystemicRegionalDeltas regionalDeltas = ComputeRegionalAthleticDeltas(in context);
             #endregion
 
             #region 6C. Contiguous Streaming Math (Smooth, Unclamped)
@@ -695,7 +706,17 @@ namespace OverHaulers
                 // 4. Granular Systemic Athletic Coupling (natural parts only)
                 if (context.EnableAthletics && !isMissing && !hasAddedPart)
                 {
-                    regionalDeltas.GetDeltas(type, out float regionalPositiveDelta, out float regionalNegativeDelta);
+                    float regionalPositiveDelta;
+                    float regionalNegativeDelta;
+                    if (type == PartType.DualLimb)
+                    {
+                        GetDualLimbShares(i, weightManip, weightMove, normManip, normMove, out float manipShare, out float moveShare);
+                        regionalDeltas.GetDualLimbDeltas(manipShare, moveShare, out regionalPositiveDelta, out regionalNegativeDelta);
+                    }
+                    else
+                    {
+                        regionalDeltas.GetDeltas(type, out regionalPositiveDelta, out regionalNegativeDelta);
+                    }
 
                     if (regionalPositiveDelta > 0f)
                     {

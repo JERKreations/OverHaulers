@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using HarmonyLib;
 using RimWorld;
@@ -18,7 +19,7 @@ namespace OverHaulers
     /// </summary>
     public class HeadlessPawnShell : IDisposable
     {
-        #region 1. CONSTANTS & SENTINELS
+        #region 1. CONSTANTS, SENTINELS & SAFETY SCOPE
 
         /// <summary>
         /// [CORE-SYNTH-02] Reserved sentinel ThingID for all headless sandbox and baseline dummy pawns.
@@ -26,9 +27,38 @@ namespace OverHaulers
         /// </summary>
         public static readonly int HeadlessPawnThingId = -Math.Abs("OverHaulers_Sandbox_Pawn".GetHashCode());
 
+        /// <summary>
+        /// Allocation-free RAII token scoping Main-Menu <see cref="Find"/> fallback managers
+        /// strictly to active headless pawn synthesis, calibration, and sandbox evaluation call stacks.
+        /// </summary>
+        public struct SafetyFallbackScope : IDisposable
+        {
+            private bool isDisposed;
+
+            internal SafetyFallbackScope(bool active)
+            {
+                isDisposed = !active;
+            }
+
+            public void Dispose()
+            {
+                if (!isDisposed)
+                {
+                    isDisposed = true;
+                    if (safetyFallbackScopeDepth > 0)
+                    {
+                        safetyFallbackScopeDepth--;
+                    }
+                }
+            }
+        }
+
         #endregion
 
-        #region 2. INSTANCE FIELDS & BACKING STATE
+        #region 2. STATIC THREAD-LOCAL SCOPE & INSTANCE FIELDS
+
+        [ThreadStatic]
+        private static int safetyFallbackScopeDepth;
 
         protected Pawn headlessPawn;
         protected Pawn sourcePawn;
@@ -36,6 +66,13 @@ namespace OverHaulers
         #endregion
 
         #region 3. PROPERTIES & ENCAPSULATED ACCESSORS
+
+        /// <summary>True while the current thread is inside an active headless pawn safety fallback scope.</summary>
+        public static bool IsSafetyFallbackScopeActive
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => safetyFallbackScopeDepth > 0;
+        }
 
         /// <summary>Gets the active unspawned pawn shell.</summary>
         public Pawn Pawn => headlessPawn;
@@ -49,6 +86,17 @@ namespace OverHaulers
         #endregion
 
         #region 4. LIFECYCLE, FACTORIES & DISPOSAL
+
+        /// <summary>
+        /// Enters a re-entrant thread-local scope authorizing Main-Menu <see cref="Find"/> fallback managers
+        /// for headless pawn operations when <see cref="Current.Game"/> is null.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SafetyFallbackScope EnterSafetyFallbackScope()
+        {
+            safetyFallbackScopeDepth++;
+            return new SafetyFallbackScope(true);
+        }
 
         /// <summary>
         /// Initializes a new empty instance of the <see cref="HeadlessPawnShell"/> class.
@@ -114,178 +162,181 @@ namespace OverHaulers
         #region 5. CANONICAL SYNTHESIS API
 
         /// <summary>
-        /// Allocates a detached Pawn shell and initializes physiological state.
-        /// Guaranteed zero registration into WorldPawns, MapPawns, or TaleRecorder.
+        /// Rebuilds the core state of the headless pawn, optionally cloning traits and hediffs from a source pawn.
+        /// This method does not register the pawn with the world or map and keeps it detached from TaleRecorder.
         /// </summary>
         /// <param name="raceDef">The species ThingDef to synthesize.</param>
         /// <param name="source">The live pawn to clone traits and hediffs from, if any.</param>
         /// <param name="initializeComps">If true (mid-game), fully initializes ThingComps.</param>
         public virtual void RebuildPawnCore(ThingDef raceDef, Pawn source, bool initializeComps)
         {
-            Teardown();
-
-            sourcePawn = source;
-            if (raceDef == null && source != null) raceDef = source.def;
-            if (raceDef == null) raceDef = ThingDefOf.Human;
-
-            try
+            using (EnterSafetyFallbackScope())
             {
-                // 1. Direct Instantiation: Bypasses ThingMaker.MakeThing / ThingIDMaker.GiveIDTo (Safe on Main Menu)
-                headlessPawn = (Pawn)Activator.CreateInstance(raceDef.thingClass);
-                headlessPawn.def = raceDef;
-                headlessPawn.SetStuffDirect(sourcePawn?.Stuff);
+                Teardown();
 
-                // Sentinel ID Assignment
-                headlessPawn.thingIDNumber = HeadlessPawnThingId;
-
-                // 2. Resolve PawnKindDef and Gender
-                headlessPawn.kindDef = sourcePawn?.kindDef ?? ResolvePawnKindForRace(raceDef);
-                headlessPawn.gender = sourcePawn != null
-                    ? sourcePawn.gender
-                    : (raceDef.race != null && !raceDef.race.hasGenders ? Gender.None : Gender.Male);
-
-                // 3. Faction mirror (In-game only)
-                if (sourcePawn?.Faction != null)
-                {
-                    headlessPawn.SetFactionDirect(sourcePawn.Faction);
-                }
-
-                // 4. Targeted Trackers; direct instantiation to avoid ThingMaker/ID assignment.
-                headlessPawn.health = new Pawn_HealthTracker(headlessPawn);
-                headlessPawn.ageTracker = new Pawn_AgeTracker(headlessPawn);
-                headlessPawn.apparel = new Pawn_ApparelTracker(headlessPawn);
-                headlessPawn.equipment = new Pawn_EquipmentTracker(headlessPawn);
-                headlessPawn.abilities = new Pawn_AbilityTracker(headlessPawn);
-                headlessPawn.skills = new Pawn_SkillTracker(headlessPawn);
+                sourcePawn = source;
+                if (raceDef == null && source != null) raceDef = source.def;
+                if (raceDef == null) raceDef = ThingDefOf.Human;
 
                 try
                 {
-                    Pawn_NeedsTracker needs = (Pawn_NeedsTracker)FormatterServices.GetUninitializedObject(typeof(Pawn_NeedsTracker));
-                    SafeSetField(needs, "pawn", headlessPawn);
-                    SafeSetField(needs, "needs", new List<Need>());
-                    headlessPawn.needs = needs;
-                }
-                catch { }
+                    // 1. Direct Instantiation: Bypasses ThingMaker.MakeThing / ThingIDMaker.GiveIDTo (Safe on Main Menu)
+                    headlessPawn = (Pawn)Activator.CreateInstance(raceDef.thingClass);
+                    headlessPawn.def = raceDef;
+                    headlessPawn.SetStuffDirect(sourcePawn?.Stuff);
 
-                try
-                {
-                    Pawn_MindState mindState = (Pawn_MindState)FormatterServices.GetUninitializedObject(typeof(Pawn_MindState));
-                    mindState.pawn = headlessPawn;
-                    mindState.mentalStateHandler = new MentalStateHandler(headlessPawn);
-                    mindState.inspirationHandler = new InspirationHandler(headlessPawn);
-                    mindState.priorityWork = new PriorityWork(headlessPawn);
-                    headlessPawn.mindState = mindState;
-                }
-                catch { }
+                    // Sentinel ID Assignment
+                    headlessPawn.thingIDNumber = HeadlessPawnThingId;
 
-                // 5. Life-Stage & Backing-Field Pinning
-                List<LifeStageAge> lifeStageAges = raceDef.race?.lifeStageAges;
-                int adultStageIdx = (lifeStageAges != null && lifeStageAges.Count > 0) ? (lifeStageAges.Count - 1) : 0;
-                float adultAgeYears = (lifeStageAges != null && lifeStageAges.Count > 0) ? lifeStageAges[adultStageIdx].minAge : 20f;
-                long defaultAdultTicks = Math.Max((long)GenDate.TicksPerYear, (long)(adultAgeYears * GenDate.TicksPerYear));
+                    // 2. Resolve PawnKindDef and Gender
+                    headlessPawn.kindDef = sourcePawn?.kindDef ?? ResolvePawnKindForRace(raceDef);
+                    headlessPawn.gender = sourcePawn != null
+                        ? sourcePawn.gender
+                        : (raceDef.race != null && !raceDef.race.hasGenders ? Gender.None : Gender.Male);
 
-                long targetBioTicks = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.AgeBiologicalTicks : defaultAdultTicks;
-                long targetChronoTicks = targetBioTicks;
-                int targetStageIdx = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.CurLifeStageIndex : adultStageIdx;
-
-                SafeSetField(headlessPawn.ageTracker, "ageBiologicalTicksInt", targetBioTicks);
-                SafeSetField(headlessPawn.ageTracker, "birthAbsTicksInt", -targetChronoTicks);
-                SafeSetField(headlessPawn.ageTracker, "cachedLifeStageIndex", targetStageIdx);
-                SafeSetField(headlessPawn.ageTracker, "curLifeStageIndex", targetStageIdx);
-
-                // 6. Story & Biotech Gene Tracking
-                if (raceDef.race != null && raceDef.race.Humanlike && headlessPawn.story == null)
-                {
-                    headlessPawn.story = new Pawn_StoryTracker(headlessPawn);
-                    if (sourcePawn?.story != null)
+                    // 3. Faction mirror (In-game only)
+                    if (sourcePawn?.Faction != null)
                     {
-                        headlessPawn.story.bodyType = sourcePawn.story.bodyType;
-                        headlessPawn.story.headType = sourcePawn.story.headType;
-                        headlessPawn.story.hairDef = sourcePawn.story.hairDef;
+                        headlessPawn.SetFactionDirect(sourcePawn.Faction);
                     }
-                    else
-                    {
-                        headlessPawn.story.bodyType = BodyTypeDefOf.Male 
-                            ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male") 
-                            ?? FirstDefOrNull(DefDatabase<BodyTypeDef>.AllDefsListForReading);
 
-                        headlessPawn.story.headType = DefDatabase<HeadTypeDef>.GetNamedSilentFail("Male_AverageNormal") 
-                            ?? FirstDefOrNull(DefDatabase<HeadTypeDef>.AllDefsListForReading);
+                    // 4. Targeted Trackers; direct instantiation to avoid ThingMaker/ID assignment.
+                    headlessPawn.health = new Pawn_HealthTracker(headlessPawn);
+                    headlessPawn.ageTracker = new Pawn_AgeTracker(headlessPawn);
+                    headlessPawn.apparel = new Pawn_ApparelTracker(headlessPawn);
+                    headlessPawn.equipment = new Pawn_EquipmentTracker(headlessPawn);
+                    headlessPawn.abilities = new Pawn_AbilityTracker(headlessPawn);
+                    headlessPawn.skills = new Pawn_SkillTracker(headlessPawn);
 
-                        headlessPawn.story.hairDef = HairDefOf.Bald 
-                            ?? DefDatabase<HairDef>.GetNamedSilentFail("Bald") 
-                            ?? FirstDefOrNull(DefDatabase<HairDef>.AllDefsListForReading);
-                    }
-                }
-
-                if (ModsConfig.BiotechActive && headlessPawn.genes == null)
-                {
                     try
                     {
-                        headlessPawn.genes = new Pawn_GeneTracker(headlessPawn);
+                        Pawn_NeedsTracker needs = (Pawn_NeedsTracker)FormatterServices.GetUninitializedObject(typeof(Pawn_NeedsTracker));
+                        SafeSetField(needs, "pawn", headlessPawn);
+                        SafeSetField(needs, "needs", new List<Need>());
+                        headlessPawn.needs = needs;
+                    }
+                    catch { }
 
-                        if (raceDef.race != null && raceDef.race.Humanlike)
+                    try
+                    {
+                        Pawn_MindState mindState = (Pawn_MindState)FormatterServices.GetUninitializedObject(typeof(Pawn_MindState));
+                        mindState.pawn = headlessPawn;
+                        mindState.mentalStateHandler = new MentalStateHandler(headlessPawn);
+                        mindState.inspirationHandler = new InspirationHandler(headlessPawn);
+                        mindState.priorityWork = new PriorityWork(headlessPawn);
+                        headlessPawn.mindState = mindState;
+                    }
+                    catch { }
+
+                    // 5. Life-Stage & Backing-Field Pinning
+                    List<LifeStageAge> lifeStageAges = raceDef.race?.lifeStageAges;
+                    int adultStageIdx = (lifeStageAges != null && lifeStageAges.Count > 0) ? (lifeStageAges.Count - 1) : 0;
+                    float adultAgeYears = (lifeStageAges != null && lifeStageAges.Count > 0) ? lifeStageAges[adultStageIdx].minAge : 20f;
+                    long defaultAdultTicks = Math.Max((long)GenDate.TicksPerYear, (long)(adultAgeYears * GenDate.TicksPerYear));
+
+                    long targetBioTicks = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.AgeBiologicalTicks : defaultAdultTicks;
+                    long targetChronoTicks = targetBioTicks;
+                    int targetStageIdx = sourcePawn?.ageTracker != null ? sourcePawn.ageTracker.CurLifeStageIndex : adultStageIdx;
+
+                    SafeSetField(headlessPawn.ageTracker, "ageBiologicalTicksInt", targetBioTicks);
+                    SafeSetField(headlessPawn.ageTracker, "birthAbsTicksInt", -targetChronoTicks);
+                    SafeSetField(headlessPawn.ageTracker, "cachedLifeStageIndex", targetStageIdx);
+                    SafeSetField(headlessPawn.ageTracker, "curLifeStageIndex", targetStageIdx);
+
+                    // 6. Story & Biotech Gene Tracking
+                    if (raceDef.race != null && raceDef.race.Humanlike && headlessPawn.story == null)
+                    {
+                        headlessPawn.story = new Pawn_StoryTracker(headlessPawn);
+                        if (sourcePawn?.story != null)
                         {
-                            if (sourcePawn?.genes != null)
-                            {
-                                headlessPawn.genes.SetXenotypeDirect(sourcePawn.genes.Xenotype);
+                            headlessPawn.story.bodyType = sourcePawn.story.bodyType;
+                            headlessPawn.story.headType = sourcePawn.story.headType;
+                            headlessPawn.story.hairDef = sourcePawn.story.hairDef;
+                        }
+                        else
+                        {
+                            headlessPawn.story.bodyType = BodyTypeDefOf.Male
+                                ?? DefDatabase<BodyTypeDef>.GetNamedSilentFail("Male")
+                                ?? FirstDefOrNull(DefDatabase<BodyTypeDef>.AllDefsListForReading);
 
-                                for (int i = 0; i < sourcePawn.genes.Endogenes.Count; i++)
+                            headlessPawn.story.headType = DefDatabase<HeadTypeDef>.GetNamedSilentFail("Male_AverageNormal")
+                                ?? FirstDefOrNull(DefDatabase<HeadTypeDef>.AllDefsListForReading);
+
+                            headlessPawn.story.hairDef = HairDefOf.Bald
+                                ?? DefDatabase<HairDef>.GetNamedSilentFail("Bald")
+                                ?? FirstDefOrNull(DefDatabase<HairDef>.AllDefsListForReading);
+                        }
+                    }
+
+                    if (ModsConfig.BiotechActive && headlessPawn.genes == null)
+                    {
+                        try
+                        {
+                            headlessPawn.genes = new Pawn_GeneTracker(headlessPawn);
+
+                            if (raceDef.race != null && raceDef.race.Humanlike)
+                            {
+                                if (sourcePawn?.genes != null)
                                 {
-                                    GeneDef gene = sourcePawn.genes.Endogenes[i].def;
+                                    headlessPawn.genes.SetXenotypeDirect(sourcePawn.genes.Xenotype);
+
+                                    for (int i = 0; i < sourcePawn.genes.Endogenes.Count; i++)
+                                    {
+                                        GeneDef gene = sourcePawn.genes.Endogenes[i].def;
+                                        if (!headlessPawn.genes.HasActiveGene(gene))
+                                        {
+                                            headlessPawn.genes.AddGene(gene, xenogene: false);
+                                        }
+                                    }
+                                    for (int i = 0; i < sourcePawn.genes.Xenogenes.Count; i++)
+                                    {
+                                        GeneDef gene = sourcePawn.genes.Xenogenes[i].def;
+                                        if (!headlessPawn.genes.HasActiveGene(gene))
+                                        {
+                                            headlessPawn.genes.AddGene(gene, xenogene: true);
+                                        }
+                                    }
+                                }
+                            }
+                            else if (sourcePawn?.genes != null)
+                            {
+                                for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
+                                {
+                                    GeneDef gene = sourcePawn.genes.GenesListForReading[i].def;
                                     if (!headlessPawn.genes.HasActiveGene(gene))
                                     {
                                         headlessPawn.genes.AddGene(gene, xenogene: false);
                                     }
                                 }
-                                for (int i = 0; i < sourcePawn.genes.Xenogenes.Count; i++)
-                                {
-                                    GeneDef gene = sourcePawn.genes.Xenogenes[i].def;
-                                    if (!headlessPawn.genes.HasActiveGene(gene))
-                                    {
-                                        headlessPawn.genes.AddGene(gene, xenogene: true);
-                                    }
-                                }
                             }
                         }
-                        else if (sourcePawn?.genes != null)
+                        catch (Exception ex)
                         {
-                            for (int i = 0; i < sourcePawn.genes.GenesListForReading.Count; i++)
-                            {
-                                GeneDef gene = sourcePawn.genes.GenesListForReading[i].def;
-                                if (!headlessPawn.genes.HasActiveGene(gene))
-                                {
-                                    headlessPawn.genes.AddGene(gene, xenogene: false);
-                                }
-                            }
+                            OHLog.Warn("Solver.HeadlessPawnShell:BiotechGenes", ex, $"Failed to synthesize Biotech genes for {raceDef.defName}.");
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        OHLog.Warn("Solver.HeadlessPawnShell:BiotechGenes", ex, $"Failed to synthesize Biotech genes for {raceDef.defName}.");
-                    }
-                }
 
-                // 7. Initialize Comps (Mid-game only)
-                if (initializeComps)
+                    // 7. Initialize Comps (Mid-game only)
+                    if (initializeComps)
+                    {
+                        try
+                        {
+                            headlessPawn.InitializeComps();
+                        }
+                        catch (Exception ex)
+                        {
+                            OHLog.Warn("Solver.HeadlessPawnShell:InitializeComps", ex, $"Failed to initialize comps for {raceDef.defName}.");
+                        }
+                    }
+
+                    // 8. Clone authentic health graph if cloning a live pawn
+                    SyncHediffsFromSource();
+                }
+                catch (Exception ex)
                 {
-                    try
-                    {
-                        headlessPawn.InitializeComps();
-                    }
-                    catch (Exception ex)
-                    {
-                        OHLog.Warn("Solver.HeadlessPawnShell:InitializeComps", ex, $"Failed to initialize comps for {raceDef.defName}.");
-                    }
+                    OHLog.Warn("Solver.HeadlessPawnShell:RebuildPawnCore", ex, "Failed to allocate headless pawn shell.");
+                    Teardown();
                 }
-
-                // 8. Clone authentic health graph if cloning a live pawn
-                SyncHediffsFromSource();
-            }
-            catch (Exception ex)
-            {
-                OHLog.Warn("Solver.HeadlessPawnShell:RebuildPawnCore", ex, "Failed to allocate headless pawn shell.");
-                Teardown();
             }
         }
 
@@ -296,50 +347,35 @@ namespace OverHaulers
         {
             if (headlessPawn?.health?.hediffSet == null) return;
 
-            headlessPawn.health.hediffSet.Clear();
-
-            if (sourcePawn?.health?.hediffSet != null)
+            using (EnterSafetyFallbackScope())
             {
-                List<Hediff> sourceHediffs = sourcePawn.health.hediffSet.hediffs;
-                if (sourceHediffs != null && sourceHediffs.Count > 0)
+                headlessPawn.health.hediffSet.Clear();
+
+                if (sourcePawn?.health?.hediffSet != null)
                 {
-                    List<Hediff> sortedHediffs = new List<Hediff>(sourceHediffs);
-                    sortedHediffs.Sort((a, b) => GetPartDepth(a?.Part).CompareTo(GetPartDepth(b?.Part)));
-
-                    for (int i = 0; i < sortedHediffs.Count; i++)
+                    List<Hediff> sourceHediffs = sourcePawn.health.hediffSet.hediffs;
+                    if (sourceHediffs != null && sourceHediffs.Count > 0)
                     {
-                        Hediff src = sortedHediffs[i];
-                        if (src?.def == null) continue;
+                        List<Hediff> sortedHediffs = new List<Hediff>(sourceHediffs);
+                        sortedHediffs.Sort((a, b) => GetPartDepth(a?.Part).CompareTo(GetPartDepth(b?.Part)));
 
-                        if (src.Part != null && headlessPawn.health.hediffSet.PartIsMissing(src.Part))
+                        for (int i = 0; i < sortedHediffs.Count; i++)
                         {
-                            continue;
-                        }
+                            Hediff src = sortedHediffs[i];
+                            if (src?.def == null) continue;
 
-                        try
-                        {
-                            Hediff cloneHediff = HediffMaker.MakeHediff(src.def, headlessPawn, src.Part);
-                            if (cloneHediff != null)
+                            if (src.Part != null && headlessPawn.health.hediffSet.PartIsMissing(src.Part))
                             {
-                                cloneHediff.Severity = src.Severity;
-                                cloneHediff.ageTicks = src.ageTicks;
-
-                                // Copy internal comp states (ticks, progress, adaptation) from source to clone, ignoring the base
-                                // HediffComp.parent pointer.
-                                if (src is HediffWithComps srcComps && cloneHediff is HediffWithComps cloneComps)
-                                {
-                                    CopyCompStates(srcComps, cloneComps);
-                                }
-
-                                headlessPawn.health.AddHediff(cloneHediff);
+                                continue;
                             }
+
+                            TryCloneAndAddHediff(src);
                         }
-                        catch { }
                     }
                 }
-            }
 
-            DirtyHealthCache();
+                DirtyHealthCache();
+            }
         }
 
         #endregion
@@ -353,8 +389,11 @@ namespace OverHaulers
         {
             if (headlessPawn?.health != null)
             {
-                headlessPawn.health.capacities?.Clear();
-                headlessPawn.health.hediffSet?.DirtyCache();
+                using (EnterSafetyFallbackScope())
+                {
+                    headlessPawn.health.capacities?.Clear();
+                    headlessPawn.health.hediffSet?.DirtyCache();
+                }
             }
         }
 
@@ -442,6 +481,38 @@ namespace OverHaulers
         protected static T FirstDefOrNull<T>(List<T> defs) where T : class
         {
             return defs != null && defs.Count > 0 ? defs[0] : null;
+        }
+
+        /// <summary>
+        /// Clones a source hediff—preserving severity, age ticks, and internal comp states—and attaches it to <see cref="headlessPawn"/>.
+        /// Single Source of Truth shared by full pawn synchronization and partial branch reversion.
+        /// </summary>
+        /// <param name="src">The source hediff to clone and attach to the headless pawn.</param>
+        /// <remarks>
+        /// This method will silently fail if the source hediff is null, has no definition, or if the headless pawn's health tracker
+        ///  is unavailable.
+        /// </remarks>
+        protected void TryCloneAndAddHediff(Hediff src)
+        {
+            if (src?.def == null || headlessPawn?.health == null) return;
+
+            try
+            {
+                Hediff cloneHediff = HediffMaker.MakeHediff(src.def, headlessPawn, src.Part);
+                if (cloneHediff != null)
+                {
+                    cloneHediff.Severity = src.Severity;
+                    cloneHediff.ageTicks = src.ageTicks;
+
+                    if (src is HediffWithComps srcComps && cloneHediff is HediffWithComps cloneComps)
+                    {
+                        CopyCompStates(srcComps, cloneComps);
+                    }
+
+                    headlessPawn.health.AddHediff(cloneHediff);
+                }
+            }
+            catch { }
         }
 
         /// <summary>

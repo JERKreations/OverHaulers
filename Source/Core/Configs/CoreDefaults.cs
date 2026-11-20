@@ -43,7 +43,7 @@ namespace OverHaulers
         public const float AnatomyWeightLeg = 0.35f;
 
         public const float MissingArmsTorsoShare = 0.66f;
-        public const float MissingLegsTorsoShare = 1.00f;
+        public const float MissingLegsTorsoShare = 0.66f;
 
         #endregion
 
@@ -62,7 +62,7 @@ namespace OverHaulers
         public const float LegPositiveBreathing = 1.00f;
         public const float LegPositiveBlood = 1.00f;
         public const float LegPositiveMoving = 1.00f;
-        public const float LegPositiveManipulation = 0.00f;
+        public const float LegPositiveManipulation = 0.11f;
 
         #endregion
 
@@ -81,7 +81,7 @@ namespace OverHaulers
         public const float LegDeficitBreathing = 1.00f;
         public const float LegDeficitBlood = 1.00f;
         public const float LegDeficitMoving = 1.00f;
-        public const float LegDeficitManipulation = 0.00f;
+        public const float LegDeficitManipulation = 0.11f;
 
         #endregion
 

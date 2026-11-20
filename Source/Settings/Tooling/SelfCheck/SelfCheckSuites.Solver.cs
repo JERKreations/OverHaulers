@@ -16,7 +16,7 @@ namespace OverHaulers
         /// <returns>A valid, bound harness; the caller must dispose it.</returns>
         private static SandboxPawnHarness CreateHarness(TestSubjectEntry subject, bool wounded)
         {
-            SandboxPawnHarness harness = SandboxPawnHarness.CreateForCurrentProgramState();
+            SandboxPawnHarness harness = new SandboxPawnHarness();
 
             harness.BindSubject(subject);
             if (!harness.IsValid)
@@ -62,6 +62,7 @@ namespace OverHaulers
                 return;
             }
 
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
             {
                 float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
@@ -92,16 +93,19 @@ namespace OverHaulers
             float pristine;
             float wounded;
 
-            using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
-                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
-                pristine = SolveOnce(harness.SandboxPawn, baseline);
-            }
+                using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
+                {
+                    float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
+                    pristine = SolveOnce(harness.SandboxPawn, baseline);
+                }
 
-            using (SandboxPawnHarness harness = CreateHarness(subject, wounded: true))
-            {
-                float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
-                wounded = SolveOnce(harness.SandboxPawn, baseline);
+                using (SandboxPawnHarness harness = CreateHarness(subject, wounded: true))
+                {
+                    float baseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(harness.SandboxPawn);
+                    wounded = SolveOnce(harness.SandboxPawn, baseline);
+                }
             }
 
             Expect.True(wounded <= pristine + PawnDataRegistry.EfficiencyEpsilon, "wounded offset " + wounded.ToString("R") + " kg exceeds pristine offset " + pristine.ToString("R") + " kg (tolerance " + PawnDataRegistry.EfficiencyEpsilon.ToString("R") + " kg)");

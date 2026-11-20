@@ -8,7 +8,7 @@
   <OverHaulers_Event_Integration_CapacityFactorNeutralized>Neutralized capacity factor '{0}' on adopted stat '{1}'.</OverHaulers_Event_Integration_CapacityFactorNeutralized>
   <OverHaulers_Event_Integration_HarmonyInitialized>Harmony compatibility initialized ({0} ms, one-time): {1} engine hooks applied.</OverHaulers_Event_Integration_HarmonyInitialized>
   <OverHaulers_Event_MedicalCatalog_Indexed>Medical catalog indexing complete ({0} ms): {1} replacement surgeries, {2} implants, {3} conditions.</OverHaulers_Event_MedicalCatalog_Indexed>
-  <OverHaulers_Event_Integration_StalePreferenceRecovered>Saved presentation selection '{0}' is no longer active (mod uninstalled?). Reverting to Automatic selection.</OverHaulers_Event_Integration_StalePreferenceRecovered>
+  <OverHaulers_Event_Integration_StalePreferenceRecovered>Saved presentation selection '{0}' is no longer active (mod uninstalled?). Reverting to Automatic Stat Adoption.</OverHaulers_Event_Integration_StalePreferenceRecovered>
 
   <!-- ========================================================================= -->
   <!-- 2. TOPOLOGY & SKELETAL COMPILATION CHECKPOINTS                            -->

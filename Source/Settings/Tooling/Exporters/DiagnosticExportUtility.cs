@@ -109,31 +109,17 @@ namespace OverHaulers
 
         #region 4. SCOPE RESOLUTION, DATE-BASED ROUTING & FILE I/O
 
-        /// <summary>
-        /// Resolves the root directory for exporting diagnostic dumps, creating it if necessary.
-        /// </summary>
-        /// <returns>The full path to the root export directory for diagnostic dumps.</returns>
-        public static string ResolveRootExportDirectory()
-        {
-            try
-            {
-                string modRoot = OverHaulers.ContentPack?.RootDir;
-                if (!string.IsNullOrEmpty(modRoot) && Directory.Exists(modRoot))
-                {
-                    string rootDir = Path.Combine(modRoot, "DiagnosticDumps");
-                    if (!Directory.Exists(rootDir))
-                    {
-                        Directory.CreateDirectory(rootDir);
-                    }
-                    return rootDir;
-                }
-            }
-            catch (Exception ex)
-            {
-                OHLog.Warn("TestBench.ResolveRootExportDirectory", ex, "Failed to resolve root export directory.");
-            }
+        private const string PrimaryRootFolderName = "DiagnosticDumps";
+        private const string FallbackRootFolderName = "OverHaulers_DiagnosticDumps";
 
-            string fallbackRoot = Path.Combine(GenFilePaths.SaveDataFolderPath, "OverHaulers_DiagnosticDumps");
+        private static bool modRootWriteFailed;
+
+        /// <summary>
+        /// Resolves the fallback export root under RimWorld's user save data folder, creating it if necessary.
+        /// </summary>
+        private static string ResolveFallbackRootDirectory()
+        {
+            string fallbackRoot = Path.Combine(GenFilePaths.SaveDataFolderPath, FallbackRootFolderName);
             if (!Directory.Exists(fallbackRoot))
             {
                 Directory.CreateDirectory(fallbackRoot);
@@ -142,26 +128,72 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the export directory for the current date, creating it if necessary.
+        /// Resolves the root directory for exporting diagnostic dumps, creating it if necessary.
+        /// </summary>
+        /// <returns>The full path to the root export directory for diagnostic dumps.</returns>
+        public static string ResolveRootExportDirectory()
+        {
+            if (!modRootWriteFailed)
+            {
+                try
+                {
+                    string modRoot = OverHaulers.ContentPack?.RootDir;
+                    if (!string.IsNullOrEmpty(modRoot) && Directory.Exists(modRoot))
+                    {
+                        string rootDir = Path.Combine(modRoot, PrimaryRootFolderName);
+                        if (!Directory.Exists(rootDir))
+                        {
+                            Directory.CreateDirectory(rootDir);
+                        }
+                        return rootDir;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    modRootWriteFailed = true;
+                    OHLog.Warn("TestBench.ResolveRootExportDirectory", ex, "Failed to resolve root export directory.");
+                }
+            }
+
+            return ResolveFallbackRootDirectory();
+        }
+
+        /// <summary>
+        /// Resolves the export directory for the current date, creating it if necessary and falling back to
+        /// the user save data folder if the primary mod directory is not writable.
         /// </summary>
         /// <returns>The full path to the export directory for the current date.</returns>
         public static string ResolveExportDirectory()
         {
-            string rootDir = ResolveRootExportDirectory();
             string dateFolder = DateTime.Now.ToString("yyyy-MM-dd");
+            string rootDir = ResolveRootExportDirectory();
             string targetDir = Path.Combine(rootDir, dateFolder);
 
-            if (!Directory.Exists(targetDir))
+            try
             {
-                Directory.CreateDirectory(targetDir);
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+                return targetDir;
+            }
+            catch (Exception ex)
+            {
+                modRootWriteFailed = true;
+                OHLog.Warn("TestBench.ResolveExportDirectory", ex, "Failed to create dated export subfolder in the primary directory.");
             }
 
-            return targetDir;
+            string fallbackDir = Path.Combine(ResolveFallbackRootDirectory(), dateFolder);
+            if (!Directory.Exists(fallbackDir))
+            {
+                Directory.CreateDirectory(fallbackDir);
+            }
+            return fallbackDir;
         }
 
         /// <summary>
         /// Opens the export directory in the OS file explorer.
-        /// Opens today's dated subfolder if it exists and contains files; otherwise opens the root DiagnosticDumps directory.
+        /// Opens today's dated subfolder if it exists; otherwise opens the root DiagnosticDumps directory.
         /// 100% platform-agnostic with zero native P/Invoke calls.
         /// </summary>
         public static void OpenExportDirectory()
@@ -202,6 +234,50 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Ensures topologies are initialized and prepares sorted species/body census lists and fallback scope for exporters.
+        /// Single Source of Truth shared across diagnostic dump exporters.
+        /// </summary>
+        public static void PrepareCensusExport(
+            ref DumpScope scope,
+            TestSubjectEntry subject,
+            out string timestamp,
+            out BodyDef targetBody,
+            out List<ThingDef> allPawnThings,
+            out List<BodyDef> targetBodies)
+        {
+            TopologyLayoutCompiler.EnsureInitialized();
+            timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            List<ThingDef> loadedThings = DefDatabase<ThingDef>.AllDefsListForReading;
+            allPawnThings = new List<ThingDef>(loadedThings != null ? loadedThings.Count : 0);
+            if (loadedThings != null)
+            {
+                for (int i = 0; i < loadedThings.Count; i++)
+                {
+                    ThingDef t = loadedThings[i];
+                    if (t != null && t.category == ThingCategory.Pawn && t.race?.body != null)
+                    {
+                        allPawnThings.Add(t);
+                    }
+                }
+            }
+
+            List<BodyDef> loadedBodies = DefDatabase<BodyDef>.AllDefsListForReading;
+            List<BodyDef> allBodies = loadedBodies != null ? new List<BodyDef>(loadedBodies) : new List<BodyDef>();
+
+            allPawnThings.Sort((a, b) => string.Compare(a.LabelCap.ToString(), b.LabelCap.ToString(), StringComparison.OrdinalIgnoreCase));
+            allBodies.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
+
+            targetBody = subject?.BodyDef;
+            if (scope != DumpScope.FullCensus && targetBody == null)
+            {
+                scope = DumpScope.FullCensus;
+            }
+
+            targetBodies = ResolveTargetBodies(scope, targetBody, allBodies);
+        }
+
+        /// <summary>
         /// Resolves a string tag representing the scope of the dump, used for file naming and organization.
         /// </summary>
         /// <param name="scope">The scope of the dump, determining the context of the tag.</param>
@@ -236,23 +312,29 @@ namespace OverHaulers
             string scopeTag, 
             DumpFormat format = DumpFormat.Text)
         {
+            if (builder == null) return string.Empty;
+
             string ext = format == DumpFormat.Xml ? "xml" : "txt";
             string fileName = $"{filePrefix}_{scopeTag}_{DateTime.Now:HHmmss}.{ext}";
-            string exportDir = ResolveExportDirectory();
-            string exportPath = Path.Combine(exportDir, fileName);
+            string content = builder.ToString();
+            string exportPath;
 
             try
             {
-                File.WriteAllText(exportPath, builder.ToString());
+                string exportDir = ResolveExportDirectory();
+                exportPath = Path.Combine(exportDir, fileName);
+                File.WriteAllText(exportPath, content);
             }
             catch (Exception ex)
             {
+                modRootWriteFailed = true;
                 OHLog.Warn("TestBench.WriteExportFileModRootFailed", ex, "Failed to write export file to the primary export directory.");
-                string fallbackDir = Path.Combine(GenFilePaths.SaveDataFolderPath, "OverHaulers_DiagnosticDumps", DateTime.Now.ToString("yyyy-MM-dd"));
+
+                string fallbackDir = Path.Combine(ResolveFallbackRootDirectory(), DateTime.Now.ToString("yyyy-MM-dd"));
                 if (!Directory.Exists(fallbackDir)) Directory.CreateDirectory(fallbackDir);
 
                 string fallbackPath = Path.Combine(fallbackDir, fileName);
-                File.WriteAllText(fallbackPath, builder.ToString());
+                File.WriteAllText(fallbackPath, content);
                 exportPath = fallbackPath;
             }
             finally
@@ -266,6 +348,42 @@ namespace OverHaulers
         #endregion
 
         #region 5. STRING SANITIZATION & XML ESCAPING HELPERS
+
+        /// <summary>
+        /// Formats part classification flags (<c>ORGAN</c>, <c>RECLAIMED</c>) without temporary list allocations.
+        /// </summary>
+        /// <param name="isOrgan">Indicates if the part is classified as an organ.</param>
+        /// <param name="wasReclaimed">Indicates if the part was reclaimed.</param>
+        /// <param name="noneValue">The string to return if neither flag is set.</param>
+        public static string FormatPartFlags(bool isOrgan, bool wasReclaimed, string noneValue = "-")
+        {
+            if (isOrgan && wasReclaimed) return "ORGAN+RECLAIMED";
+            if (isOrgan) return "ORGAN";
+            if (wasReclaimed) return "RECLAIMED";
+            return noneValue;
+        }
+
+        /// <summary>
+        /// Formats a deterministic English part-type taxonomy tag for diagnostic census exports.
+        /// </summary>
+        public static string FormatPartTypeTag(PartType type, BodyPartRecord part = null)
+        {
+            if (part != null && part.coverageAbs <= 0f && part != part.body?.corePart)
+            {
+                return "Apparel / Virtual Anchor";
+            }
+
+            switch (type)
+            {
+                case PartType.None: return "Internal Metabolic Organ";
+                case PartType.HeadPart: return "Head / Cranial";
+                case PartType.CorePart: return "Torso / Core Column";
+                case PartType.ManipulationPart: return "Manipulation Limb";
+                case PartType.MovingPart: return "Moving Limb";
+                case PartType.DualLimb: return "Dual (Manip / Move) Limb";
+                default: return type.ToString();
+            }
+        }
 
         /// <summary>
         /// Pads or truncates the given string to the specified width. If the string is longer than the width, it is truncated and appended

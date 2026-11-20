@@ -40,25 +40,16 @@ namespace OverHaulers
             DumpFormat format = DumpFormat.Text, 
             TestSubjectEntry subject = null)
         {
+            dumpBuilder.Clear();
             try
             {
-                TopologyLayoutCompiler.EnsureInitialized();
-                dumpBuilder.Clear();
-
-                string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                List<ThingDef> allPawnThings = DefDatabase<ThingDef>.AllDefsListForReading.FindAll(t => t.category == ThingCategory.Pawn && t.race?.body != null);
-                List<BodyDef> allBodies = new List<BodyDef>(DefDatabase<BodyDef>.AllDefsListForReading);
-
-                allPawnThings.Sort((a, b) => string.Compare(a.LabelCap.ToString(), b.LabelCap.ToString(), StringComparison.OrdinalIgnoreCase));
-                allBodies.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
-
-                BodyDef targetBody = subject?.BodyDef;
-                if (scope != DumpScope.FullCensus && targetBody == null)
-                {
-                    scope = DumpScope.FullCensus;
-                }
-
-                List<BodyDef> targetBodies = DiagnosticExportUtility.ResolveTargetBodies(scope, targetBody, allBodies);
+                DiagnosticExportUtility.PrepareCensusExport(
+                    ref scope,
+                    subject,
+                    out string timestamp,
+                    out BodyDef targetBody,
+                    out List<ThingDef> allPawnThings,
+                    out List<BodyDef> targetBodies);
 
                 if (format == DumpFormat.Xml)
                 {
@@ -76,6 +67,10 @@ namespace OverHaulers
             {
                 OHLog.Warn("TestBench.ExportGroupingDumpFailed", ex, "Failed to export grouping dump.");
                 return null;
+            }
+            finally
+            {
+                dumpBuilder.Clear();
             }
         }
 
@@ -159,18 +154,11 @@ namespace OverHaulers
                     string wMove = tmpl.WeightMoving[idx] > 0f ? tmpl.WeightMoving[idx].ToString("F3") : "-";
                     string staticPct = (tmpl.StaticWeightFactors[idx] * 100f).ToString("F3") + "%";
 
-                    int parentIdx = tmpl.ParentIndices[idx];
-                    string parentName = parentIdx != -1 ? tmpl.IndexedParts[parentIdx].Label : "ROOT";
-
                     int ancestorOfType = tmpl.GetNearestAncestor(idx, type);
                     string ancestorStr = ancestorOfType != -1 ? tmpl.IndexedParts[ancestorOfType].Label : "None";
 
                     string weightModelStr = tmpl.WeightModels[idx] == LimbWeightModel.NotApplicable ? "-" : tmpl.WeightModels[idx].ToString();
-
-                    List<string> flags = new List<string>();
-                    if (tmpl.IsOrgan[idx]) flags.Add("ORGAN");
-                    if (tmpl.WasReclaimedAsAnchor[idx]) flags.Add("RECLAIMED");
-                    string flagsStr = flags.Count > 0 ? string.Join("+", flags) : "-";
+                    string flagsStr = DiagnosticExportUtility.FormatPartFlags(tmpl.IsOrgan[idx], tmpl.WasReclaimedAsAnchor[idx]);
 
                     builder.AppendLine(string.Format("  {0,-34} | {1,-18} | {2,8} | {3,8} | {4,8} | {5,10} | {6,4} | {7,-11} | {8,-10} | {9,-26} | {10}",
                         DiagnosticExportUtility.PadOrTruncate(part.LabelCap.ToString(), 34), typeName, wCore, wManip, wMove, staticPct, tmpl.HitPoints[idx], weightModelStr, flagsStr, DiagnosticExportUtility.PadOrTruncate(ancestorStr, 26), tmpl.TagsDisplay[idx]));
@@ -378,31 +366,34 @@ namespace OverHaulers
         {
             MassCapacityModel massModel = new MassCapacityModel();
             SandboxPawnHarness isolatedHarness = null;
-            Pawn targetPawn;
+            SandboxPawnHarness activeHarness;
 
-            // BREAKPOINT ANCHOR: Harness Isolation Guard
-            // If evaluating the currently selected test subject, use the active harness without mutating it.
-            // If evaluating an unselected census species, instantiate a temporary ephemeral harness to avoid wiping UI modifications.
-            if (evalSubject != null && evalSubject == TestBench.ActiveSubject && TestBench.Harness.IsValid)
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
-                targetPawn = TestBench.Harness.SandboxPawn;
-            }
-            else
-            {
-                isolatedHarness = new SandboxPawnHarness();
-                isolatedHarness.BindSubject(evalSubject);
-                targetPawn = isolatedHarness.SandboxPawn;
-            }
+                // BREAKPOINT ANCHOR: Harness Isolation Guard
+                // If evaluating the currently selected test subject, use the active harness without mutating it.
+                // If evaluating an unselected census species, instantiate a temporary ephemeral harness to avoid wiping UI modifications.
+                if (evalSubject != null && evalSubject == TestBench.ActiveSubject && TestBench.Harness.IsValid)
+                {
+                    activeHarness = TestBench.Harness;
+                }
+                else
+                {
+                    isolatedHarness = new SandboxPawnHarness();
+                    isolatedHarness.BindSubject(evalSubject);
+                    activeHarness = isolatedHarness;
+                }
 
-            try
-            {
-                PawnAnatomicalSource source = new PawnAnatomicalSource(targetPawn);
-                cleanBaseline = source.ResolveBaselineCapacity();
-                ViewProjection.InspectAndProject(source, cleanBaseline, massModel);
-            }
-            finally
-            {
-                isolatedHarness?.Dispose();
+                try
+                {
+                    var source = activeHarness.CreateDataSource();
+                    cleanBaseline = source.ResolveBaselineCapacity();
+                    ViewProjection.InspectAndProject(source, cleanBaseline, massModel);
+                }
+                finally
+                {
+                    isolatedHarness?.Dispose();
+                }
             }
 
             return massModel;
@@ -531,65 +522,66 @@ namespace OverHaulers
                 string defName = node.Record?.def?.defName ?? "None";
                 bool hasChildren = node.SubParts != null && node.SubParts.Count > 0;
 
-                StringBuilder attrBuilder = new StringBuilder();
-                attrBuilder.Append($"label=\"{DiagnosticExportUtility.EscapeXml(node.Label)}\" ");
-                attrBuilder.Append($"def=\"{defName}\" ");
-                attrBuilder.Append($"isOrgan=\"{node.IsOrgan}\" ");
-                attrBuilder.Append($"weightPct=\"{(node.ProportionalWeight * 100f):F3}%\" ");
-                attrBuilder.Append($"totalOffsetKg=\"{node.TotalOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
+                builder.Append(indent).Append("<PartNode");
+                builder.Append(" label=\"").Append(DiagnosticExportUtility.EscapeXml(node.Label)).Append('"');
+                builder.Append(" def=\"").Append(defName).Append('"');
+                builder.Append(" isOrgan=\"").Append(node.IsOrgan).Append('"');
+                builder.Append(" weightPct=\"").Append((node.ProportionalWeight * 100f).ToString("F3")).Append("%\"");
+                builder.Append(" totalOffsetKg=\"").Append(node.TotalOffset.ToString("R", CultureInfo.InvariantCulture)).Append('"');
 
                 if (node.HasProsthetic)
                 {
-                    attrBuilder.Append("hasProsthetic=\"true\" ");
-                    if (!string.IsNullOrEmpty(node.ProstheticName)) attrBuilder.Append($"prostheticName=\"{DiagnosticExportUtility.EscapeXml(node.ProstheticName)}\" ");
-                    attrBuilder.Append($"efficiencyRating=\"{node.EfficiencyRating.ToString("R", CultureInfo.InvariantCulture)}\" ");
-                    if (node.IsInherited) attrBuilder.Append("isInherited=\"true\" ");
+                    builder.Append(" hasProsthetic=\"true\"");
+                    if (!string.IsNullOrEmpty(node.ProstheticName))
+                    {
+                        builder.Append(" prostheticName=\"").Append(DiagnosticExportUtility.EscapeXml(node.ProstheticName)).Append('"');
+                    }
+                    builder.Append(" efficiencyRating=\"").Append(node.EfficiencyRating.ToString("R", CultureInfo.InvariantCulture)).Append('"');
+                    if (node.IsInherited) builder.Append(" isInherited=\"true\"");
                 }
 
                 if (node.IsMissing)
                 {
-                    attrBuilder.Append("isMissing=\"true\" ");
-                    if (node.IsNeutralized) attrBuilder.Append("isNeutralized=\"true\" ");
+                    builder.Append(" isMissing=\"true\"");
+                    if (node.IsNeutralized) builder.Append(" isNeutralized=\"true\"");
                 }
                 else if (node.HealthFraction < 1.0f - PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"healthFraction=\"{node.HealthFraction.ToString("R", CultureInfo.InvariantCulture)}\" ");
+                    builder.Append(" healthFraction=\"").Append(node.HealthFraction.ToString("R", CultureInfo.InvariantCulture)).Append('"');
                 }
 
                 if (!string.IsNullOrEmpty(node.AthleticImplantName))
                 {
-                    attrBuilder.Append($"athleticImplant=\"{DiagnosticExportUtility.EscapeXml(node.AthleticImplantName)}\" ");
+                    builder.Append(" athleticImplant=\"").Append(DiagnosticExportUtility.EscapeXml(node.AthleticImplantName)).Append('"');
                 }
 
                 if (!string.IsNullOrEmpty(node.LocalAilmentName))
                 {
-                    attrBuilder.Append($"ailment=\"{DiagnosticExportUtility.EscapeXml(node.LocalAilmentName)}\" ");
+                    builder.Append(" ailment=\"").Append(DiagnosticExportUtility.EscapeXml(node.LocalAilmentName)).Append('"');
                 }
 
                 if (Math.Abs(node.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"prostheticOffsetKg=\"{node.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
+                    builder.Append(" prostheticOffsetKg=\"").Append(node.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)).Append('"');
                 }
                 if (Math.Abs(node.AthleticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"athleticOffsetKg=\"{node.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
+                    builder.Append(" athleticOffsetKg=\"").Append(node.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)).Append('"');
                 }
                 if (Math.Abs(node.HealthOffset) >= PawnDataRegistry.EfficiencyEpsilon)
                 {
-                    attrBuilder.Append($"healthOffsetKg=\"{node.HealthOffset.ToString("R", CultureInfo.InvariantCulture)}\" ");
+                    builder.Append(" healthOffsetKg=\"").Append(node.HealthOffset.ToString("R", CultureInfo.InvariantCulture)).Append('"');
                 }
-
-                string attributes = attrBuilder.ToString().TrimEnd();
 
                 if (hasChildren)
                 {
-                    builder.AppendLine($"{indent}<PartNode {attributes}>");
+                    builder.AppendLine(">");
                     DumpSubPartsXmlRecursive(builder, node.SubParts, indentSpaces + 2);
-                    builder.AppendLine($"{indent}</PartNode>");
+                    builder.Append(indent).AppendLine("</PartNode>");
                 }
                 else
                 {
-                    builder.AppendLine($"{indent}<PartNode {attributes} />");
+                    builder.AppendLine(" />");
                 }
             }
         }

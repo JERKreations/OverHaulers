@@ -100,7 +100,7 @@ namespace OverHaulers
             if (isBoundToSettings) return;
             isBoundToSettings = true;
 
-            Settings.ValuesReset += SettingsLayout.ClearInputBuffers;
+            Settings.ValuesReset += () => SettingsLayout.ClearInputBuffers();
             Settings.ValuesMutated += OnAllSettingsMutated;
             Settings.PresentationMutated += OnPresentationSettingsMutated;
         }

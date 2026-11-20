@@ -10,6 +10,15 @@ namespace OverHaulers
     /// Declarative XML profile used to configure adoption of third-party caravan mass stats (e.g. VEF_MassCarryCapacity).
     /// Provides high-speed O(1) matching for known mods without requiring on-demand CIL bytecode scanning.
     /// </summary>
+    /// <remarks>
+    /// RimWorld StatWorker Evaluation Order:
+    /// Adopted stats receive Over Haulers' offset inside <see cref="StatPart.TransformValue"/> (unfinalized stage),
+    /// which executes before <see cref="StatWorker.FinalizeValue"/> applies <c>capacityFactors</c>, <c>statFactors</c>,
+    /// and <c>postProcessCurve</c>. Any biological <c>capacityFactors</c> on the host stat (e.g. <c>Moving</c>) that overlap
+    /// Over Haulers' kinetic solver will re-scale the combined result unless <see cref="allowAuthoritativeTakeover"/> is true
+    /// and those capacities are listed in <see cref="neutraliseCapacityFactors"/>. Any remaining <c>statFactors</c> or curves
+    /// on the host stat continue to scale the final value afterward.
+    /// </remarks>
     public class MassCapacityStatProfileDef : Def
     {
         #region 1. XML DEFINITION CONFIGURATION

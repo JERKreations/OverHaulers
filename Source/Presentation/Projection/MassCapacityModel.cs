@@ -49,12 +49,6 @@ namespace OverHaulers
         /// <summary>[VIEW-01 to VIEW-04] Raw explanation string containing formatting tags.</summary>
         public string Explanation { get; set; }
 
-        /// <summary>[VIEW-01] Indicates whether the final capacity has hit the hard technical 0.01f emergency compatibility floor.</summary>
-        public bool IsAtHardCompatibilitySafetyFloor { get; set; }
-
-        /// <summary>[VIEW-01] Indicates whether the pawn's deficits were actively capped by the configurable percentile Deficit Floor.</summary>
-        public bool IsLimitedByConfigurablePercentileFloor { get; set; }
-
         /// <summary>[VIEW-01] Configurable percentile deficit floor expressed as a percentage (e.g. 20%).</summary>
         public float ConfigurablePercentileFloorPercent { get; set; }
 
@@ -105,8 +99,6 @@ namespace OverHaulers
         public void ResetPool()
         {
             ResetNodePool();
-            IsAtHardCompatibilitySafetyFloor = false;
-            IsLimitedByConfigurablePercentileFloor = false;
             ConfigurablePercentileFloorPercent = 0f;
             ConfigurablePercentileFloorKg = 0f;
         }

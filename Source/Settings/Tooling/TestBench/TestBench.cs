@@ -58,7 +58,7 @@ namespace OverHaulers
             {
                 if (activeHarness == null)
                 {
-                    activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
+                    activeHarness = new SandboxPawnHarness();
                 }
 
                 return activeHarness;
@@ -127,7 +127,7 @@ namespace OverHaulers
 
             if (activeHarness == null)
             {
-                activeHarness = SandboxPawnHarness.CreateForCurrentProgramState();
+                activeHarness = new SandboxPawnHarness();
                 if (activeSubject != null)
                 {
                     activeHarness.BindSubject(activeSubject);
@@ -280,20 +280,23 @@ namespace OverHaulers
         {
             if (isDirty)
             {
-                cachedExplanation = GenerateTestExplanation(settings, out cachedSpeciesBaseline);
-                ImmediateDeathRisk = null;
-                if (Harness.SandboxPawn?.health != null)
+                using (HeadlessPawnShell.EnterSafetyFallbackScope())
                 {
-                    try
+                    cachedExplanation = GenerateTestExplanation(settings, out cachedSpeciesBaseline);
+                    ImmediateDeathRisk = null;
+                    if (Harness.SandboxPawn?.health != null)
                     {
-                        ImmediateDeathRisk = Harness.SandboxPawn.health.ShouldBeDead();
+                        try
+                        {
+                            ImmediateDeathRisk = Harness.SandboxPawn.health.ShouldBeDead();
+                        }
+                        catch (Exception ex)
+                        {
+                            OHLog.Warn("TestBench.ImmediateDeathCheck", ex, "Could not evaluate the sandbox death predicate.");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        OHLog.Warn("TestBench.ImmediateDeathCheck", ex, "Could not evaluate the sandbox death predicate.");
-                    }
+                    isDirty = false;
                 }
-                isDirty = false;
             }
         }
 

@@ -95,10 +95,18 @@ namespace OverHaulers
             string verboseTooltip = SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip");
             string verboseLabel = SettingsViewUtilities.LabelWithTooltip(SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_VerboseBreakdown"), verboseTooltip);
 
+            GameFont origFont = Text.Font;
+            float titleHeight;
             Text.Font = GameFont.Medium;
-            float titleHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(title, leftWidth));
-            Widgets.Label(new Rect(containerRect.x, currentY, leftWidth, titleHeight), title);
-            Text.Font = GameFont.Small;
+            try
+            {
+                titleHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(title, leftWidth));
+                Widgets.Label(new Rect(containerRect.x, currentY, leftWidth, titleHeight), title);
+            }
+            finally
+            {
+                Text.Font = origFont;
+            }
 
             Vector2 resetSize = SettingsViewUtilities.ButtonSize(resetLabel, rightWidth,
                 minWidth: (rightWidth - buttonGap * 2f) / 3f, minHeight: 30f);
@@ -303,11 +311,19 @@ namespace OverHaulers
                 int partCount = speciesTemplate != null ? speciesTemplate.PartCount : subject.BodyDef.AllParts.Count;
                 string modName = subject.ModName ?? "Core";
 
-                Text.Font = GameFont.Tiny;
-                GUI.color = SettingsViewUtilities.DescriptionTextColor;
-                Widgets.Label(new Rect(inner.x + 4f, leftY, leftWidth - 4f, 16f), "OverHaulers_TestBench_ActiveTopology".Translate(subject.BodyDef.defName, partCount, modName).ToString());
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
+                GameFont origFont = Text.Font;
+                Color origColor = GUI.color;
+                try
+                {
+                    Text.Font = GameFont.Tiny;
+                    GUI.color = SettingsViewUtilities.DescriptionTextColor;
+                    Widgets.Label(new Rect(inner.x + 4f, leftY, leftWidth - 4f, 16f), "OverHaulers_TestBench_ActiveTopology".Translate(subject.BodyDef.defName, partCount, modName).ToString());
+                }
+                finally
+                {
+                    GUI.color = origColor;
+                    Text.Font = origFont;
+                }
                 leftY += 20f;
             }
 
@@ -358,12 +374,21 @@ namespace OverHaulers
             Rect drugButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
                 drugLabel, 4f, minWidth: halfWidth, minHeight: 22f);
             TooltipHandler.TipRegion(drugButtonRect, SettingsViewUtilities.CachedText("OverHaulers_Sandbox_AddCondition_Tooltip"));
+            GameFont origRowFont = Text.Font;
+            Rect expandButtonRect;
+            Rect collapseButtonRect;
             Text.Font = GameFont.Tiny;
-            Rect expandButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
-                expandLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
-            Rect collapseButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
-                collapseLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
-            Text.Font = GameFont.Small;
+            try
+            {
+                expandButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
+                    expandLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
+                collapseButtonRect = SettingsViewUtilities.PlaceButton(rowBounds, ref rowX, ref rowY, ref rowHeight,
+                    collapseLabel, 4f, minWidth: (halfWidth - 4f) / 2f, minHeight: 22f);
+            }
+            finally
+            {
+                Text.Font = origRowFont;
+            }
 
             if (SettingsViewUtilities.DrawButton(drugButtonRect, drugLabel))
             {
@@ -371,78 +396,91 @@ namespace OverHaulers
             }
 
             Text.Font = GameFont.Tiny;
-            if (SettingsViewUtilities.DrawButton(expandButtonRect, expandLabel))
+            try
             {
-                for (int g = 0; g < model.EvaluatedParts.Count; g++)
+                if (SettingsViewUtilities.DrawButton(expandButtonRect, expandLabel))
                 {
-                    expandedGroupLabels.Add(model.EvaluatedParts[g].Label);
+                    for (int g = 0; g < model.EvaluatedParts.Count; g++)
+                    {
+                        expandedGroupLabels.Add(model.EvaluatedParts[g].Label);
+                    }
+                }
+                if (SettingsViewUtilities.DrawButton(collapseButtonRect, collapseLabel))
+                {
+                    expandedGroupLabels.Clear();
                 }
             }
-            if (SettingsViewUtilities.DrawButton(collapseButtonRect, collapseLabel))
+            finally
             {
-                expandedGroupLabels.Clear();
+                Text.Font = origRowFont;
             }
-            Text.Font = GameFont.Small;
             leftY = rowY + rowHeight + 4f;
 
             // 3. Active simulated conditions
             if (harness.SimulatedConditions.Count > 0)
             {
+                GameFont origCondFont = Text.Font;
                 Text.Font = GameFont.Tiny;
-                for (int i = 0; i < harness.SimulatedConditions.Count; i++)
+                try
                 {
-                    SimulatedCondition condition = harness.SimulatedConditions[i];
-                    Hediff hediff = condition.Hediff;
-                    string label = MedicalRecipeCatalog.GetFormattedConditionLabel(hediff);
-                    string stageLabel = hediff.CurStage?.label;
-                    if (!string.IsNullOrEmpty(stageLabel) &&
-                        label.IndexOf(stageLabel, StringComparison.OrdinalIgnoreCase) < 0)
+                    for (int i = 0; i < harness.SimulatedConditions.Count; i++)
                     {
-                        label = "OverHaulers_Sandbox_Condition_Stage".Translate(label, stageLabel.CapitalizeFirst()).ToString();
-                    }
-                    if (hediff.Part != null)
-                    {
-                        label = "OverHaulers_Sandbox_Condition_OnPart".Translate(label, hediff.Part.LabelCap.ToString()).ToString();
-                    }
-
-                    float tagHeight = Math.Max(18f, SettingsViewUtilities.MeasuredTextHeight(label, leftWidth - 36f) + 2f);
-                    Rect tagRect = new Rect(inner.x + 4f, leftY, leftWidth - 8f, tagHeight);
-                    Widgets.DrawBoxSolid(tagRect, new Color(0.15f, 0.20f, 0.25f, 0.8f));
-                    Widgets.Label(new Rect(tagRect.x + 4f, tagRect.y + 1f, tagRect.width - 24f, tagRect.height), label);
-
-                    if (Widgets.ButtonText(new Rect(tagRect.x + tagRect.width - 18f, tagRect.y, 18f, 18f), "✕"))
-                    {
-                        RunConditionAction(() => harness.RemoveSimulatedCondition(condition));
-                        break;
-                    }
-                    leftY += tagHeight + 2f;
-
-                    if (SandboxPawnHarness.TryGetConditionSeverityRange(condition, out float min, out float max))
-                    {
-                        string severityLabel = "OverHaulers_Sandbox_Condition_Severity".Translate(
-                            ReportFormatter.FormatAdaptive(hediff.Severity, true)).ToString();
-                        float labelWidth = Math.Min(leftWidth * 0.45f, SettingsViewUtilities.MeasuredTextWidth(severityLabel) + 4f);
-                        Widgets.Label(new Rect(inner.x + 4f, leftY, labelWidth, 20f), severityLabel);
-                        float severity = Widgets.HorizontalSlider(
-                            new Rect(inner.x + labelWidth + 4f, leftY, leftWidth - labelWidth - 8f, 20f),
-                            hediff.Severity, min, max, true);
-                        
-                        // Only update the condition severity if it has changed significantly
-                        if (Math.Abs(severity - hediff.Severity) > 0.0001f)
+                        SimulatedCondition condition = harness.SimulatedConditions[i];
+                        Hediff hediff = condition.Hediff;
+                        string label = MedicalRecipeCatalog.GetFormattedConditionLabel(hediff);
+                        string stageLabel = hediff.CurStage?.label;
+                        if (!string.IsNullOrEmpty(stageLabel) &&
+                            label.IndexOf(stageLabel, StringComparison.OrdinalIgnoreCase) < 0)
                         {
-                            RunConditionAction(() => harness.SetConditionSeverity(condition, severity));
+                            label = "OverHaulers_Sandbox_Condition_Stage".Translate(label, stageLabel.CapitalizeFirst()).ToString();
                         }
-                        leftY += 22f;
-                    }
-                    else if (hediff.def.stages != null && hediff.def.stages.Count > 1)
-                    {
-                        Rect stageButton = new Rect(inner.x + 4f, leftY, leftWidth - 8f, 20f);
-                        if (SettingsViewUtilities.DrawButton(stageButton, SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_StageButton")))
-                            OpenConditionStageMenu(harness, condition);
-                        leftY += 22f;
+                        if (hediff.Part != null)
+                        {
+                            label = "OverHaulers_Sandbox_Condition_OnPart".Translate(label, hediff.Part.LabelCap.ToString()).ToString();
+                        }
+
+                        float tagHeight = Math.Max(18f, SettingsViewUtilities.MeasuredTextHeight(label, leftWidth - 36f) + 2f);
+                        Rect tagRect = new Rect(inner.x + 4f, leftY, leftWidth - 8f, tagHeight);
+                        Widgets.DrawBoxSolid(tagRect, new Color(0.15f, 0.20f, 0.25f, 0.8f));
+                        Widgets.Label(new Rect(tagRect.x + 4f, tagRect.y + 1f, tagRect.width - 24f, tagRect.height), label);
+
+                        if (Widgets.ButtonText(new Rect(tagRect.x + tagRect.width - 18f, tagRect.y, 18f, 18f), "✕"))
+                        {
+                            RunConditionAction(() => harness.RemoveSimulatedCondition(condition));
+                            break;
+                        }
+                        leftY += tagHeight + 2f;
+
+                        if (SandboxPawnHarness.TryGetConditionSeverityRange(condition, out float min, out float max))
+                        {
+                            string severityLabel = "OverHaulers_Sandbox_Condition_Severity".Translate(
+                                ReportFormatter.FormatAdaptive(hediff.Severity, true)).ToString();
+                            float labelWidth = Math.Min(leftWidth * 0.45f, SettingsViewUtilities.MeasuredTextWidth(severityLabel) + 4f);
+                            Widgets.Label(new Rect(inner.x + 4f, leftY, labelWidth, 20f), severityLabel);
+                            float severity = Widgets.HorizontalSlider(
+                                new Rect(inner.x + labelWidth + 4f, leftY, leftWidth - labelWidth - 8f, 20f),
+                                hediff.Severity, min, max, true);
+
+                            // Only update the condition severity if it has changed significantly
+                            if (Math.Abs(severity - hediff.Severity) > 0.0001f)
+                            {
+                                RunConditionAction(() => harness.SetConditionSeverity(condition, severity));
+                            }
+                            leftY += 22f;
+                        }
+                        else if (hediff.def.stages != null && hediff.def.stages.Count > 1)
+                        {
+                            Rect stageButton = new Rect(inner.x + 4f, leftY, leftWidth - 8f, 20f);
+                            if (SettingsViewUtilities.DrawButton(stageButton, SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_StageButton")))
+                                OpenConditionStageMenu(harness, condition);
+                            leftY += 22f;
+                        }
                     }
                 }
-                Text.Font = GameFont.Small;
+                finally
+                {
+                    Text.Font = origCondFont;
+                }
                 leftY += 4f;
             }
 
@@ -452,12 +490,21 @@ namespace OverHaulers
                     ? "OverHaulers_Sandbox_ImmediateDeath"
                     : "OverHaulers_Sandbox_DeathCheckUnavailable";
                 string warning = SettingsViewUtilities.CachedText(warningKey);
-                Text.Font = GameFont.Tiny;
-                float warningHeight = SettingsViewUtilities.MeasuredTextHeight(warning, leftWidth);
-                GUI.color = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
-                Widgets.Label(new Rect(inner.x, leftY, leftWidth, warningHeight), warning);
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
+                GameFont origWarnFont = Text.Font;
+                Color origWarnColor = GUI.color;
+                float warningHeight;
+                try
+                {
+                    Text.Font = GameFont.Tiny;
+                    warningHeight = SettingsViewUtilities.MeasuredTextHeight(warning, leftWidth);
+                    GUI.color = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
+                    Widgets.Label(new Rect(inner.x, leftY, leftWidth, warningHeight), warning);
+                }
+                finally
+                {
+                    GUI.color = origWarnColor;
+                    Text.Font = origWarnFont;
+                }
                 leftY += warningHeight + 4f;
             }
 
@@ -465,23 +512,32 @@ namespace OverHaulers
             if (harness.HasModifications)
             {
                 bool isLiveSubject = TestBench.ActiveSubject?.IsLivePawn == true;
-                Color critColor = OverHaulers.settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
-                GUI.color = Color.Lerp(Color.white, critColor, 0.6f);
-                Text.Font = GameFont.Tiny;
-
-                string revertButtonLabel = isLiveSubject 
-                    ? "OverHaulers_Sandbox_RevertLive".Translate().ToString() 
-                    : "OverHaulers_Sandbox_RevertBaseline".Translate().ToString();
-
-                Vector2 revertSize = SettingsViewUtilities.ButtonSize(revertButtonLabel, leftWidth, minHeight: 22f, fixedWidth: leftWidth);
-                Rect clearPlanRect = new Rect(inner.x, leftY, revertSize.x, revertSize.y);
-                if (SettingsViewUtilities.DrawButton(clearPlanRect, revertButtonLabel))
+                Color critColor = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
+                GameFont origRevertFont = Text.Font;
+                Color origRevertColor = GUI.color;
+                Vector2 revertSize;
+                try
                 {
-                    harness.ResetToSource();
-                    TestBench.MarkDirty();
+                    GUI.color = Color.Lerp(Color.white, critColor, 0.6f);
+                    Text.Font = GameFont.Tiny;
+
+                    string revertButtonLabel = isLiveSubject
+                        ? "OverHaulers_Sandbox_RevertLive".Translate().ToString()
+                        : "OverHaulers_Sandbox_RevertBaseline".Translate().ToString();
+
+                    revertSize = SettingsViewUtilities.ButtonSize(revertButtonLabel, leftWidth, minHeight: 22f, fixedWidth: leftWidth);
+                    Rect clearPlanRect = new Rect(inner.x, leftY, revertSize.x, revertSize.y);
+                    if (SettingsViewUtilities.DrawButton(clearPlanRect, revertButtonLabel))
+                    {
+                        harness.ResetToSource();
+                        TestBench.MarkDirty();
+                    }
                 }
-                Text.Font = GameFont.Small;
-                GUI.color = Color.white;
+                finally
+                {
+                    Text.Font = origRevertFont;
+                    GUI.color = origRevertColor;
+                }
                 leftY += revertSize.y + 4f;
             }
 
@@ -493,7 +549,7 @@ namespace OverHaulers
                 for (int g = 0; g < model.EvaluatedParts.Count; g++)
                 {
                     PartViewNode groupNode = model.EvaluatedParts[g];
-                    leftY = DrawPassiveGroupAccordion(groupViewRect, leftY, groupNode, harness);
+                    leftY = DrawPassiveGroupAccordion(groupViewRect, leftY, groupNode, harness, settings);
                 }
                 leftY += 4f;
             }
@@ -736,12 +792,14 @@ namespace OverHaulers
         /// <param name="currentY">The current vertical position within the view, updated as elements are drawn.</param>
         /// <param name="groupNode">The passive group node representing the accordion's content.</param>
         /// <param name="harness">The sandbox pawn harness providing context for the accordion.</param>
+        /// <param name="settings">The current settings object providing color and presentation preferences.</param>
         /// <returns>The updated vertical position after drawing the accordion.</returns>
         private static float DrawPassiveGroupAccordion(
             Rect viewRect,
             float currentY,
             PartViewNode groupNode,
-            SandboxPawnHarness harness)
+            SandboxPawnHarness harness,
+            Settings settings)
         {
             if (groupNode == null) return currentY;
 
@@ -755,36 +813,45 @@ namespace OverHaulers
 
             bool isExpanded = isSearching || expandedGroupLabels.Contains(groupNode.Label);
 
-            Text.Font = GameFont.Tiny;
-            string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
-            Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
-                minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
-            Rect headerRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(24f, operationSize.y + 4f));
-            Widgets.DrawBoxSolid(headerRect, new Color(0.12f, 0.15f, 0.18f, 0.9f));
-            Widgets.DrawHighlightIfMouseover(headerRect);
-
-            string expandArrow = isExpanded ? "▼ " : "▶ ";
-            string headerText = $"{expandArrow}{groupNode.Label}";
-
-            GUI.color = new Color(1f, 0.8f, 0.3f);
-            Widgets.Label(new Rect(headerRect.x + 6f, headerRect.y + 3f, headerRect.width - operationSize.x - 10f, 18f), headerText.ToUpperInvariant());
-            GUI.color = Color.white;
-
-            // Group Quick Actions [Options ▼]
-            Rect bulkButtonRect = new Rect(headerRect.xMax - operationSize.x - 4f, headerRect.y + 2f, operationSize.x, operationSize.y);
-            if (SettingsViewUtilities.DrawButton(bulkButtonRect, operationLabel))
+            GameFont origFont = Text.Font;
+            Color origColor = GUI.color;
+            Rect headerRect;
+            try
             {
-                OpenGroupBulkOperationsMenu(groupNode.SubParts, harness);
-            }
+                Text.Font = GameFont.Tiny;
+                string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
+                Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
+                    minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
+                headerRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(24f, operationSize.y + 4f));
+                Widgets.DrawBoxSolid(headerRect, new Color(0.12f, 0.15f, 0.18f, 0.9f));
+                Widgets.DrawHighlightIfMouseover(headerRect);
 
-            // Click header to toggle expand/collapse
-            if (Widgets.ButtonInvisible(new Rect(headerRect.x, headerRect.y, headerRect.width - operationSize.x - 6f, headerRect.height)))
+                string expandArrow = isExpanded ? "▼ " : "▶ ";
+                string headerText = $"{expandArrow}{groupNode.Label}";
+
+                GUI.color = new Color(1f, 0.8f, 0.3f);
+                Widgets.Label(new Rect(headerRect.x + 6f, headerRect.y + 3f, headerRect.width - operationSize.x - 10f, 18f), headerText.ToUpperInvariant());
+                GUI.color = origColor;
+
+                // Group Quick Actions [Options ▼]
+                Rect bulkButtonRect = new Rect(headerRect.xMax - operationSize.x - 4f, headerRect.y + 2f, operationSize.x, operationSize.y);
+                if (SettingsViewUtilities.DrawButton(bulkButtonRect, operationLabel))
+                {
+                    OpenGroupBulkOperationsMenu(groupNode.SubParts, harness);
+                }
+
+                // Click header to toggle expand/collapse
+                if (Widgets.ButtonInvisible(new Rect(headerRect.x, headerRect.y, headerRect.width - operationSize.x - 6f, headerRect.height)))
+                {
+                    if (expandedGroupLabels.Contains(groupNode.Label)) expandedGroupLabels.Remove(groupNode.Label);
+                    else expandedGroupLabels.Add(groupNode.Label);
+                }
+            }
+            finally
             {
-                if (expandedGroupLabels.Contains(groupNode.Label)) expandedGroupLabels.Remove(groupNode.Label);
-                else expandedGroupLabels.Add(groupNode.Label);
+                GUI.color = origColor;
+                Text.Font = origFont;
             }
-
-            Text.Font = GameFont.Small;
             currentY += headerRect.height + 2f;
 
             // Expanded Pre-Calculated Part Rows
@@ -792,7 +859,7 @@ namespace OverHaulers
             {
                 for (int i = 0; i < groupNode.SubParts.Count; i++)
                 {
-                    currentY = DrawPassivePartNodeRecursive(viewRect, currentY, groupNode.SubParts[i], 0, harness, searchFilter);
+                    currentY = DrawPassivePartNodeRecursive(viewRect, currentY, groupNode.SubParts[i], 0, harness, searchFilter, settings);
                 }
                 currentY += 4f;
             }
@@ -813,6 +880,7 @@ namespace OverHaulers
         /// <param name="depth">The depth level of the node within the hierarchy, used for indentation.</param>
         /// <param name="harness">The sandbox pawn harness providing context for the part node.</param>
         /// <param name="searchFilter">The search filter text used to determine if the node should be displayed.</param>
+        /// <param name="settings">The current settings object providing color and presentation preferences.</param>
         /// <returns>The updated vertical position after drawing the part node and its children.</returns>
         private static float DrawPassivePartNodeRecursive(
             Rect viewRect,
@@ -820,7 +888,8 @@ namespace OverHaulers
             PartViewNode node,
             int depth,
             SandboxPawnHarness harness,
-            string searchFilter)
+            string searchFilter,
+            Settings settings)
         {
             if (node == null) return currentY;
 
@@ -830,43 +899,52 @@ namespace OverHaulers
 
             if (matchesFilter)
             {
-                Text.Font = GameFont.Tiny;
-                string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
-                Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
-                    minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
-                Rect rowRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(22f, operationSize.y + 2f));
-                Widgets.DrawHighlightIfMouseover(rowRect);
-                float indentOffset = Math.Min(depth * 8f, 24f);
-                float labelWidth = viewRect.width - operationSize.x - 6f - indentOffset;
-
-                Rect labelRect = new Rect(rowRect.x + 4f + indentOffset, rowRect.y + 2f, labelWidth, 18f);
-                Rect buttonRect = new Rect(rowRect.xMax - operationSize.x - 2f, rowRect.y, operationSize.x, operationSize.y);
-
-                bool isVirtualAnchor = node.Record != null && node.Record.coverageAbs <= 0f && node.Record != node.Record.body?.corePart;
-                bool hasOperations = node.Record != null && MedicalRecipeCatalog.HasAnyOperationsFor(node.Record.def);
-
-                string fullPartLabel = BuildPassiveNodeDisplayString(node, harness, isVirtualAnchor, out Color statusColor);
-
-                Text.Font = GameFont.Tiny;
-                GUI.color = statusColor;
-                Widgets.Label(labelRect, fullPartLabel);
-                GUI.color = Color.white;
-
-                // Interactive Button for operable parts; Disabled Muted Button for Virtual Anchors
-                if (isVirtualAnchor && !hasOperations)
+                GameFont origFont = Text.Font;
+                Color origColor = GUI.color;
+                bool prevEnabled = GUI.enabled;
+                Rect rowRect;
+                try
                 {
-                    GUI.enabled = false;
                     Text.Font = GameFont.Tiny;
-                    Widgets.ButtonText(buttonRect, "—");
-                    Text.Font = GameFont.Small;
-                    GUI.enabled = true;
-                    TooltipHandler.TipRegion(buttonRect, "OverHaulers_VirtualAnchor_Tooltip".Translate().ToString());
+                    string operationLabel = SettingsViewUtilities.CachedText("OverHaulers_Sandbox_OpBtn");
+                    Vector2 operationSize = SettingsViewUtilities.ButtonSize(operationLabel, viewRect.width,
+                        minWidth: 70f, minHeight: 20f, maxWidth: viewRect.width * 0.5f);
+                    rowRect = new Rect(viewRect.x, currentY, viewRect.width, Math.Max(22f, operationSize.y + 2f));
+                    Widgets.DrawHighlightIfMouseover(rowRect);
+                    float indentOffset = Math.Min(depth * 8f, 24f);
+                    float labelWidth = viewRect.width - operationSize.x - 6f - indentOffset;
+
+                    Rect labelRect = new Rect(rowRect.x + 4f + indentOffset, rowRect.y + 2f, labelWidth, 18f);
+                    Rect buttonRect = new Rect(rowRect.xMax - operationSize.x - 2f, rowRect.y, operationSize.x, operationSize.y);
+
+                    bool isVirtualAnchor = node.Record != null && node.Record.coverageAbs <= 0f && node.Record != node.Record.body?.corePart;
+                    bool hasOperations = node.Record != null && MedicalRecipeCatalog.HasAnyOperationsFor(node.Record.def);
+
+                    string fullPartLabel = BuildPassiveNodeDisplayString(node, harness, isVirtualAnchor, settings, out Color statusColor);
+
+                    GUI.color = statusColor;
+                    Widgets.Label(labelRect, fullPartLabel);
+                    GUI.color = origColor;
+
+                    // Interactive Button for operable parts; Disabled Muted Button for Virtual Anchors
+                    if (isVirtualAnchor && !hasOperations)
+                    {
+                        GUI.enabled = false;
+                        Widgets.ButtonText(buttonRect, "—");
+                        GUI.enabled = prevEnabled;
+                        TooltipHandler.TipRegion(buttonRect, "OverHaulers_VirtualAnchor_Tooltip".Translate().ToString());
+                    }
+                    else if (node.Record != null && SettingsViewUtilities.DrawButton(buttonRect, operationLabel))
+                    {
+                        OpenPartSimulationMenu(node.Record, harness);
+                    }
                 }
-                else if (node.Record != null && SettingsViewUtilities.DrawButton(buttonRect, operationLabel))
+                finally
                 {
-                    OpenPartSimulationMenu(node.Record, harness);
+                    GUI.enabled = prevEnabled;
+                    GUI.color = origColor;
+                    Text.Font = origFont;
                 }
-                Text.Font = GameFont.Small;
 
                 currentY += rowRect.height + 2f;
             }
@@ -875,7 +953,7 @@ namespace OverHaulers
             {
                 for (int c = 0; c < node.SubParts.Count; c++)
                 {
-                    currentY = DrawPassivePartNodeRecursive(viewRect, currentY, node.SubParts[c], depth + 1, harness, searchFilter);
+                    currentY = DrawPassivePartNodeRecursive(viewRect, currentY, node.SubParts[c], depth + 1, harness, searchFilter, settings);
                 }
             }
 
@@ -888,15 +966,16 @@ namespace OverHaulers
         /// <param name="node">The passive part node for which to build the display string.</param>
         /// <param name="harness">The sandbox pawn harness providing context for the part node.</param>
         /// <param name="isVirtualAnchor">Indicates whether the node represents a virtual anchor.</param>
+        /// <param name="settings">The current settings object providing color and presentation preferences.</param>
         /// <param name="labelColor">The color to be applied to the label text, determined based on the node's status.</param>
         /// <returns>A formatted display string for the passive part node.</returns>
         private static string BuildPassiveNodeDisplayString(
             PartViewNode node, 
             SandboxPawnHarness harness, 
             bool isVirtualAnchor,
+            Settings settings,
             out Color labelColor)
         {
-            var settings = OverHaulers.settings;
             Color critColor = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
             Color boostColor = settings?.colorBoosted ?? PresentationDefaults.ColorBoostedDefault;
 
@@ -1136,46 +1215,59 @@ namespace OverHaulers
             Pawn pawn = harness.SandboxPawn;
             if (pawn?.health?.hediffSet == null) return;
 
-            for (int i = 0; i < targetRecords.Count; i++)
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
-                BodyPartRecord currentPart = targetRecords[i];
-                var repls = MedicalRecipeCatalog.GetReplacementsFor(currentPart.def);
-                if (repls == null || repls.Count == 0) continue;
-
-                MedicalOperationEntry selectedOp = default;
-                bool found = false;
-
-                for (int j = 0; j < repls.Count; j++)
+                for (int i = 0; i < targetRecords.Count; i++)
                 {
-                    var op = repls[j];
-                    if (!CanInstallReplacement(pawn, currentPart, op.Recipe)) continue;
+                    BodyPartRecord currentPart = targetRecords[i];
+                    var repls = MedicalRecipeCatalog.GetReplacementsFor(currentPart.def);
+                    if (repls == null || repls.Count == 0) continue;
 
-                    if (!found)
+                    MedicalOperationEntry selectedOp = default;
+                    bool found = false;
+
+                    for (int j = 0; j < repls.Count; j++)
                     {
-                        selectedOp = op;
-                        found = true;
+                        var op = repls[j];
+                        if (!CanInstallReplacement(pawn, currentPart, op.Recipe)) continue;
+
+                        if (!found)
+                        {
+                            selectedOp = op;
+                            found = true;
+                        }
+                        else if (pickHighest ? (op.Efficiency > selectedOp.Efficiency) : (op.Efficiency < selectedOp.Efficiency))
+                        {
+                            selectedOp = op;
+                        }
                     }
-                    else if (pickHighest ? (op.Efficiency > selectedOp.Efficiency) : (op.Efficiency < selectedOp.Efficiency))
+
+                    if (found)
                     {
-                        selectedOp = op;
+                        harness.SimulateReplacement(currentPart, selectedOp.Recipe, selectedOp.Hediff, selectedOp.Label, selectedOp.Efficiency);
                     }
                 }
 
-                if (found)
-                {
-                    harness.SimulateReplacement(currentPart, selectedOp.Recipe, selectedOp.Hediff, selectedOp.Label, selectedOp.Efficiency);
-                }
+                TestBench.MarkDirty();
             }
-
-            TestBench.MarkDirty();
         }
 
-        /// <summary>Applies the same parent-socket and recipe checks to bulk and single replacements.</summary>
+        /// <summary>
+        /// Applies the same parent-socket and recipe checks to bulk and single replacements.
+        /// Ensures that the replacement can be installed on the specified body part for the given pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn on which the replacement is to be installed.</param>
+        /// <param name="part">The body part record representing the target part for the replacement.</param>
+        /// <param name="recipe">The recipe defining the replacement operation.</param>
+        /// <returns>True if the replacement can be installed; otherwise, false.</returns>
         internal static bool CanInstallReplacement(Pawn pawn, BodyPartRecord part, RecipeDef recipe)
         {
-            return !pawn.health.hediffSet.AncestorHasDirectlyAddedParts(part) &&
-                (part.parent == null || !pawn.health.hediffSet.PartIsMissing(part.parent)) &&
-                recipe.Worker.AvailableOnNow(pawn, part);
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
+            {
+                return !pawn.health.hediffSet.AncestorHasDirectlyAddedParts(part) &&
+                    (part.parent == null || !pawn.health.hediffSet.PartIsMissing(part.parent)) &&
+                    recipe.Worker.AvailableOnNow(pawn, part);
+            }
         }
 
         /// <summary>
@@ -1223,101 +1315,104 @@ namespace OverHaulers
             Pawn pawn = harness.SandboxPawn;
             if (pawn?.health?.hediffSet == null) return;
 
-            bool ancestorHasAdded = pawn.health.hediffSet.AncestorHasDirectlyAddedParts(targetPart);
-            bool ancestorMissing = targetPart.parent != null && pawn.health.hediffSet.PartIsMissing(targetPart.parent);
-            bool partMissing = pawn.health.hediffSet.PartIsMissing(targetPart);
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
+            {
+                bool ancestorHasAdded = pawn.health.hediffSet.AncestorHasDirectlyAddedParts(targetPart);
+                bool ancestorMissing = targetPart.parent != null && pawn.health.hediffSet.PartIsMissing(targetPart.parent);
+                bool partMissing = pawn.health.hediffSet.PartIsMissing(targetPart);
 
-            if (ancestorHasAdded)
-            {
-                options.Add(new FloatMenuOption("⚠ " + "OverHaulers_Op_DisabledParentProsthetic".Translate().ToString(), null) { Disabled = true });
-            }
-            else if (ancestorMissing)
-            {
-                options.Add(new FloatMenuOption("⚠ " + "OverHaulers_Op_DisabledParentMissing".Translate().ToString(), null) { Disabled = true });
-            }
-
-            // 1. Replacements
-            List<MedicalOperationEntry> availableReplacements = MedicalRecipeCatalog.GetReplacementsFor(targetPart.def);
-            if (availableReplacements != null && availableReplacements.Count > 0)
-            {
-                for (int i = 0; i < availableReplacements.Count; i++)
+                if (ancestorHasAdded)
                 {
-                    MedicalOperationEntry operationEntry = availableReplacements[i];
-                    bool canInstall = CanInstallReplacement(pawn, targetPart, operationEntry.Recipe);
+                    options.Add(new FloatMenuOption("⚠ " + "OverHaulers_Op_DisabledParentProsthetic".Translate().ToString(), null) { Disabled = true });
+                }
+                else if (ancestorMissing)
+                {
+                    options.Add(new FloatMenuOption("⚠ " + "OverHaulers_Op_DisabledParentMissing".Translate().ToString(), null) { Disabled = true });
+                }
 
-                    string label = "OverHaulers_Op_AddReplacement".Translate(operationEntry.Label,
-                        ReportFormatter.FormatPercentage(operationEntry.Efficiency, true)).ToString();
+                // 1. Replacements
+                List<MedicalOperationEntry> availableReplacements = MedicalRecipeCatalog.GetReplacementsFor(targetPart.def);
+                if (availableReplacements != null && availableReplacements.Count > 0)
+                {
+                    for (int i = 0; i < availableReplacements.Count; i++)
+                    {
+                        MedicalOperationEntry operationEntry = availableReplacements[i];
+                        bool canInstall = CanInstallReplacement(pawn, targetPart, operationEntry.Recipe);
 
-                    FloatMenuOption opt = new FloatMenuOption(label, () => {
-                        harness.SimulateReplacement(
-                            targetPart, operationEntry.Recipe,
-                            operationEntry.Hediff, operationEntry.Label,
-                            operationEntry.Efficiency);
-                        TestBench.MarkDirty();
-                    });
-                    opt.Disabled = !canInstall;
+                        string label = "OverHaulers_Op_AddReplacement".Translate(operationEntry.Label,
+                            ReportFormatter.FormatPercentage(operationEntry.Efficiency, true)).ToString();
+
+                        FloatMenuOption opt = new FloatMenuOption(label, () => {
+                            harness.SimulateReplacement(
+                                targetPart, operationEntry.Recipe,
+                                operationEntry.Hediff, operationEntry.Label,
+                                operationEntry.Efficiency);
+                            TestBench.MarkDirty();
+                        });
+                        opt.Disabled = !canInstall;
+                        options.Add(opt);
+                    }
+                }
+
+                // 2. Implants
+                List<MedicalOperationEntry> availableImplants = MedicalRecipeCatalog.GetImplantsFor(targetPart.def);
+                if (availableImplants != null && availableImplants.Count > 0)
+                {
+                    for (int i = 0; i < availableImplants.Count; i++)
+                    {
+                        MedicalOperationEntry operationEntry = availableImplants[i];
+                        bool canInstall = !ancestorMissing && !partMissing && !ancestorHasAdded && operationEntry.Recipe.Worker.AvailableOnNow(pawn, targetPart);
+
+                        string label = "OverHaulers_Op_AddImplant".Translate(operationEntry.Label).ToString();
+                        FloatMenuOption opt = new FloatMenuOption(label, () => {
+                            harness.SimulateAddImplant(
+                                targetPart, operationEntry.Recipe,
+                                operationEntry.Hediff, operationEntry.Label);
+                            TestBench.MarkDirty();
+                        });
+                        opt.Disabled = !canInstall;
+                        options.Add(opt);
+                    }
+                }
+
+                // 3. Unified Destructive Action
+                bool canDestroy = !ancestorMissing && !partMissing && !ancestorHasAdded;
+                if (IsLimbPartRecord(targetPart))
+                {
+                    FloatMenuOption opt = new FloatMenuOption(
+                        "OverHaulers_Op_Destroy".Translate().ToString(),
+                        () => {
+                            harness.SimulateAmputation(targetPart);
+                            TestBench.MarkDirty();
+                        }
+                    );
+                    opt.Disabled = !canDestroy;
                     options.Add(opt);
                 }
-            }
-
-            // 2. Implants
-            List<MedicalOperationEntry> availableImplants = MedicalRecipeCatalog.GetImplantsFor(targetPart.def);
-            if (availableImplants != null && availableImplants.Count > 0)
-            {
-                for (int i = 0; i < availableImplants.Count; i++)
+                else if (targetPart.coverageAbs > 0f)
                 {
-                    MedicalOperationEntry operationEntry = availableImplants[i];
-                    bool canInstall = !ancestorMissing && !partMissing && !ancestorHasAdded && operationEntry.Recipe.Worker.AvailableOnNow(pawn, targetPart);
-
-                    string label = "OverHaulers_Op_AddImplant".Translate(operationEntry.Label).ToString();
-                    FloatMenuOption opt = new FloatMenuOption(label, () => {
-                        harness.SimulateAddImplant(
-                            targetPart, operationEntry.Recipe,
-                            operationEntry.Hediff, operationEntry.Label);
-                        TestBench.MarkDirty();
-                    });
-                    opt.Disabled = !canInstall;
+                    FloatMenuOption opt = new FloatMenuOption(
+                        "OverHaulers_Op_Destroy".Translate().ToString(),
+                        () => {
+                            harness.SimulateSevereTrauma(targetPart);
+                            TestBench.MarkDirty();
+                        }
+                    );
+                    opt.Disabled = !canDestroy;
                     options.Add(opt);
                 }
-            }
 
-            // 3. Unified Destructive Action
-            bool canDestroy = !ancestorMissing && !partMissing && !ancestorHasAdded;
-            if (IsLimbPartRecord(targetPart))
-            {
-                FloatMenuOption opt = new FloatMenuOption(
-                    "OverHaulers_Op_Destroy".Translate().ToString(),
-                    () => {
-                        harness.SimulateAmputation(targetPart);
-                        TestBench.MarkDirty();
-                    }
-                );
-                opt.Disabled = !canDestroy;
-                options.Add(opt);
-            }
-            else if (targetPart.coverageAbs > 0f)
-            {
-                FloatMenuOption opt = new FloatMenuOption(
-                    "OverHaulers_Op_Destroy".Translate().ToString(),
-                    () => {
-                        harness.SimulateSevereTrauma(targetPart);
-                        TestBench.MarkDirty();
-                    }
-                );
-                opt.Disabled = !canDestroy;
-                options.Add(opt);
-            }
-
-            // 4. Revert to Authentic Live / Baseline State
-            if (harness.ReplacementDeltas.ContainsKey(targetPart) || harness.ImplantDeltas.ContainsKey(targetPart))
-            {
-                options.Add(new FloatMenuOption(
-                    "OverHaulers_Op_Revert".Translate().ToString(),
-                    () => {
-                        harness.SimulateRevertPart(targetPart);
-                        TestBench.MarkDirty();
-                    }
-                ));
+                // 4. Revert to Authentic Live / Baseline State
+                if (harness.ReplacementDeltas.ContainsKey(targetPart) || harness.ImplantDeltas.ContainsKey(targetPart))
+                {
+                    options.Add(new FloatMenuOption(
+                        "OverHaulers_Op_Revert".Translate().ToString(),
+                        () => {
+                            harness.SimulateRevertPart(targetPart);
+                            TestBench.MarkDirty();
+                        }
+                    ));
+                }
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
@@ -1374,7 +1469,10 @@ namespace OverHaulers
             float percentChange = biologicalBaseline > 0f ? deltaMass / biologicalBaseline : 0f;
             string percentText = (deltaMass >= 0f ? "+" : "") + ReportFormatter.FormatPercentage(percentChange, true);
             string deltaFormattedText = "OverHaulers_Delta_MassChange".Translate(ReportFormatter.FormatMass(deltaMass, true, true), percentText).ToString();
-            Color deltaColor = deltaMass > 0.001f ? settings.colorBoosted : (deltaMass < -0.001f ? settings.colorCritical : settings.colorHealthy);
+            Color boostColor = settings?.colorBoosted ?? PresentationDefaults.ColorBoostedDefault;
+            Color critColor = settings?.colorCritical ?? PresentationDefaults.ColorCriticalDefault;
+            Color healthyColor = settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault;
+            Color deltaColor = deltaMass > 0.001f ? boostColor : (deltaMass < -0.001f ? critColor : healthyColor);
 
             // Fetch resolution method [0/1/2/3] for the active subject
             CalibrationMethod method = SpeciesBaselineCalibration.GetResolutionMethod(TestBench.ActiveSubject?.RaceDef);
@@ -1385,19 +1483,27 @@ namespace OverHaulers
                 "OverHaulers_Delta_Simulated".Translate().ToString(), ReportFormatter.FormatMass(TestBench.lastCalculatedFinalMass, true, false)
             ).ToString();
 
-            Text.Font = GameFont.Tiny;
-            float baselineTextWidth = Text.CalcSize(baselineComparisonLine).x;
-            Rect baselineLabelRect = new Rect(bannerRect.x + 8f, bannerRect.y + 3f, baselineTextWidth, 20f);
-            Widgets.Label(baselineLabelRect, baselineComparisonLine);
+            GameFont origFont = Text.Font;
+            Color origColor = GUI.color;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                float baselineTextWidth = Text.CalcSize(baselineComparisonLine).x;
+                Rect baselineLabelRect = new Rect(bannerRect.x + 8f, bannerRect.y + 3f, baselineTextWidth, 20f);
+                Widgets.Label(baselineLabelRect, baselineComparisonLine);
 
-            ThingDef subjectRace = TestBench.ActiveSubject?.RaceDef;
-            string methodTooltip = BuildCalibrationTooltip(subjectRace, method);
-            TooltipHandler.TipRegion(baselineLabelRect, methodTooltip);
+                ThingDef subjectRace = TestBench.ActiveSubject?.RaceDef;
+                string methodTooltip = BuildCalibrationTooltip(subjectRace, method);
+                TooltipHandler.TipRegion(baselineLabelRect, methodTooltip);
 
-            GUI.color = deltaColor;
-            Widgets.Label(new Rect(bannerRect.x + 8f + baselineTextWidth, bannerRect.y + 3f, rightWidth - baselineTextWidth - 16f, 20f), deltaFormattedText);
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+                GUI.color = deltaColor;
+                Widgets.Label(new Rect(bannerRect.x + 8f + baselineTextWidth, bannerRect.y + 3f, rightWidth - baselineTextWidth - 16f, 20f), deltaFormattedText);
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = origFont;
+            }
             rightY += 30f;
 
             // 3. InfoCard Breakdown Preview Box

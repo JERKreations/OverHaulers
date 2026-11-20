@@ -29,6 +29,7 @@ namespace OverHaulers
         public static readonly BodyPartGroupDef TorsoGroup;
         public static readonly BodyPartGroupDef UpperTorsoGroup;
         public static readonly BodyPartTagDef spineTag;
+        public static readonly BodyPartTagDef pelvisTag;
 
         public static readonly BodyPartGroupDef HeadAttackToolGroup;
         public static readonly BodyPartGroupDef FullHeadGroup;
@@ -105,8 +106,9 @@ namespace OverHaulers
             TorsoGroup = DefDatabase<BodyPartGroupDef>.GetNamedSilentFail("Torso");
             UpperTorsoGroup = DefDatabase<BodyPartGroupDef>.GetNamedSilentFail("UpperTorso");
 
-            // Initialize spine tag.
+            // Initialize axial trunk tags.
             spineTag = DefDatabase<BodyPartTagDef>.GetNamedSilentFail("Spine");
+            pelvisTag = DefDatabase<BodyPartTagDef>.GetNamedSilentFail("Pelvis");
 
             // Initialize head-related groups.
             HeadAttackToolGroup = DefDatabase<BodyPartGroupDef>.GetNamedSilentFail("HeadAttackTool");
@@ -352,14 +354,19 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines whether the specified body part definition represents a trunk segment.
+        /// Determines whether the specified body part definition represents an axial trunk segment (spine or pelvis).
         /// </summary>
         /// <param name="def">The body part definition to evaluate.</param>
-        /// <returns>True if the definition represents a trunk segment; otherwise, false.</returns>
+        /// <returns>True if the definition represents an axial trunk segment; otherwise, false.</returns>
         public static bool IsTrunkDef(BodyPartDef def)
         {
-            if (def == null || spineTag == null || def.tags == null) return false;
-            return def.tags.Contains(spineTag);
+            if (def?.tags == null) return false;
+            for (int i = 0; i < def.tags.Count; i++)
+            {
+                BodyPartTagDef tag = def.tags[i];
+                if (tag != null && (tag == spineTag || tag == pelvisTag)) return true;
+            }
+            return false;
         }
 
         /// <summary>

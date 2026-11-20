@@ -153,6 +153,7 @@ namespace OverHaulers
 
             try
             {
+                using (HeadlessPawnShell.EnterSafetyFallbackScope())
                 using (HeadlessPawnShell shell = HeadlessPawnShell.CreateClean(raceDef, initializeComps: Current.ProgramState == ProgramState.Playing))
                 {
                     if (shell.IsValid)

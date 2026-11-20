@@ -48,10 +48,7 @@ namespace OverHaulers
             // 4. Native MassUtility.Capacity direct postfix bridge
             Guarded("MassUtility.Capacity", () => ApplyDirectCapacityPatch(HarmonyInstance));
 
-            // 5. Strip the node an earlier version wrote into saves (avoids one-time "class not found" errors)
-            Guarded("World.ExposeComponents", () => InstallLegacySaveCleanup(HarmonyInstance));
-
-            // 6. Permanent branchless safety shields and main-menu fallbacks
+            // 5. Permanent branchless safety shields and main-menu fallbacks
             Guarded("Safety.InstallPermanentShields", () => InstallPermanentSafetyShields(HarmonyInstance));
 
             // Count total unique methods patched by this Harmony instance

@@ -33,37 +33,72 @@ namespace OverHaulers
 
         #region 2. STATIC CONTROL ID & TEXT BUFFER CACHE
 
-        private static int currentControlIndex = 0;
-        private static readonly List<string> cachedControlNames = new List<string>(64);
-        private static readonly Dictionary<string, string> activeInputBuffers = new Dictionary<string, string>(64);
+        private const string DefaultScopeKey = "Settings";
 
-        /// <summary>
-        /// Resets the control index at the start of each frame to maintain stable control IDs without GC allocation.
-        /// </summary>
-        public static void ResetControlIndex()
+        private sealed class InputScopeState
         {
-            currentControlIndex = 0;
-        }
+            public int ControlIndex;
+            public readonly List<string> CachedControlNames = new List<string>(64);
+            public readonly Dictionary<string, string> ActiveInputBuffers = new Dictionary<string, string>(64);
+            private readonly string prefix;
 
-        /// <summary>
-        /// Clears all cached manual input text buffers (e.g. on settings reset).
-        /// </summary>
-        public static void ClearInputBuffers()
-        {
-            activeInputBuffers.Clear();
-        }
-
-        /// <summary>
-        /// Gets the next unique control name for the current frame.
-        /// </summary>
-        /// <returns>The next unique control name.</returns>
-        private static string GetNextControlName()
-        {
-            if (currentControlIndex >= cachedControlNames.Count)
+            public InputScopeState(string prefix)
             {
-                cachedControlNames.Add("OH_Layout_Input_" + currentControlIndex);
+                this.prefix = prefix;
             }
-            return cachedControlNames[currentControlIndex++];
+
+            public string GetNextControlName()
+            {
+                if (ControlIndex >= CachedControlNames.Count)
+                {
+                    CachedControlNames.Add(prefix + ControlIndex);
+                }
+                return CachedControlNames[ControlIndex++];
+            }
+        }
+
+        private static readonly Dictionary<string, InputScopeState> inputScopes = new Dictionary<string, InputScopeState>(4);
+        private static InputScopeState activeScope = GetOrCreateScope(DefaultScopeKey);
+
+        private static InputScopeState GetOrCreateScope(string scopeKey)
+        {
+            string key = string.IsNullOrEmpty(scopeKey) ? DefaultScopeKey : scopeKey;
+            if (!inputScopes.TryGetValue(key, out InputScopeState scope))
+            {
+                scope = new InputScopeState("OH_" + key + "_Input_");
+                inputScopes.Add(key, scope);
+            }
+            return scope;
+        }
+
+        /// <summary>
+        /// Resets the control index at the start of each frame for the specified UI window scope,
+        /// isolating IMGUI control names and input buffers when multiple dialogs render concurrently.
+        /// </summary>
+        /// <param name="scopeKey">Optional window scope identifier; defaults to <see cref="DefaultScopeKey"/>.</param>
+        public static void ResetControlIndex(string scopeKey = DefaultScopeKey)
+        {
+            activeScope = GetOrCreateScope(scopeKey);
+            activeScope.ControlIndex = 0;
+        }
+
+        /// <summary>
+        /// Clears cached manual input text buffers (e.g. on settings reset or tab switch).
+        /// </summary>
+        /// <param name="scopeKey">Optional scope to clear; when null, clears all scopes.</param>
+        public static void ClearInputBuffers(string scopeKey = null)
+        {
+            if (string.IsNullOrEmpty(scopeKey))
+            {
+                foreach (var kvp in inputScopes)
+                {
+                    kvp.Value.ActiveInputBuffers.Clear();
+                }
+            }
+            else if (inputScopes.TryGetValue(scopeKey, out InputScopeState scope))
+            {
+                scope.ActiveInputBuffers.Clear();
+            }
         }
 
         #endregion
@@ -110,6 +145,47 @@ namespace OverHaulers
         public void HeaderKey(string translationKey)
         {
             Header(SettingsViewUtilities.CachedText(translationKey));
+        }
+
+        /// <summary>
+        /// Renders a medium section header with an optional right-aligned reset button that clears
+        /// the specified input scope and triggers downstream mutation propagation.
+        /// </summary>
+        public void HeaderWithResetKey(
+            string headerKey,
+            Action resetAction,
+            SettingMutationScope? mutationScope = null,
+            string inputScopeKey = DefaultScopeKey)
+        {
+            string headerText = SettingsViewUtilities.CachedText(headerKey);
+            string resetLabel = SettingsViewUtilities.CachedText("OverHaulers_Reset");
+            Vector2 resetSize = resetAction != null
+                ? SettingsViewUtilities.ButtonSize(resetLabel, Width, minWidth: 75f, minHeight: 24f)
+                : Vector2.zero;
+
+            Text.Font = GameFont.Medium;
+            bool separateReset = resetAction != null &&
+                SettingsViewUtilities.MeasuredTextWidth(headerText) + resetSize.x + 5f > Width;
+            float headerWidth = resetAction != null && !separateReset ? Width - resetSize.x - 5f : Width;
+            float headerHeight = Math.Max(30f, SettingsViewUtilities.MeasuredTextHeight(headerText, headerWidth));
+            Widgets.Label(new Rect(X, Y, headerWidth, headerHeight), headerText);
+            Text.Font = GameFont.Small;
+
+            float bottom = Y + headerHeight;
+            if (resetAction != null)
+            {
+                float resetY = separateReset ? bottom + 4f : Y + 2f;
+                Rect resetBtnRect = new Rect(X + Width - resetSize.x, resetY, resetSize.x, resetSize.y);
+                if (SettingsViewUtilities.DrawButton(resetBtnRect, resetLabel))
+                {
+                    resetAction();
+                    ClearInputBuffers(inputScopeKey);
+                    SettingsViewUtilities.OnSettingMutated(mutationScope);
+                }
+                bottom = Math.Max(bottom, resetBtnRect.yMax);
+            }
+
+            Y = bottom + 4f;
         }
 
         /// <summary>
@@ -501,7 +577,8 @@ namespace OverHaulers
             }
 
             // 2. Focus-Aware Text Input
-            string controlName = GetNextControlName();
+            InputScopeState scope = activeScope;
+            string controlName = scope.GetNextControlName();
             GUI.SetNextControlName(controlName);
             bool isFocused = (GUI.GetNameOfFocusedControl() == controlName);
 
@@ -515,19 +592,19 @@ namespace OverHaulers
             }
 
             string currentBuffer;
-            if (!activeInputBuffers.TryGetValue(controlName, out currentBuffer) || !isFocused)
+            if (!scope.ActiveInputBuffers.TryGetValue(controlName, out currentBuffer) || !isFocused)
             {
                 currentBuffer = isInteger
                     ? ((int)Math.Round(value, MidpointRounding.ToEven)).ToString()
                     : value.ToString("F2");
-                activeInputBuffers[controlName] = currentBuffer;
+                scope.ActiveInputBuffers[controlName] = currentBuffer;
             }
 
             string newBuffer = Widgets.TextField(textRect, currentBuffer);
 
             if (newBuffer != currentBuffer)
             {
-                activeInputBuffers[controlName] = newBuffer;
+                scope.ActiveInputBuffers[controlName] = newBuffer;
 
                 // Support both '.' and ',' decimal separators across all localized keyboards
                 string normalizedInput = newBuffer.Replace(',', '.');

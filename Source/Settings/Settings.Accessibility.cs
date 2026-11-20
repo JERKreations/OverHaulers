@@ -27,7 +27,7 @@ namespace OverHaulers
         /// Applies the specified color palette preset to the accessibility and color settings.
         /// </summary>
         /// <param name="preset">The color palette preset to apply.</param>
-        public void ApplyPreset(PalettePreset preset)
+        private void ApplyPresetValues(PalettePreset preset)
         {
             activePalettePreset = preset;
             switch (preset)
@@ -55,14 +55,20 @@ namespace OverHaulers
                 case PalettePreset.Custom:
                     break;
             }
+        }
 
+        /// <summary>
+        /// Applies the specified color palette preset to the accessibility and color settings.
+        /// </summary>
+        /// <param name="preset">The color palette preset to apply.</param>
+        public void ApplyPreset(PalettePreset preset)
+        {
+            ApplyPresetValues(preset);
             NotifyValuesReset();
             NotifyPresentationMutated();
         }
 
-        /// <summary>
-        /// Resets the accessibility settings to their default values, including the icon scale and color palette.
-        /// </summary>
+        /// <summary>Resets the accessibility settings to their default values, including the icon scale and color palette.</summary>
         public void ResetAccessibility()
         {
             iconScalePercent = PresentationDefaults.IconScalePercent;
@@ -71,7 +77,7 @@ namespace OverHaulers
             prostheticColorCritical = PresentationDefaults.ColorCriticalDefault;
             prostheticColorHealthy = PresentationDefaults.ColorHealthyDefault;
             prostheticColorBoosted = PresentationDefaults.ColorBoostedDefault;
-            ApplyPreset(PresentationDefaults.DefaultPalettePreset);
+            ApplyPresetValues(PresentationDefaults.DefaultPalettePreset);
         }
 
         /// <summary>Copies the active health colours into the custom prosthetic palette without changing its mode.</summary>
@@ -88,6 +94,7 @@ namespace OverHaulers
 
         #region 3. [SEC-10] SERIALIZATION & SANITISATION
 
+        /// <summary>Exposes the accessibility settings for serialization.</summary>
         private void ExposeAccessibility()
         {
             Scribe_Values.Look(ref iconScalePercent, "iconScalePercent", PresentationDefaults.IconScalePercent);
@@ -102,6 +109,7 @@ namespace OverHaulers
             Scribe_Values.Look(ref prostheticColorBoosted, "prostheticColorBoosted", PresentationDefaults.ColorBoostedDefault);
         }
 
+        /// <summary>Sanitizes the accessibility settings to ensure they are within valid bounds and defaults.</summary>
         private void SanitizeAccessibility()
         {
             if (!System.Enum.IsDefined(typeof(PalettePreset), activePalettePreset)) activePalettePreset = PresentationDefaults.DefaultPalettePreset;

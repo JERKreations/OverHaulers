@@ -10,7 +10,7 @@ namespace OverHaulers
     #region 1. [INT-02] STAT PRESENTATION ORCHESTRATOR & CIL SCANNER
 
     /// <summary>
-    /// Represents information about an external patch discovered by the CIL bytecode scanner.
+    /// Contains metadata about a patch discovered by the CIL bytecode scanner, including its owner, target stat, and candidate stats.
     /// </summary>
     public struct DiscoveredPatchInfo
     {
@@ -20,6 +20,27 @@ namespace OverHaulers
         public StatDef TargetStat;
         public List<StatDef> CandidateStats;
         public List<StatDef> AllAssemblyStats;
+    }
+
+    /// <summary>
+    /// Metadata describing a valid active <see cref="PawnCapacityFactor"/> ascertained directly from a candidate <see cref="StatDef"/>.
+    /// </summary>
+    public readonly struct AscertainedCapacityFactor
+    {
+        public readonly PawnCapacityDef Capacity;
+        public readonly string DefName;
+        public readonly string Label;
+        public readonly float Weight;
+        public readonly bool OverlapsOverHaulers;
+
+        public AscertainedCapacityFactor(PawnCapacityDef capacity, float weight, bool overlapsOverHaulers)
+        {
+            Capacity = capacity;
+            DefName = capacity.defName;
+            Label = !string.IsNullOrEmpty(capacity.label) ? capacity.LabelCap.ToString() : capacity.defName;
+            Weight = weight;
+            OverlapsOverHaulers = overlapsOverHaulers;
+        }
     }
 
     /// <summary>
@@ -73,6 +94,9 @@ namespace OverHaulers
 
         /// <summary>The currently preferred presentation key for mass capacity display.</summary>
         private static string preferredPresentationKey = PresentationKeyAuto;
+
+        /// <summary>Optional user-specified capacity factor defNames for the active CIL stat; null uses automatic overlap detection.</summary>
+        private static List<string> customCilNeutralizedFactors;
 
         /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
         public static event Action<string> PreferredPresentationKeyReset;
@@ -132,6 +156,37 @@ namespace OverHaulers
         public static void SetPreferredPresentationKey(string key)
         {
             preferredPresentationKey = string.IsNullOrEmpty(key) ? PresentationKeyAuto : key;
+        }
+
+        /// <summary>
+        /// Pushes optional per-factor neutralization overrides for CIL-discovered stats downward from Settings.
+        /// Pass null to use automatic overlapping biological factor detection.
+        /// </summary>
+        public static void SetCustomCilNeutralizedFactors(IReadOnlyList<string> factors)
+        {
+            if (factors == null)
+            {
+                customCilNeutralizedFactors = null;
+                return;
+            }
+
+            if (customCilNeutralizedFactors == null)
+            {
+                customCilNeutralizedFactors = new List<string>(factors.Count);
+            }
+            else
+            {
+                customCilNeutralizedFactors.Clear();
+            }
+
+            for (int i = 0; i < factors.Count; i++)
+            {
+                string f = factors[i];
+                if (!string.IsNullOrEmpty(f) && !customCilNeutralizedFactors.Contains(f))
+                {
+                    customCilNeutralizedFactors.Add(f);
+                }
+            }
         }
 
         /// <summary>
@@ -311,7 +366,9 @@ namespace OverHaulers
             }
             else
             {
-                shouldTakeOver = DetectOverlappingBiologicalFactors(foreignStat);
+                shouldTakeOver = customCilNeutralizedFactors != null
+                    ? HasMatchingActiveFactor(foreignStat, customCilNeutralizedFactors)
+                    : DetectOverlappingBiologicalFactors(foreignStat);
                 ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
                 ActiveProfileSyncFormationCapacity = true;
             }
@@ -439,6 +496,7 @@ namespace OverHaulers
         {
             IntegrationLogEvents.StalePreferenceRecovered(staleKey);
             preferredPresentationKey = PresentationKeyAuto;
+            customCilNeutralizedFactors = null;
             PreferredPresentationKeyReset?.Invoke(PresentationKeyAuto);
         }
 
@@ -548,6 +606,7 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// <summary>
         /// Inspects and processes external Harmony patches applied to MassUtility.Capacity.
         /// </summary>
         public static void InspectExternalPatches()
@@ -562,9 +621,9 @@ namespace OverHaulers
 
             Dictionary<string, DiscoveredPatchInfo> map = new Dictionary<string, DiscoveredPatchInfo>();
 
-            ProcessPatchList(patchInfo.Transpilers, "Transpiler", targetMethod, map);
-            ProcessPatchList(patchInfo.Prefixes, "Prefix", targetMethod, map);
-            ProcessPatchList(patchInfo.Postfixes, "Postfix", targetMethod, map);
+            ProcessPatchList(patchInfo.Transpilers, "Transpiler", map);
+            ProcessPatchList(patchInfo.Prefixes, "Prefix", map);
+            ProcessPatchList(patchInfo.Postfixes, "Postfix", map);
 
             foreach (var kvp in map)
             {
@@ -575,13 +634,12 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Processes a list of patches of a specific type (Transpiler, Prefix, Postfix) for a given target method and updates the map of discovered patch information.
+        /// Processes a list of patches of a specific type (Transpiler, Prefix, Postfix) and merges discovered candidate stats per patch owner.
         /// </summary>
         /// <param name="patches">The list of patches to process.</param>
         /// <param name="typeName">The type of the patches (Transpiler, Prefix, Postfix).</param>
-        /// <param name="targetMethod">The method that the patches are applied to.</param>
         /// <param name="map">The map of discovered patch information to update.</param>
-        private static void ProcessPatchList(IReadOnlyCollection<Patch> patches, string typeName, MethodInfo targetMethod, Dictionary<string, DiscoveredPatchInfo> map)
+        private static void ProcessPatchList(IReadOnlyCollection<Patch> patches, string typeName, Dictionary<string, DiscoveredPatchInfo> map)
         {
             if (patches == null) return;
 
@@ -590,53 +648,34 @@ namespace OverHaulers
                 // Skip patches that have no owner or belong to the current mod itself.
                 if (string.IsNullOrEmpty(p.owner) || p.owner == "com.overhaulers.mod") continue;
 
-                // Retrieve or create the discovered patch info for this owner.
+                // Create owner record from highest-priority patch type first, then merge candidates across all patches for that owner.
                 if (!map.TryGetValue(p.owner, out var info))
                 {
-                    List<StatDef> candidates = ResolveCandidateStatsForPatch(p, targetMethod, out List<StatDef> allAssemblyStats);
-                    StatDef defaultTarget = candidates.Count > 0 ? candidates[0] : null;
-
-                    // Initialize the discovered patch info with the resolved candidate stats.
                     info = new DiscoveredPatchInfo
                     {
                         Owner = p.owner,
                         PrimaryType = typeName,
                         IsRecommended = (typeName == "Transpiler"),
-                        TargetStat = defaultTarget,
-                        CandidateStats = candidates,
-                        AllAssemblyStats = allAssemblyStats
+                        CandidateStats = new List<StatDef>(),
+                        AllAssemblyStats = new List<StatDef>()
                     };
                 }
 
+                CollectCandidateStatsForPatch(p, info.CandidateStats, info.AllAssemblyStats);
+                info.TargetStat = info.CandidateStats.Count > 0 ? info.CandidateStats[0] : null;
                 map[p.owner] = info;
             }
         }
 
         /// <summary>
-        /// Selects the most appropriate discovered patch, prioritizing recommended patches.
+        /// Collects and sorts candidate StatDef instances for a patch by inspecting its method CIL and declaring assembly.
         /// </summary>
-        /// <returns>The selected discovered patch information, or default if none are available.</returns>
-        private static DiscoveredPatchInfo SelectTargetPatch()
+        /// <param name="patch">The patch for which to collect candidate stats.</param>
+        /// <param name="candidates">Accumulates deduplicated candidate stats ordered by relevance.</param>
+        /// <param name="allAssemblyStats">Accumulates all StatDefs owned by the patch's mod assembly.</param>
+        private static void CollectCandidateStatsForPatch(Patch patch, List<StatDef> candidates, List<StatDef> allAssemblyStats)
         {
-            for (int i = 0; i < DiscoveredPatches.Count; i++)
-            {
-                if (DiscoveredPatches[i].IsRecommended) return DiscoveredPatches[i];
-            }
-            return DiscoveredPatches.Count > 0 ? DiscoveredPatches[0] : default;
-        }
-
-        /// <summary>
-        /// Resolves candidate StatDef instances for a given patch by inspecting its method CIL and assembly.
-        /// </summary>
-        /// <param name="patch">The patch for which to resolve candidate stats.</param>
-        /// <param name="targetMethod">The method that the patch is applied to.</param>
-        /// <param name="allAssemblyStats">Outputs the list of all StatDef instances found in the patch's assembly.</param>
-        /// <returns>The list of candidate StatDef instances relevant to the patch.</returns>
-        private static List<StatDef> ResolveCandidateStatsForPatch(Patch patch, MethodInfo targetMethod, out List<StatDef> allAssemblyStats)
-        {
-            List<StatDef> candidates = new List<StatDef>();
-            allAssemblyStats = new List<StatDef>();
-            if (patch?.PatchMethod == null) return candidates;
+            if (patch?.PatchMethod == null) return;
 
             InspectMethodCilForStats(patch.PatchMethod, candidates);
 
@@ -649,8 +688,6 @@ namespace OverHaulers
 
             candidates.Sort((a, b) => GetStatRelevanceScore(b).CompareTo(GetStatRelevanceScore(a)));
             allAssemblyStats.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
-
-            return candidates;
         }
 
         /// <summary>
@@ -908,11 +945,91 @@ namespace OverHaulers
         #region 5. [INT-NEUT-02] ALGORITHMIC FACTOR NEUTRALIZATION & DETECTION
 
         /// <summary>
-        /// Evaluates whether a foreign StatDef contains capacity factors that overlap with Over Haulers' kinetic simulation.
+        /// Ascertains all valid active <see cref="PawnCapacityFactor"/> entries attached to <paramref name="stat"/>,
+        /// including factors temporarily neutralized into <see cref="cachedRemovedCapacityFactors"/> when <paramref name="stat"/>
+        /// is the currently adopted stat.
+        /// </summary>
+        public static void PopulateAscertainedCapacityFactors(StatDef stat, List<AscertainedCapacityFactor> results)
+        {
+            if (results == null) return;
+            results.Clear();
+            if (stat == null) return;
+
+            CollectAscertainedFactorsFromList(stat.capacityFactors, results);
+
+            if (stat == ActiveMassCapacityStat && IsForeignStatAdopted && cachedRemovedCapacityFactors != null)
+            {
+                CollectAscertainedFactorsFromList(cachedRemovedCapacityFactors, results);
+            }
+
+            results.Sort((a, b) =>
+            {
+                int overlapCmp = b.OverlapsOverHaulers.CompareTo(a.OverlapsOverHaulers);
+                return overlapCmp != 0 ? overlapCmp : string.Compare(a.DefName, b.DefName, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        private static void CollectAscertainedFactorsFromList(List<PawnCapacityFactor> source, List<AscertainedCapacityFactor> results)
+        {
+            if (source == null || source.Count == 0) return;
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                PawnCapacityFactor factor = source[i];
+                if (factor?.capacity == null || string.IsNullOrEmpty(factor.capacity.defName)) continue;
+                if (Math.Abs(factor.weight) <= 0.0001f) continue;
+
+                bool duplicate = false;
+                for (int r = 0; r < results.Count; r++)
+                {
+                    if (results[r].Capacity == factor.capacity ||
+                        string.Equals(results[r].DefName, factor.capacity.defName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate) continue;
+
+                bool overlaps = SimulatedBiologicalCapacities.Contains(factor.capacity.defName);
+                results.Add(new AscertainedCapacityFactor(factor.capacity, factor.weight, overlaps));
+            }
+        }
+
+        private static bool HasMatchingActiveFactor(StatDef foreignStat, List<string> targetDefNames)
+        {
+            if (foreignStat?.capacityFactors == null || targetDefNames == null || targetDefNames.Count == 0) return false;
+
+            for (int i = 0; i < foreignStat.capacityFactors.Count; i++)
+            {
+                PawnCapacityFactor factor = foreignStat.capacityFactors[i];
+                if (factor?.capacity == null || Math.Abs(factor.weight) <= 0.0001f) continue;
+
+                if (ContainsOrdinalIgnoreCase(targetDefNames, factor.capacity.defName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsOrdinalIgnoreCase(List<string> list, string value)
+        {
+            if (list == null || string.IsNullOrEmpty(value)) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (string.Equals(list[i], value, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Evaluates whether a foreign StatDef contains active capacity factors that overlap with Over Haulers' kinetic simulation.
         /// SSoT for biological factor overlap detection.
         /// </summary>
         /// <param name="foreignStat">The foreign StatDef being evaluated.</param>
-        /// <returns>True if at least one simulated biological capacity factor is attached; otherwise, false.</returns>
+        /// <returns>True if at least one active simulated biological capacity factor is attached; otherwise, false.</returns>
         private static bool DetectOverlappingBiologicalFactors(StatDef foreignStat)
         {
             if (foreignStat?.capacityFactors == null || foreignStat.capacityFactors.Count == 0) return false;
@@ -920,7 +1037,9 @@ namespace OverHaulers
             for (int i = 0; i < foreignStat.capacityFactors.Count; i++)
             {
                 PawnCapacityFactor factor = foreignStat.capacityFactors[i];
-                if (factor?.capacity != null && SimulatedBiologicalCapacities.Contains(factor.capacity.defName))
+                if (factor?.capacity == null || Math.Abs(factor.weight) <= 0.0001f) continue;
+
+                if (SimulatedBiologicalCapacities.Contains(factor.capacity.defName))
                 {
                     return true;
                 }
@@ -930,8 +1049,8 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Surgically removes and buffers conflicting capacity factors from an adopted StatDef.
-        /// Supports explicit profile lists as well as heuristic biological detection for unknown mods.
+        /// Surgically removes and buffers conflicting active capacity factors from an adopted StatDef.
+        /// Supports explicit profile lists, user CIL factor overrides, and heuristic biological detection for unknown mods.
         /// SSoT for capacity factor neutralization.
         /// </summary>
         /// <param name="foreignStat">The foreign StatDef undergoing authoritative takeover.</param>
@@ -940,8 +1059,18 @@ namespace OverHaulers
         {
             if (foreignStat?.capacityFactors == null || foreignStat.capacityFactors.Count == 0) return;
 
-            bool hasExplicitList = profile?.neutraliseCapacityFactors != null && profile.neutraliseCapacityFactors.Count > 0;
-            List<string> explicitList = hasExplicitList ? profile.neutraliseCapacityFactors : null;
+            List<string> explicitList = null;
+            if (profile != null)
+            {
+                if (profile.neutraliseCapacityFactors != null && profile.neutraliseCapacityFactors.Count > 0)
+                {
+                    explicitList = profile.neutraliseCapacityFactors;
+                }
+            }
+            else if (customCilNeutralizedFactors != null)
+            {
+                explicitList = customCilNeutralizedFactors;
+            }
 
             if (cachedRemovedCapacityFactors == null)
             {
@@ -951,11 +1080,11 @@ namespace OverHaulers
             for (int i = foreignStat.capacityFactors.Count - 1; i >= 0; i--)
             {
                 PawnCapacityFactor factor = foreignStat.capacityFactors[i];
-                if (factor?.capacity == null) continue;
+                if (factor?.capacity == null || Math.Abs(factor.weight) <= 0.0001f) continue;
 
                 string capName = factor.capacity.defName;
-                bool shouldNeutralize = hasExplicitList
-                    ? explicitList.Contains(capName)
+                bool shouldNeutralize = explicitList != null
+                    ? ContainsOrdinalIgnoreCase(explicitList, capName)
                     : SimulatedBiologicalCapacities.Contains(capName);
 
                 if (shouldNeutralize)

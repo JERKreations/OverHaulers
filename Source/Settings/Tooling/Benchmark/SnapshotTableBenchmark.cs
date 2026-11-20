@@ -483,8 +483,7 @@ namespace OverHaulers
             }
 
             float baseProgress = phase == Phase.ContendedPaced ? 0.40f : 0.70f;
-            float phaseWeight = phase == Phase.ContendedPaced ? 0.30f : 0.30f;
-            Progress01 = baseProgress + (float)(elapsedMs / durationMs) * phaseWeight;
+            Progress01 = baseProgress + (float)(elapsedMs / durationMs) * 0.30f;
             return false;
         }
 

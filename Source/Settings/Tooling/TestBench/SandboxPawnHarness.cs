@@ -104,15 +104,6 @@ namespace OverHaulers
         {
         }
 
-        /// <summary>
-        /// Canonical factory for an unbound interactive harness.
-        /// Comp initialization is handled automatically by <see cref="HeadlessPawnShell"/> based on active program state.
-        /// </summary>
-        public static SandboxPawnHarness CreateForCurrentProgramState()
-        {
-            return new SandboxPawnHarness();
-        }
-
         /// <summary>Tears down the sandbox pawn and clears modification tracking collections.</summary>
         public override void Teardown()
         {
@@ -199,47 +190,50 @@ namespace OverHaulers
         {
             if (headlessPawn?.health == null || part == null || hediff == null) return;
 
-            ImplantDeltas.Remove(part);
-            if (part.parts != null)
+            using (EnterSafetyFallbackScope())
             {
-                for (int i = 0; i < part.parts.Count; i++)
+                ImplantDeltas.Remove(part);
+                if (part.parts != null)
                 {
-                    CleanDeltasRecursive(part.parts[i]);
+                    for (int i = 0; i < part.parts.Count; i++)
+                    {
+                        CleanDeltasRecursive(part.parts[i]);
+                    }
                 }
-            }
 
-            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-            PruneRemovedConditions();
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                PruneRemovedConditions();
 
-            bool added = false;
-            try
-            {
-                Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
-                if (appliedHediff != null)
+                bool added = false;
+                try
                 {
-                    headlessPawn.health.AddHediff(appliedHediff, part);
-                    added = true;
+                    Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
+                    if (appliedHediff != null)
+                    {
+                        headlessPawn.health.AddHediff(appliedHediff, part);
+                        added = true;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                OHLog.Warn("TestBench.SimulateReplacement", ex, $"Could not simulate replacement '{hediff.defName}' on '{part.Label}'.");
-            }
-            PruneRemovedConditions();
-
-            if (added)
-            {
-                ReplacementDeltas[part] = new SimulatedModification
+                catch (Exception ex)
                 {
-                    OpType = SimulatedOpType.InstallReplacement,
-                    SourceRecipe = recipe,
-                    TargetHediff = hediff,
-                    DisplayLabel = label,
-                    Efficiency = efficiency
-                };
-            }
+                    OHLog.Warn("TestBench.SimulateReplacement", ex, $"Could not simulate replacement '{hediff.defName}' on '{part.Label}'.");
+                }
+                PruneRemovedConditions();
 
-            DirtyHealthCache();
+                if (added)
+                {
+                    ReplacementDeltas[part] = new SimulatedModification
+                    {
+                        OpType = SimulatedOpType.InstallReplacement,
+                        SourceRecipe = recipe,
+                        TargetHediff = hediff,
+                        DisplayLabel = label,
+                        Efficiency = efficiency
+                    };
+                }
+
+                DirtyHealthCache();
+            }
         }
 
         #endregion
@@ -255,27 +249,30 @@ namespace OverHaulers
         {
             if (headlessPawn?.health == null || part == null) return;
 
-            CleanDeltasRecursive(part);
-            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-            PruneRemovedConditions();
-
-            Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
-            if (missingPartHediff != null)
+            using (EnterSafetyFallbackScope())
             {
-                headlessPawn.health.AddHediff(missingPartHediff, part);
+                CleanDeltasRecursive(part);
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                PruneRemovedConditions();
+
+                Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
+                if (missingPartHediff != null)
+                {
+                    headlessPawn.health.AddHediff(missingPartHediff, part);
+                }
+                PruneRemovedConditions();
+
+                ReplacementDeltas[part] = new SimulatedModification
+                {
+                    OpType = SimulatedOpType.Amputate,
+                    SourceRecipe = null,
+                    TargetHediff = null,
+                    DisplayLabel = "OverHaulers_Op_Amputated".Translate().ToString(),
+                    Efficiency = 0f
+                };
+
+                DirtyHealthCache();
             }
-            PruneRemovedConditions();
-
-            ReplacementDeltas[part] = new SimulatedModification
-            {
-                OpType = SimulatedOpType.Amputate,
-                SourceRecipe = null,
-                TargetHediff = null,
-                DisplayLabel = "OverHaulers_Op_Amputated".Translate().ToString(),
-                Efficiency = 0f
-            };
-
-            DirtyHealthCache();
         }
 
         /// <summary>
@@ -287,41 +284,44 @@ namespace OverHaulers
         {
             if (headlessPawn?.health == null || part == null || part.coverageAbs <= 0f) return;
 
-            ImplantDeltas.Remove(part);
-            ReplacementDeltas.Remove(part);
-            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-            PruneRemovedConditions();
-
-            float maxHp = part.def.GetMaxHealth(headlessPawn);
-            float damageToApply = Math.Max(1f, maxHp - 1f);
-
-            HediffDef injuryDef = DamageDefOf.Crush?.hediff
-                               ?? DamageDefOf.Blunt?.hediff
-                               ?? DamageDefOf.Cut?.hediff
-                               ?? DefDatabase<HediffDef>.GetNamedSilentFail("Crush")
-                               ?? DefDatabase<HediffDef>.GetNamedSilentFail("Bruise");
-
-            if (injuryDef != null)
+            using (EnterSafetyFallbackScope())
             {
-                Hediff injury = HediffMaker.MakeHediff(injuryDef, headlessPawn, part);
-                if (injury != null)
+                ImplantDeltas.Remove(part);
+                ReplacementDeltas.Remove(part);
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                PruneRemovedConditions();
+
+                float maxHp = part.def.GetMaxHealth(headlessPawn);
+                float damageToApply = Math.Max(1f, maxHp - 1f);
+
+                HediffDef injuryDef = DamageDefOf.Crush?.hediff
+                                   ?? DamageDefOf.Blunt?.hediff
+                                   ?? DamageDefOf.Cut?.hediff
+                                   ?? DefDatabase<HediffDef>.GetNamedSilentFail("Crush")
+                                   ?? DefDatabase<HediffDef>.GetNamedSilentFail("Bruise");
+
+                if (injuryDef != null)
                 {
-                    injury.Severity = damageToApply;
-                    headlessPawn.health.AddHediff(injury, part);
+                    Hediff injury = HediffMaker.MakeHediff(injuryDef, headlessPawn, part);
+                    if (injury != null)
+                    {
+                        injury.Severity = damageToApply;
+                        headlessPawn.health.AddHediff(injury, part);
+                    }
                 }
+                PruneRemovedConditions();
+
+                ReplacementDeltas[part] = new SimulatedModification
+                {
+                    OpType = SimulatedOpType.Trauma,
+                    SourceRecipe = null,
+                    TargetHediff = null,
+                    DisplayLabel = "OverHaulers_Op_SevereTrauma".Translate().ToString(),
+                    Efficiency = 1f / Math.Max(1f, maxHp)
+                };
+
+                DirtyHealthCache();
             }
-            PruneRemovedConditions();
-
-            ReplacementDeltas[part] = new SimulatedModification
-            {
-                OpType = SimulatedOpType.Trauma,
-                SourceRecipe = null,
-                TargetHediff = null,
-                DisplayLabel = "OverHaulers_Op_SevereTrauma".Translate().ToString(),
-                Efficiency = 1f / Math.Max(1f, maxHp)
-            };
-
-            DirtyHealthCache();
         }
 
         /// <summary>
@@ -334,31 +334,34 @@ namespace OverHaulers
             SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(boundSubject?.BodyDef);
             if (template == null) return;
 
-            bool armDone = false;
-            bool legDone = false;
-            int traumaCount = 0;
-
-            for (int i = 0; i < template.PartCount; i++)
+            using (EnterSafetyFallbackScope())
             {
-                PartType type = template.PartTypes[i];
-                int parent = template.ParentIndices[i];
-                bool isRoot = parent == -1 || template.PartTypes[parent] != type;
-                BodyPartRecord part = template.IndexedParts[i];
+                bool armDone = false;
+                bool legDone = false;
+                int traumaCount = 0;
 
-                if (isRoot && type == PartType.ManipulationPart && !armDone)
+                for (int i = 0; i < template.PartCount; i++)
                 {
-                    SimulateAmputation(part);
-                    armDone = true;
-                }
-                else if (isRoot && type == PartType.MovingPart && !legDone)
-                {
-                    SimulateAmputation(part);
-                    legDone = true;
-                }
-                else if (type == PartType.CorePart && parent != -1 && traumaCount < 3 && part.coverageAbs > 0f)
-                {
-                    SimulateSevereTrauma(part);
-                    traumaCount++;
+                    PartType type = template.PartTypes[i];
+                    int parent = template.ParentIndices[i];
+                    bool isRoot = parent == -1 || template.PartTypes[parent] != type;
+                    BodyPartRecord part = template.IndexedParts[i];
+
+                    if (isRoot && type == PartType.ManipulationPart && !armDone)
+                    {
+                        SimulateAmputation(part);
+                        armDone = true;
+                    }
+                    else if (isRoot && type == PartType.MovingPart && !legDone)
+                    {
+                        SimulateAmputation(part);
+                        legDone = true;
+                    }
+                    else if (type == PartType.CorePart && parent != -1 && traumaCount < 3 && part.coverageAbs > 0f)
+                    {
+                        SimulateSevereTrauma(part);
+                        traumaCount++;
+                    }
                 }
             }
         }
@@ -378,77 +381,57 @@ namespace OverHaulers
         {
             if (headlessPawn?.health == null || part == null || hediff == null) return;
 
-            if (ReplacementDeltas.TryGetValue(part, out var existingRepl) &&
-                (existingRepl.OpType == SimulatedOpType.Amputate || existingRepl.OpType == SimulatedOpType.Trauma))
+            using (EnterSafetyFallbackScope())
             {
-                ReplacementDeltas.Remove(part);
-                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-                PruneRemovedConditions();
-            }
-
-            if (!ImplantDeltas.TryGetValue(part, out var list))
-            {
-                list = new List<SimulatedModification>(4);
-                ImplantDeltas[part] = list;
-            }
-
-            if (!list.Exists(m => m.TargetHediff == hediff))
-            {
-                try
+                if (ReplacementDeltas.TryGetValue(part, out var existingRepl) &&
+                    (existingRepl.OpType == SimulatedOpType.Amputate || existingRepl.OpType == SimulatedOpType.Trauma))
                 {
-                    Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
-                    if (appliedHediff != null)
-                    {
-                        headlessPawn.health.AddHediff(appliedHediff, part);
+                    ReplacementDeltas.Remove(part);
+                    headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                    PruneRemovedConditions();
+                }
 
-                        list.Add(new SimulatedModification
+                if (!ImplantDeltas.TryGetValue(part, out var list))
+                {
+                    list = new List<SimulatedModification>(4);
+                    ImplantDeltas[part] = list;
+                }
+
+                if (!list.Exists(m => m.TargetHediff == hediff))
+                {
+                    try
+                    {
+                        Hediff appliedHediff = HediffMaker.MakeHediff(hediff, headlessPawn, part);
+                        if (appliedHediff != null)
                         {
-                            OpType = SimulatedOpType.InstallImplant,
-                            SourceRecipe = recipe,
-                            TargetHediff = hediff,
-                            DisplayLabel = label,
-                            Efficiency = 1.0f
-                        });
+                            headlessPawn.health.AddHediff(appliedHediff, part);
+
+                            list.Add(new SimulatedModification
+                            {
+                                OpType = SimulatedOpType.InstallImplant,
+                                SourceRecipe = recipe,
+                                TargetHediff = hediff,
+                                DisplayLabel = label,
+                                Efficiency = 1.0f
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        OHLog.Warn("TestBench.SimulateAddImplant", ex, $"Could not simulate implant '{hediff.defName}' on '{part.Label}'.");
+                        if (list.Count == 0) ImplantDeltas.Remove(part);
                     }
                 }
-                catch (Exception ex)
-                {
-                    OHLog.Warn("TestBench.SimulateAddImplant", ex, $"Could not simulate implant '{hediff.defName}' on '{part.Label}'.");
-                    if (list.Count == 0) ImplantDeltas.Remove(part);
-                }
+
+                DirtyHealthCache();
             }
-
-            DirtyHealthCache();
-        }
-
-        /// <summary>
-        /// Removes a simulated localized implant from the sandbox pawn.
-        /// --- Reserved for granular implant removal, maybe ---
-        /// </summary>
-        /// <param name="part">The BodyPartRecord from which to remove the implant.</param>
-        /// <param name="hediff">The HediffDef representing the implant to remove.</param>
-        public void SimulateRemoveImplant(BodyPartRecord part, HediffDef hediff)
-        {
-            if (headlessPawn?.health == null || part == null || hediff == null) return;
-
-            Hediff existing = headlessPawn.health.hediffSet.hediffs.Find(h => h.def == hediff && h.Part == part);
-            if (existing != null)
-            {
-                headlessPawn.health.RemoveHediff(existing);
-            }
-
-            if (ImplantDeltas.TryGetValue(part, out var list))
-            {
-                list.RemoveAll(m => m.TargetHediff == hediff);
-                if (list.Count == 0) ImplantDeltas.Remove(part);
-            }
-
-            DirtyHealthCache();
         }
 
         /// <summary>
         /// Returns whether a present, natural part can receive a simulated condition.
         /// </summary>
+        /// <param name="pawn">The sandbox pawn to check.</param>
+        /// <param name="part">The body part to check for condition applicability.</param>
         public static bool CanApplyConditionToPart(Pawn pawn, BodyPartRecord part)
         {
             HediffSet set = pawn?.health?.hediffSet;
@@ -459,7 +442,11 @@ namespace OverHaulers
                 !set.AncestorHasDirectlyAddedParts(part);
         }
 
-        /// <summary>Finds an active simulated condition on the specified target, if present.</summary>
+        /// <summary>
+        /// Finds an active simulated condition on the specified target, if present.
+        /// </summary>
+        /// <param name="def">The HediffDef representing the condition to find.</param>
+        /// <param name="part">The body part to which the condition should be applied, or null for the whole body.</param>
         public SimulatedCondition FindSimulatedCondition(HediffDef def, BodyPartRecord part)
         {
             for (int i = 0; i < simulatedConditions.Count; i++)
@@ -470,7 +457,11 @@ namespace OverHaulers
             return null;
         }
 
-        /// <summary>Applies a condition to the whole body or a specific part of the sandbox pawn.</summary>
+        /// <summary>
+        /// Applies a condition to the whole body or a specific part of the sandbox pawn.
+        /// </summary>
+        /// <param name="def">The HediffDef representing the condition to apply.</param>
+        /// <param name="part">The body part to which the condition should be applied, or null for the whole body.</param>
         public void SimulateCondition(HediffDef def, BodyPartRecord part)
         {
             if (headlessPawn?.health?.hediffSet == null || def == null)
@@ -481,58 +472,72 @@ namespace OverHaulers
             if (FindSimulatedCondition(def, part) != null)
                 throw new InvalidOperationException("The simulated condition is already active on this target.");
 
-            List<Hediff> hediffs = headlessPawn.health.hediffSet.hediffs;
-            Hediff target = null;
-            for (int i = 0; i < hediffs.Count; i++)
+            using (EnterSafetyFallbackScope())
             {
-                if (hediffs[i].def == def && hediffs[i].Part == part)
+                List<Hediff> hediffs = headlessPawn.health.hediffSet.hediffs;
+                Hediff target = null;
+                for (int i = 0; i < hediffs.Count; i++)
                 {
-                    target = hediffs[i];
-                    break;
+                    if (hediffs[i].def == def && hediffs[i].Part == part)
+                    {
+                        target = hediffs[i];
+                        break;
+                    }
                 }
-            }
 
-            bool wasExisting = target != null;
-            float originalSeverity = wasExisting ? target.Severity : 0f;
-            if (!wasExisting)
-            {
-                target = HediffMaker.MakeHediff(def, headlessPawn, part);
-                if (target == null)
-                    throw new InvalidOperationException("Could not create the simulated condition " + def.defName + ".");
-            }
+                bool wasExisting = target != null;
+                float originalSeverity = wasExisting ? target.Severity : 0f;
+                if (!wasExisting)
+                {
+                    target = HediffMaker.MakeHediff(def, headlessPawn, part);
+                    if (target == null)
+                        throw new InvalidOperationException("Could not create the simulated condition " + def.defName + ".");
+                }
 
-            float severity = MedicalRecipeCatalog.GetPeakImpactSeverity(def, out _);
-            if (severity > 0f) target.Severity = severity;
-            if (!wasExisting)
-            {
-                headlessPawn.health.AddHediff(target, part);
-                if (!hediffs.Contains(target))
-                    throw new InvalidOperationException("The simulated condition was not retained: " + def.defName + ".");
-            }
+                float severity = MedicalRecipeCatalog.GetPeakImpactSeverity(def, out _);
+                if (severity > 0f) target.Severity = severity;
+                if (!wasExisting)
+                {
+                    headlessPawn.health.AddHediff(target, part);
+                    if (!hediffs.Contains(target))
+                        throw new InvalidOperationException("The simulated condition was not retained: " + def.defName + ".");
+                }
 
-            simulatedConditions.Add(new SimulatedCondition(target, wasExisting, originalSeverity));
-            DirtyHealthCache();
+                simulatedConditions.Add(new SimulatedCondition(target, wasExisting, originalSeverity));
+                DirtyHealthCache();
+            }
         }
 
-        /// <summary>Removes a simulated condition, restoring its original severity if it existed beforehand.</summary>
+        /// <summary>
+        /// Removes a simulated condition, restoring its original severity if it existed beforehand.
+        /// </summary>
+        /// <param name="condition">The simulated condition to remove.</param>
         public void RemoveSimulatedCondition(SimulatedCondition condition)
         {
             if (condition == null || !simulatedConditions.Contains(condition))
                 throw new InvalidOperationException("The simulated condition is not active.");
 
-            if (headlessPawn.health.hediffSet.hediffs.Contains(condition.Hediff))
+            using (EnterSafetyFallbackScope())
             {
-                if (condition.WasExisting)
-                    condition.Hediff.Severity = condition.OriginalSeverity;
-                else
-                    headlessPawn.health.RemoveHediff(condition.Hediff);
-            }
+                if (headlessPawn.health.hediffSet.hediffs.Contains(condition.Hediff))
+                {
+                    if (condition.WasExisting)
+                        condition.Hediff.Severity = condition.OriginalSeverity;
+                    else
+                        headlessPawn.health.RemoveHediff(condition.Hediff);
+                }
 
-            simulatedConditions.Remove(condition);
-            DirtyHealthCache();
+                simulatedConditions.Remove(condition);
+                DirtyHealthCache();
+            }
         }
 
-        /// <summary>Returns defined severity bounds for conditions with multiple stages.</summary>
+        /// <summary>
+        /// Returns defined severity bounds for conditions with multiple stages.
+        /// </summary>
+        /// <param name="condition">The simulated condition to evaluate.</param>
+        /// <param name="min">Outputs the minimum severity for the condition's stages.</param>
+        /// <param name="max">Outputs the maximum severity for the condition's stages.</param>
         public static bool TryGetConditionSeverityRange(SimulatedCondition condition, out float min, out float max)
         {
             min = 0f;
@@ -547,7 +552,12 @@ namespace OverHaulers
                 condition.Hediff.Severity >= min && condition.Hediff.Severity <= max;
         }
 
-        /// <summary>Returns a reachable severity at the start of a condition's defined stage.</summary>
+        /// <summary>
+        /// Returns a reachable severity at the start of a condition's defined stage.
+        /// </summary>
+        /// <param name="condition">The simulated condition to evaluate.</param>
+        /// <param name="stageIndex">The index of the stage to check.</param>
+        /// <param name="severity">Outputs the reachable severity at the start of the specified stage.</param>
         public static bool TryGetConditionStageSeverity(SimulatedCondition condition, int stageIndex, out float severity)
         {
             severity = 0f;
@@ -562,7 +572,11 @@ namespace OverHaulers
                 severity < def.stages[stageIndex + 1].minSeverity;
         }
 
-        /// <summary>Sets the severity of an active condition within its defined bounds.</summary>
+        /// <summary>
+        /// Sets the severity of an active condition within its defined bounds.
+        /// </summary>
+        /// <param name="condition">The simulated condition to modify.</param>
+        /// <param name="severity">The new severity value to set.</param>
         public void SetConditionSeverity(SimulatedCondition condition, float severity)
         {
             if (!simulatedConditions.Contains(condition))
@@ -573,8 +587,11 @@ namespace OverHaulers
                 severity < def.minSeverity || severity > def.maxSeverity)
                 throw new ArgumentOutOfRangeException(nameof(severity), "The condition severity is outside its defined range.");
 
-            condition.Hediff.Severity = severity;
-            DirtyHealthCache();
+            using (EnterSafetyFallbackScope())
+            {
+                condition.Hediff.Severity = severity;
+                DirtyHealthCache();
+            }
         }
 
         #endregion
@@ -589,48 +606,42 @@ namespace OverHaulers
         {
             if (headlessPawn?.health == null || part == null) return;
 
-            headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-
-            if (sourcePawn?.health?.hediffSet != null)
+            using (EnterSafetyFallbackScope())
             {
-                List<Hediff> sourceHediffs = sourcePawn.health.hediffSet.hediffs;
-                List<Hediff> relevantHediffs = new List<Hediff>();
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
 
-                for (int i = 0; i < sourceHediffs.Count; i++)
+                if (sourcePawn?.health?.hediffSet != null)
                 {
-                    Hediff src = sourceHediffs[i];
-                    if (src?.def != null && src.Part != null && IsPartOrDescendantOf(src.Part, part))
-                    {
-                        relevantHediffs.Add(src);
-                    }
-                }
+                    List<Hediff> sourceHediffs = sourcePawn.health.hediffSet.hediffs;
+                    List<Hediff> relevantHediffs = new List<Hediff>();
 
-                relevantHediffs.Sort((a, b) => GetPartDepth(a?.Part).CompareTo(GetPartDepth(b?.Part)));
-
-                for (int i = 0; i < relevantHediffs.Count; i++)
-                {
-                    Hediff src = relevantHediffs[i];
-                    if (src.Part != null && headlessPawn.health.hediffSet.PartIsMissing(src.Part))
+                    for (int i = 0; i < sourceHediffs.Count; i++)
                     {
-                        continue;
-                    }
-
-                    try
-                    {
-                        Hediff cloneHediff = HediffMaker.MakeHediff(src.def, headlessPawn, src.Part);
-                        if (cloneHediff != null)
+                        Hediff src = sourceHediffs[i];
+                        if (src?.def != null && src.Part != null && IsPartOrDescendantOf(src.Part, part))
                         {
-                            cloneHediff.Severity = src.Severity;
-                            headlessPawn.health.AddHediff(cloneHediff);
+                            relevantHediffs.Add(src);
                         }
                     }
-                    catch { }
-                }
-            }
 
-            CleanDeltasRecursive(part);
-            PruneRemovedConditions();
-            DirtyHealthCache();
+                    relevantHediffs.Sort((a, b) => GetPartDepth(a?.Part).CompareTo(GetPartDepth(b?.Part)));
+
+                    for (int i = 0; i < relevantHediffs.Count; i++)
+                    {
+                        Hediff src = relevantHediffs[i];
+                        if (src.Part != null && headlessPawn.health.hediffSet.PartIsMissing(src.Part))
+                        {
+                            continue;
+                        }
+
+                        TryCloneAndAddHediff(src);
+                    }
+                }
+
+                CleanDeltasRecursive(part);
+                PruneRemovedConditions();
+                DirtyHealthCache();
+            }
         }
 
         #endregion
@@ -727,6 +738,8 @@ namespace OverHaulers
         /// Resolves the effective performance level for a systemic pawn capacity.
         /// When unmodified, mirrors the authentic source colonist's capacities (e.g. 50% manipulation during limb training).
         /// </summary>
+        /// <param name="capacity">The systemic pawn capacity to evaluate.</param>
+        /// <returns>The effective capacity level, considering both live state and simulated modifications.</returns>
         public float GetEffectiveCapacityLevel(PawnCapacityDef capacity)
         {
             if (!HasModifications && sourcePawn != null)
@@ -734,7 +747,10 @@ namespace OverHaulers
                 return MedicalClassifier.GetCapacityLevel(sourcePawn, capacity);
             }
 
-            return MedicalClassifier.GetCapacityLevel(headlessPawn, capacity);
+            using (EnterSafetyFallbackScope())
+            {
+                return MedicalClassifier.GetCapacityLevel(headlessPawn, capacity);
+            }
         }
 
         /// <summary>

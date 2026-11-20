@@ -20,7 +20,6 @@ namespace OverHaulers
         {
             prostheticImpactConstant = CoreDefaults.ProstheticImpactConstant;
             athleticImpactConstant = CoreDefaults.AthleticImpactConstant;
-            NotifyValuesReset();
         }
 
         #endregion

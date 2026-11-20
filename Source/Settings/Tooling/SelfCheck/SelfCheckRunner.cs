@@ -205,6 +205,7 @@ namespace OverHaulers
             if (State != SelfCheckState.Running) return;
 
             Results.Clear();
+            queue.Clear();
             ResultsVersion++;
             State = SelfCheckState.Idle;
         }

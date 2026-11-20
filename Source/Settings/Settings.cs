@@ -11,9 +11,8 @@ namespace OverHaulers
     public enum SettingsTab
     {
         Tuning = 0,
-        TestBench = 1,
-        Integration = 2,
-        Accessibility = 3
+        Integration = 1,
+        Accessibility = 2
     }
 
     #endregion
@@ -47,7 +46,6 @@ namespace OverHaulers
         #region 3. [SEC-00] NAVIGATION & FIRST-LAUNCH STATE
 
         public SettingsTab activeTab = SettingsTab.Tuning;
-        public bool hasOpenedSettingsBefore = false;
 
         #endregion
 
@@ -119,6 +117,7 @@ namespace OverHaulers
                 customProstheticPalette ? prostheticColorBoosted : colorBoosted);
             InfoCardOverlay.SetIconScale(iconScalePercent);
             IntegrationPipeline.SetPreferredPresentationKey(selectedPresentationKey);
+            IntegrationPipeline.SetCustomCilNeutralizedFactors(useCustomCilNeutralization ? cilNeutralizedFactors : null);
         }
 
         #endregion
@@ -126,9 +125,10 @@ namespace OverHaulers
         #region 5. GLOBAL RESET
 
         /// <summary>
-        /// Resets all settings to their default values.
+        /// Resets all player-facing configuration settings (Tuning, Integration, and Accessibility) to defaults,
+        /// leaving developer telemetry, verbose InfoCard toggle, and Test Bench sandbox state untouched.
         /// </summary>
-        public void ResetAllToDefaults()
+        public void ResetPlayerDefaults()
         {
             ResetGlobals();
             ResetAccessibility();
@@ -138,7 +138,6 @@ namespace OverHaulers
             ResetLimbDecay();
             ResetScalingConstants();
             ResetCompatibility();
-            ResetDiagnostics();
             NotifyValuesReset();
             NotifyValuesMutated();
         }
@@ -155,7 +154,6 @@ namespace OverHaulers
             base.ExposeData();
 
             Scribe_Values.Look(ref activeTab, "activeTab", SettingsTab.Tuning);
-            Scribe_Values.Look(ref hasOpenedSettingsBefore, "hasOpenedSettingsBefore", false);
 
             ExposeBasic();
             ExposeAccessibility();

@@ -140,12 +140,12 @@ namespace OverHaulers
         /// <summary>Provider delegate retrieving active capacity from the presentation layer.</summary>
         public static Func<int> GetPresentationCapacity;
 
-        // Gating flags synchronized against Settings
-        private static bool isTelemetryActive = false;
-        private static bool isCacheMetricsActive = false;
-        private static bool isSnapshotMetricsActive = false;
-        private static bool isLifecycleMetricsActive = false;
-        private static bool isPresentationMetricsActive = false;
+        // Gating flags synchronized against Settings (volatile for immediate cross-thread worker visibility)
+        private static volatile bool isTelemetryActive = false;
+        private static volatile bool isCacheMetricsActive = false;
+        private static volatile bool isSnapshotMetricsActive = false;
+        private static volatile bool isLifecycleMetricsActive = false;
+        private static volatile bool isPresentationMetricsActive = false;
 
         /// <summary>Indicates whether any performance telemetry logging is active.</summary>
         public static bool IsActive => isTelemetryActive;
@@ -214,7 +214,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementBackgroundHit()
         {
-            if (isTelemetryActive) Interlocked.Increment(ref backgroundHits);
+            if (isCacheMetricsActive) Interlocked.Increment(ref backgroundHits);
         }
 
         /// <summary>
@@ -223,7 +223,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementBackgroundMiss()
         {
-            if (isTelemetryActive) Interlocked.Increment(ref backgroundMisses);
+            if (isCacheMetricsActive) Interlocked.Increment(ref backgroundMisses);
         }
 
         /// <summary>

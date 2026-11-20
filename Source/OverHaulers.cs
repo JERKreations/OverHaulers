@@ -24,7 +24,14 @@ namespace OverHaulers
             ContentPack = content;
             settings = GetSettings<Settings>();
             settings?.PushConfigurationToCore();
-            IntegrationPipeline.PreferredPresentationKeyReset += key => { if (settings != null) settings.selectedPresentationKey = key; };
+            IntegrationPipeline.PreferredPresentationKeyReset += key =>
+            {
+                if (settings != null)
+                {
+                    settings.selectedPresentationKey = key;
+                    settings.ResetCustomCilNeutralization();
+                }
+            };
             ToolingLifecycleBinding.Bind();
             SettingsViewUtilities.BindToSettings();
         }
@@ -54,15 +61,7 @@ namespace OverHaulers
         {
             Rect outRect = inRect.ContractedBy(4f);
 
-            SettingsLayout.ResetControlIndex();
-
-            // BREAKPOINT ANCHOR: First-Time Launch Router & Legacy Migration
-            // Route first-time players or legacy TestBench tab users to Tuning
-            if (!settings.hasOpenedSettingsBefore || settings.activeTab == SettingsTab.TestBench)
-            {
-                settings.activeTab = SettingsTab.Tuning;
-                settings.hasOpenedSettingsBefore = true;
-            }
+            SettingsLayout.ResetControlIndex("Settings");
 
             float currentY = 0f;
 
@@ -77,9 +76,8 @@ namespace OverHaulers
 
             if (Widgets.ButtonText(globalResetRect, "OverHaulers_ResetDefaults".Translate().ToString()))
             {
-                SettingsLayout.ClearInputBuffers();
-                settings.ResetAllToDefaults();
-                TestBench.ResetTestBench();
+                settings.ResetPlayerDefaults();
+                IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
             currentY += 34f;
 
@@ -173,8 +171,8 @@ namespace OverHaulers
                 if (settings.activeTab != targetTab)
                 {
                     settings.activeTab = targetTab;
-                    SettingsLayout.ClearInputBuffers();
-                    SettingsLayout.ResetControlIndex();
+                    SettingsLayout.ClearInputBuffers("Settings");
+                    SettingsLayout.ResetControlIndex("Settings");
                 }
             }
 

@@ -13,7 +13,7 @@ namespace OverHaulers
 
         /// <summary>A fallback instance of <see cref="MassCapacityEvaluationResult"/> with default values.</summary>
         public static readonly MassCapacityEvaluationResult Fallback =
-            new MassCapacityEvaluationResult(0f, 0f, 0.01f, 1f, 0f, 0f, 0f, false, false);
+            new MassCapacityEvaluationResult(0f, 0f, 0.01f, 1f, 0f, 0f, 0f);
 
         #endregion
 
@@ -40,12 +40,6 @@ namespace OverHaulers
         /// <summary>The total contribution from athletic enhancements.</summary>
         public readonly float CalculatedAthletics;
 
-        /// <summary>True if final capacity plunged into the hard technical 0.01f emergency compatibility floor.</summary>
-        public readonly bool IsAtHardCompatibilitySafetyFloor;
-
-        /// <summary>True if the pawn's deficits were actively capped by the user-configured percentile Deficit Floor.</summary>
-        public readonly bool IsLimitedByConfigurablePercentileFloor;
-
         #endregion
 
         #region 1C. Lifecycle
@@ -53,6 +47,13 @@ namespace OverHaulers
         /// <summary>
         /// Initializes a new instance of the <see cref="MassCapacityEvaluationResult"/> struct with the specified values.
         /// </summary>
+        /// <param name="solvedOffset">The net solved offset from the biological baseline.</param>
+        /// <param name="biologicalBaseline">The biological baseline capacity before any deficits or boosts.</param>
+        /// <param name="finalCapacity">The final solved capacity after applying all deficits and boosts.</param>
+        /// <param name="totalMultiplier">The total multiplier applied to the biological baseline to obtain the final capacity.</param>
+        /// <param name="calculatedProsthetics">The total contribution from prosthetic enhancements.</param>
+        /// <param name="calculatedHealths">The total contribution from health deficits.</param>
+        /// <param name="calculatedAthletics">The total contribution from athletic enhancements.</param>
         public MassCapacityEvaluationResult(
             float solvedOffset,
             float biologicalBaseline,
@@ -60,9 +61,7 @@ namespace OverHaulers
             float totalMultiplier,
             float calculatedProsthetics,
             float calculatedHealths,
-            float calculatedAthletics,
-            bool isAtHardCompatibilitySafetyFloor,
-            bool isLimitedByConfigurablePercentileFloor = false)
+            float calculatedAthletics)
         {
             SolvedOffset = solvedOffset;
             BiologicalBaseline = biologicalBaseline;
@@ -71,8 +70,6 @@ namespace OverHaulers
             CalculatedProsthetics = calculatedProsthetics;
             CalculatedHealths = calculatedHealths;
             CalculatedAthletics = calculatedAthletics;
-            IsAtHardCompatibilitySafetyFloor = isAtHardCompatibilitySafetyFloor;
-            IsLimitedByConfigurablePercentileFloor = isLimitedByConfigurablePercentileFloor;
         }
 
         #endregion
