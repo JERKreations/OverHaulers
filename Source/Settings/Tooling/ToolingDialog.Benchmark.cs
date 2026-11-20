@@ -256,7 +256,7 @@ namespace OverHaulers
 
             if (SettingsViewUtilities.DrawButton(folderRect, folderLabel))
             {
-                DiagnosticExportUtility.OpenExportDirectory();
+                ExportUtilities.OpenExportDirectory();
             }
 
             localY = y + rowHeight + 8f;

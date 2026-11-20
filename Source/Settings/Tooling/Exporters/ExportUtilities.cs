@@ -7,12 +7,12 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [DIAG-00] DUMP SCOPE & FORMAT ENUMS
+    #region 1. [DIAG-00] EXPORT SCOPE & FORMAT ENUMS
 
     /// <summary>
     /// [DIAG-00] Scope of diagnostic census data to compile and export.
     /// </summary>
-    public enum DumpScope
+    public enum ExportScope
     {
         SelectedSubject = 0,
         BodyDefArchetype = 1,
@@ -20,9 +20,9 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// [DIAG-00] File format serialization target for diagnostic dumps.
+    /// [DIAG-00] File format serialization target for diagnostic exports.
     /// </summary>
-    public enum DumpFormat
+    public enum ExportFormat
     {
         Text = 0,
         Xml = 1
@@ -31,17 +31,17 @@ namespace OverHaulers
     #endregion
 
     /// <summary>
-    /// [DIAG-00] Shared formatting, census table generation, date-based folder routing, and file I/O utilities for diagnostic dump exporters.
+    /// [DIAG-00] Shared formatting, census table generation, date-based folder routing, and file I/O utilities for diagnostic export management.
     /// Resides under Source/Settings/Tooling/Exporters/.
     /// </summary>
-    public static class DiagnosticExportUtility
+    public static class ExportUtilities
     {
         #region 2. HEADER & METADATA FORMATTING
 
         public static void AppendHeaderBanner(
             StringBuilder builder, 
             string title, 
-            DumpScope scope, 
+            ExportScope scope, 
             string timestamp, 
             TestSubjectEntry subject)
         {
@@ -61,22 +61,22 @@ namespace OverHaulers
         #region 3. MACRO SPECIES SUMMARY TABLE GENERATOR
 
         /// <summary>
-        /// Appends a summary table of species sharing the specified body archetype or all loaded species, depending on the dump scope.
+        /// Appends a summary table of species sharing the specified body archetype or all loaded species, depending on the export scope.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the summary table to.</param>
-        /// <param name="scope">The scope of the dump, determining which species to include.</param>
+        /// <param name="scope">The scope of the export, determining which species to include.</param>
         /// <param name="targetBody">The body archetype to filter species by when scope is BodyDefArchetype.</param>
         /// <param name="allPawnThings">The list of all loaded pawn ThingDefs to consider for the summary table.</param>
         public static void AppendSpeciesSummaryTable(
             StringBuilder builder, 
-            DumpScope scope, 
+            ExportScope scope, 
             BodyDef targetBody, 
             List<ThingDef> allPawnThings)
         {
-            if (scope != DumpScope.FullCensus && scope != DumpScope.BodyDefArchetype) return;
+            if (scope != ExportScope.FullCensus && scope != ExportScope.BodyDefArchetype) return;
 
             builder.AppendLine("------------------------------------------------------------------------------------------------------------------------");
-            builder.AppendLine(scope == DumpScope.FullCensus 
+            builder.AppendLine(scope == ExportScope.FullCensus 
                 ? "[1. MACRO SPECIES SUMMARY TABLE (ALL LOADED SPECIES)]" 
                 : $"[1. SPECIES SHARING ARCHETYPE: {targetBody.defName}]");
             builder.AppendLine("------------------------------------------------------------------------------------------------------------------------");
@@ -88,7 +88,7 @@ namespace OverHaulers
             {
                 ThingDef thing = allPawnThings[i];
                 BodyDef body = thing.race.body;
-                if (scope == DumpScope.BodyDefArchetype && body != targetBody) continue;
+                if (scope == ExportScope.BodyDefArchetype && body != targetBody) continue;
 
                 SpeciesTopologyTemplate tmpl = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(body);
                 if (tmpl == null) continue;
@@ -109,8 +109,8 @@ namespace OverHaulers
 
         #region 4. SCOPE RESOLUTION, DATE-BASED ROUTING & FILE I/O
 
-        private const string PrimaryRootFolderName = "DiagnosticDumps";
-        private const string FallbackRootFolderName = "OverHaulers_DiagnosticDumps";
+        private const string PrimaryRootFolderName = "DiagnosticExports";
+        private const string FallbackRootFolderName = "OverHaulers_DiagnosticExports";
 
         private static bool modRootWriteFailed;
 
@@ -128,9 +128,9 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the root directory for exporting diagnostic dumps, creating it if necessary.
+        /// Resolves the root directory for exporting diagnostic exports, creating it if necessary.
         /// </summary>
-        /// <returns>The full path to the root export directory for diagnostic dumps.</returns>
+        /// <returns>The full path to the root export directory for diagnostic exports.</returns>
         public static string ResolveRootExportDirectory()
         {
             if (!modRootWriteFailed)
@@ -193,7 +193,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Opens the export directory in the OS file explorer.
-        /// Opens today's dated subfolder if it exists; otherwise opens the root DiagnosticDumps directory.
+        /// Opens today's dated subfolder if it exists; otherwise opens the root DiagnosticExports directory.
         /// 100% platform-agnostic with zero native P/Invoke calls.
         /// </summary>
         public static void OpenExportDirectory()
@@ -203,7 +203,7 @@ namespace OverHaulers
                 string rootDir = ResolveRootExportDirectory();
                 string todayDir = Path.Combine(rootDir, DateTime.Now.ToString("yyyy-MM-dd"));
 
-                // Only open today's folder if it actually exists on disk (i.e. dumps were generated today)
+                // Only open today's folder if it actually exists on disk (i.e. exports were generated today)
                 string targetToOpen = Directory.Exists(todayDir) ? todayDir : rootDir;
 
                 if (Directory.Exists(targetToOpen))
@@ -218,15 +218,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the list of target bodies based on the specified dump scope.
+        /// Resolves the list of target bodies based on the specified export scope.
         /// </summary>
-        /// <param name="scope">The scope of the dump, determining which bodies to include.</param>
+        /// <param name="scope">The scope of the export, determining which bodies to include.</param>
         /// <param name="targetBody">The specific body archetype to include when the scope is limited.</param>
         /// <param name="allBodies">The list of all available body definitions.</param>
-        /// <returns>The list of body definitions to be included in the dump based on the scope.</returns>
-        public static List<BodyDef> ResolveTargetBodies(DumpScope scope, BodyDef targetBody, List<BodyDef> allBodies)
+        /// <returns>The list of body definitions to be included in the export based on the scope.</returns>
+        public static List<BodyDef> ResolveTargetBodies(ExportScope scope, BodyDef targetBody, List<BodyDef> allBodies)
         {
-            if (scope == DumpScope.FullCensus)
+            if (scope == ExportScope.FullCensus)
             {
                 return allBodies;
             }
@@ -235,10 +235,10 @@ namespace OverHaulers
 
         /// <summary>
         /// Ensures topologies are initialized and prepares sorted species/body census lists and fallback scope for exporters.
-        /// Single Source of Truth shared across diagnostic dump exporters.
+        /// Single Source of Truth shared across diagnostic exporters.
         /// </summary>
         public static void PrepareCensusExport(
-            ref DumpScope scope,
+            ref ExportScope scope,
             TestSubjectEntry subject,
             out string timestamp,
             out BodyDef targetBody,
@@ -269,28 +269,28 @@ namespace OverHaulers
             allBodies.Sort((a, b) => string.Compare(a.defName, b.defName, StringComparison.OrdinalIgnoreCase));
 
             targetBody = subject?.BodyDef;
-            if (scope != DumpScope.FullCensus && targetBody == null)
+            if (scope != ExportScope.FullCensus && targetBody == null)
             {
-                scope = DumpScope.FullCensus;
+                scope = ExportScope.FullCensus;
             }
 
             targetBodies = ResolveTargetBodies(scope, targetBody, allBodies);
         }
 
         /// <summary>
-        /// Resolves a string tag representing the scope of the dump, used for file naming and organization.
+        /// Resolves a string tag representing the scope of the export, used for file naming and organization.
         /// </summary>
-        /// <param name="scope">The scope of the dump, determining the context of the tag.</param>
+        /// <param name="scope">The scope of the export, determining the context of the tag.</param>
         /// <param name="subject">The test subject entry, used when the scope is limited to a single subject.</param>
         /// <param name="targetBody">The specific body archetype, used when the scope is limited to a body definition.</param>
-        /// <returns>A string tag representing the resolved scope for the dump.</returns>
-        public static string ResolveScopeTag(DumpScope scope, TestSubjectEntry subject, BodyDef targetBody)
+        /// <returns>A string tag representing the resolved scope for the export.</returns>
+        public static string ResolveScopeTag(ExportScope scope, TestSubjectEntry subject, BodyDef targetBody)
         {
             switch (scope)
             {
-                case DumpScope.SelectedSubject:
+                case ExportScope.SelectedSubject:
                     return $"Single_{SanitizeFileName(subject?.Label ?? "Subject")}";
-                case DumpScope.BodyDefArchetype:
+                case ExportScope.BodyDefArchetype:
                     return $"Archetype_{SanitizeFileName(targetBody?.defName ?? "Body")}";
                 default:
                     return "FullCensus";
@@ -303,18 +303,18 @@ namespace OverHaulers
         /// </summary>
         /// <param name="builder">The StringBuilder containing the content to be written to the export file.</param>
         /// <param name="filePrefix">The prefix to use for the export file name.</param>
-        /// <param name="scopeTag">The tag representing the scope of the dump, used in the file name.</param>
+        /// <param name="scopeTag">The tag representing the scope of the export, used in the file name.</param>
         /// <param name="format">The format of the export file (text or XML).</param>
         /// <returns>The full path to the export file that was written.</returns>
         public static string WriteExportFile(
             StringBuilder builder, 
             string filePrefix, 
             string scopeTag, 
-            DumpFormat format = DumpFormat.Text)
+            ExportFormat format = ExportFormat.Text)
         {
             if (builder == null) return string.Empty;
 
-            string ext = format == DumpFormat.Xml ? "xml" : "txt";
+            string ext = format == ExportFormat.Xml ? "xml" : "txt";
             string fileName = $"{filePrefix}_{scopeTag}_{DateTime.Now:HHmmss}.{ext}";
             string content = builder.ToString();
             string exportPath;

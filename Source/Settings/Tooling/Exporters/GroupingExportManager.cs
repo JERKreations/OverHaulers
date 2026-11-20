@@ -2,48 +2,47 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using UnityEngine;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
     /// <summary>
-    /// [DIAG-02] GROUPING & INFOCARD BREAKDOWN DUMP EXPORTER
+    /// [DIAG-02] GROUPING & INFOCARD BREAKDOWN EXPORTER
     /// Compiles diagnostic reports of body part groupings, nested hierarchy trees,
     /// load-bearing weight shares, applied pathology/prosthetics, systemic athletic capacities,
     /// and simulated InfoCards across plain text and structured XML targets.
     /// Resides under Source/Settings/Tooling/Exporters/.
     /// </summary>
-    public static class GroupingDumpExporter
+    public static class GroupingExportManager
     {
         #region 1. CONSTANTS & POOLED SCRATCHPADS
 
-        private static readonly StringBuilder dumpBuilder = new StringBuilder(131072);
+        private static readonly StringBuilder exportBuilder = new StringBuilder(131072);
 
         #endregion
 
         #region 2. PRIMARY EXPORT ENTRY POINT
 
         /// <summary>
-        /// Exports a diagnostic dump of body part groupings, nested hierarchy trees, load-bearing weight shares, applied pathology/prosthetics,
+        /// Exports a diagnostic report of body part groupings, nested hierarchy trees, load-bearing weight shares, applied pathology/prosthetics,
         ///  systemic athletic capacities, and simulated InfoCards for the specified subject or scope.
         /// </summary>
         /// <param name="settings">The export settings to be used.</param>
-        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="scope">The scope of the export (e.g., full census or specific subject).</param>
         /// <param name="format">The format of the export file (text or XML).</param>
-        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
+        /// <param name="subject">The specific subject for which the export is generated, if applicable.</param>
         /// <returns>The full path to the export file that was written.</returns>
-        public static string ExportGroupingDump(
+        public static string ExportGroupingData(
             Settings settings, 
-            DumpScope scope, 
-            DumpFormat format = DumpFormat.Text, 
+            ExportScope scope, 
+            ExportFormat format = ExportFormat.Text, 
             TestSubjectEntry subject = null)
         {
-            dumpBuilder.Clear();
+            exportBuilder.Clear();
             try
             {
-                DiagnosticExportUtility.PrepareCensusExport(
+                ExportUtilities.PrepareCensusExport(
                     ref scope,
                     subject,
                     out string timestamp,
@@ -51,26 +50,26 @@ namespace OverHaulers
                     out List<ThingDef> allPawnThings,
                     out List<BodyDef> targetBodies);
 
-                if (format == DumpFormat.Xml)
+                if (format == ExportFormat.Xml)
                 {
-                    ExportGroupingXml(dumpBuilder, settings, scope, timestamp, subject, targetBodies, allPawnThings);
+                    ExportGroupingXml(exportBuilder, settings, scope, timestamp, subject, targetBodies, allPawnThings);
                 }
                 else
                 {
-                    ExportGroupingText(dumpBuilder, settings, scope, timestamp, subject, targetBodies, allPawnThings);
+                    ExportGroupingText(exportBuilder, settings, scope, timestamp, subject, targetBodies, allPawnThings);
                 }
 
-                string scopeTag = DiagnosticExportUtility.ResolveScopeTag(scope, subject, targetBody);
-                return DiagnosticExportUtility.WriteExportFile(dumpBuilder, "GD", scopeTag, format);
+                string scopeTag = ExportUtilities.ResolveScopeTag(scope, subject, targetBody);
+                return ExportUtilities.WriteExportFile(exportBuilder, "GD", scopeTag, format);
             }
             catch (Exception ex)
             {
-                OHLog.Warn("TestBench.ExportGroupingDumpFailed", ex, "Failed to export grouping dump.");
+                OHLog.Warn("TestBench.ExportGroupingDataFailed", ex, "Failed to export grouping data.");
                 return null;
             }
             finally
             {
-                dumpBuilder.Clear();
+                exportBuilder.Clear();
             }
         }
 
@@ -83,25 +82,25 @@ namespace OverHaulers
         /// </summary>
         /// <param name="builder">The StringBuilder used to construct the text output.</param>
         /// <param name="settings">The export settings to be used.</param>
-        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="scope">The scope of the export (e.g., full census or specific subject).</param>
         /// <param name="timestamp">The timestamp of the export.</param>
-        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
-        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
-        /// <param name="allPawnThings">The list of all pawn things relevant to the dump.</param>
+        /// <param name="subject">The specific subject for which the export is generated, if applicable.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the export.</param>
+        /// <param name="allPawnThings">The list of all pawn things relevant to the export.</param>
         private static void ExportGroupingText(
             StringBuilder builder,
             Settings settings,
-            DumpScope scope,
+            ExportScope scope,
             string timestamp,
             TestSubjectEntry subject,
             List<BodyDef> targetBodies,
             List<ThingDef> allPawnThings)
         {
             // 1. Header Banner
-            DiagnosticExportUtility.AppendHeaderBanner(builder, "OVERHAULERS BODY PART GROUPING & INFOCARD BREAKDOWN DIAGNOSTIC", scope, timestamp, subject);
+            ExportUtilities.AppendHeaderBanner(builder, "OVERHAULERS BODY PART GROUPING & INFOCARD BREAKDOWN DIAGNOSTIC", scope, timestamp, subject);
 
             // 2. Section 1: Species Summary Table
-            DiagnosticExportUtility.AppendSpeciesSummaryTable(builder, scope, subject?.BodyDef, allPawnThings);
+            ExportUtilities.AppendSpeciesSummaryTable(builder, scope, subject?.BodyDef, allPawnThings);
 
             // 3. Section 2: Topological Hierarchy & InfoCard Trees
             SolverConfiguration solverConfig = settings.ToSolverConfiguration();
@@ -158,10 +157,10 @@ namespace OverHaulers
                     string ancestorStr = ancestorOfType != -1 ? tmpl.IndexedParts[ancestorOfType].Label : "None";
 
                     string weightModelStr = tmpl.WeightModels[idx] == LimbWeightModel.NotApplicable ? "-" : tmpl.WeightModels[idx].ToString();
-                    string flagsStr = DiagnosticExportUtility.FormatPartFlags(tmpl.IsOrgan[idx], tmpl.WasReclaimedAsAnchor[idx]);
+                    string flagsStr = ExportUtilities.FormatPartFlags(tmpl.IsOrgan[idx], tmpl.WasReclaimedAsAnchor[idx]);
 
                     builder.AppendLine(string.Format("  {0,-34} | {1,-18} | {2,8} | {3,8} | {4,8} | {5,10} | {6,4} | {7,-11} | {8,-10} | {9,-26} | {10}",
-                        DiagnosticExportUtility.PadOrTruncate(part.LabelCap.ToString(), 34), typeName, wCore, wManip, wMove, staticPct, tmpl.HitPoints[idx], weightModelStr, flagsStr, DiagnosticExportUtility.PadOrTruncate(ancestorStr, 26), tmpl.TagsDisplay[idx]));
+                        ExportUtilities.PadOrTruncate(part.LabelCap.ToString(), 34), typeName, wCore, wManip, wMove, staticPct, tmpl.HitPoints[idx], weightModelStr, flagsStr, ExportUtilities.PadOrTruncate(ancestorStr, 26), tmpl.TagsDisplay[idx]));
                 }
 
                 builder.AppendLine();
@@ -213,7 +212,7 @@ namespace OverHaulers
                     {
                         PartViewNode groupNode = massModel.EvaluatedParts[g];
                         builder.AppendLine($"  + [{groupNode.Label}] (Subtotal: {groupNode.TotalOffset.ToStringMassOffset()}, P: {groupNode.ProstheticOffset.ToStringMassOffset()}, A: {groupNode.AthleticOffset.ToStringMassOffset()}, I: {groupNode.HealthOffset.ToStringMassOffset()})");
-                        DumpSubPartsRecursive(builder, groupNode.SubParts, 2);
+                        ExportSubPartsRecursive(builder, groupNode.SubParts, 2);
                     }
                 }
 
@@ -247,15 +246,15 @@ namespace OverHaulers
         /// </summary>
         /// <param name="builder">The StringBuilder used to construct the XML output.</param>
         /// <param name="settings">The export settings to be used.</param>
-        /// <param name="scope">The scope of the dump (e.g., full census or specific subject).</param>
+        /// <param name="scope">The scope of the export (e.g., full census or specific subject).</param>
         /// <param name="timestamp">The timestamp of the export.</param>
-        /// <param name="subject">The specific subject for which the dump is generated, if applicable.</param>
-        /// <param name="targetBodies">The list of target body definitions to include in the dump.</param>
-        /// <param name="allPawnThings">The list of all pawn things relevant to the dump.</param>
+        /// <param name="subject">The specific subject for which the export is generated, if applicable.</param>
+        /// <param name="targetBodies">The list of target body definitions to include in the export.</param>
+        /// <param name="allPawnThings">The list of all pawn things relevant to the export.</param>
         private static void ExportGroupingXml(
             StringBuilder builder,
             Settings settings,
-            DumpScope scope,
+            ExportScope scope,
             string timestamp,
             TestSubjectEntry subject,
             List<BodyDef> targetBodies,
@@ -266,7 +265,7 @@ namespace OverHaulers
 
             if (subject != null)
             {
-                builder.AppendLine($"  <ActiveSubject label=\"{DiagnosticExportUtility.EscapeXml(subject.Label)}\" raceDef=\"{subject.RaceDef?.defName ?? "None"}\" bodyDef=\"{subject.BodyDef?.defName ?? "None"}\" isLivePawn=\"{subject.IsLivePawn}\" />");
+                builder.AppendLine($"  <ActiveSubject label=\"{ExportUtilities.EscapeXml(subject.Label)}\" raceDef=\"{subject.RaceDef?.defName ?? "None"}\" bodyDef=\"{subject.BodyDef?.defName ?? "None"}\" isLivePawn=\"{subject.IsLivePawn}\" />");
             }
 
             builder.AppendLine("  <Archetypes>");
@@ -286,7 +285,7 @@ namespace OverHaulers
                     out float normArm,
                     out float normLeg);
 
-                builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{DiagnosticExportUtility.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{DiagnosticExportUtility.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
+                builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{ExportUtilities.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{ExportUtilities.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
                 builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{normTorso:P3}\" armsPct=\"{normArm:P3}\" legsPct=\"{normLeg:P3}\" />");
 
                 // Parallel Weight Vector Breakdown
@@ -302,7 +301,7 @@ namespace OverHaulers
                     string rootAttr = tmpl.RootPartIndex[idx] >= 0 ? $" rootPartIndex=\"{tmpl.RootPartIndex[idx]}\" depth=\"{tmpl.Depth[idx]}\" siblingCount=\"{tmpl.SiblingCount[idx]}\"" : "";
                     string flagsAttr = (tmpl.IsOrgan[idx] ? " isOrgan=\"true\"" : "") + (tmpl.WasReclaimedAsAnchor[idx] ? " wasReclaimedAsAnchor=\"true\"" : "");
 
-                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{DiagnosticExportUtility.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{DiagnosticExportUtility.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{DiagnosticExportUtility.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
+                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{ExportUtilities.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{ExportUtilities.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{ExportUtilities.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
                 }
                 builder.AppendLine("      </ParallelWeightBreakdown>");
 
@@ -318,7 +317,7 @@ namespace OverHaulers
                 builder.AppendLine($"      <AthleticImpacts count=\"{massModel.Ailments.Count}\">");
                 for (int a = 0; a < massModel.Ailments.Count; a++)
                 {
-                    builder.AppendLine($"        <Impact label=\"{DiagnosticExportUtility.EscapeXml(massModel.Ailments[a])}\" />");
+                    builder.AppendLine($"        <Impact label=\"{ExportUtilities.EscapeXml(massModel.Ailments[a])}\" />");
                 }
                 builder.AppendLine("      </AthleticImpacts>");
 
@@ -326,8 +325,8 @@ namespace OverHaulers
                 for (int g = 0; g < massModel.EvaluatedParts.Count; g++)
                 {
                     PartViewNode groupNode = massModel.EvaluatedParts[g];
-                    builder.AppendLine($"        <GroupNode label=\"{DiagnosticExportUtility.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset.ToString("R", CultureInfo.InvariantCulture)}\" prostheticKg=\"{groupNode.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)}\" athleticKg=\"{groupNode.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)}\" healthKg=\"{groupNode.HealthOffset.ToString("R", CultureInfo.InvariantCulture)}\">");
-                    DumpSubPartsXmlRecursive(builder, groupNode.SubParts, 10);
+                    builder.AppendLine($"        <GroupNode label=\"{ExportUtilities.EscapeXml(groupNode.Label)}\" subtotalKg=\"{groupNode.TotalOffset.ToString("R", CultureInfo.InvariantCulture)}\" prostheticKg=\"{groupNode.ProstheticOffset.ToString("R", CultureInfo.InvariantCulture)}\" athleticKg=\"{groupNode.AthleticOffset.ToString("R", CultureInfo.InvariantCulture)}\" healthKg=\"{groupNode.HealthOffset.ToString("R", CultureInfo.InvariantCulture)}\">");
+                    ExportSubPartsXmlRecursive(builder, groupNode.SubParts, 10);
                     builder.AppendLine("        </GroupNode>");
                 }
                 builder.AppendLine("      </InfoCardViewModelTree>");
@@ -337,7 +336,7 @@ namespace OverHaulers
                 builder.AppendLine($"      <TopologicalAnomalies status=\"{(anomalies.Count == 0 ? "Clean" : "AnomaliesDetected")}\" count=\"{anomalies.Count}\">");
                 for (int a = 0; a < anomalies.Count; a++)
                 {
-                    builder.AppendLine($"        <Anomaly description=\"{DiagnosticExportUtility.EscapeXml(anomalies[a])}\" />");
+                    builder.AppendLine($"        <Anomaly description=\"{ExportUtilities.EscapeXml(anomalies[a])}\" />");
                 }
                 builder.AppendLine("      </TopologicalAnomalies>");
 
@@ -404,13 +403,13 @@ namespace OverHaulers
         #region 6. TREE PARSING & ANOMALY SCANNER HELPERS
 
         /// <summary>
-        /// Recursively dumps the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
+        /// Recursively exports the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
         ///  any anomalies.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the sub-part details will be appended.</param>
-        /// <param name="subParts">The list of sub-parts to be dumped.</param>
+        /// <param name="subParts">The list of sub-parts to be exported.</param>
         /// <param name="depth">The current depth in the body part hierarchy, used for indentation.</param>
-        private static void DumpSubPartsRecursive(StringBuilder builder, List<PartViewNode> subParts, int depth)
+        private static void ExportSubPartsRecursive(StringBuilder builder, List<PartViewNode> subParts, int depth)
         {
             if (subParts == null || subParts.Count == 0) return;
 
@@ -429,7 +428,7 @@ namespace OverHaulers
 
                 if (node.SubParts != null && node.SubParts.Count > 0)
                 {
-                    DumpSubPartsRecursive(builder, node.SubParts, depth + 1);
+                    ExportSubPartsRecursive(builder, node.SubParts, depth + 1);
                 }
             }
         }
@@ -505,13 +504,13 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Recursively dumps the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
+        /// Recursively exports the details of sub-parts of a body part into the provided StringBuilder, including their conditions, weights, and
         ///  any anomalies.
         /// </summary>
         /// <param name="builder">The StringBuilder to which the XML representation of the sub-parts will be appended.</param>
-        /// <param name="subParts">The list of sub-part nodes to be dumped.</param>
+        /// <param name="subParts">The list of sub-part nodes to be exported.</param>
         /// <param name="indentSpaces">The number of spaces to use for indentation in the XML output.</param>
-        private static void DumpSubPartsXmlRecursive(StringBuilder builder, List<PartViewNode> subParts, int indentSpaces)
+        private static void ExportSubPartsXmlRecursive(StringBuilder builder, List<PartViewNode> subParts, int indentSpaces)
         {
             if (subParts == null || subParts.Count == 0) return;
             string indent = new string(' ', indentSpaces);
@@ -523,7 +522,7 @@ namespace OverHaulers
                 bool hasChildren = node.SubParts != null && node.SubParts.Count > 0;
 
                 builder.Append(indent).Append("<PartNode");
-                builder.Append(" label=\"").Append(DiagnosticExportUtility.EscapeXml(node.Label)).Append('"');
+                builder.Append(" label=\"").Append(ExportUtilities.EscapeXml(node.Label)).Append('"');
                 builder.Append(" def=\"").Append(defName).Append('"');
                 builder.Append(" isOrgan=\"").Append(node.IsOrgan).Append('"');
                 builder.Append(" weightPct=\"").Append((node.ProportionalWeight * 100f).ToString("F3")).Append("%\"");
@@ -534,7 +533,7 @@ namespace OverHaulers
                     builder.Append(" hasProsthetic=\"true\"");
                     if (!string.IsNullOrEmpty(node.ProstheticName))
                     {
-                        builder.Append(" prostheticName=\"").Append(DiagnosticExportUtility.EscapeXml(node.ProstheticName)).Append('"');
+                        builder.Append(" prostheticName=\"").Append(ExportUtilities.EscapeXml(node.ProstheticName)).Append('"');
                     }
                     builder.Append(" efficiencyRating=\"").Append(node.EfficiencyRating.ToString("R", CultureInfo.InvariantCulture)).Append('"');
                     if (node.IsInherited) builder.Append(" isInherited=\"true\"");
@@ -552,12 +551,12 @@ namespace OverHaulers
 
                 if (!string.IsNullOrEmpty(node.AthleticImplantName))
                 {
-                    builder.Append(" athleticImplant=\"").Append(DiagnosticExportUtility.EscapeXml(node.AthleticImplantName)).Append('"');
+                    builder.Append(" athleticImplant=\"").Append(ExportUtilities.EscapeXml(node.AthleticImplantName)).Append('"');
                 }
 
                 if (!string.IsNullOrEmpty(node.LocalAilmentName))
                 {
-                    builder.Append(" ailment=\"").Append(DiagnosticExportUtility.EscapeXml(node.LocalAilmentName)).Append('"');
+                    builder.Append(" ailment=\"").Append(ExportUtilities.EscapeXml(node.LocalAilmentName)).Append('"');
                 }
 
                 if (Math.Abs(node.ProstheticOffset) >= PawnDataRegistry.EfficiencyEpsilon)
@@ -576,7 +575,7 @@ namespace OverHaulers
                 if (hasChildren)
                 {
                     builder.AppendLine(">");
-                    DumpSubPartsXmlRecursive(builder, node.SubParts, indentSpaces + 2);
+                    ExportSubPartsXmlRecursive(builder, node.SubParts, indentSpaces + 2);
                     builder.Append(indent).AppendLine("</PartNode>");
                 }
                 else
@@ -597,12 +596,12 @@ namespace OverHaulers
         /// <param name="allPawnThings">The list of all available pawn things to choose from.</param>
         /// <returns>The resolved TestSubjectEntry based on the provided scope and available pawn things.</returns>
         private static TestSubjectEntry ResolveEvaluationSubject(
-            DumpScope scope, 
+            ExportScope scope, 
             TestSubjectEntry subject, 
             BodyDef body, 
             List<ThingDef> allPawnThings)
         {
-            if (scope == DumpScope.SelectedSubject && subject != null)
+            if (scope == ExportScope.SelectedSubject && subject != null)
             {
                 return subject;
             }

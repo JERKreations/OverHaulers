@@ -22,8 +22,8 @@ namespace OverHaulers
 
         // Expanded group labels
         private static readonly HashSet<string> expandedGroupLabels = new HashSet<string>();
-        private static readonly Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> groupingExport = GroupingDumpExporter.ExportGroupingDump;
-        private static readonly Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> topologyExport = TopologyDumpExporter.ExportTopologyDump;
+        private static readonly Func<Settings, ExportScope, ExportFormat, TestSubjectEntry, string> groupingExport = GroupingExportManager.ExportGroupingData;
+        private static readonly Func<Settings, ExportScope, ExportFormat, TestSubjectEntry, string> topologyExport = TopologyExportManager.ExportTopologyData;
 
         /// <summary>
         /// Clears the accordion expansion states and search filter in the medical planner.
@@ -64,7 +64,7 @@ namespace OverHaulers
             // LEFT COLUMN: Subject Picker, Topology Badge & Universal Sandbox Medical Planner (Flattened)
             float leftY = DrawLeftControlColumn(viewRect, columnStartY, leftWidth, isResetHovered, settings);
 
-            // RIGHT COLUMN: Top Action Toolbar (View Modes / Dumps) & Live Delta Preview
+            // RIGHT COLUMN: Top Action Toolbar (View Modes / Exports) & Live Delta Preview
             float rightY = DrawRightPreviewColumn(viewRect, columnStartY, leftWidth + gap, rightWidth, leftY - columnStartY, settings);
 
             currentY = Math.Max(leftY, rightY) + 10f;
@@ -141,7 +141,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Draws the top action toolbar of the right preview column, which includes radio buttons for selecting the view mode
-        /// (InfoCard or TopologyXRay) and corresponding dump menus.
+        /// (InfoCard or TopologyXRay) and corresponding export menus.
         /// </summary>
         private static float DrawTopActionBar(
             Rect inner, 
@@ -178,7 +178,7 @@ namespace OverHaulers
         private static float DrawExportViewControl(
             float x, float y, float width, string viewLabel, string exportLabel, float desiredExportWidth,
             TestBenchViewMode mode, string tooltipKey, Settings settings, string subjectLabel, string bodyDefName,
-            TestSubjectEntry activeSubject, Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> exportAction)
+            TestSubjectEntry activeSubject, Func<Settings, ExportScope, ExportFormat, TestSubjectEntry, string> exportAction)
         {
             float exportWidth = Math.Min(width, desiredExportWidth);
             float radioWidth = width - exportWidth - SettingsViewUtilities.CompactGap;
@@ -196,68 +196,68 @@ namespace OverHaulers
             }
             if (SettingsViewUtilities.DrawButton(exportRect, exportLabel, SettingsViewUtilities.CachedText(tooltipKey)))
             {
-                OpenDumpMenu(settings, subjectLabel, bodyDefName, activeSubject, exportAction);
+                OpenExportMenu(settings, subjectLabel, bodyDefName, activeSubject, exportAction);
             }
             if (SettingsViewUtilities.MeasuredTextWidth(viewLabel) + 30f > radioWidth) TooltipHandler.TipRegion(radioRect, viewLabel);
             return Math.Max(radioRect.yMax, exportRect.yMax) - y;
         }
 
         /// <summary>
-        /// Opens the dump menu for exporting test bench data in various formats.
+        /// Opens the export menu for exporting test bench data in various formats.
         /// </summary>
         /// <param name="settings">The settings object containing the test bench configuration.</param>
         /// <param name="subjectLabel">The label of the subject being tested.</param>
         /// <param name="bodyDefName">The body definition name of the subject.</param>
         /// <param name="activeSubject">The currently active test subject entry.</param>
-        /// <param name="exportAction">The action to invoke for exporting the dump data.</param>
-        private static void OpenDumpMenu(
+        /// <param name="exportAction">The action to invoke for exporting the data.</param>
+        private static void OpenExportMenu(
             Settings settings, 
             string subjectLabel, 
             string bodyDefName, 
             TestSubjectEntry activeSubject, 
-            Func<Settings, DumpScope, DumpFormat, TestSubjectEntry, string> exportAction)
+            Func<Settings, ExportScope, ExportFormat, TestSubjectEntry, string> exportAction)
         {
-            List<FloatMenuOption> dumpOptions = new List<FloatMenuOption>
+            List<FloatMenuOption> exportOptions = new List<FloatMenuOption>
             {
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_Selected".Translate(subjectLabel, "TXT").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.SelectedSubject, DumpFormat.Text, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.SelectedSubject, ExportFormat.Text, activeSubject);
+                    NotifyExportResult(path);
                 }),
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_Selected".Translate(subjectLabel, "XML").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.SelectedSubject, DumpFormat.Xml, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.SelectedSubject, ExportFormat.Xml, activeSubject);
+                    NotifyExportResult(path);
                 }),
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_Archetype".Translate(bodyDefName, "TXT").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.BodyDefArchetype, DumpFormat.Text, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.BodyDefArchetype, ExportFormat.Text, activeSubject);
+                    NotifyExportResult(path);
                 }),
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_Archetype".Translate(bodyDefName, "XML").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.BodyDefArchetype, DumpFormat.Xml, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.BodyDefArchetype, ExportFormat.Xml, activeSubject);
+                    NotifyExportResult(path);
                 }),
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_FullCensus".Translate("TXT").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.FullCensus, DumpFormat.Text, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.FullCensus, ExportFormat.Text, activeSubject);
+                    NotifyExportResult(path);
                 }),
                 new FloatMenuOption("OverHaulers_TestBench_ExportOption_FullCensus".Translate("XML").ToString(), () =>
                 {
-                    string path = exportAction(settings, DumpScope.FullCensus, DumpFormat.Xml, activeSubject);
-                    NotifyDumpResult(path);
+                    string path = exportAction(settings, ExportScope.FullCensus, ExportFormat.Xml, activeSubject);
+                    NotifyExportResult(path);
                 })
             };
-            Find.WindowStack.Add(new FloatMenu(dumpOptions));
+            Find.WindowStack.Add(new FloatMenu(exportOptions));
         }
 
         /// <summary>
-        /// Notifies the user of the result of a dump export operation.
+        /// Notifies the user of the result of an export operation.
         /// </summary>
-        /// <param name="path">The file path of the exported dump result.</param>
-        private static void NotifyDumpResult(string path)
+        /// <param name="path">The file path of the exported result.</param>
+        private static void NotifyExportResult(string path)
         {
             if (!string.IsNullOrEmpty(path))
             {
@@ -1438,7 +1438,7 @@ namespace OverHaulers
         #region 6. RIGHT COLUMN PREVIEW & COMPARISON BANNER
 
         /// <summary>
-        /// Draws the right-hand preview column, which includes the top action toolbar (View Modes & Dump options),
+        /// Draws the right-hand preview column, which includes the top action toolbar (View Modes & Export options),
         /// a comparison delta banner, and an info card breakdown of the simulated changes.
         /// </summary>
         /// <param name="inner">The inner rectangle defining the drawing area.</param>
@@ -1456,7 +1456,7 @@ namespace OverHaulers
             float leftColumnHeight, 
             Settings settings)
         {
-            // 1. Top Action Toolbar: (O) InfoCard [Dump ▼] | (O) X-Ray [Dump ▼]
+            // 1. Top Action Toolbar: (O) InfoCard [Export ▼] | (O) X-Ray [Export ▼]
             float rightY = DrawTopActionBar(inner, columnStartY, rightX, rightWidth, settings);
 
             string liveExplanation = TestBench.GetCachedExplanation(settings, out float biologicalBaseline);

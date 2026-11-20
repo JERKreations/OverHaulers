@@ -19,7 +19,7 @@ namespace OverHaulers
         {
             TestBench = 0,
             BenchmarkAndSelfCheck = 1,
-            DumpsAndTelemetry = 2
+            TelemetryAndMetrics = 2
         }
 
         private const float HeaderHeight = 36f;
@@ -41,12 +41,12 @@ namespace OverHaulers
         private static DevTab activeTab = DevTab.TestBench;
         private static Vector2 testBenchScrollPos = Vector2.zero;
         private static Vector2 benchmarkScrollPos = Vector2.zero;
-        private static Vector2 dumpsScrollPos = Vector2.zero;
+        private static Vector2 telemetryScrollPos = Vector2.zero;
 
         // Dynamic scroll content heights
         private static float lastTestBenchHeight = 1000f;
         private static float lastBenchmarkHeight = 1400f;
-        private static float lastDumpsHeight = 800f;
+        private static float lastTelemetryHeight = 800f;
 
         #endregion
 
@@ -122,8 +122,8 @@ namespace OverHaulers
                 case DevTab.BenchmarkAndSelfCheck:
                     DrawBenchmarkAndSelfCheckTab(canvasRect);
                     break;
-                case DevTab.DumpsAndTelemetry:
-                    DrawDumpsAndTelemetryTab(canvasRect);
+                case DevTab.TelemetryAndMetrics:
+                    DrawTelemetryAndMetricsTab(canvasRect);
                     break;
             }
         }
@@ -173,7 +173,7 @@ namespace OverHaulers
             if (SettingsViewUtilities.DrawButton(folderRect, folderText,
                 SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_DiagnosticsFolder_Tooltip")))
             {
-                DiagnosticExportUtility.OpenExportDirectory();
+                ExportUtilities.OpenExportDirectory();
             }
 
             curY = Math.Max(curY + Math.Max(HeaderHeight, titleHeight), Math.Max(folderRect.yMax, recompileRect.yMax)) + SettingsViewUtilities.CompactGap;
@@ -193,7 +193,7 @@ namespace OverHaulers
 
             DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.TestBench, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_TestBench"));
             DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.BenchmarkAndSelfCheck, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_Benchmark"));
-            DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.DumpsAndTelemetry, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_Telemetry"));
+            DrawSingleTab(inRect, ref tabX, ref tabY, ref rowHeight, DevTab.TelemetryAndMetrics, SettingsViewUtilities.CachedText("OverHaulers_ToolingDialog_Tab_Telemetry"));
 
             curY = tabY + rowHeight + 12f;
         }
@@ -256,11 +256,11 @@ namespace OverHaulers
             lastBenchmarkHeight = localY + ScrollContentBottomPadding;
         }
 
-        private void DrawDumpsAndTelemetryTab(Rect canvasRect)
+        private void DrawTelemetryAndMetricsTab(Rect canvasRect)
         {
-            float targetHeight = Math.Max(lastDumpsHeight, canvasRect.height);
+            float targetHeight = Math.Max(lastTelemetryHeight, canvasRect.height);
             Rect viewRect = new Rect(0f, 0f, canvasRect.width - SettingsViewUtilities.ScrollbarGutter, targetHeight);
-            Widgets.BeginScrollView(canvasRect, ref dumpsScrollPos, viewRect);
+            Widgets.BeginScrollView(canvasRect, ref telemetryScrollPos, viewRect);
 
             SettingsLayout ui = new SettingsLayout(viewRect);
 
@@ -332,7 +332,7 @@ namespace OverHaulers
                 mutationScope: SettingMutationScope.Solver);
 
             Widgets.EndScrollView();
-            lastDumpsHeight = ui.Y + ScrollContentBottomPadding;
+            lastTelemetryHeight = ui.Y + ScrollContentBottomPadding;
         }
 
         #endregion

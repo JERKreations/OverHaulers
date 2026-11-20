@@ -600,7 +600,7 @@ namespace OverHaulers
                 + BenchmarkRunner.FormatInvariant(surgeTier.MissNanoseconds, "F1") + " ns (miss) ["
                 + BenchmarkRunner.FormatInvariant(surgeTier.LoadFactorPercent, "F0") + "% load]");
             report.AppendLine(string.Format("{0} | {1} | {2} | {3} | {4} | {5}",
-                DiagnosticExportUtility.PadOrTruncate("Scenario", 32), "Readers", "     Reads/s", "   Writes/s", "Retry %", "Timeout %"));
+                ExportUtilities.PadOrTruncate("Scenario", 32), "Readers", "     Reads/s", "   Writes/s", "Retry %", "Timeout %"));
 
             for (int i = 0; i < ContentionResults.Count; i++)
             {
@@ -608,7 +608,7 @@ namespace OverHaulers
                 string scenario = r.WritesPerFrame > 0 ? "Busy frame (" + r.WritesPerFrame + " writes/frame)" : "Saturating writer (worst case)";
 
                 report.AppendLine(string.Format("{0} | {1,7} | {2,12} | {3,10} | {4,7} | {5,9}",
-                    DiagnosticExportUtility.PadOrTruncate(scenario, 32),
+                    ExportUtilities.PadOrTruncate(scenario, 32),
                     r.ReaderThreads,
                     BenchmarkRunner.FormatInvariant(r.ReadsPerSecond, "F0"),
                     BenchmarkRunner.FormatInvariant(r.WritesPerSecond, "F0"),

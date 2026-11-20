@@ -619,8 +619,8 @@ namespace OverHaulers
 
             report.AppendLine("-- Solver hot path (single thread, " + SampleCount + " samples per row after " + WarmupIterations + " warm-up solves) --");
             report.AppendLine(string.Format("{0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8}",
-                DiagnosticExportUtility.PadOrTruncate("Subject", 28),
-                DiagnosticExportUtility.PadOrTruncate("BodyDef", 24),
+                ExportUtilities.PadOrTruncate("Subject", 28),
+                ExportUtilities.PadOrTruncate("BodyDef", 24),
                 "Parts",
                 "Profile ",
                 " Median us",
@@ -634,14 +634,14 @@ namespace OverHaulers
                 BenchmarkSolverResult r = Results[i];
                 if (r.Failed)
                 {
-                    report.AppendLine(DiagnosticExportUtility.PadOrTruncate(r.SubjectLabel, 28) + " | " + DiagnosticExportUtility.PadOrTruncate(r.BodyDefName, 24)
+                    report.AppendLine(ExportUtilities.PadOrTruncate(r.SubjectLabel, 28) + " | " + ExportUtilities.PadOrTruncate(r.BodyDefName, 24)
                         + " | " + r.Profile + ": FAILED (sandbox pawn could not be solved)");
                     continue;
                 }
 
                 report.AppendLine(string.Format("{0} | {1} | {2,5} | {3,-8} | {4,10} | {5,10} | {6,10} | {7,10} | {8}",
-                    DiagnosticExportUtility.PadOrTruncate(r.SubjectLabel, 28),
-                    DiagnosticExportUtility.PadOrTruncate(r.BodyDefName, 24),
+                    ExportUtilities.PadOrTruncate(r.SubjectLabel, 28),
+                    ExportUtilities.PadOrTruncate(r.BodyDefName, 24),
                     r.PartCount,
                     r.Profile,
                     FormatInvariant(r.MedianUs, "F1"),
@@ -703,14 +703,14 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>Writes the report to the diagnostic dumps folder and returns the file path.</summary>
+        /// <summary>Writes the report to the diagnostic exports folder and returns the file path.</summary>
         public static string ExportReport()
         {
             pooledReportBuilder.Clear();
             try
             {
                 BuildReportToBuilder(pooledReportBuilder);
-                return DiagnosticExportUtility.WriteExportFile(pooledReportBuilder, "Benchmark", "Report");
+                return ExportUtilities.WriteExportFile(pooledReportBuilder, "Benchmark", "Report");
             }
             finally
             {

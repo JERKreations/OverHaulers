@@ -484,8 +484,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Clones a source hediff—preserving severity, age ticks, and internal comp states—and attaches it to <see cref="headlessPawn"/>.
-        /// Single Source of Truth shared by full pawn synchronization and partial branch reversion.
+        /// Clones a source hediff preserving severity, age ticks, and internal comp states, and attaches it to <see cref="headlessPawn"/>.
         /// </summary>
         /// <param name="src">The source hediff to clone and attach to the headless pawn.</param>
         /// <remarks>
