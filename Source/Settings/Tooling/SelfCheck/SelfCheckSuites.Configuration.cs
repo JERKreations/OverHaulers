@@ -42,29 +42,27 @@ namespace OverHaulers
         /// <summary>
         /// Verifies that every <see cref="CoreDefaults"/> tunable default lies inside its own Min/Max range,
         /// so a factory reset or an unconfigured baseline can never produce a value the sanitiser would clamp.
+        /// Ordered strictly by [SEC-01] through [SEC-07] (Solver) and [SEC-09] (Runtime).
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
         private static void CheckCoreDefaultsInRange(SelfCheckContext ctx)
         {
+            // [SEC-01] Global Modifiers & Scaling Intensity
             ExpectDefaultInRange("ProstheticScaling", CoreDefaults.ProstheticScaling, CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax);
             ExpectDefaultInRange("AthleticScaling", CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax);
             ExpectDefaultInRange("ConfigurablePercentileFloor", CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax);
-            ExpectDefaultInRange("TorsoAxialBias", CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax);
-            ExpectDefaultInRange("TorsoHpSensitivity", CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax);
-            ExpectDefaultInRange("LimbDepthDecayFactor", CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax);
-            ExpectDefaultInRange("ProstheticImpactConstant", CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax);
-            ExpectDefaultInRange("AthleticImpactConstant", CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax);
-            ExpectDefaultInRange("ReportMetricsIntervalHours", CoreDefaults.ReportMetricsIntervalHours, CoreDefaults.ReportMetricsIntervalHoursMin, CoreDefaults.ReportMetricsIntervalHoursMax);
-            ExpectDefaultInRange("PawnEvictionTimeframeHours", CoreDefaults.PawnEvictionTimeframeHours, CoreDefaults.PawnEvictionTimeframeHoursMin, CoreDefaults.PawnEvictionTimeframeHoursMax);
 
             float pMin = CoreDefaults.PercentageMin;
             float pMax = CoreDefaults.PercentageMax;
+
+            // [SEC-02] Core Body Group Budgets & Redistribution
             ExpectDefaultInRange("AnatomyWeightTorso", CoreDefaults.AnatomyWeightTorso, pMin, pMax);
             ExpectDefaultInRange("AnatomyWeightArm", CoreDefaults.AnatomyWeightArm, pMin, pMax);
             ExpectDefaultInRange("AnatomyWeightLeg", CoreDefaults.AnatomyWeightLeg, pMin, pMax);
             ExpectDefaultInRange("MissingArmsTorsoShare", CoreDefaults.MissingArmsTorsoShare, pMin, pMax);
             ExpectDefaultInRange("MissingLegsTorsoShare", CoreDefaults.MissingLegsTorsoShare, pMin, pMax);
 
+            // [SEC-03] Positive Systemic Coupling Weights
             ExpectDefaultInRange("TorsoPositiveBreathing", CoreDefaults.TorsoPositiveBreathing, pMin, pMax);
             ExpectDefaultInRange("TorsoPositiveBlood", CoreDefaults.TorsoPositiveBlood, pMin, pMax);
             ExpectDefaultInRange("TorsoPositiveMoving", CoreDefaults.TorsoPositiveMoving, pMin, pMax);
@@ -78,6 +76,7 @@ namespace OverHaulers
             ExpectDefaultInRange("LegPositiveMoving", CoreDefaults.LegPositiveMoving, pMin, pMax);
             ExpectDefaultInRange("LegPositiveManipulation", CoreDefaults.LegPositiveManipulation, pMin, pMax);
 
+            // [SEC-04] Negative Deficit Coupling Weights
             ExpectDefaultInRange("TorsoDeficitBreathing", CoreDefaults.TorsoDeficitBreathing, pMin, pMax);
             ExpectDefaultInRange("TorsoDeficitBlood", CoreDefaults.TorsoDeficitBlood, pMin, pMax);
             ExpectDefaultInRange("TorsoDeficitMoving", CoreDefaults.TorsoDeficitMoving, pMin, pMax);
@@ -89,6 +88,23 @@ namespace OverHaulers
             ExpectDefaultInRange("LegDeficitBreathing", CoreDefaults.LegDeficitBreathing, pMin, pMax);
             ExpectDefaultInRange("LegDeficitBlood", CoreDefaults.LegDeficitBlood, pMin, pMax);
             ExpectDefaultInRange("LegDeficitMoving", CoreDefaults.LegDeficitMoving, pMin, pMax);
+            ExpectDefaultInRange("LegDeficitManipulation", CoreDefaults.LegDeficitManipulation, pMin, pMax);
+
+            // [SEC-05] Torso Macro Topology
+            ExpectDefaultInRange("TorsoAxialBias", CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax);
+            ExpectDefaultInRange("TorsoHpSensitivity", CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax);
+
+            // [SEC-06] Limb Branch Topology & Pair Scaling
+            ExpectDefaultInRange("LimbDepthDecayFactor", CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax);
+            ExpectDefaultInRange("LimbPairDecayFactor", CoreDefaults.LimbPairDecayFactor, CoreDefaults.LimbPairDecayFactorMin, CoreDefaults.LimbPairDecayFactorMax);
+
+            // [SEC-07] Structural Scaling Constants
+            ExpectDefaultInRange("ProstheticImpactConstant", CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax);
+            ExpectDefaultInRange("AthleticImpactConstant", CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax);
+
+            // [SEC-09] Diagnostics & Telemetry (Runtime)
+            ExpectDefaultInRange("ReportMetricsIntervalHours", CoreDefaults.ReportMetricsIntervalHours, CoreDefaults.ReportMetricsIntervalHoursMin, CoreDefaults.ReportMetricsIntervalHoursMax);
+            ExpectDefaultInRange("PawnEvictionTimeframeHours", CoreDefaults.PawnEvictionTimeframeHours, CoreDefaults.PawnEvictionTimeframeHoursMin, CoreDefaults.PawnEvictionTimeframeHoursMax);
         }
 
         /// <summary>
@@ -119,27 +135,63 @@ namespace OverHaulers
             Expect.True(ConfigBounds.ClampFloat(2f, 0.5f, 0.1f, 5f, ref changed) == 2f && !changed, "In-range value was altered or reported as modified");
 
             SolverConfiguration bad = new SolverConfiguration(
-                float.NaN, true, true, true, true,
-                float.PositiveInfinity, CoreDefaults.AthleticImpactConstant, float.NegativeInfinity, CoreDefaults.ProstheticImpactConstant,
-                CoreDefaults.TorsoAxialBias, 99f, CoreDefaults.LimbDepthDecayFactor,
+                // [SEC-01] Global Modifiers & Scaling Intensity
+                true, true, true,
+                float.NegativeInfinity, float.PositiveInfinity,
+                float.NaN, true,
+
+                // [SEC-02] Core Body Group Budgets & Redistribution
+                float.PositiveInfinity, CoreDefaults.AnatomyWeightArm, CoreDefaults.AnatomyWeightLeg,
+                -5f, 5f,
+
+                // [SEC-03] Positive Systemic Coupling Weights
                 -5f, 7f, CoreDefaults.TorsoPositiveMoving, CoreDefaults.TorsoPositiveManipulation,
                 CoreDefaults.ArmPositiveBreathing, CoreDefaults.ArmPositiveBlood, CoreDefaults.ArmPositiveMoving, CoreDefaults.ArmPositiveManipulation,
                 CoreDefaults.LegPositiveBreathing, CoreDefaults.LegPositiveBlood, CoreDefaults.LegPositiveMoving, CoreDefaults.LegPositiveManipulation,
+
+                // [SEC-04] Negative Deficit Coupling Weights
                 CoreDefaults.TorsoDeficitBreathing, CoreDefaults.TorsoDeficitBlood, CoreDefaults.TorsoDeficitMoving, CoreDefaults.TorsoDeficitManipulation,
                 CoreDefaults.ArmDeficitBreathing, CoreDefaults.ArmDeficitBlood, CoreDefaults.ArmDeficitMoving, CoreDefaults.ArmDeficitManipulation,
                 CoreDefaults.LegDeficitBreathing, CoreDefaults.LegDeficitBlood, CoreDefaults.LegDeficitMoving, float.NaN,
-                float.PositiveInfinity, CoreDefaults.AnatomyWeightArm, CoreDefaults.AnatomyWeightLeg);
+
+                // [SEC-05] Torso Macro Topology
+                CoreDefaults.TorsoAxialBias, 99f,
+
+                // [SEC-06] Limb Branch Topology & Pair Scaling
+                CoreDefaults.LimbDepthDecayFactor, -10f,
+
+                // [SEC-07] Structural Scaling Constants
+                100f, -10f);
 
             SolverConfiguration fixedSolver = bad.Sanitized(out changed);
             Expect.True(changed, "Invalid solver configuration was not reported as modified");
+
+            // [SEC-01] Verification
             Expect.True(fixedSolver.ConfigurablePercentileFloor == CoreDefaults.ConfigurablePercentileFloor, "NaN percentile floor did not fall back to its default");
-            Expect.True(fixedSolver.AthleticScaling == CoreDefaults.AthleticScalingMax, "+Infinity athletic scaling did not clamp to max");
             Expect.True(fixedSolver.ProstheticScaling == CoreDefaults.ProstheticScalingMin, "-Infinity prosthetic scaling did not clamp to min");
-            Expect.True(fixedSolver.TorsoHpSensitivity == CoreDefaults.TorsoHpSensitivityMax, "Oversized torso sensitivity did not clamp to max");
+            Expect.True(fixedSolver.AthleticScaling == CoreDefaults.AthleticScalingMax, "+Infinity athletic scaling did not clamp to max");
+
+            // [SEC-02] Verification
+            Expect.True(fixedSolver.BudgetCorePart == CoreDefaults.PercentageMax, "+Infinity budget did not clamp to max");
+            Expect.True(fixedSolver.MissingArmsTorsoShare == CoreDefaults.PercentageMin, "Negative missing arms share did not clamp to min");
+            Expect.True(fixedSolver.MissingLegsTorsoShare == CoreDefaults.PercentageMax, "Oversized missing legs share did not clamp to max");
+
+            // [SEC-03] Verification
             Expect.True(fixedSolver.TorsoPositiveBreathing == CoreDefaults.PercentageMin, "Negative weighting did not clamp to min");
             Expect.True(fixedSolver.TorsoPositiveBlood == CoreDefaults.PercentageMax, "Oversized weighting did not clamp to max");
+
+            // [SEC-04] Verification
             Expect.True(fixedSolver.LegDeficitManipulation == CoreDefaults.LegDeficitManipulation, "NaN weighting did not fall back to its default");
-            Expect.True(fixedSolver.BudgetCorePart == CoreDefaults.PercentageMax, "+Infinity budget did not clamp to max");
+
+            // [SEC-05] Verification
+            Expect.True(fixedSolver.TorsoHpSensitivity == CoreDefaults.TorsoHpSensitivityMax, "Oversized torso sensitivity did not clamp to max");
+
+            // [SEC-06] Verification
+            Expect.True(fixedSolver.LimbPairDecayFactor == CoreDefaults.LimbPairDecayFactorMin, "Negative limb pair decay did not clamp to min");
+
+            // [SEC-07] Verification
+            Expect.True(fixedSolver.ProstheticImpactConstant == CoreDefaults.ProstheticImpactConstantMax, "Oversized prosthetic impact constant did not clamp to max");
+            Expect.True(fixedSolver.AthleticImpactConstant == CoreDefaults.AthleticImpactConstantMin, "Negative athletic impact constant did not clamp to min");
 
             fixedSolver.Sanitized(out changed);
             Expect.True(!changed, "Sanitising is not idempotent");

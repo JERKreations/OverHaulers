@@ -235,25 +235,43 @@ namespace OverHaulers
 
             SolverConfiguration enabledProsthetics = CoreDefaults.CreateDefaultSolverConfiguration();
             SolverConfiguration disabledProsthetics = new SolverConfiguration(
-                enabledProsthetics.ConfigurablePercentileFloor,
+                // [SEC-01]
                 false, // enableProsthetics = false
                 enabledProsthetics.EnableAthletics,
                 enabledProsthetics.EnablePartHealth,
-                enabledProsthetics.EnableHardCompatibilitySafetyFloor,
-                enabledProsthetics.AthleticScaling,
-                enabledProsthetics.AthleticImpactConstant,
                 enabledProsthetics.ProstheticScaling,
-                enabledProsthetics.ProstheticImpactConstant,
-                enabledProsthetics.TorsoAxialBias,
-                enabledProsthetics.TorsoHpSensitivity,
-                enabledProsthetics.LimbDepthDecayFactor,
+                enabledProsthetics.AthleticScaling,
+                enabledProsthetics.ConfigurablePercentileFloor,
+                enabledProsthetics.EnableHardCompatibilitySafetyFloor,
+
+                // [SEC-02]
+                enabledProsthetics.BudgetCorePart,
+                enabledProsthetics.BudgetManipulationPart,
+                enabledProsthetics.BudgetMovingPart,
+                enabledProsthetics.MissingArmsTorsoShare,
+                enabledProsthetics.MissingLegsTorsoShare,
+
+                // [SEC-03]
                 enabledProsthetics.TorsoPositiveBreathing, enabledProsthetics.TorsoPositiveBlood, enabledProsthetics.TorsoPositiveMoving, enabledProsthetics.TorsoPositiveManipulation,
                 enabledProsthetics.ArmPositiveBreathing,   enabledProsthetics.ArmPositiveBlood,   enabledProsthetics.ArmPositiveMoving,   enabledProsthetics.ArmPositiveManipulation,
                 enabledProsthetics.LegPositiveBreathing,   enabledProsthetics.LegPositiveBlood,   enabledProsthetics.LegPositiveMoving,   enabledProsthetics.LegPositiveManipulation,
+
+                // [SEC-04]
                 enabledProsthetics.TorsoDeficitBreathing,  enabledProsthetics.TorsoDeficitBlood,  enabledProsthetics.TorsoDeficitMoving,  enabledProsthetics.TorsoDeficitManipulation,
                 enabledProsthetics.ArmDeficitBreathing,    enabledProsthetics.ArmDeficitBlood,    enabledProsthetics.ArmDeficitMoving,    enabledProsthetics.ArmDeficitManipulation,
                 enabledProsthetics.LegDeficitBreathing,    enabledProsthetics.LegDeficitBlood,    enabledProsthetics.LegDeficitMoving,    enabledProsthetics.LegDeficitManipulation,
-                enabledProsthetics.BudgetCorePart,         enabledProsthetics.BudgetManipulationPart, enabledProsthetics.BudgetMovingPart);
+
+                // [SEC-05]
+                enabledProsthetics.TorsoAxialBias,
+                enabledProsthetics.TorsoHpSensitivity,
+
+                // [SEC-06]
+                enabledProsthetics.LimbDepthDecayFactor,
+                enabledProsthetics.LimbPairDecayFactor,
+
+                // [SEC-07]
+                enabledProsthetics.ProstheticImpactConstant,
+                enabledProsthetics.AthleticImpactConstant);
 
             BiologicalCapacitySnapshot boostedSnapshot = new BiologicalCapacitySnapshot
             {

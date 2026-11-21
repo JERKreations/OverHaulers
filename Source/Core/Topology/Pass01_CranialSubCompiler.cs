@@ -81,8 +81,15 @@ namespace OverHaulers
             }
 
             // BREAKPOINT ANCHOR: Pre-populate DepthSortedIndices in Pass 1 for downstream sweeps
-            // Sort parallel arrays without a custom comparison delegate or closure.
-            Array.Sort(skeletalDepths, template.DepthSortedIndices);
+            // 64-bit composite key sort: (Depth << 32) | SlotIndex guarantees 100% stable topological ordering
+            // and prevents unstable Introsort partitioning from breaking bilateral left/right limb pairing.
+            long[] depthSortKeys = new long[partCount];
+            for (int i = 0; i < partCount; i++)
+            {
+                depthSortKeys[i] = ((long)skeletalDepths[i] << 32) | (uint)i;
+                template.DepthSortedIndices[i] = i;
+            }
+            Array.Sort(depthSortKeys, template.DepthSortedIndices);
 
             // 3. Propagate cranial ancestry in verified parent-before-child topological depth order
             for (int d = 0; d < partCount; d++)

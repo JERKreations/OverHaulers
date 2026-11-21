@@ -3,142 +3,167 @@ namespace OverHaulers
     /// <summary>
     /// [CORE-CONF-01] IMMUTABLE VALUE-TYPE SOLVER CONFIGURATION
     /// Pure data transfer snapshot providing tuning parameters to Core mathematical solvers and topology compilers.
+    /// Ordered strictly in accordance with [SEC-01] through [SEC-07] domain taxonomy.
     /// Resides under Source/Core/Configs/.
     /// </summary>
     public readonly struct SolverConfiguration
     {
         #region 1. INSTANCE FIELDS & IMMUTABLE BACKING STATE
 
-        public readonly float ConfigurablePercentileFloor;
+        // [SEC-01] Global Modifiers & Scaling Intensity
         public readonly bool EnableProsthetics;
         public readonly bool EnableAthletics;
         public readonly bool EnablePartHealth;
+        public readonly float ProstheticScaling;
+        public readonly float AthleticScaling;
+        public readonly float ConfigurablePercentileFloor;
         public readonly bool EnableHardCompatibilitySafetyFloor;
 
-        public readonly float AthleticScaling;
-        public readonly float AthleticImpactConstant;
-        public readonly float ProstheticScaling;
-        public readonly float ProstheticImpactConstant;
+        // [SEC-02] Core Body Group Budgets & Redistribution
+        public readonly float BudgetCorePart;
+        public readonly float BudgetManipulationPart;
+        public readonly float BudgetMovingPart;
+        public readonly float MissingArmsTorsoShare;
+        public readonly float MissingLegsTorsoShare;
 
-        public readonly float TorsoAxialBias;
-        public readonly float TorsoHpSensitivity;
-        public readonly float LimbDepthDecayFactor;
-
+        // [SEC-03] Positive Systemic Coupling Weights
         public readonly float TorsoPositiveBreathing;
         public readonly float TorsoPositiveBlood;
         public readonly float TorsoPositiveMoving;
         public readonly float TorsoPositiveManipulation;
-
         public readonly float ArmPositiveBreathing;
         public readonly float ArmPositiveBlood;
         public readonly float ArmPositiveMoving;
         public readonly float ArmPositiveManipulation;
-
         public readonly float LegPositiveBreathing;
         public readonly float LegPositiveBlood;
         public readonly float LegPositiveMoving;
         public readonly float LegPositiveManipulation;
 
+        // [SEC-04] Negative Deficit Coupling Weights
         public readonly float TorsoDeficitBreathing;
         public readonly float TorsoDeficitBlood;
         public readonly float TorsoDeficitMoving;
         public readonly float TorsoDeficitManipulation;
-
         public readonly float ArmDeficitBreathing;
         public readonly float ArmDeficitBlood;
         public readonly float ArmDeficitMoving;
         public readonly float ArmDeficitManipulation;
-
         public readonly float LegDeficitBreathing;
         public readonly float LegDeficitBlood;
         public readonly float LegDeficitMoving;
         public readonly float LegDeficitManipulation;
 
-        public readonly float BudgetCorePart;
-        public readonly float BudgetManipulationPart;
-        public readonly float BudgetMovingPart;
+        // [SEC-05] Torso Macro Topology
+        public readonly float TorsoAxialBias;
+        public readonly float TorsoHpSensitivity;
 
-        public readonly float MissingArmsTorsoShare;
-        public readonly float MissingLegsTorsoShare;
+        // [SEC-06] Limb Branch Topology & Pair Scaling
+        public readonly float LimbDepthDecayFactor;
+        public readonly float LimbPairDecayFactor;
+
+        // [SEC-07] Structural Scaling Constants
+        public readonly float ProstheticImpactConstant;
+        public readonly float AthleticImpactConstant;
 
         #endregion
 
         #region 2. LIFECYCLE: CONSTRUCTOR
 
         public SolverConfiguration(
-            float configurablePercentileFloor,
+            // [SEC-01] Global Modifiers & Scaling Intensity
             bool enableProsthetics,
             bool enableAthletics,
             bool enablePartHealth,
-            bool enableHardCompatibilitySafetyFloor,
-            float athleticScaling,
-            float athleticImpactConstant,
             float prostheticScaling,
-            float prostheticImpactConstant,
-            float torsoAxialBias,
-            float torsoHpSensitivity,
-            float limbDepthDecayFactor,
+            float athleticScaling,
+            float configurablePercentileFloor,
+            bool enableHardCompatibilitySafetyFloor,
+
+            // [SEC-02] Core Body Group Budgets & Redistribution
+            float budgetCore,
+            float budgetManip,
+            float budgetMove,
+            float missingArmsTorsoShare,
+            float missingLegsTorsoShare,
+
+            // [SEC-03] Positive Systemic Coupling Weights
             float torsoPosBreathe, float torsoPosBlood, float torsoPosMove, float torsoPosManip,
             float armPosBreathe,   float armPosBlood,   float armPosMove,   float armPosManip,
             float legPosBreathe,   float legPosBlood,   float legPosMove,   float legPosManip,
+
+            // [SEC-04] Negative Deficit Coupling Weights
             float torsoDefBreathe, float torsoDefBlood, float torsoDefMove, float torsoDefManip,
             float armDefBreathe,   float armDefBlood,   float armDefMove,   float armDefManip,
             float legDefBreathe,   float legDefBlood,   float legDefMove,   float legDefManip,
-            float budgetCore,      float budgetManip,   float budgetMove,
-            float missingArmsTorsoShare = CoreDefaults.MissingArmsTorsoShare,
-            float missingLegsTorsoShare = CoreDefaults.MissingLegsTorsoShare)
+
+            // [SEC-05] Torso Macro Topology
+            float torsoAxialBias,
+            float torsoHpSensitivity,
+
+            // [SEC-06] Limb Branch Topology & Pair Scaling
+            float limbDepthDecayFactor,
+            float limbPairDecayFactor,
+
+            // [SEC-07] Structural Scaling Constants
+            float prostheticImpactConstant,
+            float athleticImpactConstant)
         {
-            ConfigurablePercentileFloor = configurablePercentileFloor;
+            // [SEC-01]
             EnableProsthetics = enableProsthetics;
             EnableAthletics = enableAthletics;
             EnablePartHealth = enablePartHealth;
+            ProstheticScaling = prostheticScaling;
+            AthleticScaling = athleticScaling;
+            ConfigurablePercentileFloor = configurablePercentileFloor;
             EnableHardCompatibilitySafetyFloor = enableHardCompatibilitySafetyFloor;
 
-            AthleticScaling = athleticScaling;
-            AthleticImpactConstant = athleticImpactConstant;
-            ProstheticScaling = prostheticScaling;
-            ProstheticImpactConstant = prostheticImpactConstant;
+            // [SEC-02]
+            BudgetCorePart = budgetCore;
+            BudgetManipulationPart = budgetManip;
+            BudgetMovingPart = budgetMove;
+            MissingArmsTorsoShare = missingArmsTorsoShare;
+            MissingLegsTorsoShare = missingLegsTorsoShare;
 
-            TorsoAxialBias = torsoAxialBias;
-            TorsoHpSensitivity = torsoHpSensitivity;
-            LimbDepthDecayFactor = limbDepthDecayFactor;
-
+            // [SEC-03]
             TorsoPositiveBreathing = torsoPosBreathe;
             TorsoPositiveBlood = torsoPosBlood;
             TorsoPositiveMoving = torsoPosMove;
             TorsoPositiveManipulation = torsoPosManip;
-
             ArmPositiveBreathing = armPosBreathe;
             ArmPositiveBlood = armPosBlood;
             ArmPositiveMoving = armPosMove;
             ArmPositiveManipulation = armPosManip;
-
             LegPositiveBreathing = legPosBreathe;
             LegPositiveBlood = legPosBlood;
             LegPositiveMoving = legPosMove;
             LegPositiveManipulation = legPosManip;
 
+            // [SEC-04]
             TorsoDeficitBreathing = torsoDefBreathe;
             TorsoDeficitBlood = torsoDefBlood;
             TorsoDeficitMoving = torsoDefMove;
             TorsoDeficitManipulation = torsoDefManip;
-
             ArmDeficitBreathing = armDefBreathe;
             ArmDeficitBlood = armDefBlood;
             ArmDeficitMoving = armDefMove;
             ArmDeficitManipulation = armDefManip;
-
             LegDeficitBreathing = legDefBreathe;
             LegDeficitBlood = legDefBlood;
             LegDeficitMoving = legDefMove;
             LegDeficitManipulation = legDefManip;
 
-            BudgetCorePart = budgetCore;
-            BudgetManipulationPart = budgetManip;
-            BudgetMovingPart = budgetMove;
+            // [SEC-05]
+            TorsoAxialBias = torsoAxialBias;
+            TorsoHpSensitivity = torsoHpSensitivity;
 
-            MissingArmsTorsoShare = missingArmsTorsoShare;
-            MissingLegsTorsoShare = missingLegsTorsoShare;
+            // [SEC-06]
+            LimbDepthDecayFactor = limbDepthDecayFactor;
+            LimbPairDecayFactor = limbPairDecayFactor;
+
+            // [SEC-07]
+            ProstheticImpactConstant = prostheticImpactConstant;
+            AthleticImpactConstant = athleticImpactConstant;
         }
 
         #endregion
@@ -155,18 +180,23 @@ namespace OverHaulers
         {
             bool c = false;
             SolverConfiguration result = new SolverConfiguration(
-                ConfigBounds.ClampFloat(ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax, ref c),
+                // [SEC-01]
                 EnableProsthetics,
                 EnableAthletics,
                 EnablePartHealth,
-                EnableHardCompatibilitySafetyFloor,
-                ConfigBounds.ClampFloat(AthleticScaling, CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax, ref c),
-                ConfigBounds.ClampFloat(AthleticImpactConstant, CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax, ref c),
                 ConfigBounds.ClampFloat(ProstheticScaling, CoreDefaults.ProstheticScaling, CoreDefaults.ProstheticScalingMin, CoreDefaults.ProstheticScalingMax, ref c),
-                ConfigBounds.ClampFloat(ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax, ref c),
-                ConfigBounds.ClampFloat(TorsoAxialBias, CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax, ref c),
-                ConfigBounds.ClampFloat(TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax, ref c),
-                ConfigBounds.ClampFloat(LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax, ref c),
+                ConfigBounds.ClampFloat(AthleticScaling, CoreDefaults.AthleticScaling, CoreDefaults.AthleticScalingMin, CoreDefaults.AthleticScalingMax, ref c),
+                ConfigBounds.ClampFloat(ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloor, CoreDefaults.ConfigurablePercentileFloorMin, CoreDefaults.ConfigurablePercentileFloorMax, ref c),
+                EnableHardCompatibilitySafetyFloor,
+
+                // [SEC-02]
+                ConfigBounds.ClampPercent(BudgetCorePart, CoreDefaults.AnatomyWeightTorso, ref c),
+                ConfigBounds.ClampPercent(BudgetManipulationPart, CoreDefaults.AnatomyWeightArm, ref c),
+                ConfigBounds.ClampPercent(BudgetMovingPart, CoreDefaults.AnatomyWeightLeg, ref c),
+                ConfigBounds.ClampPercent(MissingArmsTorsoShare, CoreDefaults.MissingArmsTorsoShare, ref c),
+                ConfigBounds.ClampPercent(MissingLegsTorsoShare, CoreDefaults.MissingLegsTorsoShare, ref c),
+
+                // [SEC-03]
                 ConfigBounds.ClampPercent(TorsoPositiveBreathing, CoreDefaults.TorsoPositiveBreathing, ref c),
                 ConfigBounds.ClampPercent(TorsoPositiveBlood, CoreDefaults.TorsoPositiveBlood, ref c),
                 ConfigBounds.ClampPercent(TorsoPositiveMoving, CoreDefaults.TorsoPositiveMoving, ref c),
@@ -179,6 +209,8 @@ namespace OverHaulers
                 ConfigBounds.ClampPercent(LegPositiveBlood, CoreDefaults.LegPositiveBlood, ref c),
                 ConfigBounds.ClampPercent(LegPositiveMoving, CoreDefaults.LegPositiveMoving, ref c),
                 ConfigBounds.ClampPercent(LegPositiveManipulation, CoreDefaults.LegPositiveManipulation, ref c),
+
+                // [SEC-04]
                 ConfigBounds.ClampPercent(TorsoDeficitBreathing, CoreDefaults.TorsoDeficitBreathing, ref c),
                 ConfigBounds.ClampPercent(TorsoDeficitBlood, CoreDefaults.TorsoDeficitBlood, ref c),
                 ConfigBounds.ClampPercent(TorsoDeficitMoving, CoreDefaults.TorsoDeficitMoving, ref c),
@@ -191,11 +223,19 @@ namespace OverHaulers
                 ConfigBounds.ClampPercent(LegDeficitBlood, CoreDefaults.LegDeficitBlood, ref c),
                 ConfigBounds.ClampPercent(LegDeficitMoving, CoreDefaults.LegDeficitMoving, ref c),
                 ConfigBounds.ClampPercent(LegDeficitManipulation, CoreDefaults.LegDeficitManipulation, ref c),
-                ConfigBounds.ClampPercent(BudgetCorePart, CoreDefaults.AnatomyWeightTorso, ref c),
-                ConfigBounds.ClampPercent(BudgetManipulationPart, CoreDefaults.AnatomyWeightArm, ref c),
-                ConfigBounds.ClampPercent(BudgetMovingPart, CoreDefaults.AnatomyWeightLeg, ref c),
-                ConfigBounds.ClampPercent(MissingArmsTorsoShare, CoreDefaults.MissingArmsTorsoShare, ref c),
-                ConfigBounds.ClampPercent(MissingLegsTorsoShare, CoreDefaults.MissingLegsTorsoShare, ref c));
+
+                // [SEC-05]
+                ConfigBounds.ClampFloat(TorsoAxialBias, CoreDefaults.TorsoAxialBias, CoreDefaults.TorsoAxialBiasMin, CoreDefaults.TorsoAxialBiasMax, ref c),
+                ConfigBounds.ClampFloat(TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivity, CoreDefaults.TorsoHpSensitivityMin, CoreDefaults.TorsoHpSensitivityMax, ref c),
+
+                // [SEC-06]
+                ConfigBounds.ClampFloat(LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactor, CoreDefaults.LimbDepthDecayFactorMin, CoreDefaults.LimbDepthDecayFactorMax, ref c),
+                ConfigBounds.ClampFloat(LimbPairDecayFactor, CoreDefaults.LimbPairDecayFactor, CoreDefaults.LimbPairDecayFactorMin, CoreDefaults.LimbPairDecayFactorMax, ref c),
+
+                // [SEC-07]
+                ConfigBounds.ClampFloat(ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstant, CoreDefaults.ProstheticImpactConstantMin, CoreDefaults.ProstheticImpactConstantMax, ref c),
+                ConfigBounds.ClampFloat(AthleticImpactConstant, CoreDefaults.AthleticImpactConstant, CoreDefaults.AthleticImpactConstantMin, CoreDefaults.AthleticImpactConstantMax, ref c)
+            );
 
             wasModified = c;
             return result;

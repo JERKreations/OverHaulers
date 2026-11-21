@@ -9,7 +9,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Verifies that every compiled body template matches its body definition, maintains acyclic parent-before-child
-        /// depth ordering, and conserves regional and total static weight budgets.
+        /// depth ordering, and conserves dynamic regional and static weight budgets according to active pair scaling.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
         private static void CheckTopologyIntegrity(SelfCheckContext ctx)
@@ -103,24 +103,67 @@ namespace OverHaulers
                     visitedScratch[idx] = true;
                 }
 
+                // 1. Torso structural column always normalizes to 1.0 across axial & peripheral bones
                 if (torsoSum > 0f)
                 {
                     Expect.True(System.Math.Abs(torsoSum - 1.0f) < 0.002f, who + ": WeightCore sum expected ~1.0 but got " + torsoSum);
                 }
 
-                if (template.Counts.TotalManipulationRoots > 0)
+                // 2. Compute expected multi-limb channel sums based on root count and pair decay
+                int totalManipRoots = template.Counts.TotalManipulationRoots;
+                int totalMovingRoots = template.Counts.TotalMovingRoots;
+                float pairDecay = activeConfig.LimbPairDecayFactor;
+
+                int baseManipRoots = System.Math.Min(2, totalManipRoots);
+                float baseManipDivisor = baseManipRoots <= 1 ? 1.0f : (float)baseManipRoots;
+
+                int baseMoveRoots = System.Math.Min(2, totalMovingRoots);
+                float baseMoveDivisor = baseMoveRoots <= 1 ? 1.0f : (float)baseMoveRoots;
+
+                float expectedManipSum = 0f;
+                for (int r = 0; r < totalManipRoots; r++)
                 {
-                    Expect.True(System.Math.Abs(manipSum - 1.0f) < 0.002f, who + ": WeightManipulation sum expected ~1.0 but got " + manipSum);
+                    int pairIdx = r / 2;
+                    expectedManipSum += Pass04_AppendageWeightSubCompiler.FastIntPow(pairDecay, pairIdx) / baseManipDivisor;
                 }
 
-                if (template.Counts.TotalMovingRoots > 0)
+                float expectedMoveSum = 0f;
+                for (int r = 0; r < totalMovingRoots; r++)
                 {
-                    Expect.True(System.Math.Abs(moveSum - 1.0f) < 0.002f, who + ": WeightMoving sum expected ~1.0 but got " + moveSum);
+                    int pairIdx = r / 2;
+                    expectedMoveSum += Pass04_AppendageWeightSubCompiler.FastIntPow(pairDecay, pairIdx) / baseMoveDivisor;
                 }
 
-                if (hasNonZeroSettingsBudget && (torsoSum > 0f || template.Counts.TotalManipulationRoots > 0 || template.Counts.TotalMovingRoots > 0))
+                // 3. Verify channel weight sums against mathematical expectation
+                if (totalManipRoots > 0)
                 {
-                    Expect.True(System.Math.Abs(staticSum - 1.0f) < 0.002f, who + ": StaticWeightFactors sum expected ~1.0 but got " + staticSum);
+                    Expect.True(System.Math.Abs(manipSum - expectedManipSum) < 0.002f, 
+                        who + ": WeightManipulation sum expected ~" + expectedManipSum.ToString("F3") + " but got " + manipSum.ToString("F3"));
+                }
+
+                if (totalMovingRoots > 0)
+                {
+                    Expect.True(System.Math.Abs(moveSum - expectedMoveSum) < 0.002f, 
+                        who + ": WeightMoving sum expected ~" + expectedMoveSum.ToString("F3") + " but got " + moveSum.ToString("F3"));
+                }
+
+                // 4. Verify static weight factors sum against active normalized regional budgets
+                PartCounts counts = template.Counts;
+                SystemicEvaluationContext.ResolveNormalizedBudgets(
+                    in counts,
+                    in activeConfig,
+                    out float normTorso,
+                    out float normManip,
+                    out float normMove);
+
+                float expectedStaticSum = ((torsoSum > 0f ? 1.0f : 0f) * normTorso)
+                                        + (expectedManipSum * normManip)
+                                        + (expectedMoveSum * normMove);
+
+                if (hasNonZeroSettingsBudget && (torsoSum > 0f || totalManipRoots > 0 || totalMovingRoots > 0))
+                {
+                    Expect.True(System.Math.Abs(staticSum - expectedStaticSum) < 0.002f, 
+                        who + ": StaticWeightFactors sum expected ~" + expectedStaticSum.ToString("F3") + " but got " + staticSum.ToString("F3"));
                 }
 
                 checkedCount++;

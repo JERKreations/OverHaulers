@@ -53,9 +53,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. [SEC-06] LIMB DEPTH DECAY FIELDS
+        #region 4. [SEC-06] LIMB BRANCH TOPOLOGY & PAIR SCALING FIELDS
 
         public float limbDepthDecayFactor = CoreDefaults.LimbDepthDecayFactor;
+        public float limbPairDecayFactor = CoreDefaults.LimbPairDecayFactor;
 
         #endregion
 
@@ -114,6 +115,7 @@ namespace OverHaulers
         public void ResetLimbDecay()
         {
             limbDepthDecayFactor = CoreDefaults.LimbDepthDecayFactor;
+            limbPairDecayFactor = CoreDefaults.LimbPairDecayFactor;
         }
 
         #endregion
@@ -154,6 +156,7 @@ namespace OverHaulers
             Scribe_Values.Look(ref torsoAxialBias, "torsoAxialBias", CoreDefaults.TorsoAxialBias);
             Scribe_Values.Look(ref torsoHpSensitivity, "torsoHpSensitivity", CoreDefaults.TorsoHpSensitivity);
             Scribe_Values.Look(ref limbDepthDecayFactor, "limbDepthDecayFactor", CoreDefaults.LimbDepthDecayFactor);
+            Scribe_Values.Look(ref limbPairDecayFactor, "limbPairDecayFactor", CoreDefaults.LimbPairDecayFactor);
         }
 
         private void SanitizeWeightings(in SolverConfiguration solver)
@@ -187,6 +190,7 @@ namespace OverHaulers
             torsoAxialBias = solver.TorsoAxialBias;
             torsoHpSensitivity = solver.TorsoHpSensitivity;
             limbDepthDecayFactor = solver.LimbDepthDecayFactor;
+            limbPairDecayFactor = solver.LimbPairDecayFactor;
         }
 
         #endregion

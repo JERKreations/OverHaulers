@@ -115,6 +115,12 @@ namespace OverHaulers
         /// <summary>Same-type unforked chain depth from the limb branch root (0 for non-limb parts).</summary>
         public int[] Depth { get; }
 
+        /// <summary>Zero-based pair index within the manipulation channel (0 for primary pair, 1 for second, etc.).</summary>
+        public int[] ManipPairIndex { get; }
+
+        /// <summary>Zero-based pair index within the locomotion channel (0 for primary pair, 1 for second, etc.).</summary>
+        public int[] MovingPairIndex { get; }
+
         /// <summary>Sibling count sharing this part's (Type, RootPartIndex, Depth) bucket (1 for non-limb parts).</summary>
         public int[] SiblingCount { get; }
 
@@ -130,8 +136,7 @@ namespace OverHaulers
         /// <summary>
         /// True if this part was classified as a limb type by tag/ancestry but reassigned back to CorePart by the
         /// anchor-bridge heuristic (e.g. Clavicle-like connective bones). Flags the fragile reclassification path
-        /// for audit visibility.
-        /// </summary>
+        /// for audit visibility.</summary>
         public bool[] WasReclaimedAsAnchor { get; }
 
         #endregion
@@ -194,6 +199,8 @@ namespace OverHaulers
             TagsDisplay = new string[PartCount];
             GroupsDisplay = new string[PartCount];
             Depth = new int[PartCount];
+            ManipPairIndex = new int[PartCount];
+            MovingPairIndex = new int[PartCount];
             SiblingCount = new int[PartCount];
             RootPartIndex = new int[PartCount];
             WeightModels = new LimbWeightModel[PartCount];

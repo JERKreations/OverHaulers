@@ -97,23 +97,27 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6. [SEC-06] LIMB DEPTH DECAY
+        #region 6. [SEC-06] LIMB DEPTH DECAY & PAIR SCALING
 
         public const float LimbDepthDecayFactor = 0.50f;
         public const float LimbDepthDecayFactorMin = 0.20f;
         public const float LimbDepthDecayFactorMax = 0.80f;
 
+        public const float LimbPairDecayFactor = 0.50f;
+        public const float LimbPairDecayFactorMin = 0.00f;
+        public const float LimbPairDecayFactorMax = 1.00f;
+
         #endregion
 
         #region 7. [SEC-07] STRUCTURAL SCALING CONSTANTS
 
-        public const float ProstheticImpactConstant = 10.0f;
+        public const float ProstheticImpactConstant = 6.0f;
         public const float ProstheticImpactConstantMin = 1.0f;
-        public const float ProstheticImpactConstantMax = 50.0f;
+        public const float ProstheticImpactConstantMax = 30.0f;
 
-        public const float AthleticImpactConstant = 3.0f;
-        public const float AthleticImpactConstantMin = 1.0f;
-        public const float AthleticImpactConstantMax = 15.0f;
+        public const float AthleticImpactConstant = 1.0f;
+        public const float AthleticImpactConstantMin = 0.2f;
+        public const float AthleticImpactConstantMax = 10.0f;
 
         #endregion
 
@@ -152,30 +156,48 @@ namespace OverHaulers
         /// <summary>
         /// Creates a baseline <see cref="SolverConfiguration"/> snapshot using default constant values.
         /// Acts as the single source of truth for unconfigured or reset solver baselines.
+        /// Ordered strictly by [SEC-01] through [SEC-07].
         /// </summary>
         public static SolverConfiguration CreateDefaultSolverConfiguration()
         {
             return new SolverConfiguration(
-                ConfigurablePercentileFloor,
+                // [SEC-01]
                 EnableProsthetics,
                 EnableAthletics,
                 EnablePartHealth,
-                EnableHardCompatibilitySafetyFloor,
-                AthleticScaling,
-                AthleticImpactConstant,
                 ProstheticScaling,
-                ProstheticImpactConstant,
-                TorsoAxialBias,
-                TorsoHpSensitivity,
-                LimbDepthDecayFactor,
+                AthleticScaling,
+                ConfigurablePercentileFloor,
+                EnableHardCompatibilitySafetyFloor,
+
+                // [SEC-02]
+                AnatomyWeightTorso,
+                AnatomyWeightArm,
+                AnatomyWeightLeg,
+                MissingArmsTorsoShare,
+                MissingLegsTorsoShare,
+
+                // [SEC-03]
                 TorsoPositiveBreathing, TorsoPositiveBlood, TorsoPositiveMoving, TorsoPositiveManipulation,
                 ArmPositiveBreathing,   ArmPositiveBlood,   ArmPositiveMoving,   ArmPositiveManipulation,
                 LegPositiveBreathing,   LegPositiveBlood,   LegPositiveMoving,   LegPositiveManipulation,
+
+                // [SEC-04]
                 TorsoDeficitBreathing,  TorsoDeficitBlood,  TorsoDeficitMoving,  TorsoDeficitManipulation,
                 ArmDeficitBreathing,    ArmDeficitBlood,    ArmDeficitMoving,    ArmDeficitManipulation,
                 LegDeficitBreathing,    LegDeficitBlood,    LegDeficitMoving,    LegDeficitManipulation,
-                AnatomyWeightTorso,     AnatomyWeightArm,   AnatomyWeightLeg,
-                MissingArmsTorsoShare,  MissingLegsTorsoShare
+
+                // [SEC-05]
+                TorsoAxialBias,
+                TorsoHpSensitivity,
+
+                // [SEC-06]
+                LimbDepthDecayFactor,
+                LimbPairDecayFactor,
+
+                // [SEC-07]
+                ProstheticImpactConstant,
+                AthleticImpactConstant
             );
         }
 

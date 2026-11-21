@@ -87,47 +87,69 @@ namespace OverHaulers
 
             #region 1B. Bidirectional Branch Propagation
 
-            // ANATOMICAL RATIONALE (THE UNTAGGED MODDED BONE PROBLEM):
-            // In vanilla and many modded xenotypes, intermediate bones (like Forearm or Humerus) often lack 
-            // explicit ManipulationLimb tags; only the hands/digits carry tags.
+            // ANATOMICAL RATIONALE (THE UNTAGGED MODDED BONE & DUAL-LIMB MERGE):
+            // In vanilla and modded xenotypes, intermediate bones often lack tags while digits carry them.
+            // Furthermore, quadrupeds with claws often have MovingPart legs parented to DualLimb/Manipulation claws.
             // 
-            // The bottom-up sweep propagates limb identity upward from tagged digits to the shoulder;
-            // the top-down sweep ensures parallel sub-branches inherit the correct classification.
+            // The bottom-up sweep propagates limb identity upward and merges multi-capability branches into DualLimb;
+            // the top-down sweep ensures all child segments inherit the unified limb classification.
             for (int d = partCount - 1; d >= 0; d--)
             {
                 int i = template.DepthSortedIndices[d];
                 PartType childType = resolvedTypes[i];
 
-                if (childType == PartType.ManipulationPart || childType == PartType.MovingPart || childType == PartType.DualLimb)
+                if (IsLimbType(childType))
                 {
                     int parentIdx = parentIndicesArr[i];
-                    while (parentIdx != -1 && resolvedTypes[parentIdx] == PartType.None)
+                    while (parentIdx != -1)
                     {
                         BodyPartRecord parentPart = bodyDef.AllParts[parentIdx];
                         if (parentPart == corePart || TopologyLayoutCompiler.IsTrunkDef(parentPart.def) || headAncestry[parentIdx] || (parentPart.coverageAbs <= 0f && parentPart != corePart))
                             break;
 
-                        resolvedTypes[parentIdx] = childType;
+                        PartType currentParentType = resolvedTypes[parentIdx];
+
+                        if (currentParentType == PartType.None)
+                        {
+                            resolvedTypes[parentIdx] = childType;
+                        }
+                        else if (IsLimbType(currentParentType))
+                        {
+                            if (currentParentType != childType)
+                            {
+                                resolvedTypes[parentIdx] = PartType.DualLimb;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+
                         parentIdx = parentIndicesArr[parentIdx];
                     }
                 }
             }
 
-            // Ensures that any remaining unclassified parts are assigned a type based on their parent's classification, maintaining structural
-            // consistency.
+            // Top-down sweep: ensure all child segments within a DualLimb branch inherit DualLimb classification
             for (int d = 0; d < partCount; d++)
             {
                 int i = template.DepthSortedIndices[d];
-                if (resolvedTypes[i] != PartType.None) continue;
                 if (MedicalClassifier.IsMetabolicOrgan(bodyDef.AllParts[i].def) || headAncestry[i] || (bodyDef.AllParts[i].coverageAbs <= 0f && bodyDef.AllParts[i] != corePart)) continue;
 
                 int parentIdx = parentIndicesArr[i];
                 if (parentIdx != -1)
                 {
                     PartType parentType = resolvedTypes[parentIdx];
-                    if (parentType == PartType.ManipulationPart || parentType == PartType.MovingPart || parentType == PartType.DualLimb)
+                    if (IsLimbType(parentType))
                     {
-                        resolvedTypes[i] = parentType;
+                        if (parentType == PartType.DualLimb)
+                        {
+                            resolvedTypes[i] = PartType.DualLimb;
+                        }
+                        else if (resolvedTypes[i] == PartType.None)
+                        {
+                            resolvedTypes[i] = parentType;
+                        }
                     }
                 }
             }
@@ -142,7 +164,7 @@ namespace OverHaulers
                 BodyPartRecord part = bodyDef.AllParts[i];
                 if (MedicalClassifier.IsMetabolicOrgan(part.def) || headAncestry[i] || (part.coverageAbs <= 0f && part != corePart)) continue;
 
-                bool wasLimbTyped = resolvedTypes[i] == PartType.ManipulationPart || resolvedTypes[i] == PartType.MovingPart || resolvedTypes[i] == PartType.DualLimb;
+                bool wasLimbTyped = IsLimbType(resolvedTypes[i]);
 
                 if (ShouldReclaimAsCore(part, i, parentIndicesArr, resolvedTypes))
                 {
@@ -159,8 +181,7 @@ namespace OverHaulers
 
             #region 1D. Root Counts & Primary Limb Capture
 
-            // Tallies the number of root parts for each major category and captures the primary definitions for limbs, ensuring accurate
-            // representation of the entity's appendage structure.
+            // Tallies the number of genuine root parts: child segments attached to existing limbs are NEVER roots.
             for (int i = 0; i < partCount; i++)
             {
                 BodyPartRecord part = bodyDef.AllParts[i];
@@ -174,7 +195,7 @@ namespace OverHaulers
                     case PartType.ManipulationPart:
                     case PartType.MovingPart:
                         int parentIdx = parentIndicesArr[i];
-                        bool isRoot = parentIdx == -1 || resolvedTypes[parentIdx] != type;
+                        bool isRoot = parentIdx == -1 || !IsLimbType(resolvedTypes[parentIdx]);
                         if (isRoot)
                         {
                             if (type == PartType.DualLimb)
@@ -203,9 +224,10 @@ namespace OverHaulers
 
             #region 1E. Branch Depths & Sibling Mapping
 
-            // Constructs temporary topology information for each part, capturing depth, root indices, and initial sibling counts.
-            // This information will later be used to determine sibling relationships and branch depths for appendage parts.
             PartTopologyInfo[] tempPartTopologies = new PartTopologyInfo[partCount];
+            int manipRootCounter = 0;
+            int movingRootCounter = 0;
+
             for (int d = 0; d < partCount; d++)
             {
                 int i = template.DepthSortedIndices[d];
@@ -219,62 +241,87 @@ namespace OverHaulers
                     RootPartIndex = -1,
                     Depth = 0,
                     SiblingCount = 1,
-                    StaticWeightFactor = 0f
+                    StaticWeightFactor = 0f,
+                    ManipPairIndex = 0,
+                    MovingPairIndex = 0
                 };
 
-                // Track limb branch root index and chain depth for structural appendages (arms, legs, dual limbs).
-                // Non-limb parts retain default RootPartIndex = -1 and Depth = 0.
-                if (type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb)
+                // Track limb branch root index, chain depth, and channel pair indices
+                if (IsLimbType(type))
                 {
-                    bool continuesParentChain = parentIndex != -1 && resolvedTypes[parentIndex] == type;
+                    bool continuesParentChain = parentIndex != -1 && IsLimbType(resolvedTypes[parentIndex]);
                     if (continuesParentChain)
                     {
                         topologyInfo.RootPartIndex = tempPartTopologies[parentIndex].RootPartIndex;
                         topologyInfo.Depth = tempPartTopologies[parentIndex].Depth + 1;
+                        topologyInfo.ManipPairIndex = tempPartTopologies[parentIndex].ManipPairIndex;
+                        topologyInfo.MovingPairIndex = tempPartTopologies[parentIndex].MovingPairIndex;
                     }
                     else
                     {
                         topologyInfo.RootPartIndex = i;
                         topologyInfo.Depth = 0;
+
+                        if (type == PartType.ManipulationPart || type == PartType.DualLimb)
+                        {
+                            topologyInfo.ManipPairIndex = manipRootCounter / 2;
+                            manipRootCounter++;
+                        }
+
+                        if (type == PartType.MovingPart || type == PartType.DualLimb)
+                        {
+                            topologyInfo.MovingPairIndex = movingRootCounter / 2;
+                            movingRootCounter++;
+                        }
                     }
                 }
                 tempPartTopologies[i] = topologyInfo;
             }
 
-            // Computes direct-parent child counts for same-type limb chains so forked sub-branches
-            // never distort sibling divisors of unrelated branches sharing the same depth.
+            // Computes direct-parent child counts for limb chains so forked digits divide siblings correctly
             int[] directLimbChildCounts = new int[partCount];
             for (int i = 0; i < partCount; i++)
             {
                 PartTopologyInfo other = tempPartTopologies[i];
-                if ((other.Type == PartType.ManipulationPart || other.Type == PartType.MovingPart || other.Type == PartType.DualLimb) &&
+                if (IsLimbType(other.Type) &&
                     other.ParentIndex != -1 &&
-                    tempPartTopologies[other.ParentIndex].Type == other.Type)
+                    IsLimbType(tempPartTopologies[other.ParentIndex].Type))
                 {
                     directLimbChildCounts[other.ParentIndex]++;
                 }
             }
 
-            // Assigns parent-relative sibling counts onto each limb segment (roots and core/head parts keep SiblingCount = 1).
             for (int i = 0; i < partCount; i++)
             {
                 ref PartTopologyInfo topology = ref tempPartTopologies[i];
                 bool continuesChain =
-                    (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb) &&
+                    IsLimbType(topology.Type) &&
                     topology.ParentIndex != -1 &&
-                    tempPartTopologies[topology.ParentIndex].Type == topology.Type;
+                    IsLimbType(tempPartTopologies[topology.ParentIndex].Type);
 
                 topology.SiblingCount = continuesChain ? Math.Max(1, directLimbChildCounts[topology.ParentIndex]) : 1;
 
                 template.Depth[i] = topology.Depth;
+                template.ManipPairIndex[i] = topology.ManipPairIndex;
+                template.MovingPairIndex[i] = topology.MovingPairIndex;
                 template.SiblingCount[i] = topology.SiblingCount;
                 template.RootPartIndex[i] = topology.RootPartIndex;
             }
 
-            // At this point, all part topologies have been finalized and the template has been updated accordingly.
-            #endregion
-
             return tempPartTopologies;
+
+            #endregion
+        }
+
+        /// <summary>
+        /// Returns true if the part classification represents a structural limb (arm, leg, or dual limb).
+        /// </summary>
+        /// <param name="type">The part type to check.</param>
+        /// <returns>True if the part type is a structural limb; otherwise, false.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsLimbType(PartType type)
+        {
+            return type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb;
         }
 
         /// <summary>
@@ -318,13 +365,11 @@ namespace OverHaulers
                 return true;
             }
 
-            if (parentType == PartType.ManipulationPart || parentType == PartType.MovingPart || parentType == PartType.DualLimb)
+            if (IsLimbType(parentType))
             {
                 int grandParentIdx = parentIndicesArr[parentIdx];
                 bool parentIsLimbRoot = grandParentIdx == -1 || 
-                    (resolvedTypes[grandParentIdx] != PartType.ManipulationPart && 
-                     resolvedTypes[grandParentIdx] != PartType.MovingPart && 
-                     resolvedTypes[grandParentIdx] != PartType.DualLimb);
+                    !IsLimbType(resolvedTypes[grandParentIdx]);
 
                 if (parentIsLimbRoot)
                 {

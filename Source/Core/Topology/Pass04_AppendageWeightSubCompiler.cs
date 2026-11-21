@@ -140,6 +140,8 @@ namespace OverHaulers
 
             #region 1B. Branch Summation & 3-Channel Normalization
 
+            float pairDecayFactor = config.LimbPairDecayFactor;
+
             // Initialize a dictionary to store the sum of unnormalized limb weights for each branch.
             Dictionary<long, float> branchSumsMap = new Dictionary<long, float>(partCount);
 
@@ -159,8 +161,14 @@ namespace OverHaulers
             int totalManipRoots = counts.TotalManipulationRoots;
             int totalMovingRoots = counts.TotalMovingRoots;
 
-            float manipRootFactor = 1.0f / (totalManipRoots <= 1 ? 1.0f : (float)totalManipRoots);
-            float movingRootFactor = 1.0f / (totalMovingRoots <= 1 ? 1.0f : (float)totalMovingRoots);
+            // CANONICAL 2-LIMB BASELINE DIVISORS:
+            // Standard humanoid/biped baselines define 1 pair (2 roots) as the 1.0x capacity anchor.
+            // Any subsequent limb pairs (limbs 3 & 4, 5 & 6, etc.) scale according to the active pair retention curve.
+            int baseManipRoots = Math.Min(2, totalManipRoots);
+            float baseManipDivisor = baseManipRoots <= 1 ? 1.0f : (float)baseManipRoots;
+
+            int baseMoveRoots = Math.Min(2, totalMovingRoots);
+            float baseMoveDivisor = baseMoveRoots <= 1 ? 1.0f : (float)baseMoveRoots;
 
             SystemicEvaluationContext.ResolveNormalizedBudgets(
                 in counts,
@@ -174,7 +182,6 @@ namespace OverHaulers
             {
                 ref PartTopologyInfo topology = ref tempPartTopologies[i];
 
-                // Determine the type of the current part and assign weights accordingly. Core parts receive torso weights, while manipulation and moving parts are normalized within their respective branches.
                 if (topology.Type == PartType.CorePart)
                 {
                     float sumWeights = torsoRelativeWeightSum > 0f ? torsoRelativeWeightSum : 1.0f;
@@ -184,24 +191,32 @@ namespace OverHaulers
                     
                     template.StaticWeightFactors[i] = template.WeightCore[i] * normTorso;
                 }
-
-                // For manipulation, moving, and dual-limb parts, calculate their normalized weights within their respective branches.
                 else if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
                 {
                     long branchKey = ((long)topology.Type << 32) | (long)(topology.RootPartIndex + 1);
                     float branchSum = branchSumsMap.TryGetValue(branchKey, out float bSum) && bSum > 0f ? bSum : 1.0f;
                     float normalizedBranchFraction = topology.UnnormalizedLimbWeight / branchSum;
 
-                    template.WeightCore[i] = 0f;
-                    template.WeightManipulation[i] = (topology.Type == PartType.ManipulationPart || topology.Type == PartType.DualLimb) 
-                        ? (manipRootFactor * normalizedBranchFraction) : 0f;
+                    float manipFactor = 0f;
+                    if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.DualLimb)
+                    {
+                        float manipMultiplier = FastIntPow(pairDecayFactor, topology.ManipPairIndex);
+                        manipFactor = (manipMultiplier / baseManipDivisor) * normalizedBranchFraction;
+                    }
 
-                    template.WeightMoving[i] = (topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb) 
-                        ? (movingRootFactor * normalizedBranchFraction) : 0f;
+                    float moveFactor = 0f;
+                    if (topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
+                    {
+                        float moveMultiplier = FastIntPow(pairDecayFactor, topology.MovingPairIndex);
+                        moveFactor = (moveMultiplier / baseMoveDivisor) * normalizedBranchFraction;
+                    }
+
+                    template.WeightCore[i] = 0f;
+                    template.WeightManipulation[i] = manipFactor;
+                    template.WeightMoving[i] = moveFactor;
 
                     template.StaticWeightFactors[i] = (template.WeightManipulation[i] * normManip) + (template.WeightMoving[i] * normMove);
                 }
-                // For any other part types not explicitly handled, set all weights to zero.
                 else
                 {
                     template.WeightCore[i] = 0f;
@@ -214,7 +229,6 @@ namespace OverHaulers
                 template.ParentIndices[i] = tempPartTopologies[i].ParentIndex;
             }
 
-            // At this point, all parts have been processed and their weights have been assigned based on their type and branch characteristics.
             #endregion
         }
 

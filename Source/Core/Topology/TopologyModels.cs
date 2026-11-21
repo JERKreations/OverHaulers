@@ -65,7 +65,8 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// [TOPO-SUB-02] Transient graph compilation struct tracking limb depth, root indices, and sibling counts.
+    /// [TOPO-SUB-02] Transient graph compilation struct tracking limb depth, root indices, sibling counts,
+    /// and channel-specific pair indices for multi-limb falloff scaling.
     /// Resides under Source/Core/Topology/.
     /// </summary>
     public struct PartTopologyInfo
@@ -78,6 +79,8 @@ namespace OverHaulers
         public int Depth;
         public float UnnormalizedLimbWeight;
         public float StaticWeightFactor;
+        public int ManipPairIndex;
+        public int MovingPairIndex;
         #endregion
 
         #region 2B. Encapsulated Accessors

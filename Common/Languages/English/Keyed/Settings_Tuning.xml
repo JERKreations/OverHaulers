@@ -83,13 +83,18 @@
   <OverHaulers_TorsoHpSensitivity_Desc>Scales a torso bone's budget share by its relative HitPoints volume. Higher values give sturdier, high-HP bones (e.g. heavy carapace or thick spinal columns) greater structural weight without hardcoded rules.</OverHaulers_TorsoHpSensitivity_Desc>
 
   <!-- ========================================================================= -->
-  <!-- [SEC-06] LIMB BRANCH TOPOLOGY & GEOMETRIC DEPTH DECAY                     -->
+  <!-- [SEC-06] LIMB BRANCH TOPOLOGY & MULTI-LIMB PAIR SCALING                   -->
   <!-- ========================================================================= -->
-  <OverHaulers_LimbDepthImpactsHeader>Limb Segment Depth Decay</OverHaulers_LimbDepthImpactsHeader>
-  <OverHaulers_LimbDepth_Desc>Applies an exponential curve down limb parent-child chains. Each segment level inherits a fraction of its parent joint's structural budget (Decay^Depth) before normalized allocation across sibling branches.</OverHaulers_LimbDepth_Desc>
+  <OverHaulers_LimbDepthImpactsHeader>Limb Branch Topology &amp; Multi-Limb Scaling</OverHaulers_LimbDepthImpactsHeader>
+  <OverHaulers_LimbDepth_Desc>Controls structural budget distribution across limb branches. Depth Decay manages parent-to-digit weight loss down individual limbs, while Pair Scaling governs diminishing returns across multiple limb sets.</OverHaulers_LimbDepth_Desc>
   
   <OverHaulers_LimbDepthDecayFactor>Depth Decay Ratio ( {0} )</OverHaulers_LimbDepthDecayFactor>
   <OverHaulers_LimbDepthDecayFactor_Desc>Controls weight loss along limb chains. Lower ratios concentrate carrying strength at major root joints (shoulders/hips), while higher ratios distribute budget deeper into hands, feet, and digits - making lost digits or hands far more impactful.</OverHaulers_LimbDepthDecayFactor_Desc>
+
+  <OverHaulers_LimbPairDecayFactor>Auxiliary Limb Pair Scaling ( {0} )</OverHaulers_LimbPairDecayFactor>
+  <OverHaulers_LimbPairDecayFactor_Desc>Controls how much carrying capacity budget subsequent limb pairs provide relative to previous pairs for multi-limbed species and xenotypes (e.g. 4-armed aliens, insectoids, or cybernetic multi-limb rigs). Higher values reward heavy bionic investments across all extra limbs; 100% yields an uncapped flat rate, while lower values impose diminishing returns.</OverHaulers_LimbPairDecayFactor_Desc>
+  
+  <OverHaulers_LimbPair_Progression>Progression: 1st: {0} ➔ 2nd: {1} ➔ 3rd: {2} ➔ 4th: {3} (4-Pair Cap: {4}x)</OverHaulers_LimbPair_Progression>
 
   <!-- ========================================================================= -->
   <!-- [SEC-07] STRUCTURAL SCALING CONSTANTS                                     -->

@@ -53,30 +53,48 @@ namespace OverHaulers
 
         /// <summary>
         /// Projects the active mutable settings into an immutable <see cref="SolverConfiguration"/> value struct.
+        /// Ordered strictly by [SEC-01] through [SEC-07].
         /// </summary>
         public SolverConfiguration ToSolverConfiguration()
         {
             return new SolverConfiguration(
-                configurablePercentileFloor,
+                // [SEC-01]
                 enableProsthetics,
                 enableAthletics,
                 enablePartHealth,
-                enableHardCompatibilitySafetyFloor,
-                athleticScaling,
-                athleticImpactConstant,
                 prostheticScaling,
-                prostheticImpactConstant,
-                torsoAxialBias,
-                torsoHpSensitivity,
-                limbDepthDecayFactor,
+                athleticScaling,
+                configurablePercentileFloor,
+                enableHardCompatibilitySafetyFloor,
+
+                // [SEC-02]
+                anatomyWeightTorso,
+                anatomyWeightArm,
+                anatomyWeightLeg,
+                missingArmsTorsoShare,
+                missingLegsTorsoShare,
+
+                // [SEC-03]
                 torsoPositiveBreathing, torsoPositiveBlood, torsoPositiveMoving, torsoPositiveManipulation,
                 armPositiveBreathing,   armPositiveBlood,   armPositiveMoving,   armPositiveManipulation,
                 legPositiveBreathing,   legPositiveBlood,   legPositiveMoving,   legPositiveManipulation,
+
+                // [SEC-04]
                 torsoDeficitBreathing,  torsoDeficitBlood,  torsoDeficitMoving,  torsoDeficitManipulation,
                 armDeficitBreathing,    armDeficitBlood,    armDeficitMoving,    armDeficitManipulation,
                 legDeficitBreathing,    legDeficitBlood,    legDeficitMoving,    legDeficitManipulation,
-                anatomyWeightTorso,     anatomyWeightArm,   anatomyWeightLeg,
-                missingArmsTorsoShare,  missingLegsTorsoShare
+
+                // [SEC-05]
+                torsoAxialBias,
+                torsoHpSensitivity,
+
+                // [SEC-06]
+                limbDepthDecayFactor,
+                limbPairDecayFactor,
+
+                // [SEC-07]
+                prostheticImpactConstant,
+                athleticImpactConstant
             );
         }
 

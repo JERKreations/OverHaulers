@@ -624,6 +624,13 @@ namespace OverHaulers
         /// <param name="body">The body definition associated with the template.</param>
         /// <param name="model">The mass capacity model to check for anomalies.</param>
         /// <returns>A list of strings describing any detected topological anomalies.</returns>
+        /// <summary>
+        /// Detects topological anomalies in the given species topology template and mass capacity model for the specified body.
+        /// </summary>
+        /// <param name="template">The species topology template to analyze.</param>
+        /// <param name="body">The body definition associated with the template.</param>
+        /// <param name="model">The mass capacity model to check for anomalies.</param>
+        /// <returns>A list of strings describing any detected topological anomalies.</returns>
         private static List<string> DetectTopologicalAnomalies(SpeciesTopologyTemplate template, BodyDef body, MassCapacityModel model)
         {
             List<string> anomalies = new List<string>();
@@ -634,7 +641,16 @@ namespace OverHaulers
                 if ((type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb) &&
                     template.StaticWeightFactors[i] <= 0f)
                 {
-                    anomalies.Add($"Limb part '{template.IndexedParts[i].Label}' (Type: {type}) has 0.00% static weight allocation.");
+                    // If auxiliary limb pair scaling is configured to 0%, auxiliary pairs (pair index > 0)
+                    // mathematically receive 0% weight by user intent - do not flag them as structural defects.
+                    bool isIntentionalAuxiliaryZero = (type == PartType.ManipulationPart && template.ManipPairIndex[i] > 0) ||
+                                                      (type == PartType.MovingPart && template.MovingPairIndex[i] > 0) ||
+                                                      (type == PartType.DualLimb && template.ManipPairIndex[i] > 0 && template.MovingPairIndex[i] > 0);
+
+                    if (!isIntentionalAuxiliaryZero)
+                    {
+                        anomalies.Add($"Limb part '{template.IndexedParts[i].Label}' (Type: {type}) has 0.00% static weight allocation.");
+                    }
                 }
 
                 if (template.WasReclaimedAsAnchor[i])

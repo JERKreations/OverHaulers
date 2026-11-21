@@ -407,7 +407,7 @@ namespace OverHaulers
         #region 5. [SEC-05 & SEC-06] TORSO MACRO TOPOLOGY & LIMB DEPTH DECAY
 
         /// <summary>
-        /// Draws the torso and limb depths section in the settings UI.
+        /// Draws the torso macro topology and limb depth/pair scaling section in the settings UI.
         /// </summary>
         /// <param name="ui">The settings layout to draw the section in.</param>
         /// <param name="settings">The current settings.</param>
@@ -441,7 +441,7 @@ namespace OverHaulers
             ui.DescriptionKey("OverHaulers_TorsoHpSensitivity_Desc");
             ui.Gap(SettingsViewUtilities.ControlGap);
 
-            // Part B: Geometric Limb Depth Decay
+            // Part B: Geometric Limb Depth Decay & Auxiliary Pair Scaling
             ui.HeaderWithResetKey("OverHaulers_LimbDepthImpactsHeader", settings.ResetLimbDecay, SettingMutationScope.Topology);
             ui.DescriptionKey("OverHaulers_LimbDepth_Desc");
 
@@ -455,6 +455,58 @@ namespace OverHaulers
                 mutationScope: SettingMutationScope.Topology
             );
             ui.DescriptionKey("OverHaulers_LimbDepthDecayFactor_Desc");
+            ui.Gap(SettingsViewUtilities.CompactGap);
+
+            string pairDecayPctLabel = "OverHaulers_LimbPairDecayFactor".Translate(settings.limbPairDecayFactor.ToString("P0")).ToString();
+            ui.Slider(
+                pairDecayPctLabel,
+                ref settings.limbPairDecayFactor,
+                CoreDefaults.LimbPairDecayFactorMin,
+                CoreDefaults.LimbPairDecayFactorMax,
+                step: 0.01f,
+                mutationScope: SettingMutationScope.Topology
+            );
+            ui.DescriptionKey("OverHaulers_LimbPairDecayFactor_Desc");
+
+            DrawLimbPairCurveLivePreview(ref ui, settings);
+        }
+
+        /// <summary>
+        /// Renders the real-time mathematical progression readout for auxiliary limb pair decay.
+        /// </summary>
+        /// <param name="ui">The settings layout to draw the progression in.</param>
+        /// <param name="settings">The current settings.</param>
+        private static void DrawLimbPairCurveLivePreview(ref SettingsLayout ui, Settings settings)
+        {
+            float lambda = settings.limbPairDecayFactor;
+            float p1 = 1.0f;
+            float p2 = p1 * lambda;
+            float p3 = p2 * lambda;
+            float p4 = p3 * lambda;
+            float total4 = p1 + p2 + p3 + p4;
+
+            string progressionText = "OverHaulers_LimbPair_Progression".Translate(
+                p1.ToString("P0"),
+                p2.ToString("P0"),
+                p3.ToString("P0"),
+                p4.ToString("P0"),
+                total4.ToString("F2")
+            ).ToString();
+
+            Text.Font = GameFont.Tiny;
+            Color origColor = GUI.color;
+            try
+            {
+                GUI.color = SettingsLayout.MutedTextColor;
+                float labelH = Math.Max(18f, SettingsViewUtilities.CalcTextHeight(progressionText, ui.Width, GameFont.Tiny));
+                Widgets.Label(new Rect(ui.X, ui.Y, ui.Width, labelH), progressionText);
+                ui.Y += labelH + SettingsViewUtilities.CompactGap;
+            }
+            finally
+            {
+                GUI.color = origColor;
+                Text.Font = GameFont.Small;
+            }
         }
 
         #endregion
