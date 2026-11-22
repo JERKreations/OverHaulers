@@ -140,8 +140,6 @@ namespace OverHaulers
 
             #region 1B. Branch Summation & 3-Channel Normalization
 
-            float pairDecayFactor = config.LimbPairDecayFactor;
-
             // Initialize a dictionary to store the sum of unnormalized limb weights for each branch.
             Dictionary<long, float> branchSumsMap = new Dictionary<long, float>(partCount);
 
@@ -152,23 +150,21 @@ namespace OverHaulers
                 if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
                 {
                     long branchKey = ((long)topology.Type << 32) | (long)(topology.RootPartIndex + 1);
-                    branchSumsMap[branchKey] = branchSumsMap.TryGetValue(branchKey, out float currentSum) 
-                        ? currentSum + topology.UnnormalizedLimbWeight 
+                    branchSumsMap[branchKey] = branchSumsMap.TryGetValue(branchKey, out float currentSum)
+                        ? currentSum + topology.UnnormalizedLimbWeight
                         : topology.UnnormalizedLimbWeight;
                 }
             }
 
+            // EQUAL UNDERLYING LIMB WEIGHTS:
+            // Every limb branch within the same channel receives an identical 1/N channel share so natural athletics,
+            // physical deficits, and sub-par prosthetics weight all limbs equally and sum cleanly to 1.000.
+            // Pair diminishing returns are applied dynamically at solve time by replacement efficiency rank.
             int totalManipRoots = counts.TotalManipulationRoots;
+            float manipChannelDivisor = totalManipRoots <= 1 ? 1.0f : (float)totalManipRoots;
+
             int totalMovingRoots = counts.TotalMovingRoots;
-
-            // CANONICAL 2-LIMB BASELINE DIVISORS:
-            // Standard humanoid/biped baselines define 1 pair (2 roots) as the 1.0x capacity anchor.
-            // Any subsequent limb pairs (limbs 3 & 4, 5 & 6, etc.) scale according to the active pair retention curve.
-            int baseManipRoots = Math.Min(2, totalManipRoots);
-            float baseManipDivisor = baseManipRoots <= 1 ? 1.0f : (float)baseManipRoots;
-
-            int baseMoveRoots = Math.Min(2, totalMovingRoots);
-            float baseMoveDivisor = baseMoveRoots <= 1 ? 1.0f : (float)baseMoveRoots;
+            float moveChannelDivisor = totalMovingRoots <= 1 ? 1.0f : (float)totalMovingRoots;
 
             SystemicEvaluationContext.ResolveNormalizedBudgets(
                 in counts,
@@ -188,7 +184,7 @@ namespace OverHaulers
                     template.WeightCore[i] = torsoRawWeights[i] / sumWeights;
                     template.WeightManipulation[i] = 0f;
                     template.WeightMoving[i] = 0f;
-                    
+
                     template.StaticWeightFactors[i] = template.WeightCore[i] * normTorso;
                 }
                 else if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
@@ -197,19 +193,13 @@ namespace OverHaulers
                     float branchSum = branchSumsMap.TryGetValue(branchKey, out float bSum) && bSum > 0f ? bSum : 1.0f;
                     float normalizedBranchFraction = topology.UnnormalizedLimbWeight / branchSum;
 
-                    float manipFactor = 0f;
-                    if (topology.Type == PartType.ManipulationPart || topology.Type == PartType.DualLimb)
-                    {
-                        float manipMultiplier = FastIntPow(pairDecayFactor, topology.ManipPairIndex);
-                        manipFactor = (manipMultiplier / baseManipDivisor) * normalizedBranchFraction;
-                    }
+                    float manipFactor = (topology.Type == PartType.ManipulationPart || topology.Type == PartType.DualLimb)
+                        ? (normalizedBranchFraction / manipChannelDivisor)
+                        : 0f;
 
-                    float moveFactor = 0f;
-                    if (topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
-                    {
-                        float moveMultiplier = FastIntPow(pairDecayFactor, topology.MovingPairIndex);
-                        moveFactor = (moveMultiplier / baseMoveDivisor) * normalizedBranchFraction;
-                    }
+                    float moveFactor = (topology.Type == PartType.MovingPart || topology.Type == PartType.DualLimb)
+                        ? (normalizedBranchFraction / moveChannelDivisor)
+                        : 0f;
 
                     template.WeightCore[i] = 0f;
                     template.WeightManipulation[i] = manipFactor;

@@ -33,6 +33,10 @@ namespace OverHaulers
         /// Verifies that writing and reading various floating-point offsets (including extremes and negative values) returns exact bit-level values.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check ensures that the SnapshotTable correctly packs and unpacks floating-point offsets,
+        /// preserving exact bit-level values for a variety of test cases including extreme and negative values.
+        /// </remarks>
         private static void CheckPackUnpack(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, forwardTelemetry: false, enableDynamicScaling: false);
@@ -50,6 +54,10 @@ namespace OverHaulers
         /// Verifies that unknown and non-positive pawn IDs read as a neutral offset and are never stored.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check ensures that the SnapshotTable returns a neutral offset for unknown or non-positive pawn IDs.
+        /// It also verifies that such IDs are never stored and that eviction attempts for them report false.
+        /// </remarks>
         private static void CheckNeutralDefaults(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -67,6 +75,10 @@ namespace OverHaulers
         /// Verifies that a written value reads back and overwriting replaces it without growing occupancy.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check validates that writing a value to the SnapshotTable and subsequently overwriting it behaves correctly.
+        /// It ensures that the occupancy count does not increase when an existing key is overwritten and that distinct keys are tracked separately.
+        /// </remarks>
         private static void CheckWriteOverwriteRead(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -88,6 +100,10 @@ namespace OverHaulers
         /// Verifies that eviction removes an entry, reports missing keys correctly, and that a reset empties the table.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check ensures that eviction correctly removes entries and that the table accurately reports missing keys.
+        /// It also verifies that resetting the table clears all entries and resets occupancy to zero.
+        /// </remarks>
         private static void CheckEvictAndReset(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -108,6 +124,10 @@ namespace OverHaulers
         /// Builds a cluster of colliding keys and verifies every other key stays reachable after evicting each member in turn (backward-shift deletion).
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check validates that the SnapshotTable correctly handles eviction within a cluster of colliding keys.
+        /// It ensures that backward-shift deletion maintains the reachability of all other keys in the cluster after each eviction.
+        /// </remarks>
         private static void CheckClusterEviction(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -135,6 +155,11 @@ namespace OverHaulers
         /// Replays thousands of random inserts and evictions across interleaving collision clusters and compares every read with a reference dictionary.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check performs extensive randomized testing of the SnapshotTable against a reference model.
+        /// It ensures that inserts and evictions across interleaving collision clusters behave correctly,
+        /// and that the table's occupancy and read results match the expected model at every step.
+        /// </remarks>
         private static void CheckRandomAgainstModel(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -178,6 +203,11 @@ namespace OverHaulers
         /// Verifies that once the probe window is saturated each overflow displaces exactly one entry, the newest key stays readable and occupancy stays capped.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check validates that the SnapshotTable correctly handles saturation of its probe window.
+        /// It ensures that once the probe window is full, each additional write displaces exactly one existing entry,
+        /// the newest key remains readable, and the occupancy does not exceed the probe window limit.
+        /// </remarks>
         private static void CheckSaturation(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, enableDynamicScaling: false);
@@ -204,6 +234,10 @@ namespace OverHaulers
         /// Bounded by wall-clock time so it cannot stall a frame for long.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check ensures that concurrent readers never observe torn or foreign values while a writer is actively updating the table.
+        /// It validates the thread-safety and atomicity of read operations under high contention.
+        /// </remarks>
         private static void CheckConcurrentReaders(SelfCheckContext ctx)
         {
             // Dynamic scaling stays enabled to exercise buffer publication while readers are active.
@@ -268,6 +302,11 @@ namespace OverHaulers
         /// Verifies scaling thresholds using both an isolated synthetic table and the live table's configured capacities.
         /// </summary>
         /// <param name="ctx">Receives skip reasons and informative notes for this check.</param>
+        /// <remarks>
+        /// This check validates that the dynamic scaling behavior of the SnapshotTable adheres to the configured high and low watermark thresholds.
+        /// It ensures that the table expands when the high watermark is reached and contracts when the low watermark is reached, maintaining accurate
+        ///  occupancy counts.
+        /// </remarks>
         private static void CheckDynamicScaling(SelfCheckContext ctx)
         {
             SnapshotTable table = new SnapshotTable(
@@ -376,7 +415,70 @@ namespace OverHaulers
             CheckCollisionContraction();
         }
 
-        /// <summary>Exercises empty, nested, and repopulated batches against an isolated table.</summary>
+        /// <summary>
+        /// Verifies that mid-bit and high-bit power-of-two pawn ID strides diffuse across buckets without collapsing or blocking expansion.
+        /// </summary>
+        /// <remarks>
+        /// This test ensures that the hashing function distributes keys with specific bit patterns evenly, preventing clustering and maintaining
+        ///  efficient probing behavior.
+        /// </remarks>
+        private static void CheckStridedKeyDistribution(SelfCheckContext ctx)
+        {
+            SnapshotTable table = new SnapshotTable(
+                SnapshotTable.DefaultCapacity,
+                forwardTelemetry: false,
+                enableDynamicScaling: true,
+                minimumCapacity: SnapshotTable.MinCapacity
+            );
+
+            const int stridedCount = 32;
+            const int highStrideOffset = 16;
+            for (int i = 1; i <= stridedCount; i++)
+            {
+                int id = i * SnapshotTable.DefaultCapacity;
+                table.WriteState(id, (float)id);
+                int highId = (highStrideOffset + i) * 65536;
+                table.WriteState(highId, (float)highId);
+            }
+
+            Expect.Equal(0L, table.DisplacedWrites, "strided power-of-two IDs must not saturate a single probe window");
+            for (int i = 1; i <= stridedCount; i++)
+            {
+                int id = i * SnapshotTable.DefaultCapacity;
+                Expect.Equal((float)id, table.GetOffsetThreadSafe(id), "mid-stride ID readback before expansion " + id);
+                int highId = (highStrideOffset + i) * 65536;
+                Expect.Equal((float)highId, table.GetOffsetThreadSafe(highId), "high-stride ID readback before expansion " + highId);
+            }
+
+            int occupied = stridedCount * 2;
+            int growthCount = (int)(SnapshotTable.DefaultCapacity * SnapshotTable.HighWatermarkRatio) - occupied + 1;
+            for (int i = 1; i <= growthCount; i++)
+            {
+                int id = (stridedCount + i) * SnapshotTable.DefaultCapacity;
+                table.WriteState(id, (float)id);
+            }
+
+            Expect.Equal(SnapshotTable.DefaultCapacity << 1, table.Capacity, "strided power-of-two population must expand cleanly");
+            for (int i = 1; i <= stridedCount + growthCount; i++)
+            {
+                int id = i * SnapshotTable.DefaultCapacity;
+                Expect.Equal((float)id, table.GetOffsetThreadSafe(id), "mid-stride ID readback after expansion " + id);
+            }
+            for (int i = 1; i <= stridedCount; i++)
+            {
+                int highId = (highStrideOffset + i) * 65536;
+                Expect.Equal((float)highId, table.GetOffsetThreadSafe(highId), "high-stride ID readback after expansion " + highId);
+            }
+        }
+
+        /// <summary>
+        /// Exercises empty, nested, and repopulated batches against an isolated table.
+        /// </summary>
+        /// <remarks>
+        /// This check validates that the SnapshotTable correctly handles eviction batches, including nested batches.
+        /// It ensures that empty batches do not trigger contraction, that inner batches behave correctly, and that repopulation above the low
+        ///  watermark cancels any pending contraction.
+        /// </remarks>
         private static void CheckEvictionBatchEdges()
         {
             SnapshotTable table = new SnapshotTable(TestCapacity, minimumCapacity: TestCapacity >> 2);
@@ -469,7 +571,14 @@ namespace OverHaulers
             Expect.Equal(TestCapacity >> 2, table.Capacity, "reset during a batch must retain the configured minimum");
         }
 
-        /// <summary>Verifies collision-heavy contractions retain every entry and fall back to a safe capacity.</summary>
+        /// <summary>
+        /// Verifies collision-heavy contractions retain every entry and fall back to a safe capacity.
+        /// </summary>
+        /// <remarks>
+        /// This check ensures that when the SnapshotTable experiences heavy collisions, it correctly retains all entries
+        /// and falls back to a safe capacity rather than losing data. It tests both the initial collision scenario and
+        /// a subsequent scenario with a half-sized hash table to validate consistent behavior.
+        /// </remarks>
         private static void CheckCollisionContraction()
         {
             int minimum = TestCapacity >> 2;

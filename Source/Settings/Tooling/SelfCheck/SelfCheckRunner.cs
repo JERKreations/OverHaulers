@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
-using Verse;
 
 namespace OverHaulers
 {
@@ -140,9 +139,9 @@ namespace OverHaulers
         /// <summary>Current state of the self-check.</summary>
         public static SelfCheckState State { get; private set; } = SelfCheckState.Idle;
 
-        public static readonly List<SelfCheckResult> Results = new List<SelfCheckResult>(24);
+        public static readonly List<SelfCheckResult> Results = new List<SelfCheckResult>(32);
 
-        private static readonly List<SelfCheckDef> queue = new List<SelfCheckDef>(24);
+        private static readonly List<SelfCheckDef> queue = new List<SelfCheckDef>(32);
         private static int nextIndex;
 
         /// <summary>Number of checks queued for the current run.</summary>

@@ -33,8 +33,11 @@ namespace OverHaulers
         // UI Presentation metadata (cold)
         private PartStateCold[] partStatesColdArray;
 
-        // Intermediate math scratch buffer
+        // Intermediate math scratch buffers (zero-alloc multi-limb boost ranking)
         private float[] floatScratchBuffer;
+        private float[] branchManipMultipliers;
+        private float[] branchMoveMultipliers;
+        private int[] branchSortScratch;
 
         // Bound topology references (shared, read-only from template)
         private PartType[] partTypes;
@@ -42,6 +45,7 @@ namespace OverHaulers
         private float[] weightManipulation;
         private float[] weightMoving;
         private int[] parentIndices;
+        private int[] rootPartIndices;
         private BodyPartRecord[] indexedParts;
         private int[] depthSortedIndices;
         private Dictionary<BodyPartRecord, int> partToIndexMap;
@@ -86,6 +90,15 @@ namespace OverHaulers
         /// <summary>Intermediate float scratch buffer for scratchpad math.</summary>
         public float[] FloatScratchBuffer => floatScratchBuffer;
 
+        /// <summary>Scratch buffer holding per-branch manipulation pair scaling multipliers indexed by root part slot.</summary>
+        public float[] BranchManipMultipliers => branchManipMultipliers;
+
+        /// <summary>Scratch buffer holding per-branch moving pair scaling multipliers indexed by root part slot.</summary>
+        public float[] BranchMoveMultipliers => branchMoveMultipliers;
+
+        /// <summary>Scratch buffer used to rank boosted limb branch root indices without allocation.</summary>
+        public int[] BranchSortScratch => branchSortScratch;
+
         /// <summary>Anatomical classification per part index (borrowed from template).</summary>
         public PartType[] PartTypes => partTypes;
 
@@ -100,6 +113,9 @@ namespace OverHaulers
 
         /// <summary>Parent index per part index (borrowed from template).</summary>
         public int[] ParentIndices => parentIndices;
+
+        /// <summary>Limb branch root slot index per part index (-1 for non-limb parts, borrowed from template).</summary>
+        public int[] RootPartIndices => rootPartIndices;
 
         /// <summary>Part indices pre-sorted parent-before-child (borrowed from template).</summary>
         public int[] DepthSortedIndices => depthSortedIndices;
@@ -151,6 +167,9 @@ namespace OverHaulers
             flags = new byte[capacity];
             partStatesColdArray = new PartStateCold[capacity];
             floatScratchBuffer = new float[capacity];
+            branchManipMultipliers = new float[capacity];
+            branchMoveMultipliers = new float[capacity];
+            branchSortScratch = new int[capacity];
         }
 
         /// <summary>
@@ -164,6 +183,7 @@ namespace OverHaulers
             this.weightManipulation = template.WeightManipulation;
             this.weightMoving = template.WeightMoving;
             this.parentIndices = template.ParentIndices;
+            this.rootPartIndices = template.RootPartIndex;
             this.indexedParts = template.IndexedParts;
             this.partToIndexMap = template.PartToIndex;
             this.depthSortedIndices = template.DepthSortedIndices;
@@ -247,6 +267,9 @@ namespace OverHaulers
                     Array.Resize(ref flags, targetSize);
                     Array.Resize(ref partStatesColdArray, targetSize);
                     Array.Resize(ref floatScratchBuffer, targetSize);
+                    Array.Resize(ref branchManipMultipliers, targetSize);
+                    Array.Resize(ref branchMoveMultipliers, targetSize);
+                    Array.Resize(ref branchSortScratch, targetSize);
                 }
             }
         }
@@ -283,6 +306,7 @@ namespace OverHaulers
             weightManipulation = null;
             weightMoving = null;
             parentIndices = null;
+            rootPartIndices = null;
             indexedParts = null;
             partToIndexMap = null;
             depthSortedIndices = null;

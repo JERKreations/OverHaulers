@@ -390,6 +390,18 @@ namespace OverHaulers
         #region 5. ORCHESTRATION PIPELINE
 
         /// <summary>
+        /// Compiles a fresh, standalone <see cref="SpeciesTopologyTemplate"/> for a synthetic or diagnostic
+        /// <see cref="BodyDef"/> through the canonical 5-pass pipeline without registering it in the live cache.
+        /// </summary>
+        /// <param name="bodyDef">The body definition to compile.</param>
+        /// <returns>The compiled topology template, or null if <paramref name="bodyDef"/> is null.</returns>
+        internal static SpeciesTopologyTemplate CompileTemplateUncached(BodyDef bodyDef)
+        {
+            if (bodyDef == null) return null;
+            return BuildSpeciesTopologyTemplate(bodyDef);
+        }
+
+        /// <summary>
         /// Builds a species topology template based on the specified body definition.
         /// </summary>
         /// <param name="bodyDef">The body definition to use for template construction.</param>

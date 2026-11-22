@@ -49,13 +49,16 @@ namespace OverHaulers
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_RandomAgainstModel", CheckRandomAgainstModel));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_Saturation", CheckSaturation));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_DynamicScaling", CheckDynamicScaling));
+            list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_StridedSnapshotKeys", CheckStridedKeyDistribution));
             list.Add(new SelfCheckDef(GroupTable, "OverHaulers_SelfCheck_Check_ConcurrentReaders", CheckConcurrentReaders));
             list.Add(new SelfCheckDef(GroupCollections, "OverHaulers_SelfCheck_Check_UniqueList", CheckUniqueList));
             list.Add(new SelfCheckDef(GroupTopology, "OverHaulers_SelfCheck_Check_TopologyIntegrity", CheckTopologyIntegrity));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_SolverDeterminism", CheckSolverDeterminism));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_WoundsNeverIncrease", CheckWoundsNeverIncrease));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_DualLimbConservation", CheckDualLimbBudgetConservation));
+            list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_QuadrupedSymmetryAndDeficits", CheckQuadrupedSymmetryAndDeficits));
             list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_ProstheticDamageAndAthletics", CheckProstheticDamageAndAthletics));
+            list.Add(new SelfCheckDef(GroupSolver, "OverHaulers_SelfCheck_Check_SubRootBilateralSymmetry", CheckSubRootBilateralSymmetry));
         }
 
         #endregion

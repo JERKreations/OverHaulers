@@ -39,6 +39,7 @@ namespace OverHaulers
 
         // Scaling Multipliers
         public float AthleticScalingMultiplier;
+        public float LimbPairDecayFactor;
 
         // Pre-Calculated Anchor Scales
         public float ProstheticAnchorScale;
@@ -144,6 +145,7 @@ namespace OverHaulers
             context.EnablePartHealth = config.EnablePartHealth;
 
             context.AthleticScalingMultiplier = config.AthleticScaling;
+            context.LimbPairDecayFactor = config.LimbPairDecayFactor;
 
             context.ProstheticAnchorScale = cleanBaseline * config.ProstheticScaling * config.ProstheticImpactConstant;
             context.AthleticAnchorScale = cleanBaseline * config.AthleticScaling * config.AthleticImpactConstant;

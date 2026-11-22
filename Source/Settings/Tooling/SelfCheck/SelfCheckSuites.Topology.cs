@@ -109,45 +109,23 @@ namespace OverHaulers
                     Expect.True(System.Math.Abs(torsoSum - 1.0f) < 0.002f, who + ": WeightCore sum expected ~1.0 but got " + torsoSum);
                 }
 
-                // 2. Compute expected multi-limb channel sums based on root count and pair decay
+                // 2. Equal underlying channel sums always normalize to 1.0 regardless of limb root count
                 int totalManipRoots = template.Counts.TotalManipulationRoots;
                 int totalMovingRoots = template.Counts.TotalMovingRoots;
-                float pairDecay = activeConfig.LimbPairDecayFactor;
 
-                int baseManipRoots = System.Math.Min(2, totalManipRoots);
-                float baseManipDivisor = baseManipRoots <= 1 ? 1.0f : (float)baseManipRoots;
-
-                int baseMoveRoots = System.Math.Min(2, totalMovingRoots);
-                float baseMoveDivisor = baseMoveRoots <= 1 ? 1.0f : (float)baseMoveRoots;
-
-                float expectedManipSum = 0f;
-                for (int r = 0; r < totalManipRoots; r++)
-                {
-                    int pairIdx = r / 2;
-                    expectedManipSum += Pass04_AppendageWeightSubCompiler.FastIntPow(pairDecay, pairIdx) / baseManipDivisor;
-                }
-
-                float expectedMoveSum = 0f;
-                for (int r = 0; r < totalMovingRoots; r++)
-                {
-                    int pairIdx = r / 2;
-                    expectedMoveSum += Pass04_AppendageWeightSubCompiler.FastIntPow(pairDecay, pairIdx) / baseMoveDivisor;
-                }
-
-                // 3. Verify channel weight sums against mathematical expectation
                 if (totalManipRoots > 0)
                 {
-                    Expect.True(System.Math.Abs(manipSum - expectedManipSum) < 0.002f, 
-                        who + ": WeightManipulation sum expected ~" + expectedManipSum.ToString("F3") + " but got " + manipSum.ToString("F3"));
+                    Expect.True(System.Math.Abs(manipSum - 1.0f) < 0.002f,
+                        who + ": WeightManipulation sum expected ~1.000 but got " + manipSum.ToString("F3"));
                 }
 
                 if (totalMovingRoots > 0)
                 {
-                    Expect.True(System.Math.Abs(moveSum - expectedMoveSum) < 0.002f, 
-                        who + ": WeightMoving sum expected ~" + expectedMoveSum.ToString("F3") + " but got " + moveSum.ToString("F3"));
+                    Expect.True(System.Math.Abs(moveSum - 1.0f) < 0.002f,
+                        who + ": WeightMoving sum expected ~1.000 but got " + moveSum.ToString("F3"));
                 }
 
-                // 4. Verify static weight factors sum against active normalized regional budgets
+                // 3. Verify static weight factors sum against active normalized regional budgets (always ~1.000)
                 PartCounts counts = template.Counts;
                 SystemicEvaluationContext.ResolveNormalizedBudgets(
                     in counts,
@@ -157,12 +135,12 @@ namespace OverHaulers
                     out float normMove);
 
                 float expectedStaticSum = ((torsoSum > 0f ? 1.0f : 0f) * normTorso)
-                                        + (expectedManipSum * normManip)
-                                        + (expectedMoveSum * normMove);
+                                        + ((totalManipRoots > 0 ? 1.0f : 0f) * normManip)
+                                        + ((totalMovingRoots > 0 ? 1.0f : 0f) * normMove);
 
                 if (hasNonZeroSettingsBudget && (torsoSum > 0f || totalManipRoots > 0 || totalMovingRoots > 0))
                 {
-                    Expect.True(System.Math.Abs(staticSum - expectedStaticSum) < 0.002f, 
+                    Expect.True(System.Math.Abs(staticSum - expectedStaticSum) < 0.002f,
                         who + ": StaticWeightFactors sum expected ~" + expectedStaticSum.ToString("F3") + " but got " + staticSum.ToString("F3"));
                 }
 

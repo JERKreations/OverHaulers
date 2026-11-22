@@ -15,8 +15,9 @@ namespace OverHaulers
 
         /// <summary>
         /// [PASS 3] Distributes the Torso structural budget across spinal, pelvic, neck, and rib segments.
-        /// Applies the biomechanical HitPoint density power curve:
-        /// <code>RawWeight = RoleWeight * FastPow(PartHP / CoreHP, TorsoHpSensitivity) / SiblingDivisor</code>
+        /// Normalizes each active <see cref="TorsoRole"/> bucket so <see cref="SolverConfiguration.TorsoAxialBias"/> acts as a true
+        /// regional budget share across arbitrary morphologies, while weighting parts within each bucket by:
+        /// <code>RawScore = FastPow(PartHP / CoreHP, TorsoHpSensitivity) / SiblingDivisor</code>
         /// </summary>
         public static void CompileTorsoRolesAndWeights(
             BodyDef bodyDef,
@@ -33,7 +34,7 @@ namespace OverHaulers
             #region 1A. Axial Column Traversal & Anchor Bridges
 
             // Assign the core part as the initial axial column if it exists. This ensures that the central structural element of the torso is
-            //  correctly identified.
+            // correctly identified.
             if (corePart != null)
             {
                 int coreIdx = template.GetPartIndex(corePart);
@@ -44,7 +45,7 @@ namespace OverHaulers
             }
 
             // Traverse all parts to ensure that any core parts that are part of the trunk are correctly marked as axial columns. This helps in
-            //  establishing a continuous axial structure for the torso.
+            // establishing a continuous axial structure for the torso.
             for (int i = 0; i < partCount; i++)
             {
                 if (resolvedTypes[i] == PartType.CorePart && TopologyLayoutCompiler.IsTrunkDef(bodyDef.AllParts[i].def))
@@ -53,9 +54,8 @@ namespace OverHaulers
                 }
             }
 
-            bool hasAnchorBridges = false;
             // Iterate through all parts to identify and mark anchor bridges for limb attachment points. This ensures that limbs have a stable
-            //  connection to the axial structure of the torso.
+            // connection to the axial structure of the torso.
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = resolvedTypes[i];
@@ -75,7 +75,6 @@ namespace OverHaulers
                                 if (torsoRoles[idx] != TorsoRole.AxialColumn)
                                 {
                                     torsoRoles[idx] = TorsoRole.AnchorBridge;
-                                    hasAnchorBridges = true;
                                 }
                             }
                             curr = curr.parent;
@@ -84,27 +83,24 @@ namespace OverHaulers
                 }
             }
 
-            // At this point, all anchor bridges have been identified and marked, ensuring that limbs have a stable connection to the axial structure
-            //  of the torso.
             #endregion
 
             #region 1B. ModExtension XML Overrides & Fallback
 
-            // Apply any ModExtension XML overrides to the torso roles, ensuring that custom definitions are respected.
-            // If no overrides are present, fallback to the previously determined roles based on axial columns and anchor bridges.
+            // Apply any explicit ModExtension XML overrides to the torso roles (including demoting anchor bridges to Peripheral).
             for (int i = 0; i < partCount; i++)
             {
                 if (resolvedTypes[i] == PartType.CorePart)
                 {
                     var ext = bodyDef.AllParts[i].def?.GetCachedModExtension();
-                    if (ext != null && ext.torsoRole != TorsoRole.Peripheral)
+                    if (ext != null && ext.torsoRole != TorsoRole.Auto)
                     {
                         torsoRoles[i] = ext.torsoRole;
                     }
                 }
             }
 
-            // Ensure that there is at least one axial column in the torso. If none exists, promote an anchor bridge to an axial column.
+            // Ensure that there is at least one axial column in the torso when possible. If none exists, promote anchor bridges.
             bool hasAxialPath = false;
             for (int i = 0; i < partCount; i++)
             {
@@ -122,68 +118,100 @@ namespace OverHaulers
                 }
             }
 
-            // At this point, all torso roles have been finalized, with ModExtension overrides applied and fallback logic ensuring a valid
-            //  axial structure.
             #endregion
 
-            #region 1C. Biomechanical HP Density Weight Calculation
+            #region 1C. Biomechanical HP Density & Role-Bucket Normalization
 
             ref readonly SolverConfiguration config = ref MassCapacitySolver.ActiveConfiguration;
             float axialBias = config.TorsoAxialBias;
             float hpSensitivity = config.TorsoHpSensitivity;
 
-            float remainingBudget = 1.0f - axialBias;
-            float anchorWeightRole = hasAnchorBridges ? (remainingBudget * 0.60f) : 0f;
-            float peripheralWeightRole = hasAnchorBridges ? (remainingBudget * 0.40f) : remainingBudget;
-
             float coreHp = (corePart != null && corePart.def != null && corePart.def.hitPoints > 0) ? (float)corePart.def.hitPoints : 100f;
 
-            float torsoRawWeightSum = 0f;
             torsoRawWeights = new float[partCount];
+            bool[] isExplicitOverride = null;
 
-            // Iterate through all torso parts to calculate their raw weights based on role, hit points, and ModExtension overrides.
+            float axialScoreSum = 0f;
+            float anchorScoreSum = 0f;
+            float peripheralScoreSum = 0f;
+
+            // Step 1: Write per-part HP density scores directly into torsoRawWeights (or capture explicit overrides) and sum by bucket.
             for (int i = 0; i < partCount; i++)
             {
-                if (resolvedTypes[i] == PartType.CorePart)
+                if (resolvedTypes[i] != PartType.CorePart) continue;
+
+                BodyPartRecord part = bodyDef.AllParts[i];
+
+                // Zero-coverage virtual parts carry exactly 0.0f raw weight
+                if (part.coverageAbs <= 0f && part != corePart)
                 {
-                    BodyPartRecord part = bodyDef.AllParts[i];
-
-                    // Zero-coverage virtual parts carry exactly 0.0f raw weight
-                    if (part.coverageAbs <= 0f && part != corePart)
-                    {
-                        torsoRawWeights[i] = 0f;
-                        continue;
-                    }
-
-                    var ext = part.def?.GetCachedModExtension();
-
-                    // Determine the raw weight for the torso part, considering ModExtension overrides and role-based calculations.
-                    float rawWeight;
-                    if (ext != null && ext.relativeTorsoWeight >= 0f)
-                    {
-                        rawWeight = ext.relativeTorsoWeight / tempPartTopologies[i].SafeSiblingDivisor;
-                    }
-                    else
-                    {
-                        float roleWeight = axialBias;
-                        if (torsoRoles[i] == TorsoRole.AnchorBridge) roleWeight = anchorWeightRole;
-                        else if (torsoRoles[i] == TorsoRole.Peripheral) roleWeight = peripheralWeightRole;
-
-                        float partHp = (part.def != null && part.def.hitPoints > 0) ? (float)part.def.hitPoints : 10f;
-                        float hpRatio = partHp / coreHp;
-                        float hpFactor = FastPow(hpRatio, hpSensitivity);
-
-                        rawWeight = roleWeight * hpFactor / tempPartTopologies[i].SafeSiblingDivisor;
-                    }
-
-                    torsoRawWeights[i] = rawWeight;
-                    torsoRawWeightSum += rawWeight;
+                    torsoRawWeights[i] = 0f;
+                    continue;
                 }
+
+                var ext = part.def?.GetCachedModExtension();
+                if (ext != null && ext.relativeTorsoWeight >= 0f)
+                {
+                    if (isExplicitOverride == null) isExplicitOverride = new bool[partCount];
+                    isExplicitOverride[i] = true;
+                    torsoRawWeights[i] = ext.relativeTorsoWeight / tempPartTopologies[i].SafeSiblingDivisor;
+                    continue;
+                }
+
+                float partHp = (part.def != null && part.def.hitPoints > 0) ? (float)part.def.hitPoints : 10f;
+                float hpRatio = partHp / coreHp;
+                float score = FastPow(hpRatio, hpSensitivity) / tempPartTopologies[i].SafeSiblingDivisor;
+                torsoRawWeights[i] = score;
+
+                TorsoRole role = torsoRoles[i];
+                if (role == TorsoRole.AxialColumn) axialScoreSum += score;
+                else if (role == TorsoRole.AnchorBridge) anchorScoreSum += score;
+                else peripheralScoreSum += score;
+            }
+
+            // Step 2: Assign exact active bucket targets so TorsoAxialBias stays faithful regardless of peripheral part counts.
+            bool hasAxial = axialScoreSum > 1e-6f;
+            bool hasAnchor = anchorScoreSum > 1e-6f;
+            bool hasPeripheral = peripheralScoreSum > 1e-6f;
+
+            float axialTarget = hasAxial ? axialBias : 0f;
+            float nonAxialBudget = hasAxial ? (1.0f - axialBias) : 1.0f;
+            float anchorTarget = hasAnchor ? (hasPeripheral ? nonAxialBudget * 0.60f : nonAxialBudget) : 0f;
+            float peripheralTarget = hasPeripheral ? (hasAnchor ? nonAxialBudget * 0.40f : nonAxialBudget) : 0f;
+
+            if (hasAxial && !hasAnchor && !hasPeripheral)
+            {
+                axialTarget = 1.0f;
+            }
+
+            float torsoRawWeightSum = 0f;
+            for (int i = 0; i < partCount; i++)
+            {
+                if (resolvedTypes[i] != PartType.CorePart) continue;
+
+                bool isOverride = isExplicitOverride != null && isExplicitOverride[i];
+                if (!isOverride && torsoRawWeights[i] > 0f)
+                {
+                    TorsoRole role = torsoRoles[i];
+                    if (role == TorsoRole.AxialColumn && hasAxial)
+                    {
+                        torsoRawWeights[i] = (torsoRawWeights[i] / axialScoreSum) * axialTarget;
+                    }
+                    else if (role == TorsoRole.AnchorBridge && hasAnchor)
+                    {
+                        torsoRawWeights[i] = (torsoRawWeights[i] / anchorScoreSum) * anchorTarget;
+                    }
+                    else if (hasPeripheral)
+                    {
+                        torsoRawWeights[i] = (torsoRawWeights[i] / peripheralScoreSum) * peripheralTarget;
+                    }
+                }
+
+                torsoRawWeightSum += torsoRawWeights[i];
             }
 
             torsoRelativeWeightSum = torsoRawWeightSum > 1e-6f ? torsoRawWeightSum : 1.0f;
 
-            // Finalize torso weight calculations, avoiding division by zero without inflating small valid sums.
             #endregion
         }
 

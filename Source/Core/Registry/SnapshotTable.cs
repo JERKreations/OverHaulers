@@ -24,7 +24,9 @@ namespace OverHaulers
     /// 4. Direct 32-Bit Float Reads: Reads and writes to aligned 32-bit floats are hardware-atomic on x86 and ARM.
     /// 5. Backward-Shift Deletion (Algorithm R) &amp; SeqLock: Traditional open-addressing uses "tombstones" which degrade search performance.
     ///    Backward-shift deletion physically slides displaced cluster keys backward to fill the vacuum, keeping probe chains compact.
-    /// 6. Multiplicative Hashing: Knuth's golden-ratio multiplier uniformly diffuses sequential RimWorld Thing IDs across power-of-two buckets.
+    /// 6. Upper-Bit Folded Multiplicative Hashing: Cascaded 9-bit XOR folding (<c>h ^= h >> 9; h ^= h >> 18</c>) followed by Knuth
+    ///    multiplication (<c>&amp; mask</c>) preserves Weyl dispersion, disperses power-of-two strides, and splits buckets into orthogonal
+    ///    halves (<c>b</c> and <c>b + C</c>) on resize.
     /// 7. Zero-Contention Telemetry: Reader conflict retries, probe step depths, and slot displacements are tracked via gated atomic accumulators.
     ///
     /// Threading contract: <see cref="WriteState"/>, <see cref="Evict"/>, <see cref="BeginEvictionBatch"/>,
@@ -108,8 +110,9 @@ namespace OverHaulers
         private int evictionBatchDepth;
         private bool contractionPending;
 
-        // High-water diagnostic throttle flag
+        // High-water diagnostic throttle and blocked-expansion state
         private bool hasLoggedHighWaterWarning;
+        private bool expansionBlocked;
 
         // Instance-local diagnostics, independent of the global PerformanceTelemetry.
         private long readerRetries;
@@ -202,6 +205,7 @@ namespace OverHaulers
 
                 occupiedSlots = 0;
                 hasLoggedHighWaterWarning = false;
+                expansionBlocked = false;
                 contractionPending = false;
 
                 if (forwardTelemetry && clearedEntries > 0)
@@ -246,7 +250,8 @@ namespace OverHaulers
             {
                 TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
 
-                if (dynamicScalingEnabled && buffer.Capacity < MaxCapacity && (occupiedSlots + 1) >= (int)(buffer.Capacity * HighWatermarkRatio))
+                if (dynamicScalingEnabled && !expansionBlocked && buffer.Capacity < MaxCapacity
+                    && (occupiedSlots + 1) >= (int)(buffer.Capacity * HighWatermarkRatio))
                 {
                     ResizeInternal(buffer.Capacity << 1);
                     buffer = Volatile.Read(ref this.activeBuffer);
@@ -256,7 +261,7 @@ namespace OverHaulers
                 float[] offsets = buffer.Offsets;
                 uint mask = buffer.Mask;
 
-                uint baseSlot = ((uint)pawnId * HashMultiplier) & mask;
+                uint baseSlot = ComputeBucketIndex(pawnId, mask);
                 int targetSlot = -1;
                 int probeStepsTaken = 0;
                 bool isNewInsertion = false;
@@ -376,9 +381,15 @@ namespace OverHaulers
             try
             {
                 bool evicted = EvictInternal(pawnId);
+                if (evicted)
+                {
+                    expansionBlocked = false;
+                }
+
                 TableBuffer buffer = Volatile.Read(ref this.activeBuffer);
 
-                if (evicted && dynamicScalingEnabled && buffer.Capacity > minConfiguredCapacity && occupiedSlots <= (int)(buffer.Capacity * LowWatermarkRatio))
+                if (evicted && dynamicScalingEnabled && buffer.Capacity > minConfiguredCapacity
+                    && occupiedSlots <= (int)(buffer.Capacity * LowWatermarkRatio))
                 {
                     if (evictionBatchDepth > 0)
                     {
@@ -430,7 +441,7 @@ namespace OverHaulers
                 float[] offsets = buffer.Offsets;
                 uint localMask = buffer.Mask;
 
-                uint baseSlot = ((uint)pawnId * HashMultiplier) & localMask;
+                uint baseSlot = ComputeBucketIndex(pawnId, localMask);
                 float candidateOffset = 0f;
                 bool found = false;
 
@@ -504,7 +515,7 @@ namespace OverHaulers
         /// <returns>The natural (root) slot index of the ID.</returns>
         public int NaturalSlotOf(int pawnId)
         {
-            return (int)(((uint)pawnId * HashMultiplier) & Volatile.Read(ref activeBuffer).Mask);
+            return (int)ComputeBucketIndex(pawnId, Volatile.Read(ref activeBuffer).Mask);
         }
 
         #endregion
@@ -521,7 +532,7 @@ namespace OverHaulers
             float[] offsets = buffer.Offsets;
             uint mask = buffer.Mask;
 
-            uint baseSlot = ((uint)pawnId * HashMultiplier) & mask;
+            uint baseSlot = ComputeBucketIndex(pawnId, mask);
             int targetSlot = -1;
 
             // Step 1: Locate the target slot within the bounded probe chain
@@ -557,7 +568,7 @@ namespace OverHaulers
                 uint probeDistance = (scanSlot - emptySlot) & mask;
                 if (probeDistance >= MaxProbeSteps) break;
 
-                uint naturalHash = ((uint)candidateId * HashMultiplier) & mask;
+                uint naturalHash = ComputeBucketIndex(candidateId, mask);
 
                 uint distToEmpty = (emptySlot - naturalHash) & mask;
                 uint distToCurrent = (scanSlot - naturalHash) & mask;
@@ -612,8 +623,9 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Rehashes into private candidate buffers under the active SeqLock mutation window. A contraction retries larger
-        /// capacities when collision clusters cannot fit; no buffer is published unless every entry was rehashed.
+        /// Rehashes into private candidate buffers under the active SeqLock mutation window. Both expansions and contractions
+        /// step up to larger power-of-two candidates when collision clusters exceed the probe limit; no buffer is published
+        /// unless every entry fits, and existing snapshots are retained intact if no candidate capacity suffices.
         /// </summary>
         /// <param name="newCapacity">The new capacity to resize the table to. Must be a power of two and within configured bounds.</param>
         private void ResizeInternal(int newCapacity)
@@ -641,7 +653,7 @@ namespace OverHaulers
                     int id = oldPawnIds[i];
                     if (id <= 0) continue;
 
-                    uint baseSlot = ((uint)id * HashMultiplier) & newMask;
+                    uint baseSlot = ComputeBucketIndex(id, newMask);
                     bool inserted = false;
                     for (uint step = 0; step < MaxProbeSteps; step++)
                     {
@@ -665,6 +677,7 @@ namespace OverHaulers
                 // BREAKPOINT ANCHOR: Lossless Snapshot Buffer Publication
                 if (fits)
                 {
+                    expansionBlocked = false;
                     Volatile.Write(ref this.activeBuffer, newBuffer);
                     if (forwardTelemetry)
                     {
@@ -680,9 +693,21 @@ namespace OverHaulers
                     continue;
                 }
 
+                if (newCapacity > oldCapacity && candidateCapacity < MaxCapacity)
+                {
+                    candidateCapacity <<= 1;
+                    continue;
+                }
+
                 if (newCapacity > oldCapacity)
                 {
-                    throw new InvalidOperationException("SnapshotTable expansion could not rehash all entries within the probe limit.");
+                    expansionBlocked = true;
+                    if (forwardTelemetry)
+                    {
+                        OHLog.Warn("Registry.SnapshotExpansion", null,
+                            "SnapshotTable expansion was deferred because collision clusters exceed the probe limit up to maximum capacity; all existing snapshots were retained.");
+                    }
+                    return;
                 }
 
                 if (forwardTelemetry)
@@ -719,6 +744,22 @@ namespace OverHaulers
         #endregion
 
         #region 8. HASHING PRIMITIVES & PRIVATE HELPERS
+
+        /// <summary>
+        /// Single canonical bucket-index function combining cascaded 9-bit upper-bit folding with Knuth multiplicative hashing.
+        /// Preserves golden-ratio low-discrepancy Weyl spacing, eliminates power-of-two stride collapse, and splits buckets orthogonally across resizes.
+        /// </summary>
+        /// <param name="pawnId">The pawn's unique identifier.</param>
+        /// <param name="mask">Bitmask equal to <c>Capacity - 1</c>.</param>
+        /// <returns>The natural bucket index in <c>[0, Capacity - 1]</c>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static uint ComputeBucketIndex(int pawnId, uint mask)
+        {
+            uint h = (uint)pawnId;
+            h ^= h >> 9;
+            h ^= h >> 18;
+            return (h * HashMultiplier) & mask;
+        }
 
         /// <summary>
         /// Short exponential spin so a reader that collided with an in-flight writer does not burn all of its retries instantly.

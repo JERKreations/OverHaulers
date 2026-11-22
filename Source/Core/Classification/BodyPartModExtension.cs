@@ -19,9 +19,10 @@ namespace OverHaulers
 
         /// <summary>
         /// Explicit torso load-bearing role (AxialColumn, AnchorBridge, Peripheral).
-        /// Set to AxialColumn to treat custom spine/carapace bones as the primary vertical load-bearing column.
+        /// Default: Auto (defers to axial column and anchor-bridge traversal heuristics).
+        /// Set explicitly to Peripheral to demote an auto-detected anchor bridge, or AxialColumn to designate custom spine/carapace bones.
         /// </summary>
-        public TorsoRole torsoRole = TorsoRole.Peripheral;
+        public TorsoRole torsoRole = TorsoRole.Auto;
 
         /// <summary>
         /// Explicitly treats this part as a metabolic organ, bypassing anatomical mass budget calculations.

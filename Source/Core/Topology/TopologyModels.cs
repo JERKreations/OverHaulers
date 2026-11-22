@@ -19,10 +19,12 @@ namespace OverHaulers
 
     /// <summary>
     /// [TOPO-03] Biomechanical role assigned to a core trunk part during axial load distribution.
+    /// <see cref="Auto"/> is used exclusively on <see cref="BodyPartModExtension"/> to defer to structural heuristics.
     /// Resides under Source/Core/Topology/.
     /// </summary>
     public enum TorsoRole
     {
+        Auto = -1,
         Peripheral = 0,
         AnchorBridge = 1,
         AxialColumn = 2

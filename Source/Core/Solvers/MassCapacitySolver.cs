@@ -573,7 +573,10 @@ namespace OverHaulers
 
         /// <summary>
         /// Solves the raw part offsets across contiguous SoA memory lanes.
-        /// Wounds, amputations, and kinetic systemic strain accumulate smoothly without premature part-level clamping.
+        /// Wounds, amputations, sub-par prosthetics, and natural athletics evaluate uniformly against equal underlying limb weights.
+        /// Boosted replacements (&gt; 100%) on multi-limbed species (&gt; 2 roots) are ranked by boost magnitude so the first two
+        /// boosted branches always receive the canonical 2-limb anchor (<c>112.5% + 112.5% = 125%</c>) regardless of limb order,
+        /// while subsequent boosted branches follow <see cref="SolverConfiguration.LimbPairDecayFactor"/>.
         /// </summary>
         /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
         /// <param name="context">The systemic evaluation context derived from the active configuration snapshot.</param>
@@ -593,43 +596,83 @@ namespace OverHaulers
             var calcHealths = workspace.CalculatedHealths;
 
             PartType[] partTypes = workspace.PartTypes;
-            int[] parentIndices = workspace.ParentIndices;
+            int[] rootIndices = workspace.RootPartIndices;
             float[] weightManip = workspace.WeightManipulation;
             float[] weightMove = workspace.WeightMoving;
             float normManip = context.GetNormalizedBudget(PartType.ManipulationPart);
             float normMove = context.GetNormalizedBudget(PartType.MovingPart);
 
-            #region 6A. Bilateral Root Symmetry Evaluation
-            // BREAKPOINT ANCHOR: Bilateral Root Symmetry Evaluation Gate
-            int totalRootArms = context.Counts.TotalManipulationRoots;
-            int totalRootLegs = context.Counts.TotalMovingRoots;
-            int intactRootArms = 0;
-            int intactRootLegs = 0;
+            #region 6A. Bilateral Symmetry & Multi-Limb Boost Detection
+            // BREAKPOINT ANCHOR: Bilateral Limb Symmetry & Multi-Limb Boost Gate
+            float totalManipWeight = 0f;
+            float intactManipWeight = 0f;
+            float totalMoveWeight = 0f;
+            float intactMoveWeight = 0f;
+            bool hasBoostedManipCandidate = false;
+            bool hasBoostedMoveCandidate = false;
 
             for (int i = 0; i < partCount; i++)
             {
                 PartType type = partTypes[i];
                 if (type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb)
                 {
-                    int parentIdx = parentIndices[i];
-                    bool isRoot = parentIdx == -1 || partTypes[parentIdx] != type;
-                    if (isRoot && !workspace.HasFlag(i, PartFlags.IsMissing))
+                    bool missing = workspace.HasFlag(i, PartFlags.IsMissing);
+                    float wManip = weightManip[i];
+                    float wMove = weightMove[i];
+
+                    if (wManip > 0f)
                     {
-                        if (type == PartType.ManipulationPart) intactRootArms++;
-                        else if (type == PartType.MovingPart) intactRootLegs++;
-                        else if (type == PartType.DualLimb)
-                        {
-                            intactRootArms++;
-                            intactRootLegs++;
-                        }
+                        totalManipWeight += wManip;
+                        if (!missing) intactManipWeight += wManip;
+                    }
+                    if (wMove > 0f)
+                    {
+                        totalMoveWeight += wMove;
+                        if (!missing) intactMoveWeight += wMove;
+                    }
+
+                    if (!missing && context.EnableProsthetics && workspace.HasFlag(i, PartFlags.HasAddedPart) && effs[i] > 1.0f)
+                    {
+                        if (wManip > 0f) hasBoostedManipCandidate = true;
+                        if (wMove > 0f) hasBoostedMoveCandidate = true;
                     }
                 }
             }
 
-            float armRootSymmetry = totalRootArms > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootArms / totalRootArms)) : 1.0f;
-            float legRootSymmetry = totalRootLegs > 0 ? Math.Min(1f, Math.Max(0f, (float)intactRootLegs / totalRootLegs)) : 1.0f;
-            GetDualLimbShares(-1, null, null, normManip, normMove, out float dualManipShare, out float dualMoveShare);
-            float dualRootSymmetry = (armRootSymmetry * dualManipShare) + (legRootSymmetry * dualMoveShare);
+            float armBilateralSymmetry = totalManipWeight > 0f ? Math.Min(1f, Math.Max(0f, intactManipWeight / totalManipWeight)) : 1.0f;
+            float legBilateralSymmetry = totalMoveWeight > 0f ? Math.Min(1f, Math.Max(0f, intactMoveWeight / totalMoveWeight)) : 1.0f;
+
+            bool applyManipPairScaling = hasBoostedManipCandidate && context.Counts.TotalManipulationRoots > 2;
+            bool applyMovePairScaling = hasBoostedMoveCandidate && context.Counts.TotalMovingRoots > 2;
+
+            float[] manipMultipliers = applyManipPairScaling ? workspace.BranchManipMultipliers : null;
+            float[] moveMultipliers = applyMovePairScaling ? workspace.BranchMoveMultipliers : null;
+
+            if (applyManipPairScaling && manipMultipliers != null)
+            {
+                ComputeChannelPairMultipliers(
+                    workspace,
+                    effs,
+                    weightManip,
+                    rootIndices,
+                    partCount,
+                    context.Counts.TotalManipulationRoots,
+                    context.LimbPairDecayFactor,
+                    manipMultipliers);
+            }
+
+            if (applyMovePairScaling && moveMultipliers != null)
+            {
+                ComputeChannelPairMultipliers(
+                    workspace,
+                    effs,
+                    weightMove,
+                    rootIndices,
+                    partCount,
+                    context.Counts.TotalMovingRoots,
+                    context.LimbPairDecayFactor,
+                    moveMultipliers);
+            }
             #endregion
 
             #region 6B. Branchless Direct Systemic Regional Deltas
@@ -677,12 +720,32 @@ namespace OverHaulers
                         if (efficiency > 1.0f)
                         {
                             float efficiencyBoost = efficiency - 1.0f;
-                            float symmetryMultiplier = (type == PartType.ManipulationPart)
-                                ? armRootSymmetry : (type == PartType.MovingPart)
-                                ? legRootSymmetry : (type == PartType.DualLimb)
-                                ? dualRootSymmetry : 1.0f;
+                            int rootIdx = (rootIndices != null && rootIndices[i] >= 0) ? rootIndices[i] : i;
 
-                            calculatedProsthetic = partNormalizedWeight * efficiencyBoost * context.ProstheticAnchorScale * symmetryMultiplier;
+                            if (type == PartType.ManipulationPart)
+                            {
+                                float pairScale = manipMultipliers != null ? manipMultipliers[rootIdx] : 1.0f;
+                                calculatedProsthetic = (weightManip[i] * normManip * pairScale)
+                                    * efficiencyBoost * context.ProstheticAnchorScale * armBilateralSymmetry;
+                            }
+                            else if (type == PartType.MovingPart)
+                            {
+                                float pairScale = moveMultipliers != null ? moveMultipliers[rootIdx] : 1.0f;
+                                calculatedProsthetic = (weightMove[i] * normMove * pairScale)
+                                    * efficiencyBoost * context.ProstheticAnchorScale * legBilateralSymmetry;
+                            }
+                            else if (type == PartType.DualLimb)
+                            {
+                                float manipPairScale = manipMultipliers != null ? manipMultipliers[rootIdx] : 1.0f;
+                                float movePairScale = moveMultipliers != null ? moveMultipliers[rootIdx] : 1.0f;
+                                float manipContrib = (weightManip[i] * normManip * manipPairScale) * armBilateralSymmetry;
+                                float moveContrib = (weightMove[i] * normMove * movePairScale) * legBilateralSymmetry;
+                                calculatedProsthetic = (manipContrib + moveContrib) * efficiencyBoost * context.ProstheticAnchorScale;
+                            }
+                            else
+                            {
+                                calculatedProsthetic = partNormalizedWeight * efficiencyBoost * context.ProstheticAnchorScale;
+                            }
                         }
                         else if (efficiency < 1.0f)
                         {
@@ -862,6 +925,79 @@ namespace OverHaulers
 
             manipShare = 0.5f;
             moveShare = 0.5f;
+        }
+
+        #endregion
+
+        #region 8. PRIVATE MULTI-LIMB RANKING HELPERS
+
+        /// <summary>
+        /// Computes zero-allocation, order-independent prosthetic pair multipliers per limb branch root for a single channel.
+        /// Boosted limb branches (&gt; 100%) are ranked descending by weighted efficiency boost so the top two boosted branches
+        /// receive the canonical 2-limb anchor (<c>totalRoots / 2</c>, matching <c>112.5% + 112.5% = 125%</c>) regardless of slot order,
+        /// while subsequent boosted branches scale geometrically by <see cref="SolverConfiguration.LimbPairDecayFactor"/>.
+        /// </summary>
+        private static void ComputeChannelPairMultipliers(
+            AnatomicalWorkspace workspace,
+            float[] effs,
+            float[] channelWeights,
+            int[] rootIndices,
+            int partCount,
+            int totalChannelRoots,
+            float pairDecayFactor,
+            float[] branchMultipliers)
+        {
+            for (int i = 0; i < partCount; i++)
+            {
+                branchMultipliers[i] = 0f;
+            }
+
+            for (int i = 0; i < partCount; i++)
+            {
+                float w = channelWeights[i];
+                if (w > 0f &&
+                    !workspace.HasFlag(i, PartFlags.IsMissing) &&
+                    workspace.HasFlag(i, PartFlags.HasAddedPart) &&
+                    effs[i] > 1.0f)
+                {
+                    int rootIdx = (rootIndices != null && rootIndices[i] >= 0) ? rootIndices[i] : i;
+                    branchMultipliers[rootIdx] += (effs[i] - 1.0f) * w;
+                }
+            }
+
+            int[] sortScratch = workspace.BranchSortScratch;
+            int boostedCount = 0;
+            for (int i = 0; i < partCount; i++)
+            {
+                if (branchMultipliers[i] > 0f)
+                {
+                    sortScratch[boostedCount++] = i;
+                }
+            }
+
+            // Insertion sort descending by boost score (branch count <= total roots; deterministic tie-break by root slot index)
+            for (int i = 1; i < boostedCount; i++)
+            {
+                int keyRoot = sortScratch[i];
+                float keyScore = branchMultipliers[keyRoot];
+                int j = i - 1;
+                while (j >= 0 && branchMultipliers[sortScratch[j]] < keyScore)
+                {
+                    sortScratch[j + 1] = sortScratch[j];
+                    j--;
+                }
+                sortScratch[j + 1] = keyRoot;
+            }
+
+            int baseRoots = Math.Min(2, totalChannelRoots);
+            float baseAnchorScale = (float)totalChannelRoots / (baseRoots <= 1 ? 1.0f : (float)baseRoots);
+
+            for (int rank = 0; rank < boostedCount; rank++)
+            {
+                int rootIdx = sortScratch[rank];
+                int pairIndex = rank / 2;
+                branchMultipliers[rootIdx] = baseAnchorScale * Pass04_AppendageWeightSubCompiler.FastIntPow(pairDecayFactor, pairIndex);
+            }
         }
 
         #endregion
