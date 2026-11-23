@@ -161,22 +161,27 @@ namespace OverHaulers
             }
 
             Color origColor = GUI.color;
-            if (isSelected)
+            try
             {
-                GUI.color = Color.cyan;
-            }
-
-            if (Widgets.ButtonText(rect, label))
-            {
-                if (settings.activeTab != targetTab)
+                if (isSelected)
                 {
-                    settings.activeTab = targetTab;
-                    SettingsLayout.ClearInputBuffers("Settings");
-                    SettingsLayout.ResetControlIndex("Settings");
+                    GUI.color = Color.cyan;
+                }
+
+                if (Widgets.ButtonText(rect, label))
+                {
+                    if (settings.activeTab != targetTab)
+                    {
+                        settings.activeTab = targetTab;
+                        SettingsLayout.ClearInputBuffers("Settings");
+                        SettingsLayout.ResetControlIndex("Settings");
+                    }
                 }
             }
-
-            GUI.color = origColor;
+            finally
+            {
+                GUI.color = origColor;
+            }
         }
 
         #endregion

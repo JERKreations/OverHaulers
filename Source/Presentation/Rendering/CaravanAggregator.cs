@@ -117,6 +117,49 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Compiles a summary of the remaining source caravan pawns not selected for transfer in a split-caravan session.
+        /// </summary>
+        /// <param name="transferables">The split dialog's transferable list.</param>
+        /// <returns>A CaravanSummary covering pawns at indices <c>CountToTransfer .. Count - 1</c>.</returns>
+        public static CaravanSummary CompileRemainingFromTransferables(List<TransferableOneWay> transferables)
+        {
+            CaravanSummary summary = default;
+            if (transferables == null || transferables.Count == 0) return summary;
+
+            for (int t = 0; t < transferables.Count; t++)
+            {
+                TransferableOneWay item = transferables[t];
+                if (item == null) continue;
+
+                List<Thing> things = item.things;
+                int transferCount = Math.Max(0, item.CountToTransfer);
+
+                // Path A: Remaining source pawns not marked for split transfer
+                if (things != null && things.Count > 0)
+                {
+                    for (int i = transferCount; i < things.Count; i++)
+                    {
+                        if (things[i] is Pawn targetPawn && PawnDataRegistry.CanCarryCaravanMass(targetPawn))
+                        {
+                            AggregatePawnIntoSummary(targetPawn, ref summary);
+                        }
+                    }
+                }
+                // Path B: Modded virtualized / prototype transferables fallback
+                else if (item.AnyThing is Pawn prototypePawn && PawnDataRegistry.CanCarryCaravanMass(prototypePawn))
+                {
+                    int remainingCount = Math.Max(0, item.GetMaximumToTransfer() - transferCount);
+                    for (int i = 0; i < remainingCount; i++)
+                    {
+                        AggregatePawnIntoSummary(prototypePawn, ref summary);
+                    }
+                }
+            }
+
+            return summary;
+        }
+
+        /// <summary>
         /// Compiles a summary of the caravan's mass capacity from a list of pawns.
         /// </summary>
         /// <param name="pawns">The list of pawns to be aggregated.</param>
@@ -270,7 +313,7 @@ namespace OverHaulers
             // Only display gear +/- offset if it is significant
             if (Math.Abs(gearOffset) > PawnDataRegistry.EfficiencyEpsilon)
             {
-                sb.AppendLine("OverHaulers_Caravan_PerformerDetail_Gear".Translate(
+                sb.AppendLine("OverHaulers_Caravan_PerformerDetail_Additional".Translate(
                     physicalValue.ToStringMassOffset(),
                     gearOffset.ToStringMassOffset()
                 ).ToString());

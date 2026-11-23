@@ -38,9 +38,6 @@ namespace OverHaulers
         /// </summary>
         public int priority = 0;
 
-        /// <summary>Optional key for a custom description to display in the UI.</summary>
-        public string customDescriptionKey;
-
         /// <summary>Short label for the host mod, used in UI displays to indicate which mod's deductions are being applied.</summary>
         public string hostLabelShort;
 

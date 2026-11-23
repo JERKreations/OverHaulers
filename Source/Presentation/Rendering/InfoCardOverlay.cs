@@ -32,6 +32,9 @@ namespace OverHaulers
         [ThreadStatic]
         private static int infoCardDepth;
 
+        [ThreadStatic]
+        private static bool isDrawingOverlay;
+
         /// <summary>
         /// The key used to cache overlay layout data based on the full text, rectangle width, scale percent, and active UI scale.
         /// </summary>
@@ -265,12 +268,9 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Populates the layout data for the specified cache node based on the provided text and layout parameters.
+        /// Attaches the specified cache node at the head of the LRU linked list.
         /// </summary>
-        /// <param name="node">The cache node to populate with layout data.</param>
-        /// <param name="fullText">The full text containing potential icon tags.</param>
-        /// <param name="rectWidth">The width of the rectangle for text layout calculations.</param>
-        /// <param name="scalePercent">The scale percent to apply to icon sizes and offsets.</param>
+        /// <param name="node">The cache node to attach at the head of the LRU list.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AttachAtHead(LruCacheNode node)
         {
@@ -297,8 +297,8 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Prefix(Rect rect, string label)
         {
-            // EXECUTION CONTEXT GATE: Instant bailout during normal gameplay
-            if (!IsRenderingInfoCard)
+            // EXECUTION CONTEXT GATE: Instant bailout during normal gameplay or internal overlay draw
+            if (!IsRenderingInfoCard || isDrawingOverlay)
             {
                 return true;
             }
@@ -352,7 +352,15 @@ namespace OverHaulers
                 LruCacheNode cachedNode = GetOrCreateLayoutNode(cacheKey, fullText, rect.width, scalePercent);
 
                 // 2. RENDER BASE TEXT
-                Widgets.Label(rect, cachedNode.PrintableText);
+                isDrawingOverlay = true;
+                try
+                {
+                    Widgets.Label(rect, cachedNode.PrintableText);
+                }
+                finally
+                {
+                    isDrawingOverlay = false;
+                }
 
                 // 3. RENDER ICONS DIRECTLY FROM PRE-CALCULATED COORDINATES
                 GUI.color = Color.white; // Explicitly restore white to bypass IMGUI alpha culling

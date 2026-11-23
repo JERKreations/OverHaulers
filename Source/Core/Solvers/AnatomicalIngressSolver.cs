@@ -25,9 +25,9 @@ namespace OverHaulers
     ///
     /// Inherited limb slots are solver bookkeeping, not restored body parts or vanilla hediff state. Their precompiled
     /// weights let a replacement affect the covered limb budget without changing the pawn's anatomy or hediffs.
-    /// The sweep clears missing, injury and local ailment state in those inherited slots; a descendant with its own
-    /// added-part hediff keeps its directly recorded state instead. This model does not establish how vanilla or
-    /// third-party mods handle damage and other hediffs on covered or missing parts.
+    /// The sweep propagates the parent replacement's efficiency and normalized health fraction while clearing missing, direct injury and
+    /// local ailment state in those inherited slots; a descendant with its own added-part hediff keeps its directly recorded state instead.
+    /// * This model does not establish how vanilla or third-party mods handle damage and other hediffs on covered or missing parts.
     /// </remarks>
     public static class AnatomicalIngressSolver
     {
@@ -39,22 +39,24 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. [PASS-01] PUBLIC INGRESS ENTRY POINT
+        #region 2. [PASS-01] PUBLIC INGRESS ENTRY POINTS
 
         /// <summary>
-        /// [PASS-01] Translates a Pawn's live hediff set into the workspace and executes unified graph sweeps.
+        /// [PASS-01] Canonical generic ingress entry point translating a pawn's live hediff set into the workspace
+        /// and executing unified topological graph sweeps without boxing value-type <see cref="IAnatomicalDataSource"/> adapters.
         /// </summary>
+        /// <typeparam name="TSource">The concrete struct data source implementing <see cref="IAnatomicalDataSource"/>.</typeparam>
         /// <param name="pawn">The pawn whose hediff set is being translated.</param>
         /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
         /// <param name="workspace">The anatomical workspace to be updated.</param>
         /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
-        /// <param name="source">Optional anatomical data source providing contextual part efficiencies.</param>
-        public static void IngressLivePawnPathology(
+        /// <param name="source">Concrete anatomical data source providing contextual part efficiencies and health caps.</param>
+        public static void IngressSourcePathology<TSource>(
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
             bool populateColdMetadata,
-            IAnatomicalDataSource source = null)
+            TSource source) where TSource : struct, IAnatomicalDataSource
         {
             if (pawn == null || safeHediffs == null || workspace == null) return;
 
@@ -65,6 +67,20 @@ namespace OverHaulers
             FinalizeTopologicalSweeps(pawn, workspace, populateColdMetadata, source);
         }
 
+        /// <summary>
+        /// Secondary entry point for raw <see cref="Pawn"/> inspection without a pre-built data source.
+        /// Thin hand-off wrapping the pawn in a stack <see cref="PawnAnatomicalSource"/>.
+        /// </summary>
+        public static void IngressLivePawnPathology(
+            Pawn pawn,
+            List<Hediff> safeHediffs,
+            AnatomicalWorkspace workspace,
+            bool populateColdMetadata = false)
+        {
+            if (pawn == null || safeHediffs == null || workspace == null) return;
+            IngressSourcePathology(pawn, safeHediffs, workspace, populateColdMetadata, new PawnAnatomicalSource(pawn));
+        }
+
         #endregion
 
         #region 3. [PASS-01-A] STAGE 1: HEDIFF TRANSLATION
@@ -72,35 +88,23 @@ namespace OverHaulers
         /// <summary>
         /// Translates a pawn's live hediff set into the anatomical workspace, updating part states, efficiencies, and systemic ailments.
         /// </summary>
-        /// <param name="pawn">The pawn whose hediff set is being translated.</param>
-        /// <param name="safeHediffs">The list of hediffs considered safe for translation.</param>
-        /// <param name="workspace">The anatomical workspace to be updated.</param>
-        /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during translation.</param>
-        /// <param name="source">Optional anatomical data source providing contextual part efficiencies.</param>
-        /// <remarks>
-        /// If the source is provided, it will be used to resolve part efficiencies and capacity levels, otherwise the pawn's live data
-        ///  will be used.
-        /// </remarks>
-        private static void StampLiveHediffs(
+        private static void StampLiveHediffs<TSource>(
             Pawn pawn,
             List<Hediff> safeHediffs,
             AnatomicalWorkspace workspace,
             bool populateColdMetadata,
-            IAnatomicalDataSource source)
+            TSource source) where TSource : struct, IAnatomicalDataSource
         {
             int partCount = workspace.PartCount;
             float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
             Array.Clear(injuryScratchBuffer, 0, partCount);
 
             // Scratch buffers for workspace data
-            var flags = workspace.Flags;
             var healths = workspace.HealthFractions;
             var effs = workspace.EfficiencyRatings;
             var coldStates = workspace.PartStatesColdArray;
 
-            float consciousness = source != null 
-                ? source.GetCapacityLevel(PawnCapacityDefOf.Consciousness) 
-                : MedicalClassifier.GetCapacityLevel(pawn, PawnCapacityDefOf.Consciousness);
+            float consciousness = source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
 
             workspace.CachedConsciousness = consciousness;
             bool consciousnessIsDropped = consciousness < 1.0f - PawnDataRegistry.EfficiencyEpsilon;
@@ -112,8 +116,8 @@ namespace OverHaulers
                 try
                 {
                     PawnCapacityUtility.CalculateCapacityLevel(
-                        pawn.health.hediffSet, 
-                        PawnCapacityDefOf.Consciousness, 
+                        pawn.health.hediffSet,
+                        PawnCapacityDefOf.Consciousness,
                         pooledImpactors
                     );
 
@@ -168,9 +172,7 @@ namespace OverHaulers
                 else if (hediff is Hediff_AddedPart addedPart)
                 {
                     float ratedEfficiency = addedPart.def?.addedPartProps?.partEfficiency ?? 1.0f;
-                    float liveEfficiency = source != null
-                        ? source.GetPartEfficiency(hediff.Part, ratedEfficiency)
-                        : MedicalClassifier.GetSafePartEfficiency(pawn, hediff.Part, ratedEfficiency);
+                    float liveEfficiency = source.GetPartEfficiency(hediff.Part, ratedEfficiency);
 
                     ImplantCharacteristics characteristics = MedicalClassifier.EvaluateHediffCapacities(addedPart.def);
 
@@ -248,15 +250,11 @@ namespace OverHaulers
         /// <summary>
         /// Finalizes the topological sweeps of the anatomical workspace, updating part states and efficiencies based on the pawn's current condition.
         /// </summary>
-        /// <param name="pawn">The pawn whose anatomical workspace is being finalized.</param>
-        /// <param name="workspace">The anatomical workspace containing part states and efficiencies.</param>
-        /// <param name="populateColdMetadata">Indicates whether UI properties should be compiled during the finalization process.</param>
-        /// <param name="source">Optional anatomical data source providing contextual max part health.</param>
-        private static void FinalizeTopologicalSweeps(
+        private static void FinalizeTopologicalSweeps<TSource>(
             Pawn pawn,
             AnatomicalWorkspace workspace,
             bool populateColdMetadata,
-            IAnatomicalDataSource source)
+            TSource source) where TSource : struct, IAnatomicalDataSource
         {
             int partCount = workspace.PartCount;
             var healths = workspace.HealthFractions;
@@ -268,40 +266,34 @@ namespace OverHaulers
             // =========================================================================
             // Sweep 1: Injury Health Fraction Normalization
             // =========================================================================
-            if (pawn != null || source != null)
+            float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
+
+            for (int i = 0; i < partCount; i++)
             {
-                float[] injuryScratchBuffer = workspace.FloatScratchBuffer;
-
-                // Ingress each injury
-                for (int i = 0; i < partCount; i++)
+                if (workspace.HasFlag(i, PartFlags.HasDirectDamage))
                 {
-                    if (workspace.HasFlag(i, PartFlags.HasDirectDamage))
+                    BodyPartRecord part = workspace.GetPartRecord(i);
+
+                    // Normalize injury health fraction
+                    if (part != null)
                     {
-                        BodyPartRecord part = workspace.GetPartRecord(i);
+                        float maxHp = source.GetPartMaxHealth(part);
 
-                        // Normalize injury health fraction
-                        if (part != null)
+                        if (maxHp > 0f)
                         {
-                            float maxHp = source != null ? source.GetPartMaxHealth(part) : part.def.GetMaxHealth(pawn);
-
-                            // Calculate current health based on lost HP
-                            if (maxHp > 0f)
-                            {
-                                float lostHp = injuryScratchBuffer[i];
-                                float currentHp = Math.Max(0f, maxHp - lostHp);
-                                healths[i] = Math.Min(1f, Math.Max(0f, currentHp / maxHp));
-                            }
-                            // Fallback for parts with no defined max health
-                            else
-                            {
-                                healths[i] = 1.0f;
-                            }
+                            float lostHp = injuryScratchBuffer[i];
+                            float currentHp = Math.Max(0f, maxHp - lostHp);
+                            healths[i] = Math.Min(1f, Math.Max(0f, currentHp / maxHp));
                         }
-
-                        if (workspace.HasFlag(i, PartFlags.HasAddedPart))
+                        else
                         {
-                            effs[i] *= healths[i]; // Couple prosthetic performance to physical HP fraction
+                            healths[i] = 1.0f;
                         }
+                    }
+
+                    if (workspace.HasFlag(i, PartFlags.HasAddedPart))
+                    {
+                        effs[i] *= healths[i]; // Couple prosthetic performance to physical HP fraction
                     }
                 }
             }
@@ -335,7 +327,7 @@ namespace OverHaulers
                                 workspace.SetFlag(i, PartFlags.HasAddedPart, true);
                                 workspace.SetFlag(i, PartFlags.ProstheticIsInherited, true);
                                 effs[i] = effs[parentIdx];
-                                healths[i] = 1.0f;
+                                healths[i] = healths[parentIdx];
                                 workspace.SetFlag(i, PartFlags.IsMissing, false);
                                 workspace.SetFlag(i, PartFlags.HasDirectDamage, false);
                                 workspace.SetFlag(i, PartFlags.IsNeutralized, false);
@@ -348,14 +340,20 @@ namespace OverHaulers
                                 }
                             }
                         }
-                        // Case A-ii: Parent is a prosthetic but the current part is not a limb
+                        // Case A-ii: Parent is a prosthetic but the current part is not a limb (e.g. Clavicle)
                         else
                         {
                             if (!workspace.HasFlag(i, PartFlags.HasAddedPart))
                             {
                                 workspace.SetFlag(i, PartFlags.IsMissing, true);
                                 workspace.SetFlag(i, PartFlags.IsNeutralized, true);
+                                workspace.SetFlag(i, PartFlags.HasDirectDamage, false);
                                 healths[i] = 0f;
+
+                                if (populateColdMetadata)
+                                {
+                                    coldStates[i].LocalAilmentDef = null;
+                                }
                             }
                         }
                     }

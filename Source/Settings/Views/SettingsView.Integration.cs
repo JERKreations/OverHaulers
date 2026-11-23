@@ -26,6 +26,8 @@ namespace OverHaulers
             ui.HeaderWithResetKey("OverHaulers_CompatibilityHeader", () =>
             {
                 settings.ResetCompatibility();
+                IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                IntegrationPipeline.SetCilAdditiveBonusMode(false);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             });
 
@@ -58,10 +60,10 @@ namespace OverHaulers
         #region 2. ACTIVE STAT BANNER & VERIFICATION ENGINE
 
         /// <summary>
-        /// Draws the verification guide card in the settings UI.
+        /// Draws the active stat readout banner in the settings UI.
         /// </summary>
-        /// <param name="ui">The settings layout to draw the card in.</param>
-        /// <param name="guide">The verification guide containing the information to display.</param>
+        /// <param name="ui">The settings layout to draw the banner in.</param>
+        /// <param name="settings">The current settings.</param>
         private static void DrawActiveStatBanner(ref SettingsLayout ui, Settings settings)
         {
             string activeStatName = IntegrationPipeline.ActiveStatOwner;
@@ -122,11 +124,12 @@ namespace OverHaulers
 
             string key = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
             bool isForcedStandalone = (key == IntegrationPipeline.PresentationKeyNative);
-            bool isCilLocked = key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix);
+            bool isCilAdopted = IntegrationPipeline.IsForeignStatAdopted &&
+                IntegrationPipeline.ActiveAdoptionSource == StatAdoptionSource.CilDiscovered;
             bool hasExternalStatCards = IntegrationPipeline.HasAnyActiveXmlProfile || HasDiscoveredCandidateStats();
 
             // Case 4: Adopted via dynamic CIL discovery
-            if (isCilLocked && IntegrationPipeline.IsForeignStatAdopted)
+            if (isCilAdopted)
             {
                 return new VerificationGuide
                 {
@@ -296,6 +299,7 @@ namespace OverHaulers
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyAuto;
                 settings.ResetCustomCilNeutralization();
                 IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                IntegrationPipeline.SetCilAdditiveBonusMode(false);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
             if (!string.IsNullOrEmpty(autoTooltip)) TooltipHandler.TipRegion(autoRowRect, autoTooltip);
@@ -310,6 +314,7 @@ namespace OverHaulers
                 settings.selectedPresentationKey = IntegrationPipeline.PresentationKeyNative;
                 settings.ResetCustomCilNeutralization();
                 IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                IntegrationPipeline.SetCilAdditiveBonusMode(false);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
             }
             if (!string.IsNullOrEmpty(standaloneTooltip)) TooltipHandler.TipRegion(standaloneRowRect, standaloneTooltip);
@@ -319,6 +324,9 @@ namespace OverHaulers
         #endregion
 
         #region 4. DECLARATIVE XML PROFILES
+
+        private static readonly List<MassCapacityStatProfileDef> pooledBuiltInProfiles = new List<MassCapacityStatProfileDef>(8);
+        private static readonly List<MassCapacityStatProfileDef> pooledThirdPartyProfiles = new List<MassCapacityStatProfileDef>(8);
 
         /// <summary>
         /// Draws the XML profiles section in the settings UI, including built-in and third-party profiles.
@@ -330,50 +338,58 @@ namespace OverHaulers
             string currentKey = settings.selectedPresentationKey ?? IntegrationPipeline.PresentationKeyAuto;
             List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
 
-            List<MassCapacityStatProfileDef> builtInProfiles = new List<MassCapacityStatProfileDef>();
-            List<MassCapacityStatProfileDef> thirdPartyProfiles = new List<MassCapacityStatProfileDef>();
+            pooledBuiltInProfiles.Clear();
+            pooledThirdPartyProfiles.Clear();
 
-            if (allXmlProfiles != null)
+            try
             {
-                for (int i = 0; i < allXmlProfiles.Count; i++)
+                if (allXmlProfiles != null)
                 {
-                    MassCapacityStatProfileDef def = allXmlProfiles[i];
-                    if (def.modContentPack == OverHaulers.ContentPack)
+                    for (int i = 0; i < allXmlProfiles.Count; i++)
                     {
-                        builtInProfiles.Add(def);
+                        MassCapacityStatProfileDef def = allXmlProfiles[i];
+                        if (def.modContentPack == OverHaulers.ContentPack)
+                        {
+                            pooledBuiltInProfiles.Add(def);
+                        }
+                        else
+                        {
+                            pooledThirdPartyProfiles.Add(def);
+                        }
                     }
-                    else
+                }
+
+                ui.SubHeader("OverHaulers_ProfileGroup_BuiltIn".Translate().ToString());
+
+                if (pooledBuiltInProfiles.Count == 0)
+                {
+                    DrawEmptyGroupNote(ref ui, "OverHaulers_ProfileGroup_None".Translate().ToString());
+                }
+                else
+                {
+                    for (int i = 0; i < pooledBuiltInProfiles.Count; i++)
                     {
-                        thirdPartyProfiles.Add(def);
+                        DrawXmlProfileEntry(ref ui, pooledBuiltInProfiles[i], currentKey, settings);
                     }
                 }
-            }
 
-            ui.SubHeader("OverHaulers_ProfileGroup_BuiltIn".Translate().ToString());
-
-            if (builtInProfiles.Count == 0)
-            {
-                DrawEmptyGroupNote(ref ui, "OverHaulers_ProfileGroup_None".Translate().ToString());
-            }
-            else
-            {
-                for (int i = 0; i < builtInProfiles.Count; i++)
+                if (pooledThirdPartyProfiles.Count > 0)
                 {
-                    DrawXmlProfileEntry(ref ui, builtInProfiles[i], currentKey, settings);
+                    ui.Gap(SettingsViewUtilities.CompactGap);
+                    ui.SubHeader("OverHaulers_ProfileGroup_ThirdParty".Translate().ToString());
+                    for (int i = 0; i < pooledThirdPartyProfiles.Count; i++)
+                    {
+                        DrawXmlProfileEntry(ref ui, pooledThirdPartyProfiles[i], currentKey, settings);
+                    }
                 }
-            }
 
-            if (thirdPartyProfiles.Count > 0)
+                ui.Gap(SettingsViewUtilities.ControlGap);
+            }
+            finally
             {
-                ui.Gap(SettingsViewUtilities.CompactGap);
-                ui.SubHeader("OverHaulers_ProfileGroup_ThirdParty".Translate().ToString());
-                for (int i = 0; i < thirdPartyProfiles.Count; i++)
-                {
-                    DrawXmlProfileEntry(ref ui, thirdPartyProfiles[i], currentKey, settings);
-                }
+                pooledBuiltInProfiles.Clear();
+                pooledThirdPartyProfiles.Clear();
             }
-
-            ui.Gap(SettingsViewUtilities.ControlGap);
         }
 
         /// <summary>
@@ -410,6 +426,7 @@ namespace OverHaulers
                     settings.selectedPresentationKey = expectedKey;
                     settings.ResetCustomCilNeutralization();
                     IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                    IntegrationPipeline.SetCilAdditiveBonusMode(false);
                     IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                 }
 
@@ -559,11 +576,13 @@ namespace OverHaulers
                             settings.selectedPresentationKey = targetKey;
                             settings.ResetCustomCilNeutralization();
                             IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                            IntegrationPipeline.SetCilAdditiveBonusMode(false);
                             IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
                         }
                     }
                     ui.Y += 24f;
 
+                    DrawCilAdditiveBonusToggle(ref ui, isSelected, settings);
                     DrawCilCandidateFactors(ref ui, stat, isSelected, settings);
                 }
             }
@@ -587,6 +606,41 @@ namespace OverHaulers
             }
 
             ui.Y += 6f;
+        }
+
+        /// <summary>
+        /// Draws the additive-bonus mode checkbox for the currently selected CIL-discovered candidate stat.
+        /// </summary>
+        private static void DrawCilAdditiveBonusToggle(ref SettingsLayout ui, bool isSelected, Settings settings)
+        {
+            if (!isSelected) return;
+
+            string label = SettingsViewUtilities.CachedText("OverHaulers_CilAdditiveBonus_Label");
+            string tooltip = SettingsViewUtilities.CachedText("OverHaulers_CilAdditiveBonus_Tooltip");
+            float rowWidth = ui.Width - 42f;
+            float rowH = Math.Max(22f, SettingsViewUtilities.CalcTextHeight(label, Math.Max(1f, rowWidth - 30f), GameFont.Tiny));
+            Rect checkRect = new Rect(ui.X + 42f, ui.Y, rowWidth, rowH);
+
+            bool nextAdditive = settings.treatCilStatAsAdditive;
+            GameFont origFont = Text.Font;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                Widgets.CheckboxLabeled(checkRect, label, ref nextAdditive);
+            }
+            finally
+            {
+                Text.Font = origFont;
+            }
+            if (!string.IsNullOrEmpty(tooltip)) TooltipHandler.TipRegion(checkRect, tooltip);
+            ui.Y += rowH + 4f;
+
+            if (nextAdditive != settings.treatCilStatAsAdditive)
+            {
+                settings.treatCilStatAsAdditive = nextAdditive;
+                IntegrationPipeline.SetCilAdditiveBonusMode(nextAdditive);
+                IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+            }
         }
 
         /// <summary>
@@ -778,7 +832,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the badge text for the current stat presentation based on its source.
+        /// Resolves the badge text for the current stat presentation based on its active adoption source.
         /// </summary>
         /// <returns>The resolved badge text for the current stat presentation.</returns>
         private static string ResolveStatPresentationBadge()
@@ -788,26 +842,15 @@ namespace OverHaulers
                 return "OverHaulers_Badge_NativeCard".Translate().ToString();
             }
 
-            string key = OverHaulers.settings != null ? OverHaulers.settings.selectedPresentationKey : "";
-            if (!string.IsNullOrEmpty(key) && key.StartsWith(IntegrationPipeline.PresentationKeyCilPrefix))
+            switch (IntegrationPipeline.ActiveAdoptionSource)
             {
-                return "OverHaulers_Badge_AdoptedBytecode".Translate().ToString();
+                case StatAdoptionSource.XmlProfile:
+                    return "OverHaulers_Badge_AdoptedXml".Translate().ToString();
+                case StatAdoptionSource.CilDiscovered:
+                    return "OverHaulers_Badge_AdoptedBytecode".Translate().ToString();
+                default:
+                    return "OverHaulers_Badge_AdoptedStat".Translate().ToString();
             }
-
-            List<MassCapacityStatProfileDef> xmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
-            if (xmlProfiles != null)
-            {
-                for (int i = 0; i < xmlProfiles.Count; i++)
-                {
-                    string id = xmlProfiles[i].label ?? xmlProfiles[i].defName;
-                    if (string.Equals(IntegrationPipeline.ActiveStatOwner, id, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return "OverHaulers_Badge_AdoptedXml".Translate().ToString();
-                    }
-                }
-            }
-
-            return "OverHaulers_Badge_AdoptedStat".Translate().ToString();
         }
 
         /// <summary>

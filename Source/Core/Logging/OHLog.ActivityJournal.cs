@@ -1,21 +1,20 @@
 using System.Collections.Generic;
 using System.Text;
-using Verse;
 
 namespace OverHaulers
 {
     public static partial class OHLog
     {
-        #region 1. [DIAG-06] ACTIVITY JOURNAL STATE & BUFFERS
-
         /// <summary>
-        /// [DIAG-06] Modular action accumulator that aggregates correlated lifecycle, 
+        /// [DIAG-06] Modular action accumulator that aggregates correlated lifecycle,
         /// compilation, and calibration events into unified, structured console reports.
         /// Supports multi-tick deferred execution windows (e.g. Tick 0 -> Tick 10 calibration sweeps).
         /// Resides under Source/Core/Logging/.
         /// </summary>
         public static class ActivityJournal
         {
+            #region 1. [DIAG-06] ACTIVITY JOURNAL STATE & BUFFERS
+
             private static readonly List<string> pendingBullets = new List<string>(16);
             private static readonly HashSet<string> pendingOperations = new HashSet<string>();
             private static readonly StringBuilder journalBuilder = new StringBuilder(1024);

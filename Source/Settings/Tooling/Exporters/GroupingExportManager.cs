@@ -181,17 +181,21 @@ namespace OverHaulers
                 builder.AppendLine($"  - Blood Pumping: {(massModel.CapacityLevels[1] * 100f):F0}%");
                 builder.AppendLine($"  - Moving:        {(massModel.CapacityLevels[2] * 100f):F0}%");
                 builder.AppendLine($"  - Manipulation:  {(massModel.CapacityLevels[3] * 100f):F0}%");
-                builder.AppendLine($"  - Consciousness: {(massModel.CapacityLevels[4] * 100f):F0}%");
                 builder.AppendLine();
 
                 // 3. Athletic Impacts / Ailments Readout
+                bool hasConsciousnessImpact = Math.Abs(massModel.ConsciousnessLevel - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon;
                 builder.AppendLine("ATHLETIC IMPACTS & SYSTEMIC CONDITIONS:");
-                if (massModel.Ailments.Count == 0)
+                if (!hasConsciousnessImpact && massModel.Ailments.Count == 0)
                 {
                     builder.AppendLine("  - None");
                 }
                 else
                 {
+                    if (hasConsciousnessImpact)
+                    {
+                        builder.AppendLine($"  - Consciousness: {(massModel.ConsciousnessLevel * 100f):F0}%");
+                    }
                     for (int a = 0; a < massModel.Ailments.Count; a++)
                     {
                         builder.AppendLine($"  - {massModel.Ailments[a]}");
@@ -220,7 +224,7 @@ namespace OverHaulers
 
                 // Section 2.C: Automated Anomaly Scanner
                 builder.AppendLine("TOPOLOGICAL ANOMALY AUDIT:");
-                List<string> anomalies = DetectTopologicalAnomalies(tmpl, body, massModel);
+                List<string> anomalies = DetectTopologicalAnomalies(tmpl, massModel);
                 if (anomalies.Count == 0)
                 {
                     builder.AppendLine("  ✓ [CLEAN] No structural anomalies or orphaned weight branches detected.");
@@ -312,9 +316,15 @@ namespace OverHaulers
                 float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg, cleanBaseline + massModel.Offset);
                 builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline.ToString("R", CultureInfo.InvariantCulture)}\" solvedOffsetKg=\"{massModel.Offset.ToString("R", CultureInfo.InvariantCulture)}\" finalMassKg=\"{finalMass.ToString("R", CultureInfo.InvariantCulture)}\" totalMultiplier=\"{massModel.TotalMultiplier.ToString("R", CultureInfo.InvariantCulture)}\" />");
 
-                builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" consciousness=\"{massModel.CapacityLevels[4]:F2}\" />");
+                builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" />");
 
-                builder.AppendLine($"      <AthleticImpacts count=\"{massModel.Ailments.Count}\">");
+                bool hasConsciousnessImpact = Math.Abs(massModel.ConsciousnessLevel - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon;
+                int totalImpacts = massModel.Ailments.Count + (hasConsciousnessImpact ? 1 : 0);
+                builder.AppendLine($"      <AthleticImpacts count=\"{totalImpacts}\">");
+                if (hasConsciousnessImpact)
+                {
+                    builder.AppendLine($"        <Impact label=\"Consciousness: {(massModel.ConsciousnessLevel * 100f):F0}%\" />");
+                }
                 for (int a = 0; a < massModel.Ailments.Count; a++)
                 {
                     builder.AppendLine($"        <Impact label=\"{ExportUtilities.EscapeXml(massModel.Ailments[a])}\" />");
@@ -332,7 +342,7 @@ namespace OverHaulers
                 builder.AppendLine("      </InfoCardViewModelTree>");
 
                 // Anomalies
-                List<string> anomalies = DetectTopologicalAnomalies(tmpl, body, massModel);
+                List<string> anomalies = DetectTopologicalAnomalies(tmpl, massModel);
                 builder.AppendLine($"      <TopologicalAnomalies status=\"{(anomalies.Count == 0 ? "Clean" : "AnomaliesDetected")}\" count=\"{anomalies.Count}\">");
                 for (int a = 0; a < anomalies.Count; a++)
                 {
@@ -624,14 +634,7 @@ namespace OverHaulers
         /// <param name="body">The body definition associated with the template.</param>
         /// <param name="model">The mass capacity model to check for anomalies.</param>
         /// <returns>A list of strings describing any detected topological anomalies.</returns>
-        /// <summary>
-        /// Detects topological anomalies in the given species topology template and mass capacity model for the specified body.
-        /// </summary>
-        /// <param name="template">The species topology template to analyze.</param>
-        /// <param name="body">The body definition associated with the template.</param>
-        /// <param name="model">The mass capacity model to check for anomalies.</param>
-        /// <returns>A list of strings describing any detected topological anomalies.</returns>
-        private static List<string> DetectTopologicalAnomalies(SpeciesTopologyTemplate template, BodyDef body, MassCapacityModel model)
+        private static List<string> DetectTopologicalAnomalies(SpeciesTopologyTemplate template, MassCapacityModel model)
         {
             List<string> anomalies = new List<string>();
 
@@ -641,21 +644,7 @@ namespace OverHaulers
                 if ((type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb) &&
                     template.StaticWeightFactors[i] <= 0f)
                 {
-                    // If auxiliary limb pair scaling is configured to 0%, auxiliary pairs (pair index > 0)
-                    // mathematically receive 0% weight by user intent - do not flag them as structural defects.
-                    bool isIntentionalAuxiliaryZero = (type == PartType.ManipulationPart && template.ManipPairIndex[i] > 0) ||
-                                                      (type == PartType.MovingPart && template.MovingPairIndex[i] > 0) ||
-                                                      (type == PartType.DualLimb && template.ManipPairIndex[i] > 0 && template.MovingPairIndex[i] > 0);
-
-                    if (!isIntentionalAuxiliaryZero)
-                    {
-                        anomalies.Add($"Limb part '{template.IndexedParts[i].Label}' (Type: {type}) has 0.00% static weight allocation.");
-                    }
-                }
-
-                if (template.WasReclaimedAsAnchor[i])
-                {
-                    anomalies.Add($"Part '{template.IndexedParts[i].Label}' was reclassified from an ancestry-inherited limb type to CorePart via the anchor-bridge heuristic (it carries no explicit limb tag of its own) - verify this is a genuine connective/anchor bone and not a mistagged limb segment.");
+                    anomalies.Add($"Limb part '{template.IndexedParts[i].Label}' (Type: {type}) has 0.00% static weight allocation.");
                 }
             }
 

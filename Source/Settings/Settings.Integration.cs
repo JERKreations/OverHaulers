@@ -16,6 +16,9 @@ namespace OverHaulers
         /// <summary>Explicit capacity factor defNames to neutralize when <see cref="useCustomCilNeutralization"/> is true.</summary>
         public List<string> cilNeutralizedFactors = new List<string>();
 
+        /// <summary>When true, treats a CIL-adopted stat as an additive bonus onto vanilla capacity rather than a total replacement.</summary>
+        public bool treatCilStatAsAdditive = false;
+
         #endregion
 
         #region 2. [SEC-08] RESET
@@ -24,6 +27,7 @@ namespace OverHaulers
         public void ResetCustomCilNeutralization()
         {
             useCustomCilNeutralization = false;
+            treatCilStatAsAdditive = false;
             if (cilNeutralizedFactors == null) cilNeutralizedFactors = new List<string>();
             else cilNeutralizedFactors.Clear();
         }
@@ -44,6 +48,7 @@ namespace OverHaulers
         {
             Scribe_Values.Look(ref selectedPresentationKey, "selectedPresentationKey", IntegrationPipeline.PresentationKeyAuto);
             Scribe_Values.Look(ref useCustomCilNeutralization, "useCustomCilNeutralization", false);
+            Scribe_Values.Look(ref treatCilStatAsAdditive, "treatCilStatAsAdditive", false);
             Scribe_Collections.Look(ref cilNeutralizedFactors, "cilNeutralizedFactors", LookMode.Value);
             if (cilNeutralizedFactors == null) cilNeutralizedFactors = new List<string>();
         }

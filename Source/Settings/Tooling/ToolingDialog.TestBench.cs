@@ -57,12 +57,12 @@ namespace OverHaulers
             float leftWidth = (totalWidth * 0.44f) - (gap / 2f);
             float rightWidth = totalWidth - leftWidth - gap;
 
-            bool isResetHovered = DrawTestBenchHeaderDirect(viewRect, "OverHaulers_TestBench_Header", settings, resetAction, localY, out localY, leftWidth, rightWidth, gap);
+            DrawTestBenchHeaderDirect(viewRect, "OverHaulers_TestBench_Header", settings, resetAction, localY, out localY, leftWidth, rightWidth, gap);
 
             float columnStartY = localY;
 
             // LEFT COLUMN: Subject Picker, Topology Badge & Universal Sandbox Medical Planner (Flattened)
-            float leftY = DrawLeftControlColumn(viewRect, columnStartY, leftWidth, isResetHovered, settings);
+            float leftY = DrawLeftControlColumn(viewRect, columnStartY, leftWidth, settings);
 
             // RIGHT COLUMN: Top Action Toolbar (View Modes / Exports) & Live Delta Preview
             float rightY = DrawRightPreviewColumn(viewRect, columnStartY, leftWidth + gap, rightWidth, leftY - columnStartY, settings);
@@ -77,7 +77,7 @@ namespace OverHaulers
         /// <summary>
         /// Draws the Test Bench title, verbose toggle, and reset control aligned with the columns.
         /// </summary>
-        private static bool DrawTestBenchHeaderDirect(
+        private static void DrawTestBenchHeaderDirect(
             Rect containerRect,
             string headerLabelKey,
             Settings settings,
@@ -128,7 +128,6 @@ namespace OverHaulers
             }
 
             // [Reset] Button - Resets Test Bench sandbox state only
-            bool isResetHovered = Mouse.IsOver(resetRect);
             if (SettingsViewUtilities.DrawButton(resetRect, resetLabel))
             {
                 resetAction?.Invoke();
@@ -136,7 +135,6 @@ namespace OverHaulers
             }
 
             nextY = Math.Max(currentY + titleHeight, Math.Max(verboseRect.yMax, resetRect.yMax)) + SettingsViewUtilities.ControlGap;
-            return isResetHovered;
         }
 
         /// <summary>
@@ -276,10 +274,9 @@ namespace OverHaulers
         /// <param name="inner">The rectangle defining the area in which to draw the left control column.</param>
         /// <param name="columnStartY">The starting vertical position within the column.</param>
         /// <param name="leftWidth">The width of the left control column.</param>
-        /// <param name="isResetHovered">Indicates whether the reset button is currently hovered.</param>
         /// <param name="settings">The settings object containing the test bench configuration.</param>
         /// <returns>The updated vertical position after drawing the left control column.</returns>
-        private static float DrawLeftControlColumn(Rect inner, float columnStartY, float leftWidth, bool isResetHovered, Settings settings)
+        private static float DrawLeftControlColumn(Rect inner, float columnStartY, float leftWidth, Settings settings)
         {
             float leftY = columnStartY;
             TestSubjectEntry subject = TestBench.ActiveSubject;
@@ -1474,7 +1471,7 @@ namespace OverHaulers
             Color healthyColor = settings?.colorHealthy ?? PresentationDefaults.ColorHealthyDefault;
             Color deltaColor = deltaMass > 0.001f ? boostColor : (deltaMass < -0.001f ? critColor : healthyColor);
 
-            // Fetch resolution method [0/1/2/3] for the active subject
+            // Fetch resolution method [0/1/2] for the active subject
             CalibrationMethod method = SpeciesBaselineCalibration.GetResolutionMethod(TestBench.ActiveSubject?.RaceDef);
             string methodTag = $"[{(int)method}]";
 

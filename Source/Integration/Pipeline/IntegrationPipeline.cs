@@ -44,6 +44,16 @@ namespace OverHaulers
     }
 
     /// <summary>
+    /// Identifies the resolution mechanism backing the active InfoCard stat presentation.
+    /// </summary>
+    public enum StatAdoptionSource : byte
+    {
+        Native = 0,
+        XmlProfile = 1,
+        CilDiscovered = 2
+    }
+
+    /// <summary>
     /// Orchestrates stat card presentation, deduplication, and external mod adoption.
     /// Manages InfoCard deduplication, declarative XML profiles, and dynamic CIL patch discovery.
     /// Numerical capacity delivery is decoupled and universally handled by HarmonySetup.CapacityBridge.
@@ -73,8 +83,7 @@ namespace OverHaulers
             "Moving",
             "Manipulation",
             "Breathing",
-            "BloodPumping",
-            "Consciousness"
+            "BloodPumping"
         };
 
         /// <summary>The currently active mass capacity StatDef adopted for presentation and inspection.</summary>
@@ -98,6 +107,9 @@ namespace OverHaulers
         /// <summary>Optional user-specified capacity factor defNames for the active CIL stat; null uses automatic overlap detection.</summary>
         private static List<string> customCilNeutralizedFactors;
 
+        /// <summary>When true, a CIL-adopted foreign stat represents an additive delta (base 0) rather than full capacity.</summary>
+        private static bool preferredCilAdditiveBonus = false;
+
         /// <summary>Raised when a stale preference is reset to automatic; carries the replacement key so the owner can persist it.</summary>
         public static event Action<string> PreferredPresentationKeyReset;
 
@@ -117,6 +129,12 @@ namespace OverHaulers
 
         /// <summary>Indicates whether a foreign mass capacity stat has been adopted for presentation.</summary>
         public static bool IsForeignStatAdopted { get; private set; }
+
+        /// <summary>Resolution source backing the active InfoCard stat presentation.</summary>
+        public static StatAdoptionSource ActiveAdoptionSource { get; private set; } = StatAdoptionSource.Native;
+
+        /// <summary>True when the currently adopted CIL stat is configured as an additive bonus rather than a full capacity replacement.</summary>
+        public static bool IsAdoptedStatAdditiveBonus { get; private set; }
 
         /// <summary>The owner of the currently active mass capacity stat (e.g., "Native", "XML:ProfileName", "CIL:PatchName").</summary>
         public static string ActiveStatOwner { get; private set; } = "Native";
@@ -143,7 +161,22 @@ namespace OverHaulers
         public static List<DiscoveredPatchInfo> DiscoveredPatches { get; } = new List<DiscoveredPatchInfo>();
 
         /// <summary>True if at least one loaded XML MassCapacityStatProfileDef targets an active mod.</summary>
-        public static bool HasAnyActiveXmlProfile => TryResolveHighestPriorityXmlProfile(out _, out _);
+        public static bool HasAnyActiveXmlProfile
+        {
+            get
+            {
+                List<MassCapacityStatProfileDef> allXmlProfiles = DefDatabase<MassCapacityStatProfileDef>.AllDefsListForReading;
+                if (allXmlProfiles == null) return false;
+                for (int i = 0; i < allXmlProfiles.Count; i++)
+                {
+                    if (allXmlProfiles[i] != null && allXmlProfiles[i].IsValidAndActive(out _))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
 
         #endregion
 
@@ -187,6 +220,14 @@ namespace OverHaulers
                     customCilNeutralizedFactors.Add(f);
                 }
             }
+        }
+
+        /// <summary>
+        /// Pushes whether a CIL-adopted stat represents an additive bonus rather than full capacity downward from Settings.
+        /// </summary>
+        public static void SetCilAdditiveBonusMode(bool isAdditiveBonus)
+        {
+            preferredCilAdditiveBonus = isAdditiveBonus;
         }
 
         /// <summary>
@@ -319,6 +360,8 @@ namespace OverHaulers
             ActiveMassCapacityStat = nativeStat;
             ActiveStatOwner = "Native";
             IsForeignStatAdopted = false;
+            ActiveAdoptionSource = StatAdoptionSource.Native;
+            IsAdoptedStatAdditiveBonus = false;
             activeProfileDef = null;
             ActiveProfileHostLabelShort = null;
             ActiveProfileAllowsAuthoritativeTakeover = false;
@@ -363,6 +406,7 @@ namespace OverHaulers
                 shouldTakeOver = profile.allowAuthoritativeTakeover;
                 ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
                 ActiveProfileSyncFormationCapacity = profile.syncFormationCapacity;
+                IsAdoptedStatAdditiveBonus = false;
             }
             else
             {
@@ -371,6 +415,7 @@ namespace OverHaulers
                     : DetectOverlappingBiologicalFactors(foreignStat);
                 ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
                 ActiveProfileSyncFormationCapacity = true;
+                IsAdoptedStatAdditiveBonus = preferredCilAdditiveBonus;
             }
 
             // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
@@ -401,6 +446,7 @@ namespace OverHaulers
             ActiveMassCapacityStat = foreignStat;
             ActiveStatOwner = !string.IsNullOrEmpty(owner) ? owner : foreignStat.defName;
             IsForeignStatAdopted = true;
+            ActiveAdoptionSource = profile != null ? StatAdoptionSource.XmlProfile : StatAdoptionSource.CilDiscovered;
             activeProfileDef = profile;
 
             // 1. Emit primary adoption bullet first: "Stat Integration: Adopted ..."
@@ -483,6 +529,7 @@ namespace OverHaulers
             }
 
             activeProfileDef = null;
+            IsAdoptedStatAdditiveBonus = false;
             IsAuthoritativeTakeoverActive = false;
             ActiveProfileAllowsAuthoritativeTakeover = false;
             ActiveProfileSyncFormationCapacity = false;
@@ -497,6 +544,7 @@ namespace OverHaulers
             IntegrationLogEvents.StalePreferenceRecovered(staleKey);
             preferredPresentationKey = PresentationKeyAuto;
             customCilNeutralizedFactors = null;
+            preferredCilAdditiveBonus = false;
             PreferredPresentationKeyReset?.Invoke(PresentationKeyAuto);
         }
 
@@ -505,12 +553,10 @@ namespace OverHaulers
         #region 3. DECLARATIVE XML PROFILE RESOLUTION
 
         /// <summary>
-        /// Attempts to resolve the highest priority XML profile based on available MassCapacityStatProfileDef definitions.
+        /// Attempts to resolve the highest priority active XML profile based on available <see cref="MassCapacityStatProfileDef"/> definitions.
         /// </summary>
-        /// <param name="owner">The resolved owner name of the profile definition.</param>
-        /// <param name="stat">The resolved StatDef associated with the profile.</param>
-        /// <param name="hostLabelShort">The short label for the host mod, used in UI displays.</param>
-        /// <param name="hostDeltaScaling">Indicates whether host delta scaling is enabled for the resolved profile.</param>
+        /// <param name="profile">Outputs the highest-priority active profile definition, or null if none is active.</param>
+        /// <param name="stat">Outputs the resolved StatDef associated with the profile, or null if none is active.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
         public static bool TryResolveHighestPriorityXmlProfile(out MassCapacityStatProfileDef profile, out StatDef stat)
         {
@@ -537,12 +583,11 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Attempts to resolve an XML profile by defName.
+        /// Attempts to resolve an active XML profile by its <c>defName</c>.
         /// </summary>
         /// <param name="defName">The name of the profile definition to resolve.</param>
-        /// <param name="owner">The resolved owner name of the profile definition.</param>
-        /// <param name="stat">The resolved StatDef associated with the profile.</param>
-        /// <param name="hostDeltaScaling">Indicates whether host delta scaling is enabled for the resolved profile.</param>
+        /// <param name="profile">Outputs the matching active profile definition, or null.</param>
+        /// <param name="stat">Outputs the resolved StatDef associated with the profile, or null.</param>
         /// <returns>True if a valid XML profile is found and resolved; otherwise, false.</returns>
         public static bool TryResolveXmlProfileByDefName(string defName, out MassCapacityStatProfileDef profile, out StatDef stat)
         {
@@ -559,22 +604,27 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Attempts to resolve a CIL-locked stat key ("CIL:Owner:StatDefName").
+        /// Attempts to resolve a CIL-locked stat key ("CIL:Owner:StatDefName"), tolerating colons inside third-party Harmony owner IDs.
         /// </summary>
-        /// <param name="key">The key used to identify the CIL-locked stat. Format: "CIL:Owner:StatDefName".</param>
-        /// <param name="owner">The parsed owner name from the key.</param>
-        /// <param name="stat">The resolved StatDef instance.</param>
+        /// <param name="key">The CIL-locked stat key to resolve. Format: "CIL:Owner:StatDefName".</param>
+        /// <param name="owner">Outputs the parsed owner name from the key, or null if resolution fails.</param>
+        /// <param name="stat">Outputs the resolved StatDef instance, or null if resolution fails.</param>
         /// <returns>True if a valid CIL-locked stat is found and resolved; otherwise, false.</returns>
         private static bool TryResolveCilLockedStat(string key, out string owner, out StatDef stat)
         {
             owner = null;
             stat = null;
-            // Format: "CIL:Owner:StatDefName"
-            string[] parts = key.Split(':');
-            if (parts.Length == 3)
+            if (string.IsNullOrEmpty(key) || !key.StartsWith(PresentationKeyCilPrefix, StringComparison.Ordinal))
             {
-                owner = parts[1];
-                string statDefName = parts[2];
+                return false;
+            }
+
+            string remainder = key.Substring(PresentationKeyCilPrefix.Length);
+            int lastColon = remainder.LastIndexOf(':');
+            if (lastColon > 0 && lastColon + 1 < remainder.Length)
+            {
+                owner = remainder.Substring(0, lastColon);
+                string statDefName = remainder.Substring(lastColon + 1);
                 stat = DefDatabase<StatDef>.GetNamedSilentFail(statDefName);
                 return stat != null;
             }
@@ -605,7 +655,6 @@ namespace OverHaulers
             HasScannedThisSession = true;
         }
 
-        /// <summary>
         /// <summary>
         /// Inspects and processes external Harmony patches applied to MassUtility.Capacity.
         /// </summary>

@@ -80,6 +80,18 @@ namespace OverHaulers
             // sanitize vanilla's explanation buffer before returning to clean up stale vanilla +35kg lines.
             if (IntegrationPipeline.IsForeignStatAdopted)
             {
+                if (IntegrationPipeline.IsAdoptedStatAdditiveBonus)
+                {
+                    __result = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(__result, p);
+
+                    // Remove stale vanilla +35kg lines if present
+                    if (explanation != null)
+                    {
+                        SyncFormationCapacityEntry(explanation, p, __result);
+                    }
+                    return;
+                }
+
                 if (IntegrationPipeline.ActiveProfileSyncFormationCapacity && explanation != null)
                 {
                     // BREAKPOINT ANCHOR: Order-Agnostic Capacity Query
@@ -149,7 +161,15 @@ namespace OverHaulers
         {
             if (explanation == null || pawn == null || explanation.Length == 0) return;
 
-            string pawnLabel = pawn.LabelShortCap.ToString();
+            string pawnLabel;
+            try
+            {
+                pawnLabel = pawn.LabelShortCap.ToString();
+            }
+            catch
+            {
+                pawnLabel = pawn.def?.label;
+            }
             if (string.IsNullOrEmpty(pawnLabel)) return;
 
             int labelLen = pawnLabel.Length;

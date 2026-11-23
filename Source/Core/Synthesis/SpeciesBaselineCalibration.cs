@@ -125,12 +125,23 @@ namespace OverHaulers
                 totalSpecies
             );
 
-            // Coalesced notice for species awaiting a world-load retry.
-            if (pendingSweepNoticeSpecies.Count > 0)
+            string speciesList = null;
+            int noticeCount = 0;
+
+            lock (calibrationLock)
             {
-                string speciesList = string.Join(", ", pendingSweepNoticeSpecies);
-                CoreLogEvents.CalibrationPendingNotice(pendingSweepNoticeSpecies.Count, speciesList);
-                pendingSweepNoticeSpecies.Clear();
+                noticeCount = pendingSweepNoticeSpecies.Count;
+                if (noticeCount > 0)
+                {
+                    speciesList = string.Join(", ", pendingSweepNoticeSpecies);
+                    pendingSweepNoticeSpecies.Clear();
+                }
+            }
+
+            // Coalesced notice for species awaiting a world-load retry.
+            if (noticeCount > 0)
+            {
+                CoreLogEvents.CalibrationPendingNotice(noticeCount, speciesList);
             }
         }
 
@@ -441,7 +452,7 @@ namespace OverHaulers
                         if (!onlyCaravanCapable || PawnDataRegistry.IsSpeciesCaravanCapable(def))
                         {
                             if (finalizeWorldLoad)
-                                ResolveEntryOnMainThread(def, retryPendingWorldLoad: true);
+                                ResolveEntryOnMainThread(def, retryPendingWorldLoad: true, finalizeWorldLoad: finalizeWorldLoad);
                             else
                                 PrecalibrateDef(def);
                             totalSweep++;

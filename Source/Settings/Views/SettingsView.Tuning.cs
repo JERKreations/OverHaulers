@@ -464,7 +464,7 @@ namespace OverHaulers
                 CoreDefaults.LimbPairDecayFactorMin,
                 CoreDefaults.LimbPairDecayFactorMax,
                 step: 0.01f,
-                mutationScope: SettingMutationScope.Topology
+                mutationScope: SettingMutationScope.Solver
             );
             ui.DescriptionKey("OverHaulers_LimbPairDecayFactor_Desc");
 

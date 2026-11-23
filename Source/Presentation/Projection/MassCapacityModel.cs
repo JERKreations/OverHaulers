@@ -28,8 +28,11 @@ namespace OverHaulers
         private readonly List<PartViewNode> nodePool = new List<PartViewNode>(64);
         private int poolIndex = 0;
 
-        /// <summary>[VIEW-02] Array of capacity levels for Breathing, Blood Pumping, Moving, Manipulation, and Consciousness.</summary>
-        public float[] CapacityLevels { get; set; } = new float[5];
+        /// <summary>[VIEW-02] Array of modeled athletic capacity levels for Breathing, Blood Pumping, Moving, and Manipulation.</summary>
+        public float[] CapacityLevels { get; set; } = new float[4];
+
+        /// <summary>[VIEW-02] Non-multiplied Consciousness level surfaced under Athletic Impacts when modified.</summary>
+        public float ConsciousnessLevel { get; set; } = 1.0f;
 
         /// <summary>[VIEW-01] Total calculated physical Caravan Mass Capacity multiplier factor.</summary>
         public float TotalMultiplier { get; set; }
@@ -99,6 +102,7 @@ namespace OverHaulers
         public void ResetPool()
         {
             ResetNodePool();
+            ConsciousnessLevel = 1.0f;
             ConfigurablePercentileFloorPercent = 0f;
             ConfigurablePercentileFloorKg = 0f;
         }

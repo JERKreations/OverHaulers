@@ -141,7 +141,8 @@ namespace OverHaulers
                 for (int i = 0; i < allParts.Count; i++)
                 {
                     BodyPartRecord part = allParts[i];
-                    float defaultEff = 1.0f;
+                    Hediff_AddedPart addedPart = sourcePawn.health.hediffSet.GetFirstHediffMatchingPart<Hediff_AddedPart>(part);
+                    float defaultEff = addedPart?.def?.addedPartProps?.partEfficiency ?? 1.0f;
                     livePartEfficiencies[part] = MedicalClassifier.GetSafePartEfficiency(sourcePawn, part, defaultEff);
                 }
             }
@@ -850,7 +851,7 @@ namespace OverHaulers
             List<Hediff> safeHediffs = targetPawn?.health?.hediffSet?.hediffs;
             if (safeHediffs != null)
             {
-                AnatomicalIngressSolver.IngressLivePawnPathology(targetPawn, safeHediffs, workspace, populateColdMetadata, this);
+                AnatomicalIngressSolver.IngressSourcePathology(targetPawn, safeHediffs, workspace, populateColdMetadata, this);
             }
         }
 

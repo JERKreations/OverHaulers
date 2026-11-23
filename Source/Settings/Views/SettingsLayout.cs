@@ -38,6 +38,7 @@ namespace OverHaulers
         private sealed class InputScopeState
         {
             public int ControlIndex;
+            public string LastFocusedControlName;
             public readonly List<string> CachedControlNames = new List<string>(64);
             public readonly Dictionary<string, string> ActiveInputBuffers = new Dictionary<string, string>(64);
             private readonly string prefix;
@@ -93,11 +94,13 @@ namespace OverHaulers
                 foreach (var kvp in inputScopes)
                 {
                     kvp.Value.ActiveInputBuffers.Clear();
+                    kvp.Value.LastFocusedControlName = null;
                 }
             }
             else if (inputScopes.TryGetValue(scopeKey, out InputScopeState scope))
             {
                 scope.ActiveInputBuffers.Clear();
+                scope.LastFocusedControlName = null;
             }
         }
 
@@ -583,12 +586,28 @@ namespace OverHaulers
             bool isFocused = (GUI.GetNameOfFocusedControl() == controlName);
 
             // Desktop UX: Enter / Return commits value and releases focus
-            if (isFocused && Event.current.type == EventType.KeyDown && 
+            if (isFocused && Event.current.type == EventType.KeyDown &&
                 (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
             {
                 GUIUtility.keyboardControl = 0;
                 Event.current.Use();
                 isFocused = false;
+            }
+
+            if (isFocused)
+            {
+                scope.LastFocusedControlName = controlName;
+            }
+            else if (scope.LastFocusedControlName == controlName)
+            {
+                scope.LastFocusedControlName = null;
+                if (scope.ActiveInputBuffers.TryGetValue(controlName, out string pendingBuffer) &&
+                    TryParseInputBuffer(pendingBuffer, min, max, step, isInteger, out float committedValue, out _) &&
+                    Math.Abs(committedValue - value) > 0.0001f)
+                {
+                    value = committedValue;
+                    valueChanged = true;
+                }
             }
 
             string currentBuffer;
@@ -606,25 +625,14 @@ namespace OverHaulers
             {
                 scope.ActiveInputBuffers[controlName] = newBuffer;
 
-                // Support both '.' and ',' decimal separators across all localized keyboards
-                string normalizedInput = newBuffer.Replace(',', '.');
-
-                if (float.TryParse(normalizedInput, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float parsed))
+                // While focused, only commit values already within [min, max] so intermediate keystrokes (e.g. '0' for '0.55')
+                // do not prematurely clamp to min and trigger heavy invalidations. Out-of-range edits clamp on Enter/blur.
+                if (TryParseInputBuffer(newBuffer, min, max, step, isInteger, out float parsedValue, out bool isInRange) &&
+                    (!isFocused || isInRange) &&
+                    Math.Abs(parsedValue - value) > 0.0001f)
                 {
-                    float clamped = Math.Min(max, Math.Max(min, parsed));
-                    if (step > 0.0001f)
-                    {
-                        clamped = (float)Math.Round(clamped / step, MidpointRounding.ToEven) * step;
-                    }
-
-                    float parsedValue = isInteger
-                        ? (float)Math.Round(clamped, MidpointRounding.ToEven)
-                        : (float)Math.Round(clamped, 2, MidpointRounding.ToEven);
-                    if (Math.Abs(parsedValue - value) > 0.0001f)
-                    {
-                        value = parsedValue;
-                        valueChanged = true;
-                    }
+                    value = parsedValue;
+                    valueChanged = true;
                 }
             }
 
@@ -638,6 +646,91 @@ namespace OverHaulers
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Parses and clamps a numeric slider text buffer in a single pass, reporting whether the raw value lies within bounds.
+        /// </summary>
+        /// <param name="rawBuffer">The raw text input from the slider's text field.</param>
+        /// <param name="min">The minimum allowed value.</param>
+        /// <param name="max">The maximum allowed value.</param>
+        /// <param name="step">The step increment for the slider.</param>
+        /// <param name="isInteger">Whether the slider only accepts integer values.</param>
+        /// <param name="parsedValue">The resulting parsed and clamped value if successful.</param>
+        /// <param name="isInRange">Indicates whether the parsed value lies within the specified [min, max] range.</param>
+        /// <returns>True if the input was successfully parsed; otherwise, false.</returns>
+        private static bool TryParseInputBuffer(
+            string rawBuffer,
+            float min,
+            float max,
+            float step,
+            bool isInteger,
+            out float parsedValue,
+            out bool isInRange)
+        {
+            parsedValue = 0f;
+            isInRange = false;
+            if (string.IsNullOrEmpty(rawBuffer)) return false;
+
+            // Support both '.' and ',' decimal separators across all localized keyboards
+            string normalizedInput = rawBuffer.Replace(',', '.');
+            if (!float.TryParse(normalizedInput, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float parsed) ||
+                float.IsNaN(parsed) ||
+                float.IsInfinity(parsed))
+            {
+                return false;
+            }
+
+            isInRange = parsed >= min && parsed <= max;
+            float clamped = Math.Min(max, Math.Max(min, parsed));
+            if (step > 0.0001f)
+            {
+                clamped = (float)Math.Round(clamped / step, MidpointRounding.ToEven) * step;
+            }
+
+            parsedValue = isInteger
+                ? (float)Math.Round(clamped, MidpointRounding.ToEven)
+                : (float)Math.Round(clamped, 2, MidpointRounding.ToEven);
+            return true;
+        }
+
+        /// <summary>
+        /// Parses and clamps a numeric slider text buffer according to configured step and integer rules.
+        /// </summary>
+        /// <param name="rawBuffer">The raw text input from the slider's text field.</param>
+        /// <param name="min">The minimum allowed value.</param>
+        /// <param name="max">The maximum allowed value.</param>
+        /// <param name="step">The step increment for the slider.</param>
+        /// <param name="isInteger">Whether the slider only accepts integer values.</param>
+        /// <param name="parsedValue">The resulting parsed and clamped value if successful.</param>
+        /// <returns>True if the input was successfully parsed and clamped; otherwise, false.</returns>
+        private static bool TryParseClampedInput(
+            string rawBuffer,
+            float min,
+            float max,
+            float step,
+            bool isInteger,
+            out float parsedValue)
+        {
+            parsedValue = 0f;
+            if (string.IsNullOrEmpty(rawBuffer)) return false;
+
+            string normalizedInput = rawBuffer.Replace(',', '.');
+            if (!float.TryParse(normalizedInput, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float parsed))
+            {
+                return false;
+            }
+
+            float clamped = Math.Min(max, Math.Max(min, parsed));
+            if (step > 0.0001f)
+            {
+                clamped = (float)Math.Round(clamped / step, MidpointRounding.ToEven) * step;
+            }
+
+            parsedValue = isInteger
+                ? (float)Math.Round(clamped, MidpointRounding.ToEven)
+                : (float)Math.Round(clamped, 2, MidpointRounding.ToEven);
+            return true;
         }
 
         #endregion

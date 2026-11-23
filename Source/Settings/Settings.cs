@@ -136,6 +136,7 @@ namespace OverHaulers
             InfoCardOverlay.SetIconScale(iconScalePercent);
             IntegrationPipeline.SetPreferredPresentationKey(selectedPresentationKey);
             IntegrationPipeline.SetCustomCilNeutralizedFactors(useCustomCilNeutralization ? cilNeutralizedFactors : null);
+            IntegrationPipeline.SetCilAdditiveBonusMode(treatCilStatAsAdditive);
         }
 
         #endregion

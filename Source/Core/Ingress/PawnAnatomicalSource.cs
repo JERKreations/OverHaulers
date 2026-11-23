@@ -152,7 +152,7 @@ namespace OverHaulers
             List<Hediff> safeHediffs = pawn?.health?.hediffSet?.hediffs;
             if (safeHediffs != null)
             {
-                AnatomicalIngressSolver.IngressLivePawnPathology(pawn, safeHediffs, workspace, populateColdMetadata, this);
+                AnatomicalIngressSolver.IngressSourcePathology(pawn, safeHediffs, workspace, populateColdMetadata, this);
             }
         }
 

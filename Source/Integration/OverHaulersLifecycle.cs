@@ -29,7 +29,7 @@ namespace OverHaulers
         /// <summary>
         /// Initializes the Over Haulers lifecycle driver, mounts the persistent Unity GameObject, subscribes to cache events, and triggers
         /// the deterministic bootstrap sequence.
-        /// Invoked automatically by the Unity engine at startup due to the <see cref=\"StaticConstructorOnStartup\"/> attribute.
+        /// Invoked automatically by the Unity engine at startup due to the <see cref="StaticConstructorOnStartup"/> attribute.
         /// Ensures that all necessary subsystems and compatibility layers are initialized before any gameplay logic executes.
         /// </summary>
         static OverHaulersLifecycle()
@@ -302,13 +302,13 @@ namespace OverHaulers
 
             // 2. Clear all cached pawn data, presentation models, and UI layout typography
             int snapshotPurged = MassSnapshotCache.OccupiedSlotsCount;
+            int presPurged = DetailedModelRegistry.ActiveEntryCount;
             PawnDataRegistry.ClearAllCaches();
             OHLog.ActivityJournal.RecordBullet("OverHaulers_Event_Snapshot_Cleared".Translate(
                 snapshotPurged,
                 MassSnapshotCache.TableCapacity
             ).ToString());
 
-            int presPurged = DetailedModelRegistry.ActiveEntryCount;
             DetailedModelRegistry.Clear();
             InfoCardOverlay.ClearCache();
             if (presPurged > 0)

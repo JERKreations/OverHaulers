@@ -46,11 +46,20 @@ namespace OverHaulers
                 isTransforming = true;
                 try
                 {
-                    float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
-                    //float offset = PawnDataRegistry.GetOffset(pawn, bioBaseline);
+                    if (PawnDataRegistry.TryGetFreshSnapshot(pawn.thingIDNumber, out FreshMassSnapshot cached))
+                    {
+                        val += cached.Offset;
+                    }
+                    else
+                    {
+                        float bioBaseline = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
+                        val += PawnDataRegistry.GetOffset(pawn, bioBaseline);
+                    }
 
-                    val += PawnDataRegistry.GetOffset(pawn, bioBaseline);
-                    val = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(val, pawn);
+                    if (!IntegrationPipeline.IsAdoptedStatAdditiveBonus)
+                    {
+                        val = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(val, pawn);
+                    }
                 }
                 finally
                 {

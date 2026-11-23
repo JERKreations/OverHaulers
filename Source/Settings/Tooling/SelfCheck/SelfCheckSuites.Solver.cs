@@ -424,6 +424,160 @@ namespace OverHaulers
                 Expect.True(Math.Abs(workspace.CalculatedProsthetics[1] - expectedDisabledPenalty) < 0.005f,
                     "disabling prosthetic scaling must not grant wound immunity; expected " + expectedDisabledPenalty.ToString("F3") + " got " + workspace.CalculatedProsthetics[1].ToString("F3"));
             }
+
+            CheckInheritedProstheticHealthIngress(in disabledProsthetics, in impairedSnapshot);
+            CheckPlayableBudgetNonSaturation(in enabledProsthetics);
+        }
+
+        /// <summary>
+        /// Verifies that simultaneous partial capacity impairments and partial part trauma compound smoothly inside
+        /// the playable deficit budget without collapsing prematurely onto the configurable floor ceiling.
+        /// </summary>
+        private static void CheckPlayableBudgetNonSaturation(in SolverConfiguration config)
+        {
+            SpeciesTopologyTemplate template = BuildSyntheticDualLimbTemplate();
+            BiologicalCapacitySnapshot moderateImpairment = new BiologicalCapacitySnapshot
+            {
+                Breathing = 0.75f,
+                BloodPumping = 1.0f,
+                Moving = 0.32f,
+                Manipulation = 0.40f,
+                Consciousness = 0.70f
+            };
+
+            SystemicEvaluationContext evalContext = SystemicEvaluationContext.CreateFromSnapshot(
+                100.0f, template.Counts, in config, in moderateImpairment);
+
+            using (WorkspacePool.WorkspaceLease lease = WorkspacePool.LeaseWorkspace())
+            {
+                AnatomicalWorkspace workspace = lease.Workspace;
+                workspace.InitializeForPawn(template);
+                workspace.EnsureArraySizes(template.PartCount);
+                workspace.ResetAllSlots(template.PartCount);
+                workspace.HealthFractions[1] = 0.85f;
+
+                MassCapacityEvaluationResult partialResult = MassCapacitySolver.SolveInternal(
+                    workspace, in evalContext, 100.0f, "SelfCheck_PartialImpairment");
+
+                // 20% configurable floor = 20 kg (-80 kg max offset); non-ravaged partial impairment must leave headroom
+                Expect.True(partialResult.FinalCapacity > 25.0f && partialResult.FinalCapacity < 60.0f,
+                    "moderate multi-capacity impairment with an injured limb must operate inside the playable budget rather than saturating the 20% floor; got " +
+                    partialResult.FinalCapacity.ToString("F3") + " kg");
+
+                workspace.HealthFractions[1] = 0.20f;
+                MassCapacityEvaluationResult worseResult = MassCapacitySolver.SolveInternal(
+                    workspace, in evalContext, 100.0f, "SelfCheck_WorseImpairment");
+                Expect.True(worseResult.FinalCapacity < partialResult.FinalCapacity - 0.1f,
+                    "worsening limb damage under multi-capacity impairment must continue reducing capacity smoothly");
+
+                // Deficit scaling must remain locked at 1.0x inside the playable budget regardless of AthleticScaling
+                SolverConfiguration boostedAthleticConfig = new SolverConfiguration(
+                    config.EnableProsthetics, config.EnableAthletics, config.EnablePartHealth,
+                    config.ProstheticScaling, 5.0f, config.ConfigurablePercentileFloor, config.EnableHardCompatibilitySafetyFloor,
+                    config.BudgetCorePart, config.BudgetManipulationPart, config.BudgetMovingPart,
+                    config.MissingArmsTorsoShare, config.MissingLegsTorsoShare,
+                    config.TorsoPositiveBreathing, config.TorsoPositiveBlood, config.TorsoPositiveMoving, config.TorsoPositiveManipulation,
+                    config.ArmPositiveBreathing, config.ArmPositiveBlood, config.ArmPositiveMoving, config.ArmPositiveManipulation,
+                    config.LegPositiveBreathing, config.LegPositiveBlood, config.LegPositiveMoving, config.LegPositiveManipulation,
+                    config.TorsoDeficitBreathing, config.TorsoDeficitBlood, config.TorsoDeficitMoving, config.TorsoDeficitManipulation,
+                    config.ArmDeficitBreathing, config.ArmDeficitBlood, config.ArmDeficitMoving, config.ArmDeficitManipulation,
+                    config.LegDeficitBreathing, config.LegDeficitBlood, config.LegDeficitMoving, config.LegDeficitManipulation,
+                    config.TorsoAxialBias, config.TorsoHpSensitivity,
+                    config.LimbDepthDecayFactor, config.LimbPairDecayFactor,
+                    config.ProstheticImpactConstant, config.AthleticImpactConstant);
+
+                SystemicEvaluationContext scaledContext = SystemicEvaluationContext.CreateFromSnapshot(
+                    100.0f, template.Counts, in boostedAthleticConfig, in moderateImpairment);
+                workspace.HealthFractions[1] = 0.85f;
+                MassCapacityEvaluationResult scaledResult = MassCapacitySolver.SolveInternal(
+                    workspace, in scaledContext, 100.0f, "SelfCheck_AthleticScalingImmunity");
+                Expect.True(Math.Abs(scaledResult.SolvedOffset - partialResult.SolvedOffset) < 0.001f,
+                    "athletic deficit scaling must remain invariant to AthleticScaling slider (" +
+                    scaledResult.SolvedOffset.ToString("F3") + " vs " + partialResult.SolvedOffset.ToString("F3") + ")");
+            }
+        }
+
+        /// <summary>
+        /// Verifies through the live ingress sweep that a damaged full-limb prosthetic propagates its normalized
+        /// health fraction into inherited child slots so disabling prosthetic scaling still conserves full-limb HP deficits.
+        /// </summary>
+        private static void CheckInheritedProstheticHealthIngress(
+            in SolverConfiguration disabledProstheticsConfig,
+            in BiologicalCapacitySnapshot snapshot)
+        {
+            TestSubjectEntry subject = TestSubjectRegistry.GetDefaultSubject();
+            if (subject?.BodyDef == null) return;
+
+            SpeciesTopologyTemplate liveTemplate = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(subject.BodyDef);
+            if (liveTemplate == null) return;
+
+            int rootIdx = -1;
+            int childIdx = -1;
+            for (int i = 0; i < liveTemplate.PartCount; i++)
+            {
+                PartType type = liveTemplate.PartTypes[i];
+                int parentIdx = liveTemplate.ParentIndices[i];
+                if ((type == PartType.ManipulationPart || type == PartType.MovingPart || type == PartType.DualLimb) &&
+                    parentIdx >= 0 &&
+                    liveTemplate.PartTypes[parentIdx] == type &&
+                    liveTemplate.RootPartIndex[i] >= 0)
+                {
+                    rootIdx = liveTemplate.RootPartIndex[i];
+                    childIdx = i;
+                    break;
+                }
+            }
+
+            if (rootIdx < 0 || childIdx < 0) return;
+
+            HediffDef injuryDef = DamageDefOf.Cut?.hediff ?? DamageDefOf.Crush?.hediff;
+            if (injuryDef == null) return;
+
+            HediffDef syntheticAddedDef = new HediffDef
+            {
+                defName = "OH_SelfCheck_AddedPart",
+                label = "synthetic replacement",
+                hediffClass = typeof(Hediff_AddedPart),
+                addedPartProps = new AddedBodyPartProps { partEfficiency = 1.25f }
+            };
+
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
+            using (SandboxPawnHarness harness = CreateHarness(subject, wounded: false))
+            {
+                Pawn pawn = harness.SandboxPawn;
+                BodyPartRecord rootPart = liveTemplate.IndexedParts[rootIdx];
+                float maxHp = rootPart.def.GetMaxHealth(pawn);
+                if (maxHp <= 0f) return;
+
+                Hediff added = HediffMaker.MakeHediff(syntheticAddedDef, pawn, rootPart);
+                Hediff injury = HediffMaker.MakeHediff(injuryDef, pawn, rootPart);
+                injury.Severity = maxHp * 0.60f;
+                List<Hediff> syntheticHediffs = new List<Hediff> { added, injury };
+
+                SystemicEvaluationContext evalContext = SystemicEvaluationContext.CreateFromSnapshot(
+                    100.0f, liveTemplate.Counts, in disabledProstheticsConfig, in snapshot);
+
+                using (WorkspacePool.WorkspaceLease lease = WorkspacePool.LeaseWorkspace())
+                {
+                    AnatomicalWorkspace workspace = lease.Workspace;
+                    workspace.InitializeForPawn(liveTemplate);
+                    workspace.EnsureArraySizes(liveTemplate.PartCount);
+                    workspace.ResetAllSlots(liveTemplate.PartCount);
+
+                    AnatomicalIngressSolver.IngressLivePawnPathology(
+                        pawn, syntheticHediffs, workspace, populateColdMetadata: false);
+
+                    Expect.True(workspace.HasFlag(childIdx, PartFlags.ProstheticIsInherited),
+                        "child limb segment must be marked ProstheticIsInherited");
+                    Expect.True(Math.Abs(workspace.HealthFractions[childIdx] - workspace.HealthFractions[rootIdx]) < 0.01f,
+                        "inherited child slot must retain root replacement HP fraction (" +
+                        workspace.HealthFractions[childIdx].ToString("F3") + " vs " + workspace.HealthFractions[rootIdx].ToString("F3") + ")");
+
+                    MassCapacitySolver.SolveInternal(workspace, in evalContext, 100.0f, "SelfCheck_InheritedDisabledProsthetic");
+                    Expect.True(workspace.CalculatedProsthetics[childIdx] < -0.01f,
+                        "inherited child slot must incur proportional HP deficit when prosthetic scaling is disabled");
+                }
+            }
         }
 
         /// <summary>

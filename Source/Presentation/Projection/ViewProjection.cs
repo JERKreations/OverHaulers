@@ -34,12 +34,6 @@ namespace OverHaulers
         };
 
         /// <summary>
-        /// Pooled list of consciousness impactors used during view projection to minimize heap allocations.
-        /// </summary>
-        private static readonly List<PawnCapacityUtility.CapacityImpactor> pooledConsciousnessImpactors = 
-            new List<PawnCapacityUtility.CapacityImpactor>(16);
-
-        /// <summary>
         /// Pooled categorized body parts used during view projection to minimize heap allocations.
         /// </summary>
         private static readonly List<BodyPartRecord>[] pooledCategorizedParts = new List<BodyPartRecord>[6]
@@ -132,7 +126,7 @@ namespace OverHaulers
                     targetModel.ConfigurablePercentileFloorKg = baselineCapacity * floorFactor;
 
                     // BREAKPOINT ANCHOR: Build visual projection hierarchy while workspace is pinned
-                    RebuildDetailedModelForSource(source, targetModel, result.SolvedOffset, baselineCapacity, workspace, diagnosticPrecision);
+                    RebuildDetailedModel(source, targetModel, result.SolvedOffset, baselineCapacity, workspace, diagnosticPrecision);
 
                     return result;
                 }
@@ -152,7 +146,8 @@ namespace OverHaulers
         public static MassCapacityEvaluationResult InspectAndProjectForPawn(
             Pawn pawn,
             float baselineCapacity,
-            MassCapacityModel targetModel)
+            MassCapacityModel targetModel,
+            bool diagnosticPrecision = false)
         {
             if (pawn == null || targetModel == null)
             {
@@ -161,7 +156,7 @@ namespace OverHaulers
             }
 
             PawnAnatomicalSource source = new PawnAnatomicalSource(pawn);
-            return InspectAndProject(source, baselineCapacity, targetModel);
+            return InspectAndProject(source, baselineCapacity, targetModel, diagnosticPrecision);
         }
 
         /// <summary>
@@ -170,7 +165,8 @@ namespace OverHaulers
         public static MassCapacityEvaluationResult InspectAndProjectForSource(
             IAnatomicalDataSource source,
             float baselineCapacity,
-            MassCapacityModel targetModel)
+            MassCapacityModel targetModel,
+            bool diagnosticPrecision = false)
         {
             if (source == null || !source.IsValidBiologicalState || targetModel == null)
             {
@@ -179,33 +175,26 @@ namespace OverHaulers
             }
 
             BoxedDataSourceWrapper wrapper = new BoxedDataSourceWrapper(source);
-            return InspectAndProject(wrapper, baselineCapacity, targetModel);
+            return InspectAndProject(wrapper, baselineCapacity, targetModel, diagnosticPrecision);
         }
 
         #endregion
 
-        #region 3. [VIEW-03] SECONDARY ENTRY POINTS & ENGINE REBUILDERS
+        #region 3. [VIEW-03] INTERNAL MODEL PROJECTION PIPELINE
 
         /// <summary>
         /// Projects the compiled anatomical workspace into a passive visual node hierarchy for UI rendering.
-        /// Canonical implementation operating on an abstract <see cref="IAnatomicalDataSource"/>.
+        /// Canonical generic implementation preserving unboxed <see cref="IAnatomicalDataSource"/> access.
         /// </summary>
-        /// <param name="source">The anatomical data source providing biological metrics and def definitions.</param>
-        /// <param name="massModel">The target mass model to populate with visual tree nodes and explanations.</param>
-        /// <param name="solvedOffset">The solved physical capacity offset in kilograms.</param>
-        /// <param name="biologicalBaseline">The pawn's biological baseline capacity in kilograms.</param>
-        /// <param name="workspace">The populated workspace containing part calculations and cold metadata.</param>
-        /// <param name="diagnosticPrecision">Format the explanation with diagnostic precision.</param>
-        public static void RebuildDetailedModelForSource(
-            IAnatomicalDataSource source,
+        private static void RebuildDetailedModel<TSource>(
+            TSource source,
             MassCapacityModel massModel,
             float solvedOffset,
             float biologicalBaseline,
             AnatomicalWorkspace workspace,
-            bool diagnosticPrecision = false)
+            bool diagnosticPrecision = false) where TSource : struct, IAnatomicalDataSource
         {
-            if (!UnityData.IsInMainThread || massModel == null) return;
-            if (source != null && !source.IsValidBiologicalState) return;
+            if (!UnityData.IsInMainThread || massModel == null || !source.IsValidBiologicalState) return;
 
             if (isProjectingView)
             {
@@ -219,35 +208,20 @@ namespace OverHaulers
 
                 massModel.Offset = solvedOffset;
 
-                BodyDef bodyDef = source?.BodyDef ?? workspace?.GetPartRecord(0)?.body ?? BodyDefOf.Human;
+                BodyDef bodyDef = source.BodyDef ?? workspace?.GetPartRecord(0)?.body ?? BodyDefOf.Human;
 
                 SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(bodyDef);
                 if (template == null) return;
 
                 // Snapshot Biological Capacities (synchronizing workspace cached consciousness)
-                // This captures the current state of the pawn's biological capacities for use in the view projection.
                 BiologicalCapacitySnapshot capacitySnapshot;
-
-                // Initialize the biological capacity snapshot with default values.
-                if (source != null)
-                {
-                    capacitySnapshot.Breathing = source.GetCapacityLevel(PawnCapacityDefOf.Breathing);
-                    capacitySnapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
-                    capacitySnapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
-                    capacitySnapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
-                    capacitySnapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
-                        ? workspace.CachedConsciousness
-                        : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
-                }
-                // If no source is available, initialize the biological capacity snapshot with values derived from the mass model.
-                else
-                {
-                    capacitySnapshot.Breathing = massModel.CapacityLevels[0] > 0f ? massModel.CapacityLevels[0] : 1.0f;
-                    capacitySnapshot.BloodPumping = massModel.CapacityLevels[1] > 0f ? massModel.CapacityLevels[1] : 1.0f;
-                    capacitySnapshot.Moving = massModel.CapacityLevels[2] > 0f ? massModel.CapacityLevels[2] : 1.0f;
-                    capacitySnapshot.Manipulation = massModel.CapacityLevels[3] > 0f ? massModel.CapacityLevels[3] : 1.0f;
-                    capacitySnapshot.Consciousness = massModel.CapacityLevels[4] > 0f ? massModel.CapacityLevels[4] : 1.0f;
-                }
+                capacitySnapshot.Breathing = source.GetCapacityLevel(PawnCapacityDefOf.Breathing);
+                capacitySnapshot.BloodPumping = source.GetCapacityLevel(PawnCapacityDefOf.BloodPumping);
+                capacitySnapshot.Moving = source.GetCapacityLevel(PawnCapacityDefOf.Moving);
+                capacitySnapshot.Manipulation = source.GetCapacityLevel(PawnCapacityDefOf.Manipulation);
+                capacitySnapshot.Consciousness = (workspace != null && workspace.CachedConsciousness >= 0f)
+                    ? workspace.CachedConsciousness
+                    : source.GetCapacityLevel(PawnCapacityDefOf.Consciousness);
 
                 PartCounts partCounts = template.Counts;
                 SystemicEvaluationContext context = SystemicEvaluationContext.CreateFromSnapshot(
@@ -257,9 +231,8 @@ namespace OverHaulers
                 massModel.CapacityLevels[1] = capacitySnapshot.BloodPumping;
                 massModel.CapacityLevels[2] = capacitySnapshot.Moving;
                 massModel.CapacityLevels[3] = capacitySnapshot.Manipulation;
-                massModel.CapacityLevels[4] = capacitySnapshot.Consciousness;
+                massModel.ConsciousnessLevel = capacitySnapshot.Consciousness;
 
-                // Update the mass model's capacity levels with the captured biological capacity snapshot.
                 for (int i = 0; i < 6; i++)
                 {
                     pooledCategorizedParts[i].Clear();
@@ -290,11 +263,12 @@ namespace OverHaulers
                     for (int i = 0; i < partList.Count; i++)
                     {
                         BodyPartRecord part = partList[i];
-                        // Every compiled structural part must have a resolvable budget.
-                        if (!TopologyLayoutCompiler.TryGetWeightBudget(part, bodyDef, context, out float budget))
+                        int partIndex = template.GetPartIndex(part);
+                        if (partIndex == -1)
                         {
                             throw new InvalidOperationException("Failed to resolve a projected part's topology budget.");
                         }
+                        float budget = context.TotalMassImpactWeight * template.StaticWeightFactors[partIndex];
                         PartViewNode partModel = CreatePartViewNode(part, budget, part.LabelCap.ToString(), false, workspace, massModel);
                         partModel.IsStructural = typeIndex != (int)PartType.HeadPart;
                         pooledGroupSubModels[typeIndex].Add(partModel);
@@ -302,8 +276,6 @@ namespace OverHaulers
                 }
 
                 // BREAKPOINT ANCHOR: Attach Metabolic Organs and Virtual Anchors to Ancestral Bones
-                // Retrieve the list of non-structural parts, typically metabolic organs and virtual anchors.
-                // For each non-structural part, create a corresponding view node and attach it to its nearest structural ancestor if available.
                 var organList = pooledCategorizedParts[(int)PartType.None];
                 for (int i = 0; i < organList.Count; i++)
                 {
@@ -336,7 +308,6 @@ namespace OverHaulers
                 }
 
                 // BREAKPOINT ANCHOR: Consolidate & Nest Visual Group Wrappers
-                // Compute regional athletic deltas once and project them across group wrappers.
                 MassCapacitySolver.SystemicRegionalDeltas regionalDeltas = MassCapacitySolver.ComputeRegionalAthleticDeltas(in context);
                 bool allowAthleticDeficits = context.EnablePartHealth && biologicalBaseline > context.ConfigurablePercentileFloorKg;
 
@@ -357,8 +328,9 @@ namespace OverHaulers
             }
             catch (Exception ex)
             {
-                string targetName = source?.EntityLabel ?? "Unknown";
+                string targetName = source.EntityLabel ?? "Unknown";
                 OHLog.Warn("Presentation.InfoCard.Project", ex, $"Failed to project view for pawn {targetName}.");
+                massModel.ResetPool();
             }
             finally
             {
@@ -366,26 +338,6 @@ namespace OverHaulers
                 ClearScratchBuffers();
                 isProjectingView = false;
             }
-        }
-
-        /// <summary>
-        /// Rebuilds the detailed mass model for a live <see cref="Pawn"/> entity.
-        /// Wraps the pawn in a <see cref="PawnAnatomicalSource"/> value and invokes the canonical source engine.
-        /// </summary>
-        /// <param name="pawn">The live pawn entity being inspected.</param>
-        /// <param name="massModel">The target mass model to populate with visual tree nodes and explanations.</param>
-        /// <param name="solvedOffset">The solved physical capacity offset in kilograms.</param>
-        /// <param name="biologicalBaseline">The biological baseline capacity in kilograms.</param>
-        /// <param name="workspace">The populated workspace containing part calculations and cold metadata.</param>
-        public static void RebuildDetailedModelForPawn(
-            Pawn pawn,
-            MassCapacityModel massModel,
-            float solvedOffset,
-            float biologicalBaseline,
-            AnatomicalWorkspace workspace)
-        {
-            if (pawn == null) return;
-            RebuildDetailedModelForSource(new PawnAnatomicalSource(pawn), massModel, solvedOffset, biologicalBaseline, workspace);
         }
 
         #endregion
@@ -485,8 +437,8 @@ namespace OverHaulers
             float totalAthleticOffset = 0f;
             float totalHealthOffset = 0f;
 
-            float cumulativeWeightedEfficiency = 0f;
-            float totalRelativeWeight = 0f;
+            double cumulativeWeightedEfficiency = 0.0;
+            double totalRelativeWeight = 0.0;
             bool containsProstheticComponent = false;
             float highestProstheticEfficiency = -1f;
             string dominantProstheticName = string.Empty;
@@ -495,9 +447,7 @@ namespace OverHaulers
             float healthSum = 0f;
             int healthCount = 0;
 
-            regionalDeltas.GetDeltas(type, out float regionalPositive, out float regionalNegative);
-            float effectiveNegative = allowAthleticDeficits ? regionalNegative : 0f;
-            float regionalAthleticDifference = (regionalPositive - effectiveNegative) * 0.25f;
+            float regionalAthleticDifference = regionalDeltas.GetEstimatedEfficiencyDelta(type, allowAthleticDeficits);
 
             // Iterate through each sub-model to accumulate offsets, efficiencies, and health metrics.
             for (int i = 0; i < subModels.Count; i++)
@@ -540,14 +490,14 @@ namespace OverHaulers
                     effectiveEfficiency = Math.Max(0f, 1.0f + regionalAthleticDifference - healthLoss);
                 }
 
-                cumulativeWeightedEfficiency += effectiveEfficiency * subPartWeight;
+                cumulativeWeightedEfficiency += (double)effectiveEfficiency * subPartWeight;
                 totalRelativeWeight += subPartWeight;
 
                 healthSum += subModel.HealthFraction;
                 healthCount++;
             }
 
-            float consolidatedEfficiency = totalRelativeWeight > 0f ? (cumulativeWeightedEfficiency / totalRelativeWeight) : 1.0f;
+            float consolidatedEfficiency = totalRelativeWeight > 0.0 ? (float)(cumulativeWeightedEfficiency / totalRelativeWeight) : 1.0f;
             float averagePartHealth = healthCount > 0 ? (healthSum / healthCount) : 1.0f;
 
             string groupName = GetGroupLabelCap(type, template);
@@ -811,7 +761,6 @@ namespace OverHaulers
                 pooledCategorizedParts[i].Clear();
                 pooledGroupSubModels[i].Clear();
             }
-            pooledConsciousnessImpactors.Clear();
             pooledRecordToModel.Clear();
             pooledRootModels.Clear();
         }

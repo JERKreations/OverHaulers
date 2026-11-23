@@ -38,13 +38,16 @@ namespace OverHaulers
             "OverHaulers_InfoCard_Breathing",
             "OverHaulers_InfoCard_BloodPumping",
             "OverHaulers_InfoCard_Moving",
-            "OverHaulers_InfoCard_Manipulation",
-            "OverHaulers_InfoCard_Consciousness"
+            "OverHaulers_InfoCard_Manipulation"
         };
 
         private static readonly StringBuilder pooledFinalReport = new StringBuilder(1024);
         private static readonly StringBuilder pooledDetailsBuilder = new StringBuilder(1024);
         private static readonly StringBuilder pooledListBuilder = new StringBuilder(1024);
+
+        #endregion
+
+        #region 2. [VIEW-04-B] PUBLIC CANONICAL EXPLANATION & CONFIGURATION API
 
         /// <summary>
         /// Updates the active color palette and verbose formatting rules pushed downward from Settings.
@@ -111,7 +114,7 @@ namespace OverHaulers
 
                 // 3. Capacities, Impacts & Anatomical Breakdown
                 AppendCapacities(pooledDetailsBuilder, massModel, verbose, diagnosticPrecision);
-                AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose);
+                AppendAthleticImpacts(pooledDetailsBuilder, massModel, verbose, diagnosticPrecision);
                 AppendStructuralSections(pooledDetailsBuilder, massModel, verbose, diagnosticPrecision);
 
                 if (pooledDetailsBuilder.Length > 0 || verbose)
@@ -170,18 +173,28 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Appends the list of athletic impacts (ailments) to the report builder.
+        /// Appends the list of athletic impacts (Consciousness status and systemic ailments) to the report builder.
         /// </summary>
         /// <param name="builder">The StringBuilder to append the report to.</param>
         /// <param name="massModel">The mass capacity model containing athletic impacts.</param>
         /// <param name="verbose">If true, forces display even if no athletic impacts are present.</param>
-        private static void AppendAthleticImpacts(StringBuilder builder, MassCapacityModel massModel, bool verbose)
+        /// <param name="diagnosticPrecision">Use diagnostic display precision.</param>
+        private static void AppendAthleticImpacts(StringBuilder builder, MassCapacityModel massModel, bool verbose, bool diagnosticPrecision)
         {
             pooledListBuilder.Clear();
 
             try
             {
                 bool hasAnyAthleticImpacts = false;
+
+                if (Math.Abs(massModel.ConsciousnessLevel - 1.0f) >= PawnDataRegistry.EfficiencyEpsilon)
+                {
+                    hasAnyAthleticImpacts = true;
+                    string pctText = FormatPercentage(massModel.ConsciousnessLevel, diagnosticPrecision);
+                    pooledListBuilder.Append(Indent4);
+                    pooledListBuilder.AppendLine("OverHaulers_InfoCard_Consciousness".Translate(
+                        pctText.Colorize(GetMedicalColor(massModel.ConsciousnessLevel))).ToString());
+                }
 
                 // 1. Append the list of ailments to the pooled list builder
                 var ailments = massModel.Ailments.Items;
@@ -501,6 +514,12 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends a muted italic breakdown row for an unmodified or non-impacting part in verbose mode.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the breakdown row will be appended.</param>
+        /// <param name="part">The part view node representing the unmodified or non-impacting part.</param>
+        /// <param name="diagnosticPrecision">Indicates whether to use high-precision formatting for percentages.</param>
         private static void AppendInactivePart(StringBuilder builder, PartViewNode part, bool diagnosticPrecision)
         {
             builder.Append("<color=#");
@@ -533,6 +552,13 @@ namespace OverHaulers
             builder.Append("</i></color>");
         }
 
+        /// <summary>
+        /// Appends localized implant entries attached to a part, omitting non-athletic implants outside verbose mode.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the implant entries will be appended.</param>
+        /// <param name="part">The part view node containing the implants.</param>
+        /// <param name="depth">The current depth of indentation for the implant entries.</param>
+        /// <param name="verbose">Indicates whether verbose mode is active, affecting which implants are included.</param>
         private static void AppendImplants(StringBuilder builder, PartViewNode part, int depth, bool verbose)
         {
             if (!part.HasImplants) return;
@@ -557,6 +583,14 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Appends a muted italic entry for a non-relevant prosthetic in verbose mode.
+        /// </summary>
+        /// <param name="builder">The StringBuilder to which the prosthetic entry will be appended.</param>
+        /// <param name="part">The part view node containing the prosthetic.</param>
+        /// <param name="depth">The current depth of indentation for the prosthetic entry.</param>
+        /// <param name="verbose">Indicates whether verbose mode is active.</param>
+        /// <param name="diagnosticPrecision">Indicates whether to use high-precision formatting for percentages.</param>
         private static void AppendInactiveProsthetic(StringBuilder builder, PartViewNode part, int depth, bool verbose, bool diagnosticPrecision)
         {
             if (!verbose || !part.IsRelevant || !part.HasProsthetic || part.IsRelevantAddedPart ||
@@ -736,6 +770,11 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>
+        /// Returns true if any descendant part carries non-missing relevant state or an athletic implant.
+        /// </summary>
+        /// <param name="model">The part to evaluate for relevant non-missing descendants.</param>
+        /// <returns>True if any descendant part carries non-missing relevant state or an athletic implant; otherwise, false.</returns>
         private static bool HasRelevantNonMissingDescendants(PartViewNode model)
         {
             for (int i = 0; i < model.SubParts.Count; i++)

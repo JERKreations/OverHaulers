@@ -119,9 +119,13 @@ namespace OverHaulers
                 else if (delta < 0f)
                 {
                     float neg = -delta;
-                    TorsoNegative += neg * defTorso;
-                    ArmNegative += neg * defArm;
-                    LegNegative += neg * defLeg;
+                    float torsoStep = Math.Min(1.0f, neg * defTorso);
+                    float armStep = Math.Min(1.0f, neg * defArm);
+                    float legStep = Math.Min(1.0f, neg * defLeg);
+
+                    TorsoNegative += (1.0f - TorsoNegative) * torsoStep;
+                    ArmNegative += (1.0f - ArmNegative) * armStep;
+                    LegNegative += (1.0f - LegNegative) * legStep;
                 }
             }
 
@@ -171,6 +175,18 @@ namespace OverHaulers
                         negativeDelta = 0f;
                         break;
                 }
+            }
+
+            /// <summary>
+            /// Estimates the average systemic capacity delta (across Breathing, Blood Pumping, Moving, and Manipulation)
+            /// for a group header presentation preview.
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public float GetEstimatedEfficiencyDelta(PartType type, bool allowDeficits)
+            {
+                GetDeltas(type, out float regionalPositive, out float regionalNegative);
+                float effectiveNegative = allowDeficits ? regionalNegative : 0f;
+                return (regionalPositive * 0.25f) - effectiveNegative;
             }
         }
 
@@ -231,7 +247,7 @@ namespace OverHaulers
             catch (Exception ex)
             {
                 string sourceLabel = source.EntityLabel ?? "Unknown";
-                OHLog.Warn("Solver." + sourceLabel, ex, "Failed to evaluate mass capacity for pawn.");
+                OHLog.Warn("Solver.EvaluateMassCapacity", ex, $"Failed to evaluate mass capacity for pawn '{sourceLabel}'.");
                 return MassCapacityEvaluationResult.Fallback;
             }
         }
@@ -788,7 +804,9 @@ namespace OverHaulers
 
                     if (regionalNegativeDelta > 0f)
                     {
-                        calculatedAthletic -= partPlayableBudget * regionalNegativeDelta * context.AthleticScalingMultiplier;
+                        // Systemic strain depletes only the remaining healthy tissue fraction within the part's playable budget,
+                        // keeping total negative offsets inside the playable budget without saturating the configurable floor early.
+                        calculatedAthletic -= partPlayableBudget * healths[i] * regionalNegativeDelta;
                     }
                 }
 

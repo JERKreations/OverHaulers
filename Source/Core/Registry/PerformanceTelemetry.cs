@@ -104,7 +104,7 @@ namespace OverHaulers
     /// </summary>
     public static class PerformanceTelemetry
     {
-        #region 1. [DIAG-01] TELEMETRY STATE & HIGH-FREQUENCY COUNTERS
+        #region 2. [DIAG-01] TELEMETRY STATE & HIGH-FREQUENCY COUNTERS
 
         // Main-thread query & cache metrics (zero-cost plain increments)
         private static int cacheHits = 0;
@@ -188,7 +188,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. [DIAG-01-A] QUERY & CACHE HIT COUNTERS
+        #region 3. [DIAG-01-A] QUERY & CACHE HIT COUNTERS
 
         /// <summary>
         /// Increments the main-thread cache hit counter without atomic bus locks when telemetry is active.
@@ -255,7 +255,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 3. [DIAG-01-B] LIFECYCLE & DEBOUNCE COUNTERS
+        #region 4. [DIAG-01-B] LIFECYCLE & DEBOUNCE COUNTERS
 
         /// <summary>
         /// Increments the reactive cache invalidation counter on the main thread when telemetry is active.
@@ -287,7 +287,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 4. [DIAG-01-C] SNAPSHOT TABLE PROBING & CONCURRENCY COUNTERS
+        #region 5. [DIAG-01-C] SNAPSHOT TABLE PROBING & CONCURRENCY COUNTERS
 
         /// <summary>
         /// Records write probe depth and slot displacements on the main thread during snapshot table insertions.
@@ -333,7 +333,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5. [DIAG-01-D] REPORT GENERATION & DISPATCH
+        #region 6. [DIAG-01-D] REPORT GENERATION & DISPATCH
 
         /// <summary>
         /// Flushes current counters, compiles performance hit ratios and probe statistics, and dispatches the localized report.

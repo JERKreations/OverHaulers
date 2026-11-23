@@ -38,7 +38,6 @@ namespace OverHaulers
         public bool EnablePartHealth;
 
         // Scaling Multipliers
-        public float AthleticScalingMultiplier;
         public float LimbPairDecayFactor;
 
         // Pre-Calculated Anchor Scales
@@ -76,8 +75,6 @@ namespace OverHaulers
         public float LegDeficitBlood;
         public float LegDeficitMoving;
         public float LegDeficitManipulation;
-
-        public float AthleticMultiplier;
 
         /// <summary>
         /// Reads the snapshot level of the specified biological capacity from the context.
@@ -144,7 +141,6 @@ namespace OverHaulers
             context.EnableAthletics = config.EnableAthletics;
             context.EnablePartHealth = config.EnablePartHealth;
 
-            context.AthleticScalingMultiplier = config.AthleticScaling;
             context.LimbPairDecayFactor = config.LimbPairDecayFactor;
 
             context.ProstheticAnchorScale = cleanBaseline * config.ProstheticScaling * config.ProstheticImpactConstant;
@@ -192,32 +188,6 @@ namespace OverHaulers
 
             float totalBudget = context.BudgetCorePart + context.BudgetManipulationPart + context.BudgetMovingPart;
             context.TotalMassImpactWeight = totalBudget > 0f ? totalBudget : 1.0f;
-
-            // Calculate athletic multiplier based on capacity deviations
-            if (!context.EnableAthletics)
-            {
-                context.AthleticMultiplier = 1.0f;
-            }
-            else
-            {
-                float athleticDeltaSum = 0f;
-
-                // Sum deviations of athletic capacities
-                for (int i = 0; i < MedicalClassifier.AthleticCapacities.Length; i++)
-                {
-                    PawnCapacityDef capacity = MedicalClassifier.AthleticCapacities[i];
-                    float level = context.GetCapacityLevel(capacity);
-                    athleticDeltaSum += (level - 1.0f) * 0.25f;
-                }
-
-                context.AthleticMultiplier = 1.0f + athleticDeltaSum;
-
-                // Clamp non-positive aggregate efficiency to 0%
-                if (context.AthleticMultiplier < 0f)
-                {
-                    context.AthleticMultiplier = 0f;
-                }
-            }
 
             return context;
         }

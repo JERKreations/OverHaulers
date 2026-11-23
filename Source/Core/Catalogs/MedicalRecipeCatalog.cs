@@ -97,18 +97,10 @@ namespace OverHaulers
         public MedicalConditionTarget(
             MedicalConditionTargetKind kind,
             BodyPartDef part,
-            MedicalConditionSource source)
-            : this(kind, part, source, null, null, null)
-        {
-        }
-
-        public MedicalConditionTarget(
-            MedicalConditionTargetKind kind,
-            BodyPartDef part,
             MedicalConditionSource source,
-            ThingDef species,
-            HediffGiverSetDef giverSet,
-            IncidentDef incident)
+            ThingDef species = null,
+            HediffGiverSetDef giverSet = null,
+            IncidentDef incident = null)
         {
             Kind = kind;
             Part = part;
@@ -1134,11 +1126,11 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Returns a formatted display label for the condition dropdown, including stage indicators if impactful.
+        /// Returns a formatted display label for a condition definition, including its peak-impact stage suffix if applicable.
         /// </summary>
         /// <param name="def">The HediffDef for which to retrieve the formatted condition label.</param>
         /// <returns>A formatted string representing the condition label, including stage indicators if impactful.</returns>
-        public static string GetFormattedConditionLabel(HediffDef def)
+        public static string GetFormattedConditionDefLabel(HediffDef def)
         {
             if (def == null) return string.Empty;
 
@@ -1155,7 +1147,7 @@ namespace OverHaulers
 
         /// <summary>
         /// [CORE-CAT-03] Returns the engine's label for an existing hediff, which reflects its actual current stage.
-        /// Unlike the definition overload, this method does not predict a peak-impact stage.
+        /// Unlike <see cref="GetFormattedConditionDefLabel"/>, this method does not predict a peak-impact stage.
         /// </summary>
         /// <param name="hediff">The live or simulated hediff to format.</param>
         /// <returns>The current engine label, or an empty string when the hediff is null.</returns>
@@ -1165,7 +1157,7 @@ namespace OverHaulers
 
             string actualLabel = hediff.LabelCap.ToString();
             return string.IsNullOrEmpty(actualLabel)
-                ? GetFormattedConditionLabel(hediff.def)
+                ? GetFormattedConditionDefLabel(hediff.def)
                 : actualLabel;
         }
 
@@ -1231,7 +1223,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 5A. [CORE-CAT-03] PUBLIC CONDITION QUERY API
+        #region 6. [CORE-CAT-03] PUBLIC CONDITION QUERY API
 
         /// <summary>
         /// [CORE-CAT-03] Returns the stable category order used by the condition catalog.
@@ -1247,7 +1239,7 @@ namespace OverHaulers
         /// [CORE-CAT-03] Enumerates all impactful condition definitions in category and label order.
         /// This definition catalog does not apply pawn-state eligibility filtering.
         /// </summary>
-        public static IReadOnlyList<MedicalConditionEntry> GetConditionEntries()
+        public static IReadOnlyList<MedicalConditionEntry> GetAllConditionEntries()
         {
             EnsureInitialized();
             return conditionEntries;

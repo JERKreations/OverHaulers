@@ -50,7 +50,8 @@ namespace OverHaulers
         /// </summary>
         private static void EmitThrottled(ConcurrentDictionary<string, int> counts, bool isError, string source, Exception ex, string message)
         {
-            int count = counts.AddOrUpdate(source, 1, (_, cur) => cur + 1);
+            string safeSource = string.IsNullOrEmpty(source) ? "Unknown" : source;
+            int count = counts.AddOrUpdate(safeSource, 1, (_, cur) => cur > MaxWarnCutoff ? cur : cur + 1);
             if (count > MaxWarnCutoff) return;
 
             string msgPart = !string.IsNullOrEmpty(message) ? $" {message}" : "";
@@ -58,11 +59,11 @@ namespace OverHaulers
 
             if (isError)
             {
-                Log.Error(WithLogPrefix($"Error #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}"));
+                Log.Error(WithLogPrefix($"Error #{count}/{MaxWarnCutoff} [{safeSource}]{msgPart}{exPart}"));
             }
             else
             {
-                Log.Warning(WithLogPrefix($"Warning #{count}/{MaxWarnCutoff} [{source}]{msgPart}{exPart}"));
+                Log.Warning(WithLogPrefix($"Warning #{count}/{MaxWarnCutoff} [{safeSource}]{msgPart}{exPart}"));
             }
         }
 

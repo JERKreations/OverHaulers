@@ -19,14 +19,14 @@
   <!-- ========================================================================= -->
   <OverHaulers_GlobalModifiersHeader>Main Scalar Settings &amp; Safety Floor Clamping</OverHaulers_GlobalModifiersHeader>
   
-  <OverHaulers_ProstheticScaling_Label>Prosthetic Scaling ( {0} )</OverHaulers_ProstheticScaling_Label>
-  <OverHaulers_ProstheticScaling_Desc>Adjusts the rate at which prosthetics and bionics influence caravan mass capacity.</OverHaulers_ProstheticScaling_Desc>
+  <OverHaulers_ProstheticScaling_Label>Positive Prosthetic Scaling ( {0} )</OverHaulers_ProstheticScaling_Label>
+  <OverHaulers_ProstheticScaling_Desc>Adjusts the rate at which high efficiency prosthetics and bionics influence mass capacity.</OverHaulers_ProstheticScaling_Desc>
   
-  <OverHaulers_AthleticScaling_Label>Athletic Scaling ( {0} )</OverHaulers_AthleticScaling_Label>
-  <OverHaulers_AthleticScaling_Desc>Adjusts the rate at which elevated breathing, blood pumping, moving, and manipulation influence caravan mass capacity.</OverHaulers_AthleticScaling_Desc>
+  <OverHaulers_AthleticScaling_Label>Positive Athletic Scaling ( {0} )</OverHaulers_AthleticScaling_Label>
+  <OverHaulers_AthleticScaling_Desc>Adjusts the rate at which elevated breathing, blood pumping, moving, and manipulation influence mass capacity.</OverHaulers_AthleticScaling_Desc>
   
   <OverHaulers_Deficits_Label>Physical Deficits ( Floor: {0} )</OverHaulers_Deficits_Label>
-  <OverHaulers_Deficits_Desc>Enables caravan mass capacity penalties for physical wounds, damaged tissue, and amputated limbs. The slider sets the Maximum Impact Floor: no matter how severe the trauma, penalties will never reduce a pawn below this percentage of their base capacity (e.g. at 20%, injuries can reduce capacity by at most 80%).</OverHaulers_Deficits_Desc>
+  <OverHaulers_Deficits_Desc>Enables mass capacity penalties for physical wounds, damaged tissue, and amputated limbs. The slider sets the Maximum Impact Floor: no matter how severe the trauma, penalties will never reduce a pawn below this percentage of their base capacity (e.g. at 20%, injuries can reduce capacity by at most 80%).</OverHaulers_Deficits_Desc>
 
   <OverHaulers_EnableGlobalSafetyFloor>Global Compatibility Safety Floor</OverHaulers_EnableGlobalSafetyFloor>
   <OverHaulers_EnableGlobalSafetyFloor_Tooltip>If checked, forces a global absolute mass capacity minimum of 0.01kg (10 grams) to protect micro-critters from reaching 0 mass. If unchecked (Compatibility Mode), it allows other mods' negative traits, debuffs, or heavy apparel modifiers to fully drive mass capacities into absolute negative numbers if they intend to do so.</OverHaulers_EnableGlobalSafetyFloor_Tooltip>

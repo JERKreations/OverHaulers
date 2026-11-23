@@ -100,17 +100,15 @@ namespace OverHaulers
         /// <summary>
         /// Prefix hook on CaravanUIUtility.DrawCaravanInfo.
         /// Intercepts active Form Caravan, Drop Pod, Shuttle, and Split Caravan dialogs to inject caravan breakdowns.
+        /// Handles both the primary bar (<paramref name="info"/>) and secondary split bar (<paramref name="info2"/>).
         /// </summary>
-        /// <param name="info">The caravan info structure containing the mass capacity explanation to be potentially modified.</param>
-        public static void DrawCaravanInfo_Prefix(ref CaravanUIUtility.CaravanInfo info)
+        /// <param name="info">The primary caravan info structure (or remaining source caravan during a split).</param>
+        /// <param name="info2">The optional destination caravan info structure during a split.</param>
+        public static void DrawCaravanInfo_Prefix(ref CaravanUIUtility.CaravanInfo info, ref CaravanUIUtility.CaravanInfo? info2)
         {
-            if (string.IsNullOrEmpty(info.massCapacityExplanation)) return;
-
-            // BREAKPOINT ANCHOR: Fast O(1) Header Deduplication Gate
-            if (info.massCapacityExplanation.IndexOf(CaravanHeaderPrefix, StringComparison.Ordinal) >= 0)
-            {
-                return;
-            }
+            bool needsInfo = NeedsCaravanSummary(info.massCapacityExplanation);
+            bool needsInfo2 = info2.HasValue && NeedsCaravanSummary(info2.Value.massCapacityExplanation);
+            if (!needsInfo && !needsInfo2) return;
 
             var windowStack = Find.WindowStack;
             if (windowStack == null) return;
@@ -126,7 +124,7 @@ namespace OverHaulers
                 // Case A: Form Caravan Dialog
                 if (window is Dialog_FormCaravan formDialog)
                 {
-                    if (formDialog.transferables != null && formDialog.transferables.Count > 0)
+                    if (needsInfo && formDialog.transferables != null && formDialog.transferables.Count > 0)
                     {
                         InjectSummaryIntoExplanation(formDialog.transferables, ref info.massCapacityExplanation);
                     }
@@ -136,21 +134,36 @@ namespace OverHaulers
                 // Case B: Drop Pod / Shuttle Loading Dialog (Direct compiled IL delegate)
                 if (window is Dialog_LoadTransporters loadDialog && loadTransportersAccessor != null)
                 {
-                    List<TransferableOneWay> transferables = loadTransportersAccessor(loadDialog);
-                    if (transferables != null && transferables.Count > 0)
+                    if (needsInfo)
                     {
-                        InjectSummaryIntoExplanation(transferables, ref info.massCapacityExplanation);
+                        List<TransferableOneWay> transferables = loadTransportersAccessor(loadDialog);
+                        if (transferables != null && transferables.Count > 0)
+                        {
+                            InjectSummaryIntoExplanation(transferables, ref info.massCapacityExplanation);
+                        }
                     }
                     return;
                 }
 
-                // Case C: Split Caravan Dialog (Direct compiled IL delegate)
+                // Case C: Split Caravan Dialog (Source = remaining pawns in info; Dest = split selection in info2)
                 if (window is Dialog_SplitCaravan splitDialog && splitCaravanAccessor != null)
                 {
                     List<TransferableOneWay> transferables = splitCaravanAccessor(splitDialog);
                     if (transferables != null && transferables.Count > 0)
                     {
-                        InjectSummaryIntoExplanation(transferables, ref info.massCapacityExplanation);
+                        if (needsInfo)
+                        {
+                            CaravanSummary remaining = CaravanAggregator.CompileRemainingFromTransferables(transferables);
+                            InjectCompiledSummaryIntoExplanation(in remaining, ref info.massCapacityExplanation);
+                        }
+
+                        if (needsInfo2)
+                        {
+                            CaravanUIUtility.CaravanInfo destInfo = info2.Value;
+                            CaravanSummary split = CaravanAggregator.CompileFromTransferables(transferables);
+                            InjectCompiledSummaryIntoExplanation(in split, ref destInfo.massCapacityExplanation);
+                            info2 = destInfo;
+                        }
                     }
                     return;
                 }
@@ -162,6 +175,17 @@ namespace OverHaulers
         #region 4. ALGORITHMIC SUMMARY INJECTION & STRING MERGING
 
         /// <summary>
+        /// Determines whether the given mass capacity explanation string requires the injection of a caravan summary.
+        /// </summary>
+        /// <param name="explanation">The mass capacity explanation string to check.</param>
+        /// <returns>True if the caravan summary needs to be injected; otherwise, false.</returns>
+        private static bool NeedsCaravanSummary(string explanation)
+        {
+            return !string.IsNullOrEmpty(explanation) &&
+                   explanation.IndexOf(CaravanHeaderPrefix, StringComparison.Ordinal) < 0;
+        }
+
+        /// <summary>
         /// Injects the compiled fleet summary into the provided mass capacity explanation string.
         /// </summary>
         /// <param name="transferables">The list of transferables (pawns and items) involved in the caravan or transport operation.</param>
@@ -171,6 +195,23 @@ namespace OverHaulers
             try
             {
                 CaravanSummary summary = CaravanAggregator.CompileFromTransferables(transferables);
+                InjectCompiledSummaryIntoExplanation(in summary, ref explanation);
+            }
+            catch (Exception ex)
+            {
+                OHLog.Warn("Presentation.InjectSummaryIntoExplanation", ex, "Failed to inject caravan summary into mass capacity explanation.");
+            }
+        }
+
+        /// <summary>
+        /// Injects the compiled caravan summary into the provided mass capacity explanation string.
+        /// </summary>
+        /// <param name="summary">The compiled caravan summary to inject.</param>
+        /// <param name="explanation">The mass capacity explanation string to be modified with the caravan summary.</param>
+        private static void InjectCompiledSummaryIntoExplanation(in CaravanSummary summary, ref string explanation)
+        {
+            try
+            {
                 if (summary.TotalPawnCount == 0) return;
 
                 string caravanReport = CaravanAggregator.BuildCaravanReport(in summary);

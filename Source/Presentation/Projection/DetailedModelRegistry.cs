@@ -81,44 +81,15 @@ namespace OverHaulers
         [ThreadStatic]
         private static int currentEvaluatingPawnId;
 
-        // Telemetry & Diagnostic Counters
-        private static long totalHits;
-        private static long totalMisses;
-        private static long totalRecycles;
-        private static long totalFlushes;
-
         #endregion
 
-        #region 2. [VIEW-03-B] TELEMETRY & DIAGNOSTIC PROPERTIES
+        #region 2. [VIEW-03-B] CACHE CAPACITY & DIAGNOSTIC PROPERTIES
 
         /// <summary>Current maximum capacity allocated for the active gameplay session.</summary>
         public static int CurrentCapacity => activeCapacity;
 
         /// <summary>Count of active presentation models currently resident in the LRU rotation.</summary>
         public static int ActiveEntryCount => presentationLookup.Count;
-
-        /// <summary>Total presentation cache hits since engine startup or last manual reset.</summary>
-        public static long TotalHits => totalHits;
-
-        /// <summary>Total presentation cache misses triggering visual model solves.</summary>
-        public static long TotalMisses => totalMisses;
-
-        /// <summary>Total times the LRU tail entry was recycled to make room for a new pawn.</summary>
-        public static long TotalRecycles => totalRecycles;
-
-        /// <summary>Total times the presentation registry was completely flushed (e.g. on save unload).</summary>
-        public static long TotalFlushes => totalFlushes;
-
-        /// <summary>Formatted one-line diagnostic summary of presentation cache rotation metrics.</summary>
-        public static string DiagnosticSummary
-        {
-            get
-            {
-                long totalQueries = totalHits + totalMisses;
-                float hitRate = totalQueries > 0 ? ((float)totalHits / totalQueries) * 100f : 0f;
-                return $"[DetailedModelRegistry] {ActiveEntryCount}/{activeCapacity} in rotation (Ceiling: {MaxPermittedCapacity}) | Hits: {totalHits} ({hitRate:F1}%) | Misses: {totalMisses} | Recycles: {totalRecycles} | Flushes: {totalFlushes}";
-            }
-        }
 
         #endregion
 
@@ -173,14 +144,12 @@ namespace OverHaulers
 
                 if (coreIsFresh && versionMatches && baselineMatches && offsetMatches)
                 {
-                    totalHits++;
                     PerformanceTelemetry.RecordPresentationHit();
                     PromoteToHead(entry);
                     return entry.Model;
                 }
             }
 
-            totalMisses++;
             PerformanceTelemetry.RecordPresentationMiss();
 
             if (entry == null)
@@ -256,7 +225,6 @@ namespace OverHaulers
             velocityWindowStartTick = 0;
             velocityRecycleCount = 0;
             currentEvaluatingPawnId = 0;
-            totalFlushes++;
 
             if (purgedCount > 0)
             {
@@ -270,7 +238,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Obtains a new entry or recycles the least recently used tail entry.
-        /// Dynamically scales capacity up by power-of-two (up to 512) upon detecting high recycle velocity.
+        /// Dynamically scales capacity up by power-of-two (up to 1024) upon detecting high recycle velocity.
         /// </summary>
         /// <param name="pawnId">The ID of the pawn for which to obtain or recycle a presentation cache entry.</param>
         /// <param name="currentTick">The current game tick used for evaluating recycle velocity.</param>
@@ -311,7 +279,6 @@ namespace OverHaulers
                 }
 
                 // Normal LRU recycling: detach and reuse the existing tail node
-                totalRecycles++;
                 PerformanceTelemetry.RecordPresentationRecycle();
                 entry = lruTail;
                 DetachNode(entry);

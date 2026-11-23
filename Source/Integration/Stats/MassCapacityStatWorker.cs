@@ -50,6 +50,11 @@ namespace OverHaulers
         {
             if (req.HasThing && req.Thing is Pawn pawn && pawn.thingIDNumber > 0)
             {
+                if (!PawnDataRegistry.CanCarryCaravanMass(pawn))
+                {
+                    return 0f;
+                }
+
                 // FAST-PATH: Bypass baseline resolution, locks, and BodySize if cache entry is fresh
                 if (PawnDataRegistry.TryGetFreshSnapshot(pawn.thingIDNumber, out FreshMassSnapshot cached))
                 {

@@ -14,7 +14,7 @@
   <OverHaulers_Caravan_MostImpaired>• Most Impaired: {0}</OverHaulers_Caravan_MostImpaired>
 
   <!-- Unified Symmetrical Performer Details -->
-  <OverHaulers_Caravan_PerformerDetail_Gear>  {0}, {1} gear</OverHaulers_Caravan_PerformerDetail_Gear>
+  <OverHaulers_Caravan_PerformerDetail_Additional>  {0}, {1} other</OverHaulers_Caravan_PerformerDetail_Additional>
   <OverHaulers_Caravan_PerformerDetail>  {0}</OverHaulers_Caravan_PerformerDetail>
 
 </LanguageData>
