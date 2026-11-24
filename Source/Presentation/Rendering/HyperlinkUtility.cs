@@ -28,7 +28,11 @@ namespace OverHaulers
         /// </remarks>
         public static IEnumerable<Dialog_InfoCard.Hyperlink> ResolveHyperlinks(StatRequest req)
         {
-            if (!req.HasThing || !(req.Thing is Pawn pawn) || !PawnDataRegistry.CanCarryCaravanMass(pawn) || pawn.health?.hediffSet == null)
+            if (!req.HasThing
+                || !(req.Thing is Pawn pawn)
+                || pawn.thingIDNumber <= 0
+                || !PawnDataRegistry.CanCarryCaravanMass(pawn)
+                || pawn.health?.hediffSet == null)
             {
                 return Array.Empty<Dialog_InfoCard.Hyperlink>();
             }

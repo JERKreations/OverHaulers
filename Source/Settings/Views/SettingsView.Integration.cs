@@ -797,9 +797,10 @@ namespace OverHaulers
                 for (int i = 0; i < pooledCilFactors.Count; i++)
                 {
                     AscertainedCapacityFactor f = pooledCilFactors[i];
+                    bool defaultAutoNeutralize = !settings.treatCilStatAsAdditive && f.OverlapsOverHaulers;
                     bool isChecked = settings.useCustomCilNeutralization
                         ? ContainsIgnoreCase(settings.cilNeutralizedFactors, f.DefName)
-                        : f.OverlapsOverHaulers;
+                        : defaultAutoNeutralize;
 
                     string weightText = f.Weight.ToString("0.##");
                     string rowLabel = (f.OverlapsOverHaulers
@@ -819,13 +820,16 @@ namespace OverHaulers
                     {
                         if (!settings.useCustomCilNeutralization)
                         {
-                            // Materialize current auto-detected defaults before toggling one factor
+                            // Materialize current effective auto-detected defaults before toggling one factor
                             settings.cilNeutralizedFactors.Clear();
-                            for (int d = 0; d < pooledCilFactors.Count; d++)
+                            if (!settings.treatCilStatAsAdditive)
                             {
-                                if (pooledCilFactors[d].OverlapsOverHaulers)
+                                for (int d = 0; d < pooledCilFactors.Count; d++)
                                 {
-                                    settings.cilNeutralizedFactors.Add(pooledCilFactors[d].DefName);
+                                    if (pooledCilFactors[d].OverlapsOverHaulers)
+                                    {
+                                        settings.cilNeutralizedFactors.Add(pooledCilFactors[d].DefName);
+                                    }
                                 }
                             }
                             settings.useCustomCilNeutralization = true;

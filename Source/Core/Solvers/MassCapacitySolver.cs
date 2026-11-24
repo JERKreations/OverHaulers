@@ -277,26 +277,6 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Evaluates numerical mass capacity metrics for an abstract <see cref="IAnatomicalDataSource"/> instance.
-        /// Wraps the interface reference in a struct for the generic solver without additional wrapper boxing.
-        /// </summary>
-        /// <param name="source">The anatomical data source to evaluate.</param>
-        /// <param name="baselineCapacity">The baseline mass capacity for the source.</param>
-        /// <returns>The evaluated mass capacity result for the source.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static MassCapacityEvaluationResult EvaluateMassCapacityForSource(
-            IAnatomicalDataSource source,
-            float baselineCapacity)
-        {
-            if (source == null || !source.IsValidBiologicalState)
-            {
-                return MassCapacityEvaluationResult.Fallback;
-            }
-
-            return EvaluateMassCapacity(new BoxedDataSourceWrapper(source), baselineCapacity);
-        }
-
-        /// <summary>
         /// Ensures that the final calculated capacity does not fall below the hard technical compatibility safety floor (0.01 kg).
         /// Serves as the single canonical implementation for hard floor enforcement and telemetry recording.
         /// </summary>

@@ -159,25 +159,6 @@ namespace OverHaulers
             return InspectAndProject(source, baselineCapacity, targetModel, diagnosticPrecision);
         }
 
-        /// <summary>
-        /// [VIEW-02-C] Secondary presentation entry point projecting a boxed <see cref="IAnatomicalDataSource"/>.
-        /// </summary>
-        public static MassCapacityEvaluationResult InspectAndProjectForSource(
-            IAnatomicalDataSource source,
-            float baselineCapacity,
-            MassCapacityModel targetModel,
-            bool diagnosticPrecision = false)
-        {
-            if (source == null || !source.IsValidBiologicalState || targetModel == null)
-            {
-                targetModel?.ResetPool();
-                return MassCapacityEvaluationResult.Fallback;
-            }
-
-            BoxedDataSourceWrapper wrapper = new BoxedDataSourceWrapper(source);
-            return InspectAndProject(wrapper, baselineCapacity, targetModel, diagnosticPrecision);
-        }
-
         #endregion
 
         #region 3. [VIEW-03] INTERNAL MODEL PROJECTION PIPELINE

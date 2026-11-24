@@ -7,7 +7,7 @@ namespace OverHaulers
     /// <summary>
     /// [PASS-01] Ingress contract isolating mathematical solvers and topology compilers
     /// from live RimWorld Pawn entity reference mutations.
-    /// Implemented by struct wrappers (PawnAnatomicalSource, SandboxAnatomicalSource, BoxedDataSourceWrapper).
+    /// Implemented by struct wrappers (PawnAnatomicalSource, SandboxAnatomicalSource).
     /// Resides under Source/Core/Ingress/.
     /// </summary>
     public interface IAnatomicalDataSource
@@ -68,56 +68,6 @@ namespace OverHaulers
         float ResolveBaselineCapacity();
 
         #endregion
-    }
-
-    #endregion
-
-    #region 2. [ING-02] STRUCT ADAPTER
-
-    /// <summary>
-    /// [ING-02] Struct wrapper adapting an <see cref="IAnatomicalDataSource"/> reference
-    /// into the generic solver pipeline without additional wrapper boxing.
-    /// Resides under Source/Core/Ingress/.
-    /// </summary>
-    internal readonly struct BoxedDataSourceWrapper : IAnatomicalDataSource
-    {
-        private readonly IAnatomicalDataSource inner;
-
-        public int EntityId => inner != null ? inner.EntityId : 0;
-        public string EntityLabel => inner != null ? inner.EntityLabel : "Unknown";
-        public BodyDef BodyDef => inner != null ? inner.BodyDef : null;
-        public float BaseBodySize => inner != null ? inner.BaseBodySize : 1.0f;
-        public bool IsValidBiologicalState => inner != null && inner.IsValidBiologicalState;
-
-        public BoxedDataSourceWrapper(IAnatomicalDataSource inner)
-        {
-            this.inner = inner;
-        }
-
-        public float GetCapacityLevel(PawnCapacityDef capacity)
-        {
-            return inner != null ? inner.GetCapacityLevel(capacity) : 1.0f;
-        }
-
-        public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
-        {
-            return inner != null ? inner.GetPartEfficiency(part, defaultRatedEfficiency) : defaultRatedEfficiency;
-        }
-
-        public float GetPartMaxHealth(BodyPartRecord part)
-        {
-            return inner != null ? inner.GetPartMaxHealth(part) : 1.0f;
-        }
-
-        public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
-        {
-            inner?.IngressPathology(workspace, populateColdMetadata);
-        }
-
-        public float ResolveBaselineCapacity()
-        {
-            return inner != null ? inner.ResolveBaselineCapacity() : 0f;
-        }
     }
 
     #endregion
