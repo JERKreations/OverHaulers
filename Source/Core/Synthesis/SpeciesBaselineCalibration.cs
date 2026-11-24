@@ -197,7 +197,7 @@ namespace OverHaulers
 
                         float cleanBodySize = MedicalClassifier.GetSafeBodySize(dummyPawn);
 
-                        if (cleanCapacity > 0f && cleanBodySize > 0.01f && string.IsNullOrEmpty(errorDetail))
+                        if (cleanCapacity > 0f && cleanBodySize > 0.001f && string.IsNullOrEmpty(errorDetail))
                         {
                             scalar = cleanCapacity / cleanBodySize;
                             return true;

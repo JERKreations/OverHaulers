@@ -23,14 +23,17 @@ namespace OverHaulers
         private static readonly AccessTools.FieldRef<Dialog_SplitCaravan, List<TransferableOneWay>> splitCaravanAccessor;
 
         private static string cachedCaravanHeaderPrefix;
+        private static LoadedLanguage cachedLanguage;
 
         /// <summary>Retrieves the localized caravan header prefix substring preceding format arguments for deduplication detection.</summary>
         private static string CaravanHeaderPrefix
         {
             get
             {
-                if (cachedCaravanHeaderPrefix == null)
+                LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
+                if (cachedCaravanHeaderPrefix == null || !ReferenceEquals(cachedLanguage, activeLang))
                 {
+                    cachedLanguage = activeLang;
                     string raw = "OverHaulers_Caravan_Header".Translate().ToString();
                     int splitIdx = raw.IndexOf('{');
                     cachedCaravanHeaderPrefix = splitIdx > 0 ? raw.Substring(0, splitIdx) : raw;

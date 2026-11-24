@@ -427,7 +427,11 @@ namespace OverHaulers
             }
 
             int intervalHours = PawnDataRegistry.ActiveConfiguration.ReportMetricsIntervalHours;
-            if (intervalHours <= 0) return;
+            if (intervalHours <= 0)
+            {
+                lastReportTick = currentTick;
+                return;
+            }
 
             int intervalTicks = intervalHours * GenDate.TicksPerHour;
 

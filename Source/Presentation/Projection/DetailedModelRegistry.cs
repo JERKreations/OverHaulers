@@ -81,6 +81,9 @@ namespace OverHaulers
         [ThreadStatic]
         private static int currentEvaluatingPawnId;
 
+        /// <summary>Cached reference to the currently active language for presentation purposes.</summary>
+        private static LoadedLanguage cachedLanguage;
+
         #endregion
 
         #region 2. [VIEW-03-B] CACHE CAPACITY & DIAGNOSTIC PROPERTIES
@@ -116,9 +119,17 @@ namespace OverHaulers
         /// <returns>The fully compiled visual model, or null if off-thread or invalid.</returns>
         public static MassCapacityModel GetDetailedModel(Pawn pawn, float baselineCapacity)
         {
-            if (pawn == null || !PawnDataRegistry.CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread)
+            if (pawn == null || pawn.thingIDNumber <= 0 || !PawnDataRegistry.CanCarryCaravanMass(pawn) || !UnityData.IsInMainThread)
             {
                 return null;
+            }
+
+            LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(activeLang, cachedLanguage))
+            {
+                cachedLanguage = activeLang;
+                Clear();
+                InfoCardOverlay.ClearCache();
             }
 
             int pawnId = pawn.thingIDNumber;

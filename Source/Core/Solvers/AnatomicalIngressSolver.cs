@@ -229,16 +229,10 @@ namespace OverHaulers
                     workspace.SetFlag(partIndex, PartFlags.HasDirectDamage, true);
                     injuryScratchBuffer[partIndex] += injury.Severity;
                 }
-                // 5. Localized Medical Pathology / Infection on a specific part
-                else if (MedicalClassifier.IsActivePathologyOrSubstance(hediff, consciousnessIsDropped))
+                // 5. Localized Medical Pathology / Infection on a specific part (cold presentation metadata only)
+                else if (populateColdMetadata && MedicalClassifier.IsActivePathologyOrSubstance(hediff, consciousnessIsDropped))
                 {
-                    workspace.SetFlag(partIndex, PartFlags.HasDirectDamage, true);
-
-                    // Record biological Def reference for UI presentation
-                    if (populateColdMetadata)
-                    {
-                        coldState.LocalAilmentDef = hediff.def;
-                    }
+                    coldState.LocalAilmentDef = hediff.def;
                 }
             }
         }

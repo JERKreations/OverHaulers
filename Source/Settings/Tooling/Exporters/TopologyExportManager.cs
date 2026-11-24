@@ -184,7 +184,7 @@ namespace OverHaulers
 
             if (subject != null)
             {
-                builder.AppendLine($"  <ActiveSubject label=\"{ExportUtilities.EscapeXml(subject.Label)}\" raceDef=\"{subject.RaceDef?.defName ?? "None"}\" bodyDef=\"{subject.BodyDef?.defName ?? "None"}\" />");
+                builder.AppendLine($"  <ActiveSubject label=\"{ExportUtilities.EscapeXml(subject.Label)}\" raceDef=\"{ExportUtilities.EscapeXml(subject.RaceDef?.defName ?? "None")}\" bodyDef=\"{ExportUtilities.EscapeXml(subject.BodyDef?.defName ?? "None")}\" />");
             }
 
             // Macro Species Summary Table
@@ -200,7 +200,7 @@ namespace OverHaulers
                     SpeciesTopologyTemplate tmpl = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(body);
                     if (tmpl == null) continue;
 
-                    builder.AppendLine($"    <Species label=\"{ExportUtilities.EscapeXml(thing.LabelCap.ToString())}\" bodyDef=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" core=\"{tmpl.Counts.CoreParts}\" manip=\"{tmpl.Counts.ManipulationParts}\" move=\"{tmpl.Counts.MovingParts}\" dual=\"{tmpl.Counts.DualLimbs}\" head=\"{tmpl.Counts.HeadParts}\" />");
+                    builder.AppendLine($"    <Species label=\"{ExportUtilities.EscapeXml(thing.LabelCap.ToString())}\" bodyDef=\"{ExportUtilities.EscapeXml(body.defName)}\" partCount=\"{tmpl.PartCount}\" core=\"{tmpl.Counts.CoreParts}\" manip=\"{tmpl.Counts.ManipulationParts}\" move=\"{tmpl.Counts.MovingParts}\" dual=\"{tmpl.Counts.DualLimbs}\" head=\"{tmpl.Counts.HeadParts}\" />");
                 }
                 builder.AppendLine("  </MacroSpeciesSummary>");
             }
@@ -224,7 +224,7 @@ namespace OverHaulers
                     out float normArm,
                     out float normLeg);
 
-                builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{ExportUtilities.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{ExportUtilities.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
+                builder.AppendLine($"    <BodyDef defName=\"{ExportUtilities.EscapeXml(body.defName)}\" partCount=\"{tmpl.PartCount}\" corePart=\"{ExportUtilities.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{ExportUtilities.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
                 builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{normTorso:P3}\" armsPct=\"{normArm:P3}\" legsPct=\"{normLeg:P3}\" />");
 
                 builder.AppendLine("      <SkeletalHierarchy>");
@@ -243,7 +243,7 @@ namespace OverHaulers
                     string rootAttr = tmpl.RootPartIndex[idx] >= 0 ? $" rootPartIndex=\"{tmpl.RootPartIndex[idx]}\" depth=\"{tmpl.Depth[idx]}\" siblingCount=\"{tmpl.SiblingCount[idx]}\"" : "";
                     string flagsAttr = (tmpl.IsOrgan[idx] ? " isOrgan=\"true\"" : "") + (tmpl.WasReclaimedAsAnchor[idx] ? " wasReclaimedAsAnchor=\"true\"" : "");
 
-                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{ExportUtilities.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" staticWeight=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" parentDef=\"{parentDef}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{ExportUtilities.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{ExportUtilities.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
+                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{ExportUtilities.EscapeXml(part.LabelCap.ToString())}\" def=\"{ExportUtilities.EscapeXml(part.def.defName)}\" type=\"{type}\" staticWeight=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" parentDef=\"{ExportUtilities.EscapeXml(parentDef)}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{ExportUtilities.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{ExportUtilities.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
                 }
                 builder.AppendLine("      </SkeletalHierarchy>");
                 builder.AppendLine("    </BodyDef>");

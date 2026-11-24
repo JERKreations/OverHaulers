@@ -486,10 +486,10 @@ namespace OverHaulers
             float total4 = p1 + p2 + p3 + p4;
 
             string progressionText = "OverHaulers_LimbPair_Progression".Translate(
-                p1.ToString("P0"),
-                p2.ToString("P0"),
-                p3.ToString("P0"),
-                p4.ToString("P0"),
+                ReportFormatter.FormatPercentage(p1),
+                ReportFormatter.FormatPercentage(p2),
+                ReportFormatter.FormatPercentage(p3),
+                ReportFormatter.FormatPercentage(p4),
                 total4.ToString("F2")
             ).ToString();
 

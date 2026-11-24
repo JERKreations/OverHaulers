@@ -80,14 +80,10 @@ namespace OverHaulers
         /// <summary>Gets a read-only reference to the active runtime configuration.</summary>
         public static ref readonly RuntimeConfiguration ActiveConfiguration => ref activeRuntimeConfig;
 
-        /// <summary>
-        /// Retrieves the exact count of active cached pawns residing in the main-thread registry.
-        /// </summary>
+        /// <summary>Retrieves the exact count of active cached pawns residing in the main-thread registry.</summary>
         public static int CachedPawnCount => capacityCache.Count;
 
-        /// <summary>
-        /// Retrieves the most recent game tick captured on the main thread.
-        /// </summary>
+        /// <summary>Retrieves the most recent game tick captured on the main thread.</summary>
         public static int CurrentTick => lastCapturedMainThreadTick;
 
         /// <summary>
@@ -102,11 +98,13 @@ namespace OverHaulers
 
         /// <summary>
         /// Updates the active runtime infrastructure configuration snapshot.
-        /// Downward entry point invoked by Settings upon load, save, or slider mutation; the snapshot is range-checked here, so Core never trusts the caller.
+        /// Downward entry point invoked by Settings upon load, save, or slider mutation; the snapshot is range-checked here, so Core
+        /// never trusts the caller.
         /// </summary>
         /// <param name="newConfig">The new runtime infrastructure configuration struct snapshot.</param>
         public static void UpdateConfiguration(in RuntimeConfiguration newConfig)
         {
+            bool wasStressTesting = activeRuntimeConfig.DevStressTestAllFauna;
             RuntimeConfiguration sanitized = newConfig.Sanitized(out bool wasModified);
             activeRuntimeConfig = sanitized;
             PerformanceTelemetry.Configure(in sanitized);
@@ -114,6 +112,11 @@ namespace OverHaulers
             if (wasModified)
             {
                 OHLog.Warn("Config.RuntimeSanitized", null, "Runtime configuration contained out-of-range values; they were clamped to their supported bounds.");
+            }
+
+            if (wasStressTesting && !sanitized.DevStressTestAllFauna && UnityData.IsInMainThread)
+            {
+                ClearAllCaches();
             }
         }
 
@@ -397,7 +400,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanCarryCaravanMass(Pawn pawn)
         {
-            if (pawn == null) return false;
+            if (pawn == null || MedicalClassifier.IsVehicle(pawn)) return false;
 
             if (activeRuntimeConfig.DevStressTestAllFauna)
             {
@@ -416,7 +419,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCaravanCapable(Pawn pawn)
         {
-            if (pawn == null) return false;
+            if (pawn == null || MedicalClassifier.IsVehicle(pawn)) return false;
             RaceProperties race = pawn.RaceProps;
             if (race == null) return false;
 
@@ -453,7 +456,7 @@ namespace OverHaulers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsSpeciesCaravanCapable(ThingDef raceDef)
         {
-            if (raceDef == null || raceDef.race == null) return false;
+            if (raceDef == null || raceDef.race == null || MedicalClassifier.IsVehicleThingDef(raceDef)) return false;
             RaceProperties race = raceDef.race;
 
             if (race.Humanlike) return true;

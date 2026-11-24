@@ -29,8 +29,8 @@ namespace OverHaulers
         /// <param name="val">The running value of the stat, modified by the anatomical offset.</param>
         public override void TransformValue(StatRequest statRequest, ref float val)
         {
-            // EARLY EXIT: If the foreign stat is not adopted, skip the transformation entirely.
-            if (!IntegrationPipeline.IsForeignStatAdopted) return;
+            // EARLY EXIT: Skip value injection when no foreign stat is adopted or in de-duplicate-only additive mode.
+            if (!IntegrationPipeline.IsForeignStatAdopted || IntegrationPipeline.IsAdoptedStatAdditiveBonus) return;
 
             // EARLY EXIT: If the species baseline is currently being resolved, skip the transformation to avoid recursion.
             if (SpeciesBaselineCalibration.IsResolvingBaseline) return;
@@ -56,10 +56,7 @@ namespace OverHaulers
                         val += PawnDataRegistry.GetOffset(pawn, bioBaseline);
                     }
 
-                    if (!IntegrationPipeline.IsAdoptedStatAdditiveBonus)
-                    {
-                        val = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(val, pawn);
-                    }
+                    val = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(val, pawn);
                 }
                 finally
                 {

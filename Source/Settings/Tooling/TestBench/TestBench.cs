@@ -40,6 +40,7 @@ namespace OverHaulers
 
         private static SandboxPawnHarness activeHarness;
         private static bool isDirty = true;
+        private static int cachedTranslationEpoch = -1;
         private static string cachedExplanation = string.Empty;
         private static float cachedSpeciesBaseline = 0.0f;
         private static readonly MassCapacityModel cachedModel = new MassCapacityModel();
@@ -202,8 +203,30 @@ namespace OverHaulers
 
                 if (activeSubject != null)
                 {
-                    var updatedSubject = TestSubjectRegistry.AllSubjects.Find(s =>
-                        s.RaceDef == activeSubject.RaceDef && s.BodyDef == activeSubject.BodyDef);
+                    TestSubjectEntry updatedSubject = null;
+
+                    if (activeSubject.IsLivePawn && activeSubject.LivePawn != null && !activeSubject.LivePawn.Destroyed)
+                    {
+                        var colonyGroups = TestSubjectRegistry.GetFilteredGroups(GroupingDimension.Colony, null, caravanCapableOnly: false);
+                        for (int g = 0; g < colonyGroups.Count && updatedSubject == null; g++)
+                        {
+                            var entries = colonyGroups[g].Entries;
+                            for (int i = 0; i < entries.Count; i++)
+                            {
+                                if (entries[i].LivePawn == activeSubject.LivePawn)
+                                {
+                                    updatedSubject = entries[i];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (updatedSubject == null)
+                    {
+                        updatedSubject = TestSubjectRegistry.AllSubjects.Find(s =>
+                            s.RaceDef == activeSubject.RaceDef && s.BodyDef == activeSubject.BodyDef);
+                    }
 
                     activeSubject = updatedSubject ?? TestSubjectRegistry.GetDefaultSubject();
                     Harness.BindSubject(activeSubject);
@@ -278,11 +301,13 @@ namespace OverHaulers
         /// <param name="settings">The current Test Bench settings used for model validation and potential recalculation.</param>
         private static void EnsureModelFresh(Settings settings)
         {
-            if (isDirty)
+            int epoch = SettingsViewUtilities.TranslationEpoch;
+            if (isDirty || epoch != cachedTranslationEpoch)
             {
                 using (HeadlessPawnShell.EnterSafetyFallbackScope())
                 {
                     cachedExplanation = GenerateTestExplanation(settings, out cachedSpeciesBaseline);
+                    cachedTranslationEpoch = epoch;
                     ImmediateDeathRisk = null;
                     if (Harness.SandboxPawn?.health != null)
                     {

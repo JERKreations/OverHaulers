@@ -340,7 +340,9 @@ namespace OverHaulers
         {
             GameFont originalFont = Text.Font;
             Color originalColor = GUI.color;
+            bool originalWordWrap = Text.WordWrap;
             Text.Font = GameFont.Small;
+            Text.WordWrap = true;
 
             try
             {
@@ -389,6 +391,7 @@ namespace OverHaulers
             }
             finally
             {
+                Text.WordWrap = originalWordWrap;
                 GUI.color = originalColor;
                 Text.Font = originalFont;
             }

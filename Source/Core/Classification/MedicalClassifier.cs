@@ -296,6 +296,26 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Determines whether the specified species <see cref="ThingDef"/> instantiates a vehicle pawn class.
+        /// </summary>
+        /// <param name="raceDef">The race definition to evaluate.</param>
+        /// <returns><c>true</c> if the race definition uses a vehicle class; otherwise, <c>false</c>.</returns>
+        public static bool IsVehicleThingDef(ThingDef raceDef)
+        {
+            Type thingClass = raceDef?.thingClass;
+            if (thingClass == null) return false;
+
+            if (vehicleCache.TryGetValue(thingClass, out bool isVehicle))
+            {
+                return isVehicle;
+            }
+
+            bool isVehicleType = DetermineIfTypeMatchesVehicleSignature(thingClass);
+            vehicleCache.TryAdd(thingClass, isVehicleType);
+            return isVehicleType;
+        }
+
+        /// <summary>
         /// Determines whether the specified body part definition corresponds to a metabolic organ.
         /// </summary>
         /// <param name="def">The body part definition to check.</param>

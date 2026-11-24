@@ -26,6 +26,7 @@ namespace OverHaulers
             ui.HeaderWithResetKey("OverHaulers_CompatibilityHeader", () =>
             {
                 settings.ResetCompatibility();
+                expandedAssemblyStatOwners.Clear();
                 IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
                 IntegrationPipeline.SetCilAdditiveBonusMode(false);
                 IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
@@ -479,6 +480,12 @@ namespace OverHaulers
         /// <summary>Pooled string builder for summarizing CIL-discovered capacity factors.</summary>
         private static readonly System.Text.StringBuilder pooledCilFactorSummary = new System.Text.StringBuilder(128);
 
+        /// <summary>Tracks which assembly stat owners have their extra stats expanded in the UI.</summary>
+        private static readonly HashSet<string> expandedAssemblyStatOwners = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Pooled list of extra assembly stats for the currently expanded stat owner.</summary>
+        private static readonly List<StatDef> pooledExtraAssemblyStats = new List<StatDef>(16);
+
         /// <summary>
         /// Draws the CIL scanning section in the settings UI, including scan status and discovered patches.
         /// </summary>
@@ -497,6 +504,7 @@ namespace OverHaulers
 
                 if (ui.Button("OverHaulers_ScanPatchesBtn".Translate().ToString(), 280f))
                 {
+                    expandedAssemblyStatOwners.Clear();
                     IntegrationPipeline.TriggerManualScan();
                 }
             }
@@ -561,29 +569,7 @@ namespace OverHaulers
             {
                 for (int s = 0; s < patch.CandidateStats.Count; s++)
                 {
-                    StatDef stat = patch.CandidateStats[s];
-                    string targetKey = string.Format("{0}{1}:{2}", IntegrationPipeline.PresentationKeyCilPrefix, patch.Owner, stat.defName);
-                    bool isSelected = (currentKey == targetKey);
-
-                    string suggested = (s == 0) ? (" - " + "OverHaulers_SuggestedStat".Translate().ToString()).Colorize(settings.colorBoosted) : "";
-                    string statLabel = string.Format("{0} ({1}){2}", stat.defName, stat.LabelCap, suggested);
-
-                    Rect statRadioRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 24f);
-                    if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
-                    {
-                        if (!isSelected)
-                        {
-                            settings.selectedPresentationKey = targetKey;
-                            settings.ResetCustomCilNeutralization();
-                            IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
-                            IntegrationPipeline.SetCilAdditiveBonusMode(false);
-                            IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
-                        }
-                    }
-                    ui.Y += 24f;
-
-                    DrawCilAdditiveBonusToggle(ref ui, isSelected, settings);
-                    DrawCilCandidateFactors(ref ui, stat, isSelected, settings);
+                    DrawCilStatOption(ref ui, patch.Owner, patch.CandidateStats[s], isSuggested: (s == 0), currentKey, settings);
                 }
             }
             else
@@ -605,12 +591,117 @@ namespace OverHaulers
                 ui.Y += 20f;
             }
 
+            PopulateExtraAssemblyStats(patch, pooledExtraAssemblyStats);
+            try
+            {
+                if (pooledExtraAssemblyStats.Count > 0)
+                {
+                    bool isExpanded = expandedAssemblyStatOwners.Contains(patch.Owner);
+                    string toggleKey = isExpanded ? "OverHaulers_CilHideAllAssemblyStats" : "OverHaulers_CilShowAllAssemblyStats";
+                    string toggleLabel = toggleKey.Translate(pooledExtraAssemblyStats.Count).ToString();
+
+                    GameFont origToggleFont = Text.Font;
+                    Text.Font = GameFont.Tiny;
+                    try
+                    {
+                        Vector2 toggleSize = SettingsViewUtilities.ButtonSize(toggleLabel, ui.Width - 24f, minWidth: 180f, minHeight: 20f);
+                        Rect toggleRect = new Rect(ui.X + 24f, ui.Y, toggleSize.x, toggleSize.y);
+                        if (SettingsViewUtilities.DrawButton(toggleRect, toggleLabel))
+                        {
+                            if (isExpanded) expandedAssemblyStatOwners.Remove(patch.Owner);
+                            else expandedAssemblyStatOwners.Add(patch.Owner);
+                            isExpanded = !isExpanded;
+                        }
+                        ui.Y += toggleSize.y + 4f;
+                    }
+                    finally
+                    {
+                        Text.Font = origToggleFont;
+                    }
+
+                    if (isExpanded)
+                    {
+                        for (int e = 0; e < pooledExtraAssemblyStats.Count; e++)
+                        {
+                            DrawCilStatOption(ref ui, patch.Owner, pooledExtraAssemblyStats[e], isSuggested: false, currentKey, settings);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                pooledExtraAssemblyStats.Clear();
+            }
+
             ui.Y += 6f;
+        }
+
+        /// <summary>
+        /// Draws a single CIL stat option row with its associated controls.
+        /// </summary>
+        /// <param name="ui">The layout context for drawing UI elements.</param>
+        /// <param name="owner">The owner of the patch.</param>
+        /// <param name="stat">The stat definition to display.</param>
+        /// <param name="isSuggested">Indicates if this stat is suggested by the system.</param>
+        /// <param name="currentKey">The currently selected presentation key.</param>
+        /// <param name="settings">The current settings object.</param>
+        private static void DrawCilStatOption(
+            ref SettingsLayout ui,
+            string owner,
+            StatDef stat,
+            bool isSuggested,
+            string currentKey,
+            Settings settings)
+        {
+            string targetKey = string.Format("{0}{1}:{2}", IntegrationPipeline.PresentationKeyCilPrefix, owner, stat.defName);
+            bool isSelected = (currentKey == targetKey);
+
+            string suggested = isSuggested ? (" - " + "OverHaulers_SuggestedStat".Translate().ToString()).Colorize(settings.colorBoosted) : "";
+            string statLabel = string.Format("{0} ({1}){2}", stat.defName, stat.LabelCap, suggested);
+
+            Rect statRadioRect = new Rect(ui.X + 24f, ui.Y, ui.Width - 24f, 24f);
+            if (DrawCustomRadioRow(statRadioRect, statLabel, isSelected))
+            {
+                if (!isSelected)
+                {
+                    settings.selectedPresentationKey = targetKey;
+                    settings.ResetCustomCilNeutralization();
+                    IntegrationPipeline.SetCustomCilNeutralizedFactors(null);
+                    IntegrationPipeline.SetCilAdditiveBonusMode(false);
+                    IntegrationPipeline.RebindPresentation(settings.selectedPresentationKey);
+                }
+            }
+            ui.Y += 24f;
+
+            DrawCilAdditiveBonusToggle(ref ui, isSelected, settings);
+            DrawCilCandidateFactors(ref ui, stat, isSelected, settings);
+        }
+
+        /// <summary>
+        /// Populates the list of extra assembly stats that are not already included as candidate stats.
+        /// </summary>
+        /// <param name="patch">The discovered patch containing assembly stats.</param>
+        /// <param name="results">The list to populate with extra stats.</param>
+        private static void PopulateExtraAssemblyStats(DiscoveredPatchInfo patch, List<StatDef> results)
+        {
+            results.Clear();
+            if (patch.AllAssemblyStats == null || patch.AllAssemblyStats.Count == 0) return;
+
+            for (int i = 0; i < patch.AllAssemblyStats.Count; i++)
+            {
+                StatDef stat = patch.AllAssemblyStats[i];
+                if (stat == null || stat == StatDefOf.CarryingCapacity || stat == StatDefOf.Mass) continue;
+                if (patch.CandidateStats != null && patch.CandidateStats.Contains(stat)) continue;
+                results.Add(stat);
+            }
         }
 
         /// <summary>
         /// Draws the additive-bonus mode checkbox for the currently selected CIL-discovered candidate stat.
         /// </summary>
+        /// <param name="ui">The layout context for drawing UI elements.</param>
+        /// <param name="isSelected">Indicates if the current stat is selected.</param>
+        /// <param name="settings">The current settings object.</param>
         private static void DrawCilAdditiveBonusToggle(ref SettingsLayout ui, bool isSelected, Settings settings)
         {
             if (!isSelected) return;

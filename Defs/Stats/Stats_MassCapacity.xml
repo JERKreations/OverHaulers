@@ -4,7 +4,7 @@
   <StatDef>
     <defName>OverHaulers_CaravanMassCapacity</defName>
     <label>Caravan mass capacity</label>
-    <description>Total mass carrying capacity of the pawn in caravans and hauling tasks.</description>
+    <description>Total mass carrying capacity of the pawn for caravan transport, inventory items, and weight limits for hauling tasks.</description>
     <category>BasicsPawn</category>
     <displayPriorityInCategory>80</displayPriorityInCategory>
     <toStringStyle>FloatTwo</toStringStyle>

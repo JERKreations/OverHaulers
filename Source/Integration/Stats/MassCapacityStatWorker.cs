@@ -80,7 +80,7 @@ namespace OverHaulers
         /// <returns>A formatted explanation breakdown detailing all biological systems and modifications.</returns>
         public override string GetExplanationUnfinalized(StatRequest req, ToStringNumberSense numberSense)
         {
-            if (req.HasThing && req.Thing is Pawn pawn && PawnDataRegistry.CanCarryCaravanMass(pawn))
+            if (req.HasThing && req.Thing is Pawn pawn && pawn.thingIDNumber > 0 && PawnDataRegistry.CanCarryCaravanMass(pawn))
             {
                 float baselineCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(pawn);
                 string baseValueLine = "StatsReport_BaseValue".Translate() + ": " + this.stat.ValueToString(baselineCapacity, numberSense);

@@ -367,8 +367,7 @@ namespace OverHaulers
             {
                 float safeBodySize = MedicalClassifier.GetSafeBodySize(entry.LivePawn);
                 float baseMassCapacity = SpeciesBaselineCalibration.ResolveSpeciesBaseline(entry.LivePawn);
-                float currentOffset = PawnDataRegistry.GetOffset(entry.LivePawn, baseMassCapacity);
-                float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg , baseMassCapacity + currentOffset);
+                float finalMass = PawnDataRegistry.GetCapacity(entry.LivePawn, baseMassCapacity);
                 return "OverHaulers_TestBench_SubjectLiveTag".Translate(ReportFormatter.FormatAdaptive(safeBodySize, true), ReportFormatter.FormatMass(finalMass, true, false)).ToString();
             }
 

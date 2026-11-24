@@ -5,7 +5,7 @@
   <!-- [VIEW-01 to VIEW-04] LIVE PAWN INFOCARD STAT DEFINITIONS & BREAKDOWNS     -->
   <!-- ========================================================================= -->
   <OverHaulers_StatLabel_Fallback>Caravan mass capacity</OverHaulers_StatLabel_Fallback>
-  <OverHaulers_StatDesc_Fallback>Total mass carrying capacity of the pawn in caravans and hauling tasks.</OverHaulers_StatDesc_Fallback>
+  <OverHaulers_StatDesc_Fallback>Total mass carrying capacity of the pawn for caravan transport, inventory items, and weight limits for hauling tasks.</OverHaulers_StatDesc_Fallback>
 
   <OverHaulers_InfoCard_PhysicalRating><![CDATA[<b>Physical Rating ({0}x) {1}</b>]]></OverHaulers_InfoCard_PhysicalRating>
   <OverHaulers_InfoCard_DiagnosticMass>{0} kg</OverHaulers_InfoCard_DiagnosticMass>

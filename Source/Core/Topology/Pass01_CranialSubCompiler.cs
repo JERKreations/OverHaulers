@@ -150,8 +150,10 @@ namespace OverHaulers
                 }
             }
 
-            // 3. Cranial Organ Container (Direct child parts contain Brain, Eyes, or Ears)
-            if (part.parts != null && part.parts.Count > 0)
+            // 3. Cranial Organ Container (Direct child parts contain Brain, Eyes, or Ears; excludes tagged limb roots)
+            if (part.parts != null && part.parts.Count > 0 &&
+                !TopologyLayoutCompiler.HasAnyTag(part.def, TopologyLayoutCompiler.armTags) &&
+                !TopologyLayoutCompiler.HasAnyTag(part.def, TopologyLayoutCompiler.legTags))
             {
                 for (int i = 0; i < part.parts.Count; i++)
                 {

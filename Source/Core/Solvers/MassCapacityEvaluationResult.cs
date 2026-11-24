@@ -31,7 +31,7 @@ namespace OverHaulers
         /// <summary>The total multiplier applied to the biological baseline to obtain the final capacity.</summary>
         public readonly float TotalMultiplier;
 
-        /// <summary>The total contribution from prosthetic enhancements.</summary>
+        /// <summary>The aggregate positive boost from enhanced prosthetics (negative prosthetic deficits are reflected in <see cref="SolvedOffset"/> and per-part outputs).</summary>
         public readonly float CalculatedProsthetics;
 
         /// <summary>The total contribution from health deficits.</summary>
@@ -51,7 +51,7 @@ namespace OverHaulers
         /// <param name="biologicalBaseline">The biological baseline capacity before any deficits or boosts.</param>
         /// <param name="finalCapacity">The final solved capacity after applying all deficits and boosts.</param>
         /// <param name="totalMultiplier">The total multiplier applied to the biological baseline to obtain the final capacity.</param>
-        /// <param name="calculatedProsthetics">The total contribution from prosthetic enhancements.</param>
+        /// <param name="calculatedProsthetics">The aggregate positive boost from enhanced prosthetics.</param>
         /// <param name="calculatedHealths">The total contribution from health deficits.</param>
         /// <param name="calculatedAthletics">The total contribution from athletic enhancements.</param>
         public MassCapacityEvaluationResult(

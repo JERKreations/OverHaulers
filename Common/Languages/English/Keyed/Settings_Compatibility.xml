@@ -37,8 +37,10 @@
   <OverHaulers_CilFactors_None>No active capacity factors detected on this stat.</OverHaulers_CilFactors_None>
   <OverHaulers_CilFactors_Row>{0} ({1}x weight)</OverHaulers_CilFactors_Row>
   <OverHaulers_CilFactors_RowOverlap>{0} ({1}x weight - overlaps Over Haulers)</OverHaulers_CilFactors_RowOverlap>
-  <OverHaulers_CilAdditiveBonus_Label>Treat stat as additive bonus only (preserve vanilla base capacity)</OverHaulers_CilAdditiveBonus_Label>
-  <OverHaulers_CilAdditiveBonus_Tooltip>Enable this if the discovered mod's stat starts at 0 and adds a bonus (e.g. backpacks) onto vanilla MassUtility.Capacity rather than replacing the pawn's full caravan capacity. Prevents negative wound offsets from clamping to 0.01 kg inside the stat itself.</OverHaulers_CilAdditiveBonus_Tooltip>
+  <OverHaulers_CilAdditiveBonus_Label>De-duplicate only (preserve additive bonus stat &amp; base capacity)</OverHaulers_CilAdditiveBonus_Label>
+  <OverHaulers_CilAdditiveBonus_Tooltip>Enable this when the discovered stat starts at 0 and adds a bonus (e.g. backpacks) onto vanilla MassUtility.Capacity rather than replacing the pawn's full caravan capacity. Over Haulers applies its biological offset directly to MassUtility.Capacity, leaves the bonus stat's numeric value untouched, and injects the anatomical breakdown into its InfoCard.</OverHaulers_CilAdditiveBonus_Tooltip>
+  <OverHaulers_CilShowAllAssemblyStats>Show all assembly stats ({0}) ▼</OverHaulers_CilShowAllAssemblyStats>
+  <OverHaulers_CilHideAllAssemblyStats>Hide extra assembly stats ({0}) ▲</OverHaulers_CilHideAllAssemblyStats>
 
   <!-- Badges & Format Strings -->
   <OverHaulers_ProfileLabel_StatFormat>{0}  [Stat: {1}]</OverHaulers_ProfileLabel_StatFormat>

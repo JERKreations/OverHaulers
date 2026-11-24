@@ -75,23 +75,10 @@ namespace OverHaulers
             if (capacityCallDepth > 1) return;
 
             // RE-ENTRANCY & ADOPTION SHIELD:
-            // When a foreign stat is adopted, numerical offset delivery is handled by MassCapacityStatPart.
-            // If the adopted profile explicitly declares syncFormationCapacity (e.g. Combat Extended),
-            // sanitize vanilla's explanation buffer before returning to clean up stale vanilla +35kg lines.
-            if (IntegrationPipeline.IsForeignStatAdopted)
+            // When a total-capacity foreign stat is adopted, numerical offset delivery is handled by MassCapacityStatPart.
+            // In additive de-duplicate-only mode, the foreign stat's value stays untouched and MassUtility.Capacity delivers the offset here.
+            if (IntegrationPipeline.IsForeignStatAdopted && !IntegrationPipeline.IsAdoptedStatAdditiveBonus)
             {
-                if (IntegrationPipeline.IsAdoptedStatAdditiveBonus)
-                {
-                    __result = MassCapacitySolver.EnforceHardCompatibilitySafetyFloorForPawn(__result, p);
-
-                    // Remove stale vanilla +35kg lines if present
-                    if (explanation != null)
-                    {
-                        SyncFormationCapacityEntry(explanation, p, __result);
-                    }
-                    return;
-                }
-
                 if (IntegrationPipeline.ActiveProfileSyncFormationCapacity && explanation != null)
                 {
                     // BREAKPOINT ANCHOR: Order-Agnostic Capacity Query

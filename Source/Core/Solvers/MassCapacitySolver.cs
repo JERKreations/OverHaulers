@@ -234,7 +234,7 @@ namespace OverHaulers
         {
             if (!source.IsValidBiologicalState)
             {
-                return MassCapacityEvaluationResult.Fallback;
+                return CreateNeutralFallback(baselineCapacity);
             }
 
             try
@@ -248,7 +248,7 @@ namespace OverHaulers
             {
                 string sourceLabel = source.EntityLabel ?? "Unknown";
                 OHLog.Warn("Solver.EvaluateMassCapacity", ex, $"Failed to evaluate mass capacity for pawn '{sourceLabel}'.");
-                return MassCapacityEvaluationResult.Fallback;
+                return CreateNeutralFallback(baselineCapacity);
             }
         }
 
@@ -348,6 +348,18 @@ namespace OverHaulers
         #region 5. [SOLV-05] ALGORITHMIC SOLVER PIPELINE
 
         /// <summary>
+        /// Constructs a neutral fallback result preserving <paramref name="baselineCapacity"/> when valid,
+        /// avoiding collapsing an uncompilable or non-biological pawn to 0.01 kg.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static MassCapacityEvaluationResult CreateNeutralFallback(float baselineCapacity)
+        {
+            return baselineCapacity > 0f
+                ? new MassCapacityEvaluationResult(FallbackMassOffsetKg, baselineCapacity, baselineCapacity, 1f, 0f, 0f, 0f)
+                : MassCapacityEvaluationResult.Fallback;
+        }
+
+        /// <summary>
         /// [SOLV-05] Ingress compiler bridge translating anatomical source data into workspace lanes
         /// and executing the canonical internal solver pipeline.
         /// </summary>
@@ -365,14 +377,7 @@ namespace OverHaulers
             SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(source.BodyDef);
             if (template == null)
             {
-                return new MassCapacityEvaluationResult(
-                    FallbackMassOffsetKg,
-                    biologicalBaseline,
-                    biologicalBaseline,
-                    1f,
-                    0f,
-                    0f,
-                    0f);
+                return CreateNeutralFallback(biologicalBaseline);
             }
 
             // Ingress sweep populates SoA contiguous parallel arrays
@@ -460,7 +465,10 @@ namespace OverHaulers
         /// <param name="workspace">The anatomical workspace containing contiguous SoA arrays for the pawn.</param>
         /// <param name="context">The systemic evaluation context derived from the active configuration snapshot.</param>
         /// <param name="deficits">The regional deficits calculated for the pawn.</param>
-        /// <param name="prostheticBoost">Output parameter for the aggregated prosthetic boost.</param>
+        /// <param name="prostheticBoost">
+        /// Output parameter for the aggregated positive prosthetic boost.
+        /// Negative prosthetic deficits remain in per-part vectors and net offset.
+        /// </param>
         /// <param name="healthDeficit">Output parameter for the aggregated health deficit.</param>
         /// <param name="athleticOffset">Output parameter for the aggregated athletic offset.</param>
         private static void NormalizeAndAggregateMetrics(

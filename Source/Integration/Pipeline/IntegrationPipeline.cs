@@ -16,8 +16,6 @@ namespace OverHaulers
     {
         public string Owner;
         public string PrimaryType;
-        public bool IsRecommended;
-        public StatDef TargetStat;
         public List<StatDef> CandidateStats;
         public List<StatDef> AllAssemblyStats;
     }
@@ -410,12 +408,15 @@ namespace OverHaulers
             }
             else
             {
-                shouldTakeOver = customCilNeutralizedFactors != null
-                    ? HasMatchingActiveFactor(foreignStat, customCilNeutralizedFactors)
-                    : DetectOverlappingBiologicalFactors(foreignStat);
+                IsAdoptedStatAdditiveBonus = preferredCilAdditiveBonus;
+                // In de-duplicate-only additive mode, only neutralize capacity factors when explicitly configured by the user.
+                shouldTakeOver = preferredCilAdditiveBonus
+                    ? (customCilNeutralizedFactors != null && HasMatchingActiveFactor(foreignStat, customCilNeutralizedFactors))
+                    : (customCilNeutralizedFactors != null
+                        ? HasMatchingActiveFactor(foreignStat, customCilNeutralizedFactors)
+                        : DetectOverlappingBiologicalFactors(foreignStat));
                 ActiveProfileAllowsAuthoritativeTakeover = shouldTakeOver;
                 ActiveProfileSyncFormationCapacity = true;
-                IsAdoptedStatAdditiveBonus = preferredCilAdditiveBonus;
             }
 
             // DEDUPLICATION: Hide native stat on pawns so only the adopted foreign stat card is visible
@@ -704,14 +705,12 @@ namespace OverHaulers
                     {
                         Owner = p.owner,
                         PrimaryType = typeName,
-                        IsRecommended = (typeName == "Transpiler"),
                         CandidateStats = new List<StatDef>(),
                         AllAssemblyStats = new List<StatDef>()
                     };
                 }
 
                 CollectCandidateStatsForPatch(p, info.CandidateStats, info.AllAssemblyStats);
-                info.TargetStat = info.CandidateStats.Count > 0 ? info.CandidateStats[0] : null;
                 map[p.owner] = info;
             }
         }

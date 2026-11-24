@@ -170,7 +170,7 @@ namespace OverHaulers
                 MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
                 // 1. Caravan Mass Capacity Progression Readout
-                float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg, cleanBaseline + massModel.Offset);
+                float finalMass = massModel.FinalCapacity;
                 builder.AppendLine("CARAVAN MASS CAPACITY PROGRESSION:");
                 builder.AppendLine($"  Baseline: {cleanBaseline.ToStringMass()}  ➔  Final: {finalMass.ToStringMass()} (Offset: {massModel.Offset.ToStringMassOffset()}, Total Rating: {massModel.TotalMultiplier:F2}x)");
                 builder.AppendLine();
@@ -269,7 +269,7 @@ namespace OverHaulers
 
             if (subject != null)
             {
-                builder.AppendLine($"  <ActiveSubject label=\"{ExportUtilities.EscapeXml(subject.Label)}\" raceDef=\"{subject.RaceDef?.defName ?? "None"}\" bodyDef=\"{subject.BodyDef?.defName ?? "None"}\" isLivePawn=\"{subject.IsLivePawn}\" />");
+                builder.AppendLine($"  <ActiveSubject label=\"{ExportUtilities.EscapeXml(subject.Label)}\" raceDef=\"{ExportUtilities.EscapeXml(subject.RaceDef?.defName ?? "None")}\" bodyDef=\"{ExportUtilities.EscapeXml(subject.BodyDef?.defName ?? "None")}\" isLivePawn=\"{subject.IsLivePawn}\" />");
             }
 
             builder.AppendLine("  <Archetypes>");
@@ -289,7 +289,7 @@ namespace OverHaulers
                     out float normArm,
                     out float normLeg);
 
-                builder.AppendLine($"    <BodyDef defName=\"{body.defName}\" partCount=\"{tmpl.PartCount}\" corePart=\"{ExportUtilities.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{ExportUtilities.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
+                builder.AppendLine($"    <BodyDef defName=\"{ExportUtilities.EscapeXml(body.defName)}\" partCount=\"{tmpl.PartCount}\" corePart=\"{ExportUtilities.EscapeXml(tmpl.CorePart?.def?.defName ?? "None")}\" headPart=\"{ExportUtilities.EscapeXml(tmpl.HeadPart?.def?.defName ?? "None")}\">");
                 builder.AppendLine($"      <RegionalMassBudgets torsoPct=\"{normTorso:P3}\" armsPct=\"{normArm:P3}\" legsPct=\"{normLeg:P3}\" />");
 
                 // Parallel Weight Vector Breakdown
@@ -305,7 +305,7 @@ namespace OverHaulers
                     string rootAttr = tmpl.RootPartIndex[idx] >= 0 ? $" rootPartIndex=\"{tmpl.RootPartIndex[idx]}\" depth=\"{tmpl.Depth[idx]}\" siblingCount=\"{tmpl.SiblingCount[idx]}\"" : "";
                     string flagsAttr = (tmpl.IsOrgan[idx] ? " isOrgan=\"true\"" : "") + (tmpl.WasReclaimedAsAnchor[idx] ? " wasReclaimedAsAnchor=\"true\"" : "");
 
-                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{ExportUtilities.EscapeXml(part.LabelCap.ToString())}\" def=\"{part.def.defName}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{ExportUtilities.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{ExportUtilities.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
+                    builder.AppendLine($"        <Part index=\"{idx}\" label=\"{ExportUtilities.EscapeXml(part.LabelCap.ToString())}\" def=\"{ExportUtilities.EscapeXml(part.def.defName)}\" type=\"{type}\" weightCore=\"{tmpl.WeightCore[idx]:F3}\" weightManip=\"{tmpl.WeightManipulation[idx]:F3}\" weightMove=\"{tmpl.WeightMoving[idx]:F3}\" staticWeightPct=\"{(tmpl.StaticWeightFactors[idx] * 100f):F3}%\" parentIndex=\"{parentIdx}\" hitPoints=\"{tmpl.HitPoints[idx]}\" tags=\"{ExportUtilities.EscapeXml(tmpl.TagsDisplay[idx])}\" groups=\"{ExportUtilities.EscapeXml(tmpl.GroupsDisplay[idx])}\"{weightModelAttr}{rootAttr}{flagsAttr} />");
                 }
                 builder.AppendLine("      </ParallelWeightBreakdown>");
 
@@ -313,7 +313,7 @@ namespace OverHaulers
                 TestSubjectEntry evalSubject = ResolveEvaluationSubject(scope, subject, body, allPawnThings);
                 MassCapacityModel massModel = ResolveAndPopulateDiagnosticModel(evalSubject, out float cleanBaseline);
 
-                float finalMass = Math.Max(MassCapacitySolver.HardCompatibilitySafetyFloorKg, cleanBaseline + massModel.Offset);
+                float finalMass = massModel.FinalCapacity;
                 builder.AppendLine($"      <CaravanMassProgression baselineKg=\"{cleanBaseline.ToString("R", CultureInfo.InvariantCulture)}\" solvedOffsetKg=\"{massModel.Offset.ToString("R", CultureInfo.InvariantCulture)}\" finalMassKg=\"{finalMass.ToString("R", CultureInfo.InvariantCulture)}\" totalMultiplier=\"{massModel.TotalMultiplier.ToString("R", CultureInfo.InvariantCulture)}\" />");
 
                 builder.AppendLine($"      <AthleticCapacities breathing=\"{massModel.CapacityLevels[0]:F2}\" bloodPumping=\"{massModel.CapacityLevels[1]:F2}\" moving=\"{massModel.CapacityLevels[2]:F2}\" manipulation=\"{massModel.CapacityLevels[3]:F2}\" />");
@@ -374,6 +374,12 @@ namespace OverHaulers
             out float cleanBaseline)
         {
             MassCapacityModel massModel = new MassCapacityModel();
+            if (evalSubject == null)
+            {
+                cleanBaseline = 0f;
+                return massModel;
+            }
+
             SandboxPawnHarness isolatedHarness = null;
             SandboxPawnHarness activeHarness;
 
@@ -533,7 +539,7 @@ namespace OverHaulers
 
                 builder.Append(indent).Append("<PartNode");
                 builder.Append(" label=\"").Append(ExportUtilities.EscapeXml(node.Label)).Append('"');
-                builder.Append(" def=\"").Append(defName).Append('"');
+                builder.Append(" def=\"").Append(ExportUtilities.EscapeXml(defName)).Append('"');
                 builder.Append(" isOrgan=\"").Append(node.IsOrgan).Append('"');
                 builder.Append(" weightPct=\"").Append((node.ProportionalWeight * 100f).ToString("F3")).Append("%\"");
                 builder.Append(" totalOffsetKg=\"").Append(node.TotalOffset.ToString("R", CultureInfo.InvariantCulture)).Append('"');
@@ -616,7 +622,9 @@ namespace OverHaulers
                 return subject;
             }
 
-            ThingDef sampleThing = allPawnThings.Find(t => t.race?.body == body) ?? ThingDefOf.Human;
+            ThingDef sampleThing = allPawnThings.Find(t => t.race?.body == body);
+            if (sampleThing == null) return null;
+
             return new TestSubjectEntry(
                 sampleThing.LabelCap.ToString(),
                 body,

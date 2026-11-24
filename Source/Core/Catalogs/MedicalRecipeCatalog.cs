@@ -401,6 +401,8 @@ namespace OverHaulers
                 for (int i = 0; i < allThings.Count; i++)
                 {
                     ThingDef thing = allThings[i];
+                    if (thing == null) continue;
+
                     var outcomeDoers = thing.ingestible?.outcomeDoers;
                     if (outcomeDoers != null)
                     {
@@ -546,16 +548,18 @@ namespace OverHaulers
                 for (int i = 0; i < allAbilities.Count; i++)
                 {
                     AbilityDef ability = allAbilities[i];
-                    if (ability.comps == null) continue;
+                    if (ability?.comps == null) continue;
 
                     for (int c = 0; c < ability.comps.Count; c++)
                     {
-                        CompProperties_AbilityGiveHediff giveHediff =
-                            ability.comps[c] as CompProperties_AbilityGiveHediff;
+                        CompProperties_AbilityGiveHediff giveHediff = ability.comps[c] as CompProperties_AbilityGiveHediff;
                         if (giveHediff != null)
                         {
-                            MedicalConditionBuilder builder;
-                            if (!builders.TryGetValue(giveHediff.hediffDef, out builder)) continue;
+                            if (giveHediff.hediffDef == null ||
+                                !builders.TryGetValue(giveHediff.hediffDef, out MedicalConditionBuilder builder))
+                            {
+                                continue;
+                            }
 
                             builder.Sources |= MedicalConditionSource.Ability;
                             if (giveHediff.onlyBrain)
