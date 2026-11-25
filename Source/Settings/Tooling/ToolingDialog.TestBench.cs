@@ -584,9 +584,6 @@ namespace OverHaulers
                     case MedicalConditionCategory.MedicalTargetUnknown:
                         key = "OverHaulers_Sandbox_Condition_MedicalTargetUnknown";
                         break;
-                    case MedicalConditionCategory.PsychicAndAbilities:
-                        key = "OverHaulers_Sandbox_Condition_Abilities";
-                        break;
                     default:
                         key = "OverHaulers_Sandbox_Condition_Other";
                         break;
@@ -987,20 +984,22 @@ namespace OverHaulers
                 return "OverHaulers_NodeBadge_Inoperable".Translate(node.Label).Colorize(labelColor);
             }
 
-            // 2. Simulated Replacement, Amputation or Trauma (User-Applied Sandbox Deltas)
+            // 2. Synthetic Damage Intent (User-Applied Sandbox Delta)
+            if (node.Record != null &&
+                harness.DamageDeltas.TryGetValue(node.Record, out List<SimulatedDamage> damageEvents) &&
+                damageEvents.Count > 0)
+            {
+                float maxHealth = node.Record.def.GetMaxHealth(harness.SandboxPawn);
+                float healthRatio = damageEvents[damageEvents.Count - 1].HealthAfter / Math.Max(1f, maxHealth);
+                labelColor = ReportFormatter.GetMedicalColor(healthRatio);
+                return "OverHaulers_NodeBadge_Wounded".Translate(
+                    node.Label,
+                    ReportFormatter.FormatPercentage(healthRatio, true)).Colorize(labelColor);
+            }
+
+            // 3. Simulated Replacement (User-Applied Sandbox Delta)
             if (node.Record != null && harness.ReplacementDeltas.TryGetValue(node.Record, out SimulatedModification repl))
             {
-                if (repl.OpType == SimulatedOpType.Amputate)
-                {
-                    labelColor = critColor;
-                    return "OverHaulers_NodeBadge_Missing".Translate(node.Label).Colorize(labelColor);
-                }
-                if (repl.OpType == SimulatedOpType.Trauma)
-                {
-                    labelColor = ReportFormatter.GetMedicalColor(repl.Efficiency);
-                    return "OverHaulers_NodeBadge_Wounded".Translate(node.Label, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
-                }
-                
                 Color defaultColor = (repl.Efficiency > 1.0f)
                     ? boostColor
                     : ReportFormatter.GetMedicalColor(repl.Efficiency);
@@ -1009,14 +1008,14 @@ namespace OverHaulers
                 return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, repl.DisplayLabel, ReportFormatter.FormatPercentage(repl.Efficiency, true)).Colorize(labelColor);
             }
 
-            // 3. Simulated Implant (User-Applied Sandbox Delta)
+            // 4. Simulated Implant (User-Applied Sandbox Delta)
             if (node.Record != null && harness.ImplantDeltas.TryGetValue(node.Record, out List<SimulatedModification> imps) && imps.Count > 0)
             {
                 labelColor = boostColor;
                 return "OverHaulers_NodeBadge_Implant".Translate(node.Label, imps[0].DisplayLabel).Colorize(labelColor);
             }
 
-            // 4. Live Colonist Authentic Prosthetic
+            // 5. Live Colonist Authentic Prosthetic
             if (node.HasProsthetic)
             {
                 labelColor = (node.ProstheticColor != Color.white) 
@@ -1026,7 +1025,7 @@ namespace OverHaulers
                 return "OverHaulers_NodeBadge_Prosthetic".Translate(node.Label, node.ProstheticName, ReportFormatter.FormatPercentage(node.EfficiencyRating, true)).Colorize(labelColor);
             }
 
-            // 5. Live Colonist Authentic Implant
+            // 6. Live Colonist Authentic Implant
             if (!string.IsNullOrEmpty(node.AthleticImplantName))
             {
                 labelColor = (node.AthleticImplantColor != Color.white) 
@@ -1036,7 +1035,7 @@ namespace OverHaulers
                 return "OverHaulers_NodeBadge_Implant".Translate(node.Label, node.AthleticImplantName).Colorize(labelColor);
             }
 
-            // 6. Live Colonist Authentic Missing Bone
+            // 7. Live Colonist Authentic Missing Bone
             if (node.IsMissing)
             {
                 labelColor = critColor;
@@ -1164,23 +1163,10 @@ namespace OverHaulers
                 }
             }
 
-            // 3. Bulk Destroy
-            options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkDestroy".Translate().ToString(), () =>
+            // 3. Randomized Synthetic Damage
+            options.Add(new FloatMenuOption("OverHaulers_Sandbox_BulkDamage".Translate().ToString(), () =>
             {
-                for (int i = 0; i < targetRecords.Count; i++)
-                {
-                    BodyPartRecord part = targetRecords[i];
-                    if (harness.SandboxPawn.health.hediffSet.PartIsMissing(part)) continue;
-
-                    if (IsLimbPartRecord(part))
-                    {
-                        harness.SimulateAmputation(part);
-                    }
-                    else if (part.coverageAbs > 0f)
-                    {
-                        harness.SimulateSevereTrauma(part);
-                    }
-                }
+                harness.SimulateRandomDamage(targetRecords);
                 TestBench.MarkDirty();
             }));
 
@@ -1368,35 +1354,22 @@ namespace OverHaulers
                     }
                 }
 
-                // 3. Unified Destructive Action
-                bool canDestroy = !ancestorMissing && !partMissing && !ancestorHasAdded;
-                if (IsLimbPartRecord(targetPart))
+                // 3. Synthetic Part Damage
+                bool canDamage = !ancestorMissing && !partMissing && !ancestorHasAdded && targetPart.coverageAbs > 0f;
+                if (targetPart.coverageAbs > 0f)
                 {
                     FloatMenuOption opt = new FloatMenuOption(
-                        "OverHaulers_Op_Destroy".Translate().ToString(),
-                        () => {
-                            harness.SimulateAmputation(targetPart);
-                            TestBench.MarkDirty();
-                        }
+                        "OverHaulers_Op_Damage".Translate().ToString(),
+                        () => OpenPartDamageMenu(targetPart, harness)
                     );
-                    opt.Disabled = !canDestroy;
-                    options.Add(opt);
-                }
-                else if (targetPart.coverageAbs > 0f)
-                {
-                    FloatMenuOption opt = new FloatMenuOption(
-                        "OverHaulers_Op_Destroy".Translate().ToString(),
-                        () => {
-                            harness.SimulateSevereTrauma(targetPart);
-                            TestBench.MarkDirty();
-                        }
-                    );
-                    opt.Disabled = !canDestroy;
+                    opt.Disabled = !canDamage;
                     options.Add(opt);
                 }
 
                 // 4. Revert to Authentic Live / Baseline State
-                if (harness.ReplacementDeltas.ContainsKey(targetPart) || harness.ImplantDeltas.ContainsKey(targetPart))
+                if (harness.ReplacementDeltas.ContainsKey(targetPart) ||
+                    harness.ImplantDeltas.ContainsKey(targetPart) ||
+                    harness.DamageDeltas.ContainsKey(targetPart))
                 {
                     options.Add(new FloatMenuOption(
                         "OverHaulers_Op_Revert".Translate().ToString(),
@@ -1411,17 +1384,38 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        /// <summary>
-        /// Determines whether the specified body part is considered a limb (arm or leg) part.
-        /// </summary>
-        /// <param name="part">The body part to check.</param>
-        /// <returns>True if the body part is a limb part; otherwise, false.</returns>
-        private static bool IsLimbPartRecord(BodyPartRecord part)
+        /// <summary>Opens granular synthetic damage choices for one sandbox body part.</summary>
+        private static void OpenPartDamageMenu(BodyPartRecord part, SandboxPawnHarness harness)
         {
-            if (part?.def == null) return false;
-            return TopologyLayoutCompiler.HasAnyTag(part.def, TopologyLayoutCompiler.armTags) ||
-                   TopologyLayoutCompiler.HasAnyTag(part.def, TopologyLayoutCompiler.legTags) ||
-                   TopologyLayoutCompiler.IsLimbGroupPart(part);
+            DamageDef[] damageTypes = { DamageDefOf.Crush, DamageDefOf.Cut, DamageDefOf.Burn };
+            float[] severities = { 0.25f, 0.5f, 0.75f, 0.9f };
+            List<FloatMenuOption> options = new List<FloatMenuOption>(damageTypes.Length * severities.Length);
+
+            for (int d = 0; d < damageTypes.Length; d++)
+            {
+                DamageDef damage = damageTypes[d];
+                if (damage == null) continue;
+
+                for (int s = 0; s < severities.Length; s++)
+                {
+                    float severity = severities[s];
+                    string label = "OverHaulers_Op_DamageEntry".Translate(
+                        damage.LabelCap,
+                        ReportFormatter.FormatPercentage(severity, true)).ToString();
+                    bool canApply = harness.CanSimulateDamage(part, damage, severity);
+                    FloatMenuOption option = new FloatMenuOption(label, canApply
+                        ? (Action)(() =>
+                    {
+                        harness.SimulateDamage(part, damage, severity);
+                        TestBench.MarkDirty();
+                    })
+                        : null);
+                    option.Disabled = !canApply;
+                    options.Add(option);
+                }
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         #endregion

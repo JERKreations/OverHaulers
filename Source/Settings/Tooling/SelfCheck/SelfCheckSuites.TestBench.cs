@@ -425,7 +425,7 @@ namespace OverHaulers
                 }
 
                 harness.ResetToSource();
-                harness.SimulateAmputation(parent);
+                harness.SimulatePartRemoval(parent);
                 Expect.True(pawn.health.hediffSet.PartIsMissing(parent), "the target must be missing for the replacement check");
                 IReadOnlyList<MedicalOperationEntry> missingReplacements = MedicalCatalog.GetReplacementsFor(parent.def);
                 for (int i = 0; i < missingReplacements.Count; i++)
@@ -566,12 +566,9 @@ namespace OverHaulers
                 HediffDef psychicAnesthesia = DefDatabase<HediffDef>.GetNamedSilentFail("PsychicAnesthesia");
                 if (psychicAnesthesia != null)
                 {
-                    Expect.True(MedicalCatalog.TryGetConditionEntry(psychicAnesthesia, out MedicalConditionEntry psychicEntry) &&
-                        psychicEntry.Categories == MedicalConditionCategory.PsychicAndAbilities,
-                        "pain-only psychic anesthesia must be catalogued as an ability effect");
-                    float peak = MedicalCatalog.GetPeakImpactSeverity(psychicAnesthesia, out _);
-                    Expect.True(!float.IsNaN(peak) && !float.IsInfinity(peak) && peak < 10f,
-                        "an unbounded single-stage effect must not receive an enormous default severity");
+                    Expect.True(!MedicalCatalog.TryGetConditionEntry(psychicAnesthesia, out _) &&
+                        !MedicalCatalog.TryGetMedicalConditionEntry(psychicAnesthesia, out _),
+                        "psychic anesthesia must be excluded from both condition catalogs");
                 }
 
                 Hediff original = HediffMaker.MakeHediff(asthma, pawn, first);
@@ -630,7 +627,7 @@ namespace OverHaulers
                 harness.SimulateCondition(asthma, first);
                 harness.SimulateCondition(asthma, second);
                 Expect.Equal(2, harness.SimulatedConditions.Count, "each target must have its own simulation");
-                harness.SimulateAmputation(first);
+                harness.SimulatePartRemoval(first);
                 Expect.Equal(1, harness.SimulatedConditions.Count, "removing a part must discard its simulation");
                 Expect.True(harness.SimulatedConditions[0].Hediff.Part == second &&
                     !SandboxPawnHarness.CanApplyConditionToPart(pawn, first),

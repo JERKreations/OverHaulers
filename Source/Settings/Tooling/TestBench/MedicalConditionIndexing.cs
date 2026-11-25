@@ -234,7 +234,6 @@ namespace OverHaulers
                 { MedicalConditionCategory.SystemicMedical, new List<MedicalConditionEntry>() },
                 { MedicalConditionCategory.LocalizedMedical, new List<MedicalConditionEntry>() },
                 { MedicalConditionCategory.MedicalTargetUnknown, new List<MedicalConditionEntry>() },
-                { MedicalConditionCategory.PsychicAndAbilities, new List<MedicalConditionEntry>() },
                 { MedicalConditionCategory.Other, new List<MedicalConditionEntry>() }
             };
 
@@ -315,6 +314,7 @@ namespace OverHaulers
             HashSet<HediffDef> chemicalTolerances)
         {
             if (hediff == null || hediff.hediffClass == null) return true;
+            if (IsPsychicOrAbilityCondition(hediff)) return true;
             if (surgicalHediffs.Contains(hediff) || chemicalTolerances.Contains(hediff)) return true;
             if (hediff.CompProps<HediffCompProperties_DrugEffectFactor>() != null) return true;
 
@@ -323,6 +323,24 @@ namespace OverHaulers
                    typeof(Hediff_Implant).IsAssignableFrom(hediffType) ||
                    typeof(Hediff_Injury).IsAssignableFrom(hediffType) ||
                    typeof(Hediff_MissingPart).IsAssignableFrom(hediffType);
+        }
+
+        /// <summary>Excludes psychic and ability-only states from the medical catalog.</summary>
+        private static bool IsPsychicOrAbilityCondition(HediffDef hediff)
+        {
+            Type hediffType = hediff.hediffClass;
+            string name = hediff.defName ?? string.Empty;
+            return (hediffType?.Name.IndexOf("Psychic", StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                name.IndexOf("Psychic", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                hediff == HediffDefOf.PsychicEntropy ||
+                hediff == HediffDefOf.PsychicHangover ||
+                hediff == HediffDefOf.PsychicSuppression ||
+                hediff == HediffDefOf.PsychicLove ||
+                hediff == HediffDefOf.PsychicBond ||
+                hediff == HediffDefOf.PsychicBondTorn ||
+                hediff == HediffDefOf.PsychicShock ||
+                hediff == HediffDefOf.DarkPsychicShock ||
+                name == "BrainShock";
         }
 
         /// <summary>
@@ -432,24 +450,7 @@ namespace OverHaulers
                 return MedicalConditionCategory.Ingestibles;
             }
 
-            // 2. Psycasts, Psychic Entropy, and Ability Coma/Shock States
-            if ((builder.Sources & (MedicalConditionSource.Ability | MedicalConditionSource.RandomAbility)) != 0 ||
-                def.hediffClass.Name.IndexOf("Psychic", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                def.defName.IndexOf("Psychic", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                def == HediffDefOf.PsychicEntropy ||
-                def == HediffDefOf.PsychicHangover ||
-                def == HediffDefOf.PsychicSuppression ||
-                def == HediffDefOf.PsychicLove ||
-                def == HediffDefOf.PsychicBond ||
-                def == HediffDefOf.PsychicBondTorn ||
-                def == HediffDefOf.PsychicShock ||
-                def == HediffDefOf.DarkPsychicShock ||
-                def.defName == "BrainShock")
-            {
-                return MedicalConditionCategory.PsychicAndAbilities;
-            }
-
-            // 3. Medical target scope
+            // 2. Medical target scope
             if (builder.IsMedical ||
                 builder.HasSystemicStageImpact ||
                 builder.HasPartLocalImpact ||

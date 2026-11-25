@@ -99,7 +99,6 @@
   <OverHaulers_Sandbox_Condition_SystemicMedical>Systemic / whole-body</OverHaulers_Sandbox_Condition_SystemicMedical>
   <OverHaulers_Sandbox_Condition_LocalizedMedical>Localized / body part</OverHaulers_Sandbox_Condition_LocalizedMedical>
   <OverHaulers_Sandbox_Condition_MedicalTargetUnknown>Medical / target unknown</OverHaulers_Sandbox_Condition_MedicalTargetUnknown>
-  <OverHaulers_Sandbox_Condition_Abilities>Psychic &amp; abilities</OverHaulers_Sandbox_Condition_Abilities>
   <OverHaulers_Sandbox_Condition_Other>Other</OverHaulers_Sandbox_Condition_Other>
   <OverHaulers_Sandbox_Condition_WholeBody>Whole body</OverHaulers_Sandbox_Condition_WholeBody>
   <OverHaulers_Sandbox_Condition_NoTargets>No compatible relevant natural parts are available.</OverHaulers_Sandbox_Condition_NoTargets>
@@ -132,17 +131,16 @@
   <!-- Single Target Operations -->
   <OverHaulers_Op_AddReplacement>[+] {0} ({1})</OverHaulers_Op_AddReplacement>
   <OverHaulers_Op_AddImplant>[+] {0}</OverHaulers_Op_AddImplant>
-  <OverHaulers_Op_Destroy>[-] Destroy / Max Damage</OverHaulers_Op_Destroy>
+  <OverHaulers_Op_Damage>Apply Damage</OverHaulers_Op_Damage>
+  <OverHaulers_Op_DamageEntry>{0}: {1} remaining-health damage</OverHaulers_Op_DamageEntry>
   <OverHaulers_Op_Revert>↺ Revert to Source</OverHaulers_Op_Revert>
   <OverHaulers_Op_DisabledParentProsthetic>Disabled by parent part status</OverHaulers_Op_DisabledParentProsthetic>
   <OverHaulers_Op_DisabledParentMissing>Disabled: parent part missing</OverHaulers_Op_DisabledParentMissing>
-  <OverHaulers_Op_SevereTrauma>Severe Trauma</OverHaulers_Op_SevereTrauma>
-  <OverHaulers_Op_Amputated>Amputated</OverHaulers_Op_Amputated>
 
   <!-- Dynamic Group Bulk Actions -->
   <OverHaulers_Sandbox_BulkMaxUpgrade>Bulk: Maximum Upgrade ({0})</OverHaulers_Sandbox_BulkMaxUpgrade>
   <OverHaulers_Sandbox_BulkBudgetUpgrade>Bulk: Budget / Basic ({0})</OverHaulers_Sandbox_BulkBudgetUpgrade>
-  <OverHaulers_Sandbox_BulkDestroy>Destroy Entire Group</OverHaulers_Sandbox_BulkDestroy>
+  <OverHaulers_Sandbox_BulkDamage>Randomize Damage</OverHaulers_Sandbox_BulkDamage>
   <OverHaulers_Sandbox_BulkRevert>Revert Entire Group</OverHaulers_Sandbox_BulkRevert>
 
   <!-- ========================================================================= -->

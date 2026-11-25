@@ -79,8 +79,7 @@ namespace OverHaulers
         SystemicMedical = 1 << 1,
         LocalizedMedical = 1 << 2,
         MedicalTargetUnknown = 1 << 3,
-        PsychicAndAbilities = 1 << 4,
-        Other = 1 << 5
+        Other = 1 << 4
     }
 
     /// <summary>
@@ -95,12 +94,10 @@ namespace OverHaulers
         SpeciesHediffGiver = 1 << 2,
         HediffDefinitionGiver = 1 << 3,
         HediffStageGiver = 1 << 4,
-        Ability = 1 << 5,
-        RandomAbility = 1 << 6,
-        Other = 1 << 7,
-        DiseaseIncident = 1 << 8,
-        IncidentPawnHediff = 1 << 9,
-        WoundInfection = 1 << 10
+        Other = 1 << 5,
+        DiseaseIncident = 1 << 6,
+        IncidentPawnHediff = 1 << 7,
+        WoundInfection = 1 << 8
     }
 
     /// <summary>

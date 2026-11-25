@@ -223,87 +223,6 @@ namespace OverHaulers
                 }
             }
 
-            // BREAKPOINT ANCHOR: Ability Target Constraint Resolution
-            List<AbilityDef> allAbilities = DefDatabase<AbilityDef>.AllDefsListForReading;
-            if (allAbilities != null)
-            {
-                List<BodyPartDef> consciousnessSourceParts = GetConsciousnessSourceParts();
-                for (int i = 0; i < allAbilities.Count; i++)
-                {
-                    AbilityDef ability = allAbilities[i];
-                    if (ability?.comps == null) continue;
-
-                    for (int c = 0; c < ability.comps.Count; c++)
-                    {
-                        CompProperties_AbilityGiveHediff giveHediff =
-                            ability.comps[c] as CompProperties_AbilityGiveHediff;
-                        if (giveHediff != null)
-                        {
-                            if (giveHediff.hediffDef == null) continue;
-
-                            MedicalConditionBuilder builder;
-                            if (!builders.TryGetValue(giveHediff.hediffDef, out builder)) continue;
-
-                            builder.Sources |= MedicalConditionSource.Ability;
-                            if (giveHediff.onlyBrain)
-                            {
-                                if (consciousnessSourceParts.Count == 0)
-                                {
-                                    AddConditionTarget(
-                                        builder,
-                                        MedicalConditionTargetKind.Unknown,
-                                        null,
-                                        MedicalConditionSource.Ability);
-                                }
-                                else
-                                {
-                                    for (int p = 0; p < consciousnessSourceParts.Count; p++)
-                                    {
-                                        AddConditionTarget(
-                                            builder,
-                                            MedicalConditionTargetKind.SpecificPart,
-                                            consciousnessSourceParts[p],
-                                            MedicalConditionSource.Ability);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                AddConditionTarget(
-                                    builder,
-                                    MedicalConditionTargetKind.WholeBody,
-                                    null,
-                                    MedicalConditionSource.Ability);
-                            }
-
-                            continue;
-                        }
-
-                        CompProperties_AbilityGiveRandomHediff randomGiveHediff =
-                            ability.comps[c] as CompProperties_AbilityGiveRandomHediff;
-                        if (randomGiveHediff?.options == null) continue;
-
-                        for (int o = 0; o < randomGiveHediff.options.Count; o++)
-                        {
-                            HediffOption option = randomGiveHediff.options[o];
-                            if (option?.hediffDef == null) continue;
-
-                            MedicalConditionBuilder builder;
-                            if (!builders.TryGetValue(option.hediffDef, out builder)) continue;
-
-                            builder.Sources |= MedicalConditionSource.RandomAbility;
-                            AddConditionTarget(
-                                builder,
-                                option.bodyPart == null
-                                    ? MedicalConditionTargetKind.WholeBody
-                                    : MedicalConditionTargetKind.SpecificPart,
-                                option.bodyPart,
-                                MedicalConditionSource.RandomAbility);
-                        }
-                    }
-                }
-            }
-
             // BREAKPOINT ANCHOR: Default WholeBody Target Assignment For Systemic Conditions
             foreach (KeyValuePair<HediffDef, MedicalConditionBuilder> pair in builders)
             {
@@ -341,29 +260,6 @@ namespace OverHaulers
                 }
             }
 
-        }
-
-        /// <summary>
-        /// Retrieves the list of body parts that serve as sources of consciousness.
-        /// </summary>
-        /// <returns>A list of body part definitions that are consciousness sources.</returns>
-        private static List<BodyPartDef> GetConsciousnessSourceParts()
-        {
-            List<BodyPartDef> parts = new List<BodyPartDef>();
-            BodyPartTagDef sourceTag = TopologyLayoutCompiler.ConsciousnessSourceTag;
-            List<BodyPartDef> allParts = DefDatabase<BodyPartDef>.AllDefsListForReading;
-            if (sourceTag == null || allParts == null) return parts;
-
-            for (int i = 0; i < allParts.Count; i++)
-            {
-                BodyPartDef part = allParts[i];
-                if (part?.tags != null && part.tags.Contains(sourceTag))
-                {
-                    parts.Add(part);
-                }
-            }
-
-            return parts;
         }
 
         /// <summary>

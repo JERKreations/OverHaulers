@@ -14,9 +14,7 @@ namespace OverHaulers
     public enum SimulatedOpType
     {
         InstallReplacement = 0,
-        InstallImplant = 1,
-        Amputate = 2,
-        Trauma = 3
+        InstallImplant = 1
     }
 
     /// <summary>
@@ -55,7 +53,8 @@ namespace OverHaulers
     /// simulated condition toggling, and UI inspection delta tracking.
     /// Resides under Source/Settings/Tooling/TestBench/.
     /// </summary>
-    public class SandboxPawnHarness : HeadlessPawnShell
+    public partial class SandboxPawnHarness
+        : HeadlessPawnShell
     {
         #region 2. INSTANCE FIELDS & BACKING STATE
 
@@ -66,7 +65,7 @@ namespace OverHaulers
         protected readonly Dictionary<BodyPartRecord, float> livePartEfficiencies =
             new Dictionary<BodyPartRecord, float>();
 
-        /// <summary>Simulated replacement modifications (Prosthetics/Amputations/Trauma) indexed by target BodyPartRecord.</summary>
+        /// <summary>Simulated prosthetic and bionic replacement modifications indexed by target BodyPartRecord.</summary>
         public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas =
             new Dictionary<BodyPartRecord, SimulatedModification>();
 
@@ -93,7 +92,11 @@ namespace OverHaulers
         public IReadOnlyList<SimulatedCondition> SimulatedConditions => simulatedConditions;
 
         /// <summary>True if any hypothetical modifications are currently applied to the sandbox pawn.</summary>
-        public bool HasModifications => ReplacementDeltas.Count > 0 || ImplantDeltas.Count > 0 || simulatedConditions.Count > 0;
+        public bool HasModifications =>
+            ReplacementDeltas.Count > 0 ||
+            ImplantDeltas.Count > 0 ||
+            DamageDeltas.Count > 0 ||
+            simulatedConditions.Count > 0;
 
         #endregion
 
@@ -193,6 +196,7 @@ namespace OverHaulers
 
             using (EnterSafetyFallbackScope())
             {
+                DamageDeltas.Remove(part);
                 ImplantDeltas.Remove(part);
                 if (part.parts != null)
                 {
@@ -239,95 +243,11 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6B. AMPUTATIONS & TRAUMA SIMULATION
+        #region 6B. REPRESENTATIVE NATIVE DAMAGE PROFILE
 
         /// <summary>
-        /// Simulates a surgical amputation or permanent limb loss (0% HP) on the sandbox pawn.
-        /// Strictly reserved for structural appendages (Arms, Legs, Hands, Feet, Dual Limbs).
-        /// </summary>
-        /// <param name="part">The BodyPartRecord representing the part to simulate amputation on.</param>
-        public void SimulateAmputation(BodyPartRecord part)
-        {
-            if (headlessPawn?.health == null || part == null) return;
-
-            using (EnterSafetyFallbackScope())
-            {
-                CleanDeltasRecursive(part);
-                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-                PruneRemovedConditions();
-
-                Hediff missingPartHediff = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
-                if (missingPartHediff != null)
-                {
-                    headlessPawn.health.AddHediff(missingPartHediff, part);
-                }
-                PruneRemovedConditions();
-
-                ReplacementDeltas[part] = new SimulatedModification
-                {
-                    OpType = SimulatedOpType.Amputate,
-                    SourceRecipe = null,
-                    TargetHediff = null,
-                    DisplayLabel = "OverHaulers_Op_Amputated".Translate().ToString(),
-                    Efficiency = 0f
-                };
-
-                DirtyHealthCache();
-            }
-        }
-
-        /// <summary>
-        /// Simulates severe structural trauma leaving exactly 1 HP remaining on non-limb bones, craniums, and organs.
-        /// Skips zero-coverage virtual anchor parts (e.g. Waist / apparel hooks) to prevent vanilla hit-validation errors.
-        /// </summary>
-        /// <param name="part">The BodyPartRecord representing the part to simulate severe trauma on.</param>
-        public void SimulateSevereTrauma(BodyPartRecord part)
-        {
-            if (headlessPawn?.health == null || part == null || part.coverageAbs <= 0f) return;
-
-            using (EnterSafetyFallbackScope())
-            {
-                ImplantDeltas.Remove(part);
-                ReplacementDeltas.Remove(part);
-                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-                PruneRemovedConditions();
-
-                float maxHp = part.def.GetMaxHealth(headlessPawn);
-                float damageToApply = Math.Max(1f, maxHp - 1f);
-
-                HediffDef injuryDef = DamageDefOf.Crush?.hediff
-                                   ?? DamageDefOf.Blunt?.hediff
-                                   ?? DamageDefOf.Cut?.hediff
-                                   ?? DefDatabase<HediffDef>.GetNamedSilentFail("Crush")
-                                   ?? DefDatabase<HediffDef>.GetNamedSilentFail("Bruise");
-
-                if (injuryDef != null)
-                {
-                    Hediff injury = HediffMaker.MakeHediff(injuryDef, headlessPawn, part);
-                    if (injury != null)
-                    {
-                        injury.Severity = damageToApply;
-                        headlessPawn.health.AddHediff(injury, part);
-                    }
-                }
-                PruneRemovedConditions();
-
-                ReplacementDeltas[part] = new SimulatedModification
-                {
-                    OpType = SimulatedOpType.Trauma,
-                    SourceRecipe = null,
-                    TargetHediff = null,
-                    DisplayLabel = "OverHaulers_Op_SevereTrauma".Translate().ToString(),
-                    Efficiency = 1f / Math.Max(1f, maxHp)
-                };
-
-                DirtyHealthCache();
-            }
-        }
-
-        /// <summary>
-        /// Applies a fixed, representative wound set to the bound subject: amputates one root arm and one root leg and leaves
-        /// up to three torso parts on 1 HP, so the solver's deficit, symmetry and clamping branches are exercised.
+        /// Applies a fixed, representative native wound set to the bound subject: removes one root arm and one root leg
+        /// and damages up to three torso parts, exercising the solver's deficit, symmetry and clamping branches.
         /// Used by the diagnostics benchmark and self-check so both measure the same "wounded" profile.
         /// </summary>
         public void SimulateRepresentativeWounds()
@@ -350,17 +270,17 @@ namespace OverHaulers
 
                     if (isRoot && type == PartType.ManipulationPart && !armDone)
                     {
-                        SimulateAmputation(part);
+                        SimulatePartRemoval(part);
                         armDone = true;
                     }
                     else if (isRoot && type == PartType.MovingPart && !legDone)
                     {
-                        SimulateAmputation(part);
+                        SimulatePartRemoval(part);
                         legDone = true;
                     }
                     else if (type == PartType.CorePart && parent != -1 && traumaCount < 3 && part.coverageAbs > 0f)
                     {
-                        SimulateSevereTrauma(part);
+                        SimulateDamage(part, DamageDefOf.Crush, 0.9f);
                         traumaCount++;
                     }
                 }
@@ -369,7 +289,7 @@ namespace OverHaulers
 
         #endregion
 
-        #region 6C. LOCALIZED IMPLANTS & SYSTEMIC DRUGS
+        #region 6C. LOCALIZED IMPLANTS & SYSTEMIC CONDITIONS
 
         /// <summary>
         /// Simulates adding a non-replacing localized implant (e.g. Glands, Ribs) onto the sandbox pawn.
@@ -384,14 +304,6 @@ namespace OverHaulers
 
             using (EnterSafetyFallbackScope())
             {
-                if (ReplacementDeltas.TryGetValue(part, out var existingRepl) &&
-                    (existingRepl.OpType == SimulatedOpType.Amputate || existingRepl.OpType == SimulatedOpType.Trauma))
-                {
-                    ReplacementDeltas.Remove(part);
-                    headlessPawn.health.RestorePart(part, null, checkStateChange: false);
-                    PruneRemovedConditions();
-                }
-
                 if (!ImplantDeltas.TryGetValue(part, out var list))
                 {
                     list = new List<SimulatedModification>(4);
@@ -672,6 +584,7 @@ namespace OverHaulers
             if (part == null) return;
             ReplacementDeltas.Remove(part);
             ImplantDeltas.Remove(part);
+            DamageDeltas.Remove(part);
 
             if (part.parts != null)
             {
@@ -699,6 +612,7 @@ namespace OverHaulers
         {
             ReplacementDeltas.Clear();
             ImplantDeltas.Clear();
+            DamageDeltas.Clear();
             simulatedConditions.Clear();
         }
 

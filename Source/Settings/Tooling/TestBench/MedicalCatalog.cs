@@ -24,7 +24,6 @@ namespace OverHaulers
                 MedicalConditionCategory.SystemicMedical,
                 MedicalConditionCategory.LocalizedMedical,
                 MedicalConditionCategory.MedicalTargetUnknown,
-                MedicalConditionCategory.PsychicAndAbilities,
                 MedicalConditionCategory.Other
             });
 
