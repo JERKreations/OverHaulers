@@ -451,17 +451,20 @@ namespace OverHaulers
                         if (SandboxPawnHarness.TryGetConditionSeverityRange(condition, out float min, out float max))
                         {
                             string severityLabel = "OverHaulers_Sandbox_Condition_Severity".Translate(
-                                ReportFormatter.FormatAdaptive(hediff.Severity, true)).ToString();
+                                hediff.Severity.ToString("F1")).ToString();
                             float labelWidth = Math.Min(leftWidth * 0.45f, SettingsViewUtilities.MeasuredTextWidth(severityLabel) + 4f);
                             Widgets.Label(new Rect(inner.x + 4f, leftY, labelWidth, 20f), severityLabel);
-                            float severity = Widgets.HorizontalSlider(
+                            float rawSeverity = Widgets.HorizontalSlider(
                                 new Rect(inner.x + labelWidth + 4f, leftY, leftWidth - labelWidth - 8f, 20f),
                                 hediff.Severity, min, max, true);
 
-                            // Only update the condition severity if it has changed significantly
-                            if (Math.Abs(severity - hediff.Severity) > 0.0001f)
+                            float snappedSeverity = (float)Math.Round(rawSeverity, 1, MidpointRounding.ToEven);
+                            snappedSeverity = Mathf.Clamp(snappedSeverity, min, max);
+
+                            // Snap to F1 precision increments to smooth micro-step re-solve stutter
+                            if (Math.Abs(snappedSeverity - hediff.Severity) > 0.01f)
                             {
-                                RunConditionAction(() => harness.SetConditionSeverity(condition, severity));
+                                RunConditionAction(() => harness.SetConditionSeverity(condition, snappedSeverity));
                             }
                             leftY += 22f;
                         }
@@ -567,8 +570,14 @@ namespace OverHaulers
                     case MedicalConditionCategory.Ingestibles:
                         key = "OverHaulers_Sandbox_Condition_Ingestibles";
                         break;
-                    case MedicalConditionCategory.MedicalPhysiological:
-                        key = "OverHaulers_Sandbox_Condition_Medical";
+                    case MedicalConditionCategory.SystemicMedical:
+                        key = "OverHaulers_Sandbox_Condition_SystemicMedical";
+                        break;
+                    case MedicalConditionCategory.LocalizedMedical:
+                        key = "OverHaulers_Sandbox_Condition_LocalizedMedical";
+                        break;
+                    case MedicalConditionCategory.MedicalTargetUnknown:
+                        key = "OverHaulers_Sandbox_Condition_MedicalTargetUnknown";
                         break;
                     case MedicalConditionCategory.PsychicAndAbilities:
                         key = "OverHaulers_Sandbox_Condition_Abilities";
@@ -608,6 +617,7 @@ namespace OverHaulers
                 if (!wholeBody && entry.HasPartLocalImpact && !entry.HasSystemicStageImpact && parts.Count == 0)
                     continue;
                 bool available = wholeBody || parts.Count > 0;
+                bool hasSingleTarget = (wholeBody && parts.Count == 0) || (!wholeBody && parts.Count == 1);
                 bool active = false;
                 for (int a = 0; a < harness.SimulatedConditions.Count; a++)
                 {
@@ -630,8 +640,8 @@ namespace OverHaulers
                 FloatMenuOption option = new FloatMenuOption(label, available
                     ? (Action)(() =>
                     {
-                        if (wholeBody && !hasKnownPartTarget)
-                            ToggleCondition(harness, entry.Hediff, null);
+                        if (hasSingleTarget)
+                            ToggleCondition(harness, entry.Hediff, wholeBody ? null : parts[0]);
                         else
                             OpenConditionTargetMenu(harness, entry);
                     })
@@ -1328,7 +1338,7 @@ namespace OverHaulers
                 }
 
                 // 1. Replacements
-                List<MedicalOperationEntry> availableReplacements = MedicalRecipeCatalog.GetReplacementsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableReplacements = MedicalRecipeCatalog.GetReplacementsFor(targetPart.def);
                 if (availableReplacements != null && availableReplacements.Count > 0)
                 {
                     for (int i = 0; i < availableReplacements.Count; i++)
@@ -1352,7 +1362,7 @@ namespace OverHaulers
                 }
 
                 // 2. Implants
-                List<MedicalOperationEntry> availableImplants = MedicalRecipeCatalog.GetImplantsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableImplants = MedicalRecipeCatalog.GetImplantsFor(targetPart.def);
                 if (availableImplants != null && availableImplants.Count > 0)
                 {
                     for (int i = 0; i < availableImplants.Count; i++)

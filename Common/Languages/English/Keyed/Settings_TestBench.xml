@@ -96,12 +96,19 @@
   <OverHaulers_Sandbox_AddCondition>[+] Add Condition ▼</OverHaulers_Sandbox_AddCondition>
   <OverHaulers_Sandbox_AddCondition_Tooltip>Choose a relevant condition to apply to the sandbox. Part-specific conditions require a compatible natural part. Severity or stage can be adjusted when supported by the condition.</OverHaulers_Sandbox_AddCondition_Tooltip>
   <OverHaulers_Sandbox_Condition_Ingestibles>Ingestibles</OverHaulers_Sandbox_Condition_Ingestibles>
-  <OverHaulers_Sandbox_Condition_Medical>Medical / physiological</OverHaulers_Sandbox_Condition_Medical>
+  <OverHaulers_Sandbox_Condition_SystemicMedical>Systemic / whole-body</OverHaulers_Sandbox_Condition_SystemicMedical>
+  <OverHaulers_Sandbox_Condition_LocalizedMedical>Localized / body part</OverHaulers_Sandbox_Condition_LocalizedMedical>
+  <OverHaulers_Sandbox_Condition_MedicalTargetUnknown>Medical / target unknown</OverHaulers_Sandbox_Condition_MedicalTargetUnknown>
   <OverHaulers_Sandbox_Condition_Abilities>Psychic &amp; abilities</OverHaulers_Sandbox_Condition_Abilities>
   <OverHaulers_Sandbox_Condition_Other>Other</OverHaulers_Sandbox_Condition_Other>
   <OverHaulers_Sandbox_Condition_WholeBody>Whole body</OverHaulers_Sandbox_Condition_WholeBody>
   <OverHaulers_Sandbox_Condition_NoTargets>No compatible relevant natural parts are available.</OverHaulers_Sandbox_Condition_NoTargets>
   <OverHaulers_Sandbox_Condition_UnknownTarget>Target not identified</OverHaulers_Sandbox_Condition_UnknownTarget>
+  <OverHaulers_Sandbox_Condition_DisambiguatedLabel>{0} ({1})</OverHaulers_Sandbox_Condition_DisambiguatedLabel>
+  <OverHaulers_Sandbox_Condition_Disambiguation_Moderate>Moderate</OverHaulers_Sandbox_Condition_Disambiguation_Moderate>
+  <OverHaulers_Sandbox_Condition_Disambiguation_Severe>Severe</OverHaulers_Sandbox_Condition_Disambiguation_Severe>
+  <OverHaulers_Sandbox_Condition_Disambiguation_Major>Major</OverHaulers_Sandbox_Condition_Disambiguation_Major>
+  <OverHaulers_Sandbox_Condition_Disambiguation_Minor>Minor</OverHaulers_Sandbox_Condition_Disambiguation_Minor>
   <OverHaulers_Sandbox_Condition_Unavailable>{0} :: {1}</OverHaulers_Sandbox_Condition_Unavailable>
   <OverHaulers_Sandbox_Condition_NoEntries>No conditions are available in this category.</OverHaulers_Sandbox_Condition_NoEntries>
   <OverHaulers_Sandbox_Condition_OnPart>{0} :: {1}</OverHaulers_Sandbox_Condition_OnPart>

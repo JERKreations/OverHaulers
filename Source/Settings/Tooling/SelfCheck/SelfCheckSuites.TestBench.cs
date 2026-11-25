@@ -331,12 +331,21 @@ namespace OverHaulers
                 BodyPartRecord child = null;
                 BodyPartRecord independent = null;
                 RecipeDef childRecipe = null;
+                bool checkedOperationIndexReadOnly = false;
 
                 for (int i = 0; i < parts.Count && parent == null; i++)
                 {
                     BodyPartRecord candidate = parts[i];
-                    List<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
                     if (replacements == null) continue;
+                    if (!checkedOperationIndexReadOnly)
+                    {
+                        ICollection<MedicalOperationEntry> operationCollection =
+                            replacements as ICollection<MedicalOperationEntry>;
+                        Expect.True(operationCollection != null && operationCollection.IsReadOnly,
+                            "operation indexes must not expose mutable catalog collections");
+                        checkedOperationIndexReadOnly = true;
+                    }
 
                     bool available = false;
                     for (int j = 0; j < replacements.Count; j++)
@@ -356,7 +365,7 @@ namespace OverHaulers
                         while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                         if (ancestor == null) continue;
 
-                        List<MedicalOperationEntry> childReplacements = MedicalRecipeCatalog.GetReplacementsFor(descendant.def);
+                        IReadOnlyList<MedicalOperationEntry> childReplacements = MedicalRecipeCatalog.GetReplacementsFor(descendant.def);
                         if (childReplacements == null) continue;
                         for (int k = 0; k < childReplacements.Count; k++)
                         {
@@ -386,7 +395,7 @@ namespace OverHaulers
                     while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                     if (ancestor != null) continue;
 
-                    List<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
                     for (int j = 0; j < replacements.Count; j++)
                     {
                         if (!ToolingDialog.CanInstallReplacement(pawn, candidate, replacements[j].Recipe)) continue;
@@ -418,7 +427,7 @@ namespace OverHaulers
                 harness.ResetToSource();
                 harness.SimulateAmputation(parent);
                 Expect.True(pawn.health.hediffSet.PartIsMissing(parent), "the target must be missing for the replacement check");
-                List<MedicalOperationEntry> missingReplacements = MedicalRecipeCatalog.GetReplacementsFor(parent.def);
+                IReadOnlyList<MedicalOperationEntry> missingReplacements = MedicalRecipeCatalog.GetReplacementsFor(parent.def);
                 for (int i = 0; i < missingReplacements.Count; i++)
                 {
                     RecipeDef recipe = missingReplacements[i].Recipe;
@@ -464,9 +473,71 @@ namespace OverHaulers
 
                 Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(asthma, out MedicalConditionEntry asthmaEntry),
                     "the catalog must include part-specific asthma");
+                ICollection<MedicalConditionTarget> asthmaTargets =
+                    asthmaEntry.Targets as ICollection<MedicalConditionTarget>;
+                Expect.True(asthmaTargets != null && asthmaTargets.IsReadOnly,
+                    "condition target metadata must not expose its builder collection");
+                IReadOnlyList<MedicalConditionEntry> localizedEntries =
+                    MedicalRecipeCatalog.GetConditionEntries(MedicalConditionCategory.LocalizedMedical);
+                ICollection<MedicalConditionEntry> localizedCollection =
+                    localizedEntries as ICollection<MedicalConditionEntry>;
+                Expect.True(localizedCollection != null && localizedCollection.IsReadOnly,
+                    "condition category indexes must not expose mutable catalog collections");
                 List<BodyPartRecord> eligible = ToolingDialog.GetConditionTargetParts(pawn, asthmaEntry);
                 Expect.True(eligible.Contains(first) && eligible.Contains(second),
                     "both natural lungs must be offered as asthma targets");
+                HediffDef organDecay = DefDatabase<HediffDef>.GetNamedSilentFail("OrganDecay");
+                if (organDecay != null)
+                {
+                    bool hasOrganDecayEntry = MedicalRecipeCatalog.TryGetConditionEntry(organDecay, out MedicalConditionEntry organDecayEntry);
+                    Expect.True(hasOrganDecayEntry, "the catalog must include impactful organ decay");
+                    if (hasOrganDecayEntry && organDecay.onlyLifeThreateningTo != null)
+                    {
+                        for (int p = 0; p < organDecay.onlyLifeThreateningTo.Count; p++)
+                        {
+                            BodyPartDef lifeThreateningPart = organDecay.onlyLifeThreateningTo[p];
+                            for (int t = 0; t < organDecayEntry.Targets.Count; t++)
+                            {
+                                MedicalConditionTarget target = organDecayEntry.Targets[t];
+                                Expect.True(
+                                    target.Source != MedicalConditionSource.ConditionDefinition ||
+                                    target.Kind != MedicalConditionTargetKind.SpecificPart ||
+                                    target.Part != lifeThreateningPart,
+                                    "onlyLifeThreateningTo must not be interpreted as an application target");
+                            }
+                        }
+                    }
+                }
+                HediffDef gutWorms = DefDatabase<HediffDef>.GetNamedSilentFail("GutWorms");
+                if (gutWorms != null)
+                {
+                    bool hasGutWormsEntry = MedicalRecipeCatalog.TryGetConditionEntry(gutWorms, out MedicalConditionEntry gutWormsEntry);
+                    Expect.True(hasGutWormsEntry, "the catalog must include impactful gut worms");
+                    if (hasGutWormsEntry)
+                    {
+                        bool hasStomachTarget = false;
+                        bool hasAnyLivePartTarget = false;
+                        for (int t = 0; t < gutWormsEntry.Targets.Count; t++)
+                        {
+                            MedicalConditionTarget target = gutWormsEntry.Targets[t];
+                            hasStomachTarget |= target.Kind == MedicalConditionTargetKind.SpecificPart &&
+                                target.Part != null && target.Part.defName == "Stomach";
+                            hasAnyLivePartTarget |= target.Kind == MedicalConditionTargetKind.AnyLivePart;
+                        }
+                        Expect.True(
+                            hasStomachTarget && !hasAnyLivePartTarget,
+                            "gut worms must use their incident's stomach target rather than all live parts");
+                        Expect.True(
+                            (gutWormsEntry.Categories & MedicalConditionCategory.LocalizedMedical) != 0 &&
+                            (gutWormsEntry.Categories & MedicalConditionCategory.SystemicMedical) == 0,
+                            "gut worms must be categorized by their localized target");
+
+                        List<BodyPartRecord> gutWormTargets = ToolingDialog.GetConditionTargetParts(pawn, gutWormsEntry);
+                        Expect.True(
+                            gutWormTargets.Count == 1 && gutWormTargets[0].def.defName == "Stomach",
+                            "the human sandbox must offer only the stomach for gut worms");
+                    }
+                }
                 ThingDef otherRace = DefDatabase<ThingDef>.GetNamedSilentFail("Cow");
                 if (otherRace != null && otherRace != pawn.def)
                 {
@@ -474,7 +545,7 @@ namespace OverHaulers
                         MedicalConditionTargetKind.SpecificPart, first.def,
                         MedicalConditionSource.SpeciesHediffGiver, otherRace, null, null);
                     MedicalConditionEntry otherRaceEntry = new MedicalConditionEntry(
-                        asthma, asthma.LabelCap.ToString(), MedicalConditionCategory.MedicalPhysiological,
+                        asthma, asthma.LabelCap.ToString(), MedicalConditionCategory.LocalizedMedical,
                         MedicalConditionSource.SpeciesHediffGiver, false, true,
                         new List<MedicalConditionTarget> { otherRaceTarget });
                     Expect.Equal(0, ToolingDialog.GetConditionTargetParts(pawn, otherRaceEntry).Count,
@@ -496,7 +567,7 @@ namespace OverHaulers
                 if (psychicAnesthesia != null)
                 {
                     Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(psychicAnesthesia, out MedicalConditionEntry psychicEntry) &&
-                        psychicEntry.Category == MedicalConditionCategory.PsychicAndAbilities,
+                        psychicEntry.Categories == MedicalConditionCategory.PsychicAndAbilities,
                         "pain-only psychic anesthesia must be catalogued as an ability effect");
                     float peak = MedicalRecipeCatalog.GetPeakImpactSeverity(psychicAnesthesia, out _);
                     Expect.True(!float.IsNaN(peak) && !float.IsInfinity(peak) && peak < 10f,
@@ -523,6 +594,10 @@ namespace OverHaulers
                 {
                     Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(flu, out MedicalConditionEntry fluEntry),
                         "the catalog must include whole-body flu");
+                    Expect.True(
+                        (fluEntry.Categories & MedicalConditionCategory.SystemicMedical) != 0 &&
+                        (fluEntry.Categories & MedicalConditionCategory.LocalizedMedical) == 0,
+                        "flu must be categorized by its whole-body target");
                     bool wholeBody = false;
                     for (int i = 0; i < fluEntry.Targets.Count; i++)
                     {
