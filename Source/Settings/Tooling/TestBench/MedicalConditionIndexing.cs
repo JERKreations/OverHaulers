@@ -6,30 +6,41 @@ using Verse;
 
 namespace OverHaulers
 {
-    /// <summary>[CORE-CAT-03] Builds condition indexes from loaded definition metadata.</summary>
+    /// <summary>[TEST-06] Builds condition indexes from loaded definition metadata.</summary>
     internal static partial class MedicalConditionIndexing
     {
         #region 1. CONDITION INDEX MODELS
 
-        /// <summary>[CORE-CAT-03] Represents an immutable published set of condition indexes.</summary>
+        /// <summary>[TEST-06] Represents an immutable published set of condition indexes.</summary>
         internal sealed class ConditionCatalogSnapshot
         {
             public readonly ReadOnlyCollection<MedicalConditionEntry> AllEntries;
+            public readonly ReadOnlyCollection<MedicalConditionEntry> MedicalEntries;
             public readonly ReadOnlyDictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>> EntriesByCategory;
+            public readonly ReadOnlyDictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>> MedicalEntriesByCategory;
             public readonly ReadOnlyDictionary<HediffDef, MedicalConditionEntry> EntriesByHediff;
+            public readonly ReadOnlyDictionary<HediffDef, MedicalConditionEntry> MedicalEntriesByHediff;
             public readonly ReadOnlyCollection<HediffDef> SystemicDrugs;
 
             public ConditionCatalogSnapshot(
                 List<MedicalConditionEntry> entries,
+                List<MedicalConditionEntry> medicalEntries,
                 Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>> entriesByCategory,
+                Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>> medicalEntriesByCategory,
                 Dictionary<HediffDef, MedicalConditionEntry> entriesByHediff,
+                Dictionary<HediffDef, MedicalConditionEntry> medicalEntriesByHediff,
                 List<HediffDef> systemicDrugs)
             {
                 AllEntries = new ReadOnlyCollection<MedicalConditionEntry>(entries);
+                MedicalEntries = new ReadOnlyCollection<MedicalConditionEntry>(medicalEntries);
                 EntriesByCategory = new ReadOnlyDictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(
                     new Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(entriesByCategory));
+                MedicalEntriesByCategory = new ReadOnlyDictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(
+                    new Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(medicalEntriesByCategory));
                 EntriesByHediff = new ReadOnlyDictionary<HediffDef, MedicalConditionEntry>(
                     new Dictionary<HediffDef, MedicalConditionEntry>(entriesByHediff));
+                MedicalEntriesByHediff = new ReadOnlyDictionary<HediffDef, MedicalConditionEntry>(
+                    new Dictionary<HediffDef, MedicalConditionEntry>(medicalEntriesByHediff));
                 SystemicDrugs = new ReadOnlyCollection<HediffDef>(systemicDrugs);
             }
         }
@@ -45,6 +56,7 @@ namespace OverHaulers
             public bool HasSystemicStageImpact;
             public bool HasPartLocalImpact;
             public bool IsMedical;
+            public bool IsPregnancy;
 
             public MedicalConditionBuilder(HediffDef hediff)
             {
@@ -54,10 +66,10 @@ namespace OverHaulers
 
         #endregion
 
-        #region 2. [CORE-CAT-03] CONDITION INDEXING
+        #region 2. [TEST-06] CONDITION INDEXING
 
         /// <summary>
-        /// [CORE-CAT-03] Builds one condition entry per relevant HediffDef and merges all known grant-source target alternatives.
+        /// [TEST-06] Builds one condition entry per relevant HediffDef and merges all known grant-source target alternatives.
         /// This is a definition-only scan; it does not inspect maps, pawns, or runtime hediff state.
         /// </summary>
         /// <param name="surgicalHediffs">A set of surgical condition definitions to exclude.</param>
@@ -84,15 +96,13 @@ namespace OverHaulers
                     bool hasSystemicStageImpact;
                     bool hasPartLocalImpact;
                     bool isPregnancy;
-                    if (!TryGetConditionImpact(hediff, out hasSystemicStageImpact, out hasPartLocalImpact, out isPregnancy))
-                    {
-                        continue;
-                    }
+                    TryGetConditionImpact(hediff, out hasSystemicStageImpact, out hasPartLocalImpact, out isPregnancy);
 
                     MedicalConditionBuilder builder = new MedicalConditionBuilder(hediff);
                     builder.Sources = MedicalConditionSource.ConditionDefinition;
                     builder.HasSystemicStageImpact = hasSystemicStageImpact;
                     builder.HasPartLocalImpact = hasPartLocalImpact;
+                    builder.IsPregnancy = isPregnancy;
                     builder.IsMedical = isPregnancy ||
                         hediff.isInfection ||
                         hediff.chronic ||
@@ -127,6 +137,8 @@ namespace OverHaulers
             Dictionary<string, int> labelFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<HediffDef, MedicalConditionBuilder> pair in builders)
             {
+                if (!IsCatalogedCondition(pair.Value)) continue;
+
                 string rawLabel = MedicalConditionSeverity.GetFormattedConditionDefLabel(pair.Key);
                 if (labelFrequency.TryGetValue(rawLabel, out int count))
                 {
@@ -139,18 +151,18 @@ namespace OverHaulers
             }
 
             List<MedicalConditionEntry> entries = new List<MedicalConditionEntry>(builders.Count);
+            List<MedicalConditionEntry> medicalEntries = new List<MedicalConditionEntry>(builders.Count);
             Dictionary<HediffDef, MedicalConditionEntry> entriesByHediff =
                 new Dictionary<HediffDef, MedicalConditionEntry>(builders.Count);
-            List<MedicalConditionEntry> ingestibles = new List<MedicalConditionEntry>();
-            List<MedicalConditionEntry> systemicMedical = new List<MedicalConditionEntry>();
-            List<MedicalConditionEntry> localizedMedical = new List<MedicalConditionEntry>();
-            List<MedicalConditionEntry> medicalTargetUnknown = new List<MedicalConditionEntry>();
-            List<MedicalConditionEntry> psychic = new List<MedicalConditionEntry>();
-            List<MedicalConditionEntry> other = new List<MedicalConditionEntry>();
+            Dictionary<HediffDef, MedicalConditionEntry> medicalEntriesByHediff =
+                new Dictionary<HediffDef, MedicalConditionEntry>(builders.Count);
 
             foreach (KeyValuePair<HediffDef, MedicalConditionBuilder> pair in builders)
             {
                 MedicalConditionBuilder builder = pair.Value;
+                bool isSolverRelevant = builder.HasSystemicStageImpact || builder.HasPartLocalImpact || builder.IsPregnancy;
+                if (!isSolverRelevant && !builder.IsMedical) continue;
+
                 MedicalConditionCategory categories = GetConditionCategories(builder);
 
                 string baseLabel = MedicalConditionSeverity.GetFormattedConditionDefLabel(builder.Hediff);
@@ -164,48 +176,25 @@ namespace OverHaulers
                     builder.Sources,
                     builder.HasSystemicStageImpact,
                     builder.HasPartLocalImpact,
-                    builder.Targets);
+                    builder.Targets,
+                    isSolverRelevant,
+                    builder.IsMedical);
 
-                entries.Add(entry);
-                entriesByHediff.Add(builder.Hediff, entry);
-
-                if ((categories & MedicalConditionCategory.Ingestibles) != 0) ingestibles.Add(entry);
-                if ((categories & MedicalConditionCategory.SystemicMedical) != 0) systemicMedical.Add(entry);
-                if ((categories & MedicalConditionCategory.LocalizedMedical) != 0) localizedMedical.Add(entry);
-                if ((categories & MedicalConditionCategory.MedicalTargetUnknown) != 0) medicalTargetUnknown.Add(entry);
-                if ((categories & MedicalConditionCategory.PsychicAndAbilities) != 0) psychic.Add(entry);
-                if ((categories & MedicalConditionCategory.Other) != 0) other.Add(entry);
+                if (isSolverRelevant)
+                {
+                    entries.Add(entry);
+                    entriesByHediff.Add(builder.Hediff, entry);
+                }
+                if (builder.IsMedical)
+                {
+                    medicalEntries.Add(entry);
+                    medicalEntriesByHediff.Add(builder.Hediff, entry);
+                }
             }
 
             Comparison<MedicalConditionEntry> entryComparer = CompareConditionEntries;
             entries.Sort(entryComparer);
-            ingestibles.Sort(CompareConditionLabels);
-            systemicMedical.Sort(CompareConditionLabels);
-            localizedMedical.Sort(CompareConditionLabels);
-            medicalTargetUnknown.Sort(CompareConditionLabels);
-            psychic.Sort(CompareConditionLabels);
-            other.Sort(CompareConditionLabels);
-
-            Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>> entriesByCategory =
-                new Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(6);
-            entriesByCategory.Add(
-                MedicalConditionCategory.Ingestibles,
-                new ReadOnlyCollection<MedicalConditionEntry>(ingestibles));
-            entriesByCategory.Add(
-                MedicalConditionCategory.SystemicMedical,
-                new ReadOnlyCollection<MedicalConditionEntry>(systemicMedical));
-            entriesByCategory.Add(
-                MedicalConditionCategory.LocalizedMedical,
-                new ReadOnlyCollection<MedicalConditionEntry>(localizedMedical));
-            entriesByCategory.Add(
-                MedicalConditionCategory.MedicalTargetUnknown,
-                new ReadOnlyCollection<MedicalConditionEntry>(medicalTargetUnknown));
-            entriesByCategory.Add(
-                MedicalConditionCategory.PsychicAndAbilities,
-                new ReadOnlyCollection<MedicalConditionEntry>(psychic));
-            entriesByCategory.Add(
-                MedicalConditionCategory.Other,
-                new ReadOnlyCollection<MedicalConditionEntry>(other));
+            medicalEntries.Sort(entryComparer);
 
             List<HediffDef> systemicDrugsAndStimulants = new List<HediffDef>(entries.Count);
             for (int i = 0; i < entries.Count; i++)
@@ -220,13 +209,56 @@ namespace OverHaulers
 
             return new ConditionCatalogSnapshot(
                 entries,
-                entriesByCategory,
+                medicalEntries,
+                CreateEntriesByCategory(entries),
+                CreateEntriesByCategory(medicalEntries),
                 entriesByHediff,
+                medicalEntriesByHediff,
                 systemicDrugsAndStimulants);
         }
 
+        /// <summary>Returns true when a builder belongs to either the medical or solver-relevance catalog.</summary>
+        private static bool IsCatalogedCondition(MedicalConditionBuilder builder)
+        {
+            return builder != null &&
+                (builder.IsMedical || builder.HasSystemicStageImpact || builder.HasPartLocalImpact);
+        }
+
+        /// <summary>Builds independent immutable category indexes for one condition view.</summary>
+        private static Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>
+            CreateEntriesByCategory(List<MedicalConditionEntry> source)
+        {
+            var builders = new Dictionary<MedicalConditionCategory, List<MedicalConditionEntry>>(6)
+            {
+                { MedicalConditionCategory.Ingestibles, new List<MedicalConditionEntry>() },
+                { MedicalConditionCategory.SystemicMedical, new List<MedicalConditionEntry>() },
+                { MedicalConditionCategory.LocalizedMedical, new List<MedicalConditionEntry>() },
+                { MedicalConditionCategory.MedicalTargetUnknown, new List<MedicalConditionEntry>() },
+                { MedicalConditionCategory.PsychicAndAbilities, new List<MedicalConditionEntry>() },
+                { MedicalConditionCategory.Other, new List<MedicalConditionEntry>() }
+            };
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                MedicalConditionEntry entry = source[i];
+                foreach (KeyValuePair<MedicalConditionCategory, List<MedicalConditionEntry>> pair in builders)
+                {
+                    if ((entry.Categories & pair.Key) != 0) pair.Value.Add(entry);
+                }
+            }
+
+            var result = new Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>(builders.Count);
+            foreach (KeyValuePair<MedicalConditionCategory, List<MedicalConditionEntry>> pair in builders)
+            {
+                pair.Value.Sort(CompareConditionLabels);
+                result.Add(pair.Key, new ReadOnlyCollection<MedicalConditionEntry>(pair.Value));
+            }
+
+            return result;
+        }
+
         /// <summary>
-        /// [CORE-CAT-03] Disambiguates condition display labels when multiple definitions share the same localized label.
+        /// [TEST-06] Disambiguates condition display labels when multiple definitions share the same localized label.
         /// </summary>
         /// <param name="def">The medical condition definition.</param>
         /// <param name="rawLabel">The original display label of the condition.</param>
@@ -381,7 +413,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [CORE-CAT-03] Determines presentation groups from existing condition classifications and known target alternatives.
+        /// [TEST-06] Determines presentation groups from existing condition classifications and known target alternatives.
         /// </summary>
         /// <param name="builder">The medical condition builder containing the hediff and sources.</param>
         /// <returns>One or more categories for the medical condition.</returns>
@@ -463,7 +495,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [CORE-CAT-03] Compares condition labels in case-insensitive alphabetical order.
+        /// [TEST-06] Compares condition labels in case-insensitive alphabetical order.
         /// </summary>
         /// <param name="first">The first medical condition entry.</param>
         /// <param name="second">The second medical condition entry.</param>

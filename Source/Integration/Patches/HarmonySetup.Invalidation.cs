@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -30,6 +31,28 @@ namespace OverHaulers
                 if (target != null)
                 {
                     harmony.Patch(target, postfix: OwnPatch(nameof(Notify_HediffChanged_Postfix)));
+                }
+            });
+
+            Guarded("Pawn_HealthTracker.AddHediff(Hediff)", () =>
+            {
+                MethodInfo target = FindHealthTrackerMutationMethod(
+                    nameof(Pawn_HealthTracker.AddHediff),
+                    typeof(Hediff));
+                if (target != null)
+                {
+                    harmony.Patch(target, postfix: OwnPatch(nameof(HealthMutation_Postfix)));
+                }
+            });
+
+            Guarded("Pawn_HealthTracker.RemoveHediff", () =>
+            {
+                MethodInfo target = FindHealthTrackerMutationMethod(
+                    nameof(Pawn_HealthTracker.RemoveHediff),
+                    typeof(Hediff));
+                if (target != null)
+                {
+                    harmony.Patch(target, postfix: OwnPatch(nameof(HealthMutation_Postfix)));
                 }
             });
 
@@ -117,6 +140,9 @@ namespace OverHaulers
         /// <summary>[INT-INVAL-03] Postfix hook for Pawn_HealthTracker.Notify_HediffChanged.</summary>
         private static void Notify_HediffChanged_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
 
+        /// <summary>[INT-INVAL-03] Postfix hook for direct hediff additions and removals.</summary>
+        private static void HealthMutation_Postfix(Pawn ___pawn) => ProcessInvalidationGate(___pawn);
+
         /// <summary>[INT-INVAL-03] Postfix hook for Pawn_GeneTracker.Notify_GenesChanged.</summary>
         private static void Notify_GenesChanged_Postfix(Pawn_GeneTracker __instance)
         {
@@ -146,6 +172,26 @@ namespace OverHaulers
             {
                 OHLog.Warn("Integration.Notify_PawnKilled_Postfix", ex, $"Failed to evict dead pawn ID {__instance.thingIDNumber}.");
             }
+        }
+
+        /// <summary>Resolves an instance health mutation overload by its first parameter type.</summary>
+        private static MethodInfo FindHealthTrackerMutationMethod(string methodName, Type firstParameterType)
+        {
+            MethodInfo[] methods = typeof(Pawn_HealthTracker).GetMethods(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (method.Name != methodName) continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length > 0 && parameters[0].ParameterType == firstParameterType)
+                {
+                    return method;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

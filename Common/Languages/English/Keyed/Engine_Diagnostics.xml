@@ -2,7 +2,7 @@
 <LanguageData>
 
   <!-- ========================================================================= -->
-  <!-- 1. BOOTSTRAP & INTEGRATION CHECKPOINTS                                    -->
+  <!-- 1. BOOTSTRAP, INTEGRATION & TOOLING CHECKPOINTS                           -->
   <!-- ========================================================================= -->
   <OverHaulers_Event_Integration_StatPresentationBound>Adopted caravan mass capacity stat '{0}' (Owner: {1}, Suffix: '{2}').</OverHaulers_Event_Integration_StatPresentationBound>
   <OverHaulers_Event_Integration_CapacityFactorNeutralized>Neutralized capacity factor '{0}' on adopted stat '{1}'.</OverHaulers_Event_Integration_CapacityFactorNeutralized>

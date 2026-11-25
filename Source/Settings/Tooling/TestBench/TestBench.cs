@@ -175,7 +175,7 @@ namespace OverHaulers
         /// <summary>
         /// [TEST-02] Triggers a full live re-compilation of all engine registries and refreshes the local Test Bench session.
         /// Hot-reloads Core and Integration systems via <see cref="OverHaulersLifecycle.ReinitializeRuntime"/>,
-        /// then rebuilds local test subjects and the sandbox pawn for rapid developer turnaround.
+        /// then rebuilds the medical catalog, local test subjects and sandbox pawn for rapid developer turnaround.
         /// </summary>
         public static void RecompileAll()
         {
@@ -187,8 +187,9 @@ namespace OverHaulers
             {
                 bool onlyCaravan = OverHaulers.settings == null || !OverHaulers.settings.devStressTestAllFauna;
 
-                // 1. Hot-recompile Core, Integration, and TestBench catalogs (Topologies, Calibrations, Surgeries, Caches)
+                // 1. Hot-recompile Core and Integration systems, then the Test Bench medical catalog
                 OverHaulersLifecycle.ReinitializeRuntime(onlyCaravan);
+                MedicalCatalog.ClearAndReinitialize();
 
                 // 2. Re-index subject entries
                 TestSubjectRegistry.ClearCache();

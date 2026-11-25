@@ -6,10 +6,10 @@ using Verse;
 
 namespace OverHaulers
 {
-    #region 1. [CORE-CAT-01] RECIPE CATALOG ENTRY MODELS
+    #region 1. [TEST-06] RECIPE CATALOG ENTRY MODELS
 
     /// <summary>
-    /// [CORE-CAT-01] Immutable descriptor representing an indexed surgery recipe or medical procedure.
+    /// [TEST-06] Immutable descriptor representing an indexed surgery recipe or medical procedure.
     /// Encapsulates surgical parameters and athletic capacity metadata for the Test Bench.
     /// </summary>
     public readonly struct MedicalOperationEntry
@@ -38,12 +38,37 @@ namespace OverHaulers
         }
     }
 
+    /// <summary>
+    /// One pawn-specific recipe target returned by the native RimWorld recipe worker.
+    /// This is procedure discoverability only; ingredients, surgeon skill and bill confirmation
+    /// must still be checked immediately before a live action is scheduled.
+    /// </summary>
+    public readonly struct MedicalProcedureTarget
+    {
+        public readonly RecipeDef Recipe;
+        public readonly BodyPartRecord Part;
+        public readonly string Label;
+        public readonly string UnavailableReason;
+
+        public MedicalProcedureTarget(
+            RecipeDef recipe,
+            BodyPartRecord part,
+            string label,
+            string unavailableReason)
+        {
+            Recipe = recipe;
+            Part = part;
+            Label = label;
+            UnavailableReason = unavailableReason;
+        }
+    }
+
     #endregion
 
-    #region 2. [CORE-CAT-03] CONDITION METADATA MODELS
+    #region 2. [TEST-06] CONDITION METADATA MODELS
 
     /// <summary>
-    /// [CORE-CAT-03] Presentation groups for an impactful condition definition.
+    /// [TEST-06] Presentation groups for an impactful condition definition.
     /// Medical entries can belong to both target-scope groups when both target kinds are known.
     /// </summary>
     [Flags]
@@ -122,7 +147,7 @@ namespace OverHaulers
     }
 
     /// <summary>
-    /// Immutable condition metadata for UI enumeration. Target records are source alternatives,
+    /// Immutable condition metadata for catalog queries. Target records are source alternatives,
     /// not pawn-state eligibility results; the caller must filter part targets
     /// constraints against the selected pawn's actual body, and must match non-null Species
     /// against the pawn's race. A non-null GiverSet retains the exact race/giver provenance;
@@ -137,6 +162,8 @@ namespace OverHaulers
         public MedicalConditionSource Sources { get; private set; }
         public bool HasSystemicStageImpact { get; private set; }
         public bool HasPartLocalImpact { get; private set; }
+        public bool IsSolverRelevant { get; private set; }
+        public bool IsMedicallyCataloged { get; private set; }
         public IReadOnlyList<MedicalConditionTarget> Targets { get; private set; }
 
         internal MedicalConditionEntry(
@@ -146,7 +173,9 @@ namespace OverHaulers
             MedicalConditionSource sources,
             bool hasSystemicStageImpact,
             bool hasPartLocalImpact,
-            List<MedicalConditionTarget> targets)
+            List<MedicalConditionTarget> targets,
+            bool isSolverRelevant = false,
+            bool isMedicallyCataloged = false)
         {
             Hediff = hediff;
             Label = label;
@@ -154,6 +183,8 @@ namespace OverHaulers
             Sources = sources;
             HasSystemicStageImpact = hasSystemicStageImpact;
             HasPartLocalImpact = hasPartLocalImpact;
+            IsSolverRelevant = isSolverRelevant;
+            IsMedicallyCataloged = isMedicallyCataloged;
             Targets = new ReadOnlyCollection<MedicalConditionTarget>(targets);
         }
     }

@@ -1,15 +1,13 @@
-using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
-    /// <summary>[CORE-CAT-03] Discovers source-derived condition target alternatives.</summary>
+    /// <summary>[TEST-06] Discovers source-derived condition target alternatives.</summary>
     internal static partial class MedicalConditionIndexing
     {
-        #region 1. [CORE-CAT-03] SOURCE DISCOVERY
+        #region 1. [TEST-06] SOURCE DISCOVERY
 
         private static void DiscoverConditionTargets(
             Dictionary<HediffDef, MedicalConditionBuilder> builders,

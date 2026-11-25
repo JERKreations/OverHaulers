@@ -435,12 +435,7 @@ namespace OverHaulers
         /// <param name="part">The body part to check for condition applicability.</param>
         public static bool CanApplyConditionToPart(Pawn pawn, BodyPartRecord part)
         {
-            HediffSet set = pawn?.health?.hediffSet;
-            return set != null && part != null && pawn.RaceProps?.body != null &&
-                pawn.RaceProps.body.AllParts.Contains(part) &&
-                !set.PartIsMissing(part) &&
-                set.GetFirstHediffMatchingPart<Hediff_AddedPart>(part) == null &&
-                !set.AncestorHasDirectlyAddedParts(part);
+            return MedicalCatalog.CanApplyConditionToPart(pawn, part);
         }
 
         /// <summary>

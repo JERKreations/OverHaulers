@@ -669,64 +669,17 @@ namespace OverHaulers
 
         private static bool HasWholeBodyConditionTarget(Pawn pawn, MedicalConditionEntry entry)
         {
-            for (int i = 0; i < entry.Targets.Count; i++)
-            {
-                MedicalConditionTarget target = entry.Targets[i];
-                if (target.Kind == MedicalConditionTargetKind.WholeBody &&
-                    ConditionTargetMatchesPawn(pawn, target)) return true;
-            }
-            return false;
+            return MedicalCatalog.HasWholeBodyConditionTarget(pawn, entry);
         }
 
         internal static bool ConditionTargetMatchesPawn(Pawn pawn, MedicalConditionTarget target)
         {
-            return pawn != null && (target.Species == null || target.Species == pawn.def);
+            return MedicalCatalog.ConditionTargetMatchesPawn(pawn, target);
         }
 
         internal static List<BodyPartRecord> GetConditionTargetParts(Pawn pawn, MedicalConditionEntry entry)
         {
-            List<BodyPartRecord> result = new List<BodyPartRecord>();
-            List<BodyPartRecord> parts = pawn?.RaceProps?.body?.AllParts;
-            if (parts == null || entry == null) return result;
-            SpeciesTopologyTemplate template = TopologyLayoutCompiler.GetOrCreateTopologyTemplate(pawn.RaceProps.body);
-
-            for (int i = 0; i < parts.Count; i++)
-            {
-                BodyPartRecord part = parts[i];
-                if (!SandboxPawnHarness.CanApplyConditionToPart(pawn, part)) continue;
-                if (!entry.HasSystemicStageImpact && entry.HasPartLocalImpact &&
-                    !IsRelevantConditionPart(part, template)) continue;
-                for (int t = 0; t < entry.Targets.Count; t++)
-                {
-                    MedicalConditionTarget target = entry.Targets[t];
-                    if (ConditionTargetMatchesPawn(pawn, target) &&
-                        ((target.Kind == MedicalConditionTargetKind.SpecificPart && target.Part == part.def) ||
-                         (target.Kind == MedicalConditionTargetKind.AnyLivePart && part.coverageAbs > 0f) ||
-                         (target.Kind == MedicalConditionTargetKind.InfectablePart &&
-                          !part.def.IsSolid(part, pawn.health.hediffSet.hediffs))))
-                    {
-                        result.Add(part);
-                        break;
-                    }
-                }
-            }
-            return result;
-        }
-
-        private static bool IsRelevantConditionPart(BodyPartRecord part, SpeciesTopologyTemplate template)
-        {
-            if (MedicalClassifier.IsCapacitySourcePart(part.def)) return true;
-            List<BodyPartTagDef> tags = part.def.tags;
-            if (tags != null &&
-                ((TopologyLayoutCompiler.BloodFiltrationSourceTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationSourceTag)) ||
-                 (TopologyLayoutCompiler.BloodFiltrationKidneyTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationKidneyTag)) ||
-                 (TopologyLayoutCompiler.BloodFiltrationLiverTag != null && tags.Contains(TopologyLayoutCompiler.BloodFiltrationLiverTag))))
-                return true;
-
-            if (template == null) return false;
-            PartType type = template.GetPartType(part);
-            return type == PartType.CorePart || type == PartType.ManipulationPart ||
-                type == PartType.MovingPart || type == PartType.DualLimb;
+            return MedicalCatalog.GetConditionTargetParts(pawn, entry, solverRelevantOnly: true);
         }
 
         private static void OpenConditionTargetMenu(SandboxPawnHarness harness, MedicalConditionEntry entry)

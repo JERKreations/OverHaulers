@@ -137,6 +137,13 @@ namespace OverHaulers
         /// </summary>
         public virtual void Teardown()
         {
+            TeardownPawnCore();
+            sourcePawn = null;
+        }
+
+        /// <summary>Disposes the synthesized pawn without invoking derived harness teardown semantics.</summary>
+        private void TeardownPawnCore()
+        {
             if (headlessPawn != null)
             {
                 headlessPawn.health?.hediffSet?.Clear();
@@ -144,7 +151,6 @@ namespace OverHaulers
                 headlessPawn.abilities?.abilities?.Clear();
                 headlessPawn = null;
             }
-            sourcePawn = null;
         }
 
         /// <summary>
@@ -172,7 +178,7 @@ namespace OverHaulers
         {
             using (EnterSafetyFallbackScope())
             {
-                Teardown();
+                TeardownPawnCore();
 
                 sourcePawn = source;
                 if (raceDef == null && source != null) raceDef = source.def;

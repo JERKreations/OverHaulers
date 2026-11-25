@@ -97,10 +97,7 @@ namespace OverHaulers
             SpeciesBaselineCalibration.Reset();
             SpeciesBaselineCalibration.RunBatchSweep(onlyCaravanCapable, finalizeWorldLoad: Current.ProgramState == ProgramState.Playing);
 
-            // 4. Re-index medical surgery and implant catalog
-            MedicalCatalog.ClearAndReinitialize();
-
-            // 5. Mark calibration ready and proactively re-warm all active pawns
+            // 4. Mark calibration ready and proactively re-warm all active pawns
             IsCalibrationSweepDone = true;
             WarmupActivePawns();
         }

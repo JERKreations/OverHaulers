@@ -1,15 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using RimWorld;
 using Verse;
 
 namespace OverHaulers
 {
-    /// <summary>[CORE-CAT-03] Resolves condition severity and labels for the Test Bench.</summary>
+    /// <summary>[TEST-06] Resolves condition severity and labels for the Test Bench.</summary>
     internal static class MedicalConditionSeverity
     {
-        #region 1. [CORE-CAT-03] STAGE RESOLVER & LABELS
+        #region 1. [TEST-06] STAGE RESOLVER & LABELS
 
         /// <summary>
         /// Calculates the peak impact severity level for a staged condition.
@@ -233,7 +231,7 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// [CORE-CAT-03] Returns the engine's label for an existing hediff, which reflects its actual current stage.
+        /// [TEST-06] Returns the engine's label for an existing hediff, which reflects its actual current stage.
         /// Unlike <see cref="GetFormattedConditionDefLabel"/>, this method does not predict a peak-impact stage.
         /// </summary>
         /// <param name="hediff">The live or simulated hediff to format.</param>

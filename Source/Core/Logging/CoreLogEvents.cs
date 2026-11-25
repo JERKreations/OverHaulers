@@ -1,10 +1,8 @@
-using Verse;
-
 namespace OverHaulers
 {
     /// <summary>
     /// [DIAG-05] CORE LOG EVENTS
-    /// Localized informative events raised by Core subsystems (calibration, topology, medical catalog).
+    /// Localized informative events raised by Core subsystems (calibration and topology).
     /// Each event shares one positional argument list between its journal bullet and console message.
     /// Resides under Source/Core/Logging/.
     /// </summary>
@@ -34,15 +32,6 @@ namespace OverHaulers
         /// <summary>Logs that a compiled topology template was purged.</summary>
         public static void TopologyInvalidated(string bodyDefName) =>
             OHLog.Event("OverHaulers_Event_Topology_TemplatePurged", bodyDefName);
-
-        #endregion
-
-        #region 3. MEDICAL CATALOG
-
-        /// <summary>Logs the completion of medical catalog indexing.</summary>
-        public static void MedicalCatalogInitialized(float ms, int replacements, int implants, int conditions) =>
-            OHLog.Event("OverHaulers_Event_MedicalCatalog_Indexed",
-                ms.ToString("F1"), replacements, implants, conditions);
 
         #endregion
     }
