@@ -118,7 +118,7 @@ namespace OverHaulers
 
             TopologyLayoutCompiler.EnsureInitialized();
             SpeciesBaselineCalibration.EnsureInitialized();
-            MedicalRecipeCatalog.EnsureInitialized();
+            MedicalCatalog.EnsureInitialized();
             TestSubjectRegistry.EnsureCacheInitialized();
 
             if (activeSubject == null)

@@ -104,6 +104,7 @@
   <OverHaulers_Sandbox_Condition_WholeBody>Whole body</OverHaulers_Sandbox_Condition_WholeBody>
   <OverHaulers_Sandbox_Condition_NoTargets>No compatible relevant natural parts are available.</OverHaulers_Sandbox_Condition_NoTargets>
   <OverHaulers_Sandbox_Condition_UnknownTarget>Target not identified</OverHaulers_Sandbox_Condition_UnknownTarget>
+  <OverHaulers_Sandbox_Condition_HypotheticalInfection>Simulate {0} on {1}? This applies the infection directly, even without an existing wound, and does not create an injury.</OverHaulers_Sandbox_Condition_HypotheticalInfection>
   <OverHaulers_Sandbox_Condition_DisambiguatedLabel>{0} ({1})</OverHaulers_Sandbox_Condition_DisambiguatedLabel>
   <OverHaulers_Sandbox_Condition_Disambiguation_Moderate>Moderate</OverHaulers_Sandbox_Condition_Disambiguation_Moderate>
   <OverHaulers_Sandbox_Condition_Disambiguation_Severe>Severe</OverHaulers_Sandbox_Condition_Disambiguation_Severe>

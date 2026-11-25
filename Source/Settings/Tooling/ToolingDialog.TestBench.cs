@@ -424,7 +424,7 @@ namespace OverHaulers
                     {
                         SimulatedCondition condition = harness.SimulatedConditions[i];
                         Hediff hediff = condition.Hediff;
-                        string label = MedicalRecipeCatalog.GetFormattedConditionLabel(hediff);
+                        string label = MedicalCatalog.GetFormattedConditionLabel(hediff);
                         string stageLabel = hediff.CurStage?.label;
                         if (!string.IsNullOrEmpty(stageLabel) &&
                             label.IndexOf(stageLabel, StringComparison.OrdinalIgnoreCase) < 0)
@@ -559,11 +559,16 @@ namespace OverHaulers
 
         private static void OpenConditionCategoryMenu(SandboxPawnHarness harness)
         {
-            IReadOnlyList<MedicalConditionCategory> categories = MedicalRecipeCatalog.GetConditionCategories();
+            IReadOnlyList<MedicalConditionCategory> categories = MedicalCatalog.GetConditionCategories();
             List<FloatMenuOption> options = new List<FloatMenuOption>(categories.Count);
             for (int i = 0; i < categories.Count; i++)
             {
                 MedicalConditionCategory category = categories[i];
+                if ((category == MedicalConditionCategory.MedicalTargetUnknown ||
+                     category == MedicalConditionCategory.Other) &&
+                    BuildConditionEntryOptions(harness, category).Count == 0)
+                    continue;
+
                 string key;
                 switch (category)
                 {
@@ -594,7 +599,15 @@ namespace OverHaulers
 
         private static void OpenConditionEntryMenu(SandboxPawnHarness harness, MedicalConditionCategory category)
         {
-            IReadOnlyList<MedicalConditionEntry> entries = MedicalRecipeCatalog.GetConditionEntries(category);
+            List<FloatMenuOption> options = BuildConditionEntryOptions(harness, category);
+            if (options.Count == 0)
+                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_NoEntries"), null));
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static List<FloatMenuOption> BuildConditionEntryOptions(SandboxPawnHarness harness, MedicalConditionCategory category)
+        {
+            IReadOnlyList<MedicalConditionEntry> entries = MedicalCatalog.GetConditionEntries(category);
             List<FloatMenuOption> options = new List<FloatMenuOption>(entries.Count);
             for (int i = 0; i < entries.Count; i++)
             {
@@ -606,7 +619,9 @@ namespace OverHaulers
                     MedicalConditionTarget target = entry.Targets[t];
                     if (!ConditionTargetMatchesPawn(harness.SandboxPawn, target)) continue;
                     MedicalConditionTargetKind kind = target.Kind;
-                    if (kind == MedicalConditionTargetKind.SpecificPart || kind == MedicalConditionTargetKind.AnyLivePart)
+                    if (kind == MedicalConditionTargetKind.SpecificPart ||
+                        kind == MedicalConditionTargetKind.AnyLivePart ||
+                        kind == MedicalConditionTargetKind.InfectablePart)
                     {
                         hasKnownPartTarget = true;
                         break;
@@ -649,9 +664,7 @@ namespace OverHaulers
                 option.Disabled = !available;
                 options.Add(option);
             }
-            if (options.Count == 0)
-                options.Add(new FloatMenuOption(SettingsViewUtilities.CachedText("OverHaulers_Sandbox_Condition_NoEntries"), null));
-            Find.WindowStack.Add(new FloatMenu(options));
+            return options;
         }
 
         private static bool HasWholeBodyConditionTarget(Pawn pawn, MedicalConditionEntry entry)
@@ -688,7 +701,9 @@ namespace OverHaulers
                     MedicalConditionTarget target = entry.Targets[t];
                     if (ConditionTargetMatchesPawn(pawn, target) &&
                         ((target.Kind == MedicalConditionTargetKind.SpecificPart && target.Part == part.def) ||
-                         (target.Kind == MedicalConditionTargetKind.AnyLivePart && part.coverageAbs > 0f)))
+                         (target.Kind == MedicalConditionTargetKind.AnyLivePart && part.coverageAbs > 0f) ||
+                         (target.Kind == MedicalConditionTargetKind.InfectablePart &&
+                          !part.def.IsSolid(part, pawn.health.hediffSet.hediffs))))
                     {
                         result.Add(part);
                         break;
@@ -739,6 +754,24 @@ namespace OverHaulers
 
         private static void ToggleCondition(SandboxPawnHarness harness, HediffDef def, BodyPartRecord part)
         {
+            SimulatedCondition selected = harness.FindSimulatedCondition(def, part);
+            if (selected == null && part != null &&
+                MedicalCatalog.TryGetConditionEntry(def, out MedicalConditionEntry entry) &&
+                (entry.Sources & MedicalConditionSource.WoundInfection) != 0)
+            {
+                Pawn pawn = harness.SandboxPawn;
+                string warning = "OverHaulers_Sandbox_Condition_HypotheticalInfection".Translate(
+                    def.LabelCap.ToString(), part.LabelCap.ToString()).ToString();
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(warning, () =>
+                    RunConditionAction(() =>
+                    {
+                        if (harness.SandboxPawn != pawn || !GetConditionTargetParts(pawn, entry).Contains(part))
+                            throw new InvalidOperationException("The selected infection target is no longer available.");
+                        harness.SimulateCondition(def, part);
+                    })));
+                return;
+            }
+
             RunConditionAction(() =>
             {
                 SimulatedCondition active = harness.FindSimulatedCondition(def, part);
@@ -925,7 +958,7 @@ namespace OverHaulers
                     Rect buttonRect = new Rect(rowRect.xMax - operationSize.x - 2f, rowRect.y, operationSize.x, operationSize.y);
 
                     bool isVirtualAnchor = node.Record != null && node.Record.coverageAbs <= 0f && node.Record != node.Record.body?.corePart;
-                    bool hasOperations = node.Record != null && MedicalRecipeCatalog.HasAnyOperationsFor(node.Record.def);
+                    bool hasOperations = node.Record != null && MedicalCatalog.HasAnyOperationsFor(node.Record.def);
 
                     string fullPartLabel = BuildPassiveNodeDisplayString(node, harness, isVirtualAnchor, settings, out Color statusColor);
 
@@ -1144,7 +1177,7 @@ namespace OverHaulers
 
             for (int i = 0; i < targetRecords.Count; i++)
             {
-                var repls = MedicalRecipeCatalog.GetReplacementsFor(targetRecords[i].def);
+                var repls = MedicalCatalog.GetReplacementsFor(targetRecords[i].def);
                 if (repls != null && repls.Count > 0)
                 {
                     for (int j = 0; j < repls.Count; j++)
@@ -1227,7 +1260,7 @@ namespace OverHaulers
                 for (int i = 0; i < targetRecords.Count; i++)
                 {
                     BodyPartRecord currentPart = targetRecords[i];
-                    var repls = MedicalRecipeCatalog.GetReplacementsFor(currentPart.def);
+                    var repls = MedicalCatalog.GetReplacementsFor(currentPart.def);
                     if (repls == null || repls.Count == 0) continue;
 
                     MedicalOperationEntry selectedOp = default;
@@ -1338,7 +1371,7 @@ namespace OverHaulers
                 }
 
                 // 1. Replacements
-                IReadOnlyList<MedicalOperationEntry> availableReplacements = MedicalRecipeCatalog.GetReplacementsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableReplacements = MedicalCatalog.GetReplacementsFor(targetPart.def);
                 if (availableReplacements != null && availableReplacements.Count > 0)
                 {
                     for (int i = 0; i < availableReplacements.Count; i++)
@@ -1362,7 +1395,7 @@ namespace OverHaulers
                 }
 
                 // 2. Implants
-                IReadOnlyList<MedicalOperationEntry> availableImplants = MedicalRecipeCatalog.GetImplantsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableImplants = MedicalCatalog.GetImplantsFor(targetPart.def);
                 if (availableImplants != null && availableImplants.Count > 0)
                 {
                     for (int i = 0; i < availableImplants.Count; i++)

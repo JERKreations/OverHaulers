@@ -336,7 +336,7 @@ namespace OverHaulers
                 for (int i = 0; i < parts.Count && parent == null; i++)
                 {
                     BodyPartRecord candidate = parts[i];
-                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalCatalog.GetReplacementsFor(candidate.def);
                     if (replacements == null) continue;
                     if (!checkedOperationIndexReadOnly)
                     {
@@ -365,7 +365,7 @@ namespace OverHaulers
                         while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                         if (ancestor == null) continue;
 
-                        IReadOnlyList<MedicalOperationEntry> childReplacements = MedicalRecipeCatalog.GetReplacementsFor(descendant.def);
+                        IReadOnlyList<MedicalOperationEntry> childReplacements = MedicalCatalog.GetReplacementsFor(descendant.def);
                         if (childReplacements == null) continue;
                         for (int k = 0; k < childReplacements.Count; k++)
                         {
@@ -395,7 +395,7 @@ namespace OverHaulers
                     while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                     if (ancestor != null) continue;
 
-                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalRecipeCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalCatalog.GetReplacementsFor(candidate.def);
                     for (int j = 0; j < replacements.Count; j++)
                     {
                         if (!ToolingDialog.CanInstallReplacement(pawn, candidate, replacements[j].Recipe)) continue;
@@ -427,7 +427,7 @@ namespace OverHaulers
                 harness.ResetToSource();
                 harness.SimulateAmputation(parent);
                 Expect.True(pawn.health.hediffSet.PartIsMissing(parent), "the target must be missing for the replacement check");
-                IReadOnlyList<MedicalOperationEntry> missingReplacements = MedicalRecipeCatalog.GetReplacementsFor(parent.def);
+                IReadOnlyList<MedicalOperationEntry> missingReplacements = MedicalCatalog.GetReplacementsFor(parent.def);
                 for (int i = 0; i < missingReplacements.Count; i++)
                 {
                     RecipeDef recipe = missingReplacements[i].Recipe;
@@ -471,14 +471,14 @@ namespace OverHaulers
                     return;
                 }
 
-                Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(asthma, out MedicalConditionEntry asthmaEntry),
+                Expect.True(MedicalCatalog.TryGetConditionEntry(asthma, out MedicalConditionEntry asthmaEntry),
                     "the catalog must include part-specific asthma");
                 ICollection<MedicalConditionTarget> asthmaTargets =
                     asthmaEntry.Targets as ICollection<MedicalConditionTarget>;
                 Expect.True(asthmaTargets != null && asthmaTargets.IsReadOnly,
                     "condition target metadata must not expose its builder collection");
                 IReadOnlyList<MedicalConditionEntry> localizedEntries =
-                    MedicalRecipeCatalog.GetConditionEntries(MedicalConditionCategory.LocalizedMedical);
+                    MedicalCatalog.GetConditionEntries(MedicalConditionCategory.LocalizedMedical);
                 ICollection<MedicalConditionEntry> localizedCollection =
                     localizedEntries as ICollection<MedicalConditionEntry>;
                 Expect.True(localizedCollection != null && localizedCollection.IsReadOnly,
@@ -489,7 +489,7 @@ namespace OverHaulers
                 HediffDef organDecay = DefDatabase<HediffDef>.GetNamedSilentFail("OrganDecay");
                 if (organDecay != null)
                 {
-                    bool hasOrganDecayEntry = MedicalRecipeCatalog.TryGetConditionEntry(organDecay, out MedicalConditionEntry organDecayEntry);
+                    bool hasOrganDecayEntry = MedicalCatalog.TryGetConditionEntry(organDecay, out MedicalConditionEntry organDecayEntry);
                     Expect.True(hasOrganDecayEntry, "the catalog must include impactful organ decay");
                     if (hasOrganDecayEntry && organDecay.onlyLifeThreateningTo != null)
                     {
@@ -511,7 +511,7 @@ namespace OverHaulers
                 HediffDef gutWorms = DefDatabase<HediffDef>.GetNamedSilentFail("GutWorms");
                 if (gutWorms != null)
                 {
-                    bool hasGutWormsEntry = MedicalRecipeCatalog.TryGetConditionEntry(gutWorms, out MedicalConditionEntry gutWormsEntry);
+                    bool hasGutWormsEntry = MedicalCatalog.TryGetConditionEntry(gutWorms, out MedicalConditionEntry gutWormsEntry);
                     Expect.True(hasGutWormsEntry, "the catalog must include impactful gut worms");
                     if (hasGutWormsEntry)
                     {
@@ -554,22 +554,22 @@ namespace OverHaulers
                         "species-specific target provenance must match the subject");
                 }
                 HediffDef cataract = DefDatabase<HediffDef>.GetNamedSilentFail("Cataract");
-                if (cataract != null && MedicalRecipeCatalog.TryGetConditionEntry(cataract, out MedicalConditionEntry cataractEntry))
+                if (cataract != null && MedicalCatalog.TryGetConditionEntry(cataract, out MedicalConditionEntry cataractEntry))
                 {
                     Expect.Equal(0, ToolingDialog.GetConditionTargetParts(pawn, cataractEntry).Count,
                         "eye-only efficiency effects must not be offered as modeled capacity conditions");
                 }
                 HediffDef penoxycyline = DefDatabase<HediffDef>.GetNamedSilentFail("PenoxycylineHigh");
                 if (penoxycyline != null)
-                    Expect.True(!MedicalRecipeCatalog.TryGetConditionEntry(penoxycyline, out _),
+                    Expect.True(!MedicalCatalog.TryGetConditionEntry(penoxycyline, out _),
                         "an ingestible with no relevant effect must not enter the condition catalog");
                 HediffDef psychicAnesthesia = DefDatabase<HediffDef>.GetNamedSilentFail("PsychicAnesthesia");
                 if (psychicAnesthesia != null)
                 {
-                    Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(psychicAnesthesia, out MedicalConditionEntry psychicEntry) &&
+                    Expect.True(MedicalCatalog.TryGetConditionEntry(psychicAnesthesia, out MedicalConditionEntry psychicEntry) &&
                         psychicEntry.Categories == MedicalConditionCategory.PsychicAndAbilities,
                         "pain-only psychic anesthesia must be catalogued as an ability effect");
-                    float peak = MedicalRecipeCatalog.GetPeakImpactSeverity(psychicAnesthesia, out _);
+                    float peak = MedicalCatalog.GetPeakImpactSeverity(psychicAnesthesia, out _);
                     Expect.True(!float.IsNaN(peak) && !float.IsInfinity(peak) && peak < 10f,
                         "an unbounded single-stage effect must not receive an enormous default severity");
                 }
@@ -592,7 +592,7 @@ namespace OverHaulers
                 HediffDef flu = DefDatabase<HediffDef>.GetNamedSilentFail("Flu");
                 if (flu != null && flu.stages != null && flu.stages.Count > 1 && flu.maxSeverity == float.MaxValue)
                 {
-                    Expect.True(MedicalRecipeCatalog.TryGetConditionEntry(flu, out MedicalConditionEntry fluEntry),
+                    Expect.True(MedicalCatalog.TryGetConditionEntry(flu, out MedicalConditionEntry fluEntry),
                         "the catalog must include whole-body flu");
                     Expect.True(
                         (fluEntry.Categories & MedicalConditionCategory.SystemicMedical) != 0 &&

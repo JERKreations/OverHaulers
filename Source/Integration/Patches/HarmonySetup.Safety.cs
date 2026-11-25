@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using RimWorld;
+using RimWorld.Planet;
 using Verse;
 
 namespace OverHaulers
@@ -25,6 +26,7 @@ namespace OverHaulers
         private static UniqueIDsManager fallbackUniqueIDsManager;
         private static TickManager fallbackTickManager;
         private static FactionManager fallbackFactionManager;
+        private static WorldPawns fallbackWorldPawns;
 
         #endregion
 
@@ -54,6 +56,12 @@ namespace OverHaulers
             {
                 var target = AccessTools.PropertyGetter(typeof(Find), nameof(Find.FactionManager));
                 harmony.Patch(target, prefix: OwnPatch(nameof(FactionManager_Prefix)));
+            });
+
+            Guarded("Safety.WorldPawns", () =>
+            {
+                var target = AccessTools.PropertyGetter(typeof(Find), nameof(Find.WorldPawns));
+                harmony.Patch(target, prefix: OwnPatch(nameof(WorldPawns_Prefix)));
             });
 
             // 2. Headless State-Change Shield (Priority.First)
@@ -145,6 +153,20 @@ namespace OverHaulers
             {
                 if (fallbackFactionManager == null) fallbackFactionManager = new FactionManager();
                 __result = fallbackFactionManager;
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Supplies a scoped world-pawn manager for headless hediff cleanup at the main menu.
+        /// </summary>
+        private static bool WorldPawns_Prefix(ref WorldPawns __result)
+        {
+            if (Current.Game == null && HeadlessPawnShell.IsSafetyFallbackScopeActive)
+            {
+                if (fallbackWorldPawns == null) fallbackWorldPawns = new WorldPawns();
+                __result = fallbackWorldPawns;
                 return false;
             }
             return true;

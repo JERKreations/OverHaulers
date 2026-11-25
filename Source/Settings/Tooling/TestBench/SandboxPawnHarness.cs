@@ -495,7 +495,7 @@ namespace OverHaulers
                         throw new InvalidOperationException("Could not create the simulated condition " + def.defName + ".");
                 }
 
-                float severity = MedicalRecipeCatalog.GetPeakImpactSeverity(def, out _);
+                float severity = MedicalCatalog.GetPeakImpactSeverity(def, out _);
                 if (severity > 0f) target.Severity = severity;
                 if (!wasExisting)
                 {
