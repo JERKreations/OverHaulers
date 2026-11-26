@@ -769,7 +769,8 @@ namespace OverHaulers
                     part,
                     ignoreAddedParts: false);
 
-                if (!ReplacementDeltas.ContainsKey(part) &&
+                if (!HasSyntheticReplacementAtOrAbove(part) &&
+                    !HasPendingNaturalRestorationAtOrAbove(part) &&
                     livePartEfficiencyScales.TryGetValue(part, out float scale))
                 {
                     currentEfficiency *= scale;
@@ -785,6 +786,28 @@ namespace OverHaulers
 
             // 2. Otherwise (clean species archetype), return rated biological potential
             return defaultRatedEfficiency;
+        }
+
+        private bool HasSyntheticReplacementAtOrAbove(BodyPartRecord part)
+        {
+            for (BodyPartRecord cursor = part; cursor != null; cursor = cursor.parent)
+            {
+                if (ReplacementDeltas.ContainsKey(cursor)) return true;
+            }
+            return false;
+        }
+
+        private bool HasPendingNaturalRestorationAtOrAbove(BodyPartRecord part)
+        {
+            for (BodyPartRecord cursor = part; cursor != null; cursor = cursor.parent)
+            {
+                if (PartStateDeltas.TryGetValue(cursor, out SimulatedPartStateChange state) &&
+                    !state.IsRemoval)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
