@@ -14,6 +14,12 @@ namespace OverHaulers
         public readonly ReadOnlyCollection<MedicalLiveChange> AppliedChanges;
         public readonly ReadOnlyCollection<MedicalLiveChange> FailedChanges;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalLiveExecutionResult"/> class.
+        /// </summary>
+        /// <param name="appliedCount">The number of successfully applied changes.</param>
+        /// <param name="appliedChanges">The list of successfully applied changes.</param>
+        /// <param name="failedChanges">The list of changes that failed to apply.</param>
         public MedicalLiveExecutionResult(
             int appliedCount,
             List<MedicalLiveChange> appliedChanges,
@@ -37,6 +43,9 @@ namespace OverHaulers
         /// <summary>
         /// Revalidates authorization, intent generation, and every ready row before applying the physical outcome.
         /// </summary>
+        /// <param name="harness">The sandbox pawn harness representing the live pawn.</param>
+        /// <param name="reviewedPlan">The reviewed medical live change plan to execute.</param>
+        /// <returns>A <see cref="MedicalLiveExecutionResult"/> indicating the outcome of the execution.</returns>
         public static MedicalLiveExecutionResult Execute(
             SandboxPawnHarness harness,
             MedicalLiveChangePlan reviewedPlan)
@@ -102,6 +111,12 @@ namespace OverHaulers
 
         #region 2. [TEST-07] VETTED OUTCOME ADAPTERS
 
+        /// <summary>
+        /// Applies a single vetted medical live change to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to which the change will be applied.</param>
+        /// <param name="change">The medical live change to apply.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the change cannot be applied.</exception>
         private static void ApplyOne(Pawn pawn, MedicalLiveChange change)
         {
             switch (change.Intent.Kind)
@@ -126,6 +141,12 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Applies a vetted replacement outcome to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to which the replacement will be applied.</param>
+        /// <param name="change">The medical live change representing the replacement.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the replacement cannot be applied.</exception>
         private static void ApplyReplacement(Pawn pawn, MedicalLiveChange change)
         {
             RecipeDef recipe = change.Intent.Recipe;
@@ -139,6 +160,12 @@ namespace OverHaulers
             pawn.health.AddHediff(hediff, part);
         }
 
+        /// <summary>
+        /// Applies a vetted implant outcome to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to which the implant will be applied.</param>
+        /// <param name="change">The medical live change representing the implant.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the implant cannot be applied.</exception>
         private static void ApplyImplant(Pawn pawn, MedicalLiveChange change)
         {
             RecipeDef recipe = change.Intent.Recipe;
@@ -150,6 +177,12 @@ namespace OverHaulers
             pawn.health.AddHediff(hediff, part);
         }
 
+        /// <summary>
+        /// Applies a vetted damage outcome to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to which the damage will be applied.</param>
+        /// <param name="change">The medical live change representing the damage.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the damage intent is invalid.</exception>
         private static void ApplyDamage(Pawn pawn, MedicalLiveChange change)
         {
             DamageDef damage = change.Intent.Damage;
@@ -160,9 +193,16 @@ namespace OverHaulers
 
             DamageInfo damageInfo = CreateNativeDamageInfo(damage, amount, part);
             damageInfo.SetAllowDamagePropagation(false);
+            damageInfo.SetIgnoreArmor(true);
             pawn.TakeDamage(damageInfo);
         }
 
+        /// <summary>
+        /// Applies a vetted part removal outcome to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn from which the part will be removed.</param>
+        /// <param name="change">The medical live change representing the part removal.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the part removal cannot be applied.</exception>
         private static void ApplyPartRemoval(Pawn pawn, MedicalLiveChange change)
         {
             BodyPartRecord part = change.ResolvedPart;
@@ -177,6 +217,12 @@ namespace OverHaulers
             pawn.health.AddHediff(missing, part);
         }
 
+        /// <summary>
+        /// Applies a vetted natural restoration outcome to the specified pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to which the natural restoration will be applied.</param>
+        /// <param name="change">The medical live change representing the natural restoration.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the natural restoration cannot be applied.</exception>
         private static void ApplyNaturalRestoration(Pawn pawn, MedicalLiveChange change)
         {
             BodyPartRecord part = change.ResolvedPart;
@@ -184,13 +230,21 @@ namespace OverHaulers
                 throw new InvalidOperationException("The natural restoration outcome is not supported.");
 
             // BREAKPOINT ANCHOR: Native Natural-Part Restoration Outcome
-            pawn.health.RestorePart(part, null, checkStateChange: false);
+            pawn.health.RestorePart(part, null, checkStateChange: true);
         }
 
         #endregion
 
         #region 3. [TEST-07] RUNTIME DAMAGE CONSTRUCTION
 
+        /// <summary>
+        /// Constructs a native DamageInfo instance compatible with the specified damage, amount, and body part.
+        /// </summary>
+        /// <param name="damage">The damage definition.</param>
+        /// <param name="amount">The amount of damage.</param>
+        /// <param name="part">The body part to which the damage will be applied.</param>
+        /// <returns>A DamageInfo instance representing the specified damage.</returns>
+        /// <exception cref="MissingMethodException">Thrown if a compatible DamageInfo constructor is not found.</exception>
         private static DamageInfo CreateNativeDamageInfo(
             DamageDef damage,
             float amount,

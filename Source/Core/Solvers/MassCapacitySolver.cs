@@ -18,7 +18,7 @@ namespace OverHaulers
         #region 1. [SOLV-01] CONSTANTS & FALLBACK METRICS
 
         /// <summary>
-        /// [SOLV-01] Hard technical compatibility safety floor preventing negative or zero carrying capacity divisions.
+        /// [SOLV-01] Hard technical compatibility safety floor preventing negative or zero mass capacity divisions.
         /// Protects RimWorld caravan and hauling routines from division-by-zero crashes.
         /// </summary>
         public const float HardCompatibilitySafetyFloorKg = 0.01f;

@@ -924,10 +924,10 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Determines whether the given StatDef is likely related to mass or carrying capacity.
+        /// Determines whether the given StatDef is likely related to mass capacity.
         /// </summary>
         /// <param name="stat">The StatDef to evaluate.</param>
-        /// <returns>True if the StatDef is likely related to mass or carrying capacity; otherwise, false.</returns>
+        /// <returns>True if the StatDef is likely related to mass capacity; otherwise, false.</returns>
         private static bool IsLikelyMassCapacityStat(StatDef stat)
         {
             if (stat.HasModExtension<MassCapacityStatModExtension>()) return true;
@@ -946,7 +946,7 @@ namespace OverHaulers
 
         /// <summary>
         /// Calculates a relevance score for the given StatDef based on its characteristics.
-        /// Higher scores indicate greater relevance to caravan mass or carrying capacity.
+        /// Higher scores indicate greater relevance to caravan mass capacity.
         /// </summary>
         /// <param name="stat">The StatDef for which to calculate the relevance score.</param>
         /// <returns>An integer representing the relevance score of the StatDef.</returns>

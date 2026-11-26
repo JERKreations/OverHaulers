@@ -77,6 +77,15 @@ namespace OverHaulers
         /// <summary>
         /// Draws the Test Bench title, verbose toggle, and reset control aligned with the columns.
         /// </summary>
+        /// <param name="containerRect">The rectangle defining the container area for the header.</param>
+        /// <param name="headerLabelKey">The translation key for the header title.</param>
+        /// <param name="settings">The current settings object.</param>
+        /// <param name="resetAction">The action to invoke when the reset button is clicked.</param>
+        /// <param name="currentY">The current vertical position within the container.</param>
+        /// <param name="nextY">The vertical position after drawing the header.</param>
+        /// <param name="leftWidth">The width allocated for the left column.</param>
+        /// <param name="rightWidth">The width allocated for the right column.</param>
+        /// <param name="columnGap">The gap between the left and right columns.</param>
         private static void DrawTestBenchHeaderDirect(
             Rect containerRect,
             string headerLabelKey,
@@ -141,6 +150,12 @@ namespace OverHaulers
         /// Draws the top action toolbar of the right preview column, which includes radio buttons for selecting the view mode
         /// (InfoCard or TopologyXRay) and corresponding export menus.
         /// </summary>
+        /// <param name="inner">The inner rectangle defining the drawing area.</param>
+        /// <param name="localY">The current vertical position within the inner rectangle.</param>
+        /// <param name="rightX">The horizontal position of the right column.</param>
+        /// <param name="rightWidth">The width allocated for the right column.</param>
+        /// <param name="settings">The current settings object.</param>
+        /// <returns>The updated vertical position after drawing the top action bar.</returns>
         private static float DrawTopActionBar(
             Rect inner, 
             float localY, 
@@ -173,6 +188,23 @@ namespace OverHaulers
             return (separateRows ? xRayY + xRayHeight : localY + Math.Max(infoHeight, xRayHeight)) + 10f;
         }
 
+        /// <summary>
+        /// Draws an export view control, including a radio button and an export button.
+        /// </summary>
+        /// <param name="x">The horizontal position of the control.</param>
+        /// <param name="y">The vertical position of the control.</param>
+        /// <param name="width">The total width allocated for the control.</param>
+        /// <param name="viewLabel">The label for the view radio button.</param>
+        /// <param name="exportLabel">The label for the export button.</param>
+        /// <param name="desiredExportWidth">The desired width for the export button.</param>
+        /// <param name="mode">The view mode associated with the radio button.</param>
+        /// <param name="tooltipKey">The translation key for the tooltip.</param>
+        /// <param name="settings">The current settings object.</param>
+        /// <param name="subjectLabel">The label for the test subject.</param>
+        /// <param name="bodyDefName">The body definition name of the test subject.</param>
+        /// <param name="activeSubject">The active test subject entry.</param>
+        /// <param name="exportAction">The action to invoke when exporting.</param>
+        /// <returns>The total height of the control.</returns>
         private static float DrawExportViewControl(
             float x, float y, float width, string viewLabel, string exportLabel, float desiredExportWidth,
             TestBenchViewMode mode, string tooltipKey, Settings settings, string subjectLabel, string bodyDefName,
@@ -559,6 +591,10 @@ namespace OverHaulers
             return leftY;
         }
 
+        /// <summary>
+        /// Opens the condition category menu for the specified sandbox pawn harness.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness for which to open the condition category menu.</param>
         private static void OpenConditionCategoryMenu(SandboxPawnHarness harness)
         {
             IReadOnlyList<MedicalConditionCategory> categories = MedicalCatalog.GetConditionCategories();
@@ -596,6 +632,11 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Opens the condition entry menu for the specified sandbox pawn harness and medical condition category.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness for which to open the condition entry menu.</param>
+        /// <param name="category">The medical condition category for which to display entries.</param>
         private static void OpenConditionEntryMenu(SandboxPawnHarness harness, MedicalConditionCategory category)
         {
             List<FloatMenuOption> options = BuildConditionEntryOptions(harness, category);
@@ -604,6 +645,12 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Builds the list of condition entry options for the specified sandbox pawn harness and medical condition category.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness for which to build the condition entry options.</param>
+        /// <param name="category">The medical condition category for which to build the condition entry options.</param>
+        /// <returns>A list of float menu options representing the condition entries.</returns>
         private static List<FloatMenuOption> BuildConditionEntryOptions(SandboxPawnHarness harness, MedicalConditionCategory category)
         {
             IReadOnlyList<MedicalConditionEntry> entries = MedicalCatalog.GetConditionEntries(category);
@@ -666,21 +713,48 @@ namespace OverHaulers
             return options;
         }
 
+        /// <summary>
+        /// Determines whether the specified pawn has a whole-body condition target for the given medical condition entry.
+        /// </summary>
+        /// <param name="pawn">The pawn to check for a whole-body condition target.</param>
+        /// <param name="entry">The medical condition entry to check against.</param>
+        /// <returns><c>true</c> if the pawn has a whole-body condition target for the entry; otherwise, <c>false</c>.</returns>
         private static bool HasWholeBodyConditionTarget(Pawn pawn, MedicalConditionEntry entry)
         {
             return MedicalCatalog.HasWholeBodyConditionTarget(pawn, entry);
         }
 
+        /// <summary>
+        /// Determines whether the specified medical condition target matches the given pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn to check against the condition target.</param>
+        /// <param name="target">The medical condition target to check.</param>
+        /// <returns><c>true</c> if the condition target matches the pawn; otherwise, <c>false</c>.</returns>
         internal static bool ConditionTargetMatchesPawn(Pawn pawn, MedicalConditionTarget target)
         {
             return MedicalCatalog.ConditionTargetMatchesPawn(pawn, target);
         }
 
+        /// <summary>
+        /// Gets the list of body parts that are relevant condition targets for the specified pawn and medical condition entry.
+        /// </summary>
+        /// <param name="pawn">The pawn for which to get the condition target parts.</param>
+        /// <param name="entry">The medical condition entry to check against.</param>
+        /// <returns>A list of body parts that are relevant condition targets for the entry.</returns>
         internal static List<BodyPartRecord> GetConditionTargetParts(Pawn pawn, MedicalConditionEntry entry)
         {
             return MedicalCatalog.GetConditionTargetParts(pawn, entry, solverRelevantOnly: true);
         }
 
+        /// <summary>
+        /// Opens a menu for selecting the condition target for the specified sandbox pawn harness and medical condition entry.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness for which to open the condition target menu.</param>
+        /// <param name="entry">The medical condition entry for which to select the condition target.</param>
+        /// <remarks>
+        /// This method displays a menu allowing the user to choose the condition target for the specified pawn and medical condition entry.
+        /// It automatically marks already selected targets with a checkmark.
+        /// </remarks>
         private static void OpenConditionTargetMenu(SandboxPawnHarness harness, MedicalConditionEntry entry)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -704,6 +778,13 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Toggles the specified medical condition for the given sandbox pawn harness and body part.
+        /// </summary>
+        /// <param name="harness"></param>
+        /// <param name="def"></param>
+        /// <param name="part"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         private static void ToggleCondition(SandboxPawnHarness harness, HediffDef def, BodyPartRecord part)
         {
             SimulatedCondition selected = harness.FindSimulatedCondition(def, part);
@@ -732,6 +813,15 @@ namespace OverHaulers
             });
         }
 
+        /// <summary>
+        /// Opens a menu for selecting the stage of the specified simulated condition.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness associated with the condition.</param>
+        /// <param name="condition">The simulated condition for which to select the stage.</param>
+        /// <remarks>
+        /// This method displays a menu allowing the user to choose the stage of the specified simulated condition.
+        /// It automatically formats the stage label and severity for display.
+        /// </remarks>
         private static void OpenConditionStageMenu(SandboxPawnHarness harness, SimulatedCondition condition)
         {
             List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -755,6 +845,14 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        /// <summary>
+        /// Executes the specified action related to a simulated condition, handling exceptions and updating the test bench state.
+        /// </summary>
+        /// <param name="action">The action to execute.</param>
+        /// <remarks>
+        /// This method wraps the execution of the specified action in a try-catch block to handle exceptions.
+        /// It also ensures that the test bench state is updated after the action is executed.
+        /// </remarks>
         private static void RunConditionAction(Action action)
         {
             try
@@ -1419,7 +1517,15 @@ namespace OverHaulers
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        /// <summary>Opens granular synthetic damage choices for one sandbox body part.</summary>
+        /// <summary>
+        /// Opens granular synthetic damage choices for one sandbox body part.
+        /// </summary>
+        /// <param name="part">The body part to apply damage to.</param>
+        /// <param name="harness">The sandbox pawn harness associated with the body part.</param>
+        /// <remarks>
+        /// This method displays a menu allowing the user to choose the type and severity of synthetic damage to apply to the specified body part.
+        /// It automatically formats the damage label and severity for display and checks if the damage can be applied.
+        /// </remarks>
         private static void OpenPartDamageMenu(BodyPartRecord part, SandboxPawnHarness harness)
         {
             DamageDef[] damageTypes = { DamageDefOf.Crush, DamageDefOf.Cut, DamageDefOf.Burn };

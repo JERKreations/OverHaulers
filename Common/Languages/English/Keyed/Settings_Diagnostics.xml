@@ -16,7 +16,7 @@
 
   <!-- InfoCard diagnostic display -->
   <OverHaulers_ToolingDialog_VerboseBreakdown>Expand All Details on Info Cards</OverHaulers_ToolingDialog_VerboseBreakdown>
-  <OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>Shows all body parts on the info card. Details omitted from the standard breakdown appear in muted italics; links remain limited to relevant items.</OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>
+  <OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>Shows all body parts on the info card. Details omitted from the standard breakdown appear in muted italics; links remain limited to relevant items. NOTE: This also expands the live in-game info card.</OverHaulers_ToolingDialog_VerboseBreakdown_Tooltip>
 
   <!-- Telemetry controls -->
   <OverHaulers_ToolingDialog_Telemetry_SectionHeader>Periodic Telemetry Logging</OverHaulers_ToolingDialog_Telemetry_SectionHeader>

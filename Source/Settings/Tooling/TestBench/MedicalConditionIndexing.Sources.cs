@@ -9,6 +9,11 @@ namespace OverHaulers
     {
         #region 1. [TEST-06] SOURCE DISCOVERY
 
+        /// <summary>
+        /// Discovers condition targets for all relevant definitions, including chemicals, ingestibles, apparel, and species-specific sources.
+        /// </summary>
+        /// <param name="builders">A dictionary mapping HediffDefs to their corresponding medical condition builders.</param>
+        /// <param name="allHediffs">A list of all HediffDefs to consider.</param>
         private static void DiscoverConditionTargets(
             Dictionary<HediffDef, MedicalConditionBuilder> builders,
             List<HediffDef> allHediffs)

@@ -155,7 +155,7 @@
   <OverHaulers_LiveChange_WholeBody>whole body</OverHaulers_LiveChange_WholeBody>
   <OverHaulers_LiveChange_Status_Ready>Apply</OverHaulers_LiveChange_Status_Ready>
   <OverHaulers_LiveChange_Status_Omitted>Sandbox only / blocked</OverHaulers_LiveChange_Status_Omitted>
-  <OverHaulers_LiveChange_BypassWarning>This applies vetted physical outcomes immediately. It bypasses ingredients, surgeon work, medicine, surgery queues, and failure chances. Simulation-only states such as pregnancy, substances, addiction, and genetics are never applied.</OverHaulers_LiveChange_BypassWarning>
+  <OverHaulers_LiveChange_BypassWarning>This applies vetted physical outcomes immediately. It bypasses ingredients, surgeon work, medicine, surgery queues, failure chances, and armor/apparel absorption. Native pawn damage modifiers can still affect the final result. Simulation-only states such as pregnancy, substances, addiction, and genetics are never applied.</OverHaulers_LiveChange_BypassWarning>
   <OverHaulers_LiveChange_NoReadyChanges>The current sandbox contains no supported live physical outcomes.</OverHaulers_LiveChange_NoReadyChanges>
   <OverHaulers_LiveChange_AppliedMessage>Applied {0} physical outcome(s); {1} failed revalidation or execution.</OverHaulers_LiveChange_AppliedMessage>
   <OverHaulers_LiveChange_NoneApplied>No reviewed live outcomes were applied.</OverHaulers_LiveChange_NoneApplied>

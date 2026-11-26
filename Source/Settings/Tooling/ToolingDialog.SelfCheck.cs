@@ -26,6 +26,7 @@ namespace OverHaulers
         /// <summary>
         /// Rebuilds the cached summary, row labels and detail heights if results, language or width changed since the last build.
         /// </summary>
+        /// <param name="width">The current width of the drawing area, used to calculate text wrapping and layout.</param>
         private static void RefreshSelfCheckCacheIfStale(float width)
         {
             int epoch = SettingsViewUtilities.TranslationEpoch;
@@ -72,6 +73,9 @@ namespace OverHaulers
         /// <summary>
         /// Draws the in-game self-check block.
         /// </summary>
+        /// <param name="inner">The inner rectangle defining the drawing area.</param>
+        /// <param name="localY">The starting Y position for drawing the self-check block.</param>
+        /// <returns>The updated Y position after drawing the self-check block.</returns>
         public static float DrawSelfCheckBlock(Rect inner, float localY)
         {
             Text.Font = GameFont.Small;
@@ -147,6 +151,16 @@ namespace OverHaulers
 
         #region 3. [DIAG-04] SELF-CHECK RESULT ROWS
 
+        /// <summary>
+        /// Draws the self-check results section, displaying each result row with its status and details.
+        /// </summary>
+        /// <param name="inner">The inner rectangle defining the drawing area.</param>
+        /// <param name="localY">The starting Y position for drawing the results.</param>
+        /// <returns>The updated Y position after drawing all self-check results.</returns>
+        /// <remarks>
+        /// This method iterates through all self-check results and draws each row with its corresponding status color and label.
+        /// It calculates the necessary height for each row based on the text content and ensures proper alignment within the specified inner rectangle.
+        /// </remarks>
         private static float DrawSelfCheckResults(Rect inner, float localY)
         {
             RefreshSelfCheckCacheIfStale(inner.width);

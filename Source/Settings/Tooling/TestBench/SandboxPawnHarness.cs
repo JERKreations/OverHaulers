@@ -38,6 +38,13 @@ namespace OverHaulers
         public readonly string DisplayLabel;
         public readonly bool IsRemoval;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SimulatedPartStateChange"/> class.
+        /// </summary>
+        /// <param name="part">The body part affected by the state change.</param>
+        /// <param name="recipe">The RecipeDef representing the procedure applied.</param>
+        /// <param name="displayLabel">The display label for the operation.</param>
+        /// <param name="isRemoval">Indicates if the operation is a removal.</param>
         public SimulatedPartStateChange(
             BodyPartRecord part,
             RecipeDef recipe,
@@ -58,6 +65,12 @@ namespace OverHaulers
         internal readonly bool WasExisting;
         internal readonly float OriginalSeverity;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SimulatedCondition"/> class.
+        /// </summary>
+        /// <param name="hediff">The health condition being simulated.</param>
+        /// <param name="wasExisting">Indicates if the condition was pre-existing.</param>
+        /// <param name="originalSeverity">The original severity of the condition.</param>
         internal SimulatedCondition(Hediff hediff, bool wasExisting, float originalSeverity)
         {
             Hediff = hediff;
@@ -86,6 +99,10 @@ namespace OverHaulers
         protected readonly Dictionary<BodyPartRecord, float> livePartEfficiencies =
             new Dictionary<BodyPartRecord, float>();
 
+        /// <summary>Native/modded final-efficiency scale relative to the cloned headless shell.</summary>
+        private readonly Dictionary<BodyPartRecord, float> livePartEfficiencyScales =
+            new Dictionary<BodyPartRecord, float>();
+
         /// <summary>Simulated prosthetic and bionic replacement modifications indexed by target BodyPartRecord.</summary>
         public readonly Dictionary<BodyPartRecord, SimulatedModification> ReplacementDeltas =
             new Dictionary<BodyPartRecord, SimulatedModification>();
@@ -98,7 +115,10 @@ namespace OverHaulers
         public readonly Dictionary<BodyPartRecord, SimulatedPartStateChange> PartStateDeltas =
             new Dictionary<BodyPartRecord, SimulatedPartStateChange>();
 
+        /// <summary>Simulated health conditions applied to the sandbox pawn.</summary>
         private readonly List<SimulatedCondition> simulatedConditions = new List<SimulatedCondition>();
+
+        /// <summary>Generation captured by live plans to detect sandbox changes after review.</summary>
         private int liveIntentGeneration;
 
         #endregion
@@ -160,14 +180,15 @@ namespace OverHaulers
             sourcePawn = subject?.IsLivePawn == true ? subject.LivePawn : null;
 
             ClearModifications();
-            SnapshotLivePartEfficiencies();
             RebuildSandboxPawn();
+            SnapshotLivePartEfficiencies();
         }
 
         /// <summary>Snapshots the genuine runtime part efficiencies from the authentic source colonist.</summary>
         private void SnapshotLivePartEfficiencies()
         {
             livePartEfficiencies.Clear();
+            livePartEfficiencyScales.Clear();
             if (sourcePawn?.RaceProps?.body != null && sourcePawn.health?.hediffSet != null)
             {
                 var allParts = sourcePawn.RaceProps.body.AllParts;
@@ -176,7 +197,19 @@ namespace OverHaulers
                     BodyPartRecord part = allParts[i];
                     Hediff_AddedPart addedPart = sourcePawn.health.hediffSet.GetFirstHediffMatchingPart<Hediff_AddedPart>(part);
                     float defaultEff = addedPart?.def?.addedPartProps?.partEfficiency ?? 1.0f;
-                    livePartEfficiencies[part] = MedicalClassifier.GetFinalPartEfficiency(sourcePawn, part, defaultEff);
+                    float finalEfficiency = MedicalClassifier.GetFinalPartEfficiency(sourcePawn, part, defaultEff);
+                    livePartEfficiencies[part] = finalEfficiency;
+
+                    float headlessEfficiency = headlessPawn?.health?.hediffSet != null
+                        ? PawnCapacityUtility.CalculatePartEfficiency(
+                            headlessPawn.health.hediffSet,
+                            part,
+                            ignoreAddedParts: false)
+                        : defaultEff;
+                    livePartEfficiencyScales[part] =
+                        Math.Abs(headlessEfficiency) > PawnDataRegistry.EfficiencyEpsilon
+                            ? finalEfficiency / headlessEfficiency
+                            : 1.0f;
                 }
             }
         }
@@ -201,11 +234,16 @@ namespace OverHaulers
         public void ResetToSource()
         {
             ClearModifications();
-            SnapshotLivePartEfficiencies();
             SyncHediffsFromSource();
+            SnapshotLivePartEfficiencies();
         }
 
-        /// <summary>Simulates a native removal-recipe outcome for the selected part.</summary>
+        /// <summary>
+        /// Simulates a native removal-recipe outcome for the selected part.
+        /// </summary>
+        /// <param name="part">The body part to be removed.</param>
+        /// <param name="recipe">The RecipeDef representing the removal procedure.</param>
+        /// <param name="label">The display label for the removal operation.</param>
         public void SimulateRecipePartRemoval(BodyPartRecord part, RecipeDef recipe, string label)
         {
             if (headlessPawn?.health?.hediffSet == null || part == null || !(recipe?.Worker is Recipe_RemoveBodyPart))
@@ -226,7 +264,12 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>Simulates a native natural-part restoration outcome for the selected missing part.</summary>
+        /// <summary>
+        /// Simulates a native natural-part restoration outcome for the selected missing part.
+        /// </summary>
+        /// <param name="part">The missing body part to be restored.</param>
+        /// <param name="recipe">The RecipeDef representing the restoration procedure.</param>
+        /// <param name="label">The display label for the restoration operation.</param>
         public void SimulateRecipeNaturalRestoration(BodyPartRecord part, RecipeDef recipe, string label)
         {
             if (headlessPawn?.health?.hediffSet == null || part == null ||
@@ -235,8 +278,8 @@ namespace OverHaulers
 
             using (EnterSafetyFallbackScope())
             {
-                CleanDeltasRecursive(part);
                 ClearSimulatedDamage(part);
+                CleanDeltasRecursive(part);
                 headlessPawn.health.RestorePart(part, null, checkStateChange: false);
                 PartStateDeltas[part] = new SimulatedPartStateChange(part, recipe, label, false);
                 PruneRemovedConditions();
@@ -376,7 +419,11 @@ namespace OverHaulers
 
             using (EnterSafetyFallbackScope())
             {
-                PartStateDeltas.Remove(part);
+                if (PartStateDeltas.TryGetValue(part, out SimulatedPartStateChange partState) &&
+                    partState.IsRemoval)
+                {
+                    PartStateDeltas.Remove(part);
+                }
                 if (!ImplantDeltas.TryGetValue(part, out var list))
                 {
                     list = new List<SimulatedModification>(4);
@@ -674,6 +721,9 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Removes simulated conditions that no longer exist on the sandbox pawn.
+        /// </summary>
         private void PruneRemovedConditions()
         {
             List<Hediff> hediffs = headlessPawn.health.hediffSet.hediffs;
@@ -705,6 +755,8 @@ namespace OverHaulers
         /// Resolves the effective biological or prosthetic efficiency for a body part on the sandbox pawn.
         /// Resolves native current efficiency for damaged/simulated parts and preserves authentic live state for untouched parts.
         /// </summary>
+        /// <param name="part">The body part for which to resolve the effective efficiency.</param>
+        /// <param name="defaultRatedEfficiency">The default rated efficiency for the body part, used if no live or modified data is available.</param>
         public float GetEffectivePartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
             if (part == null) return defaultRatedEfficiency;
@@ -712,25 +764,26 @@ namespace OverHaulers
             if ((ReplacementDeltas.ContainsKey(part) || DamageDeltas.ContainsKey(part)) &&
                 headlessPawn?.health?.hediffSet != null)
             {
-                return PawnCapacityUtility.CalculatePartEfficiency(
+                float currentEfficiency = PawnCapacityUtility.CalculatePartEfficiency(
                     headlessPawn.health.hediffSet,
                     part,
                     ignoreAddedParts: false);
+
+                if (!ReplacementDeltas.ContainsKey(part) &&
+                    livePartEfficiencyScales.TryGetValue(part, out float scale))
+                {
+                    currentEfficiency *= scale;
+                }
+                return currentEfficiency;
             }
 
-            // 1. Preserve the synthetic replacement intent when no direct damage exists.
-            if (ReplacementDeltas.TryGetValue(part, out var mod))
-            {
-                return mod.Efficiency;
-            }
-
-            // 2. If unmodified and cloned from an active live colonist, return the authentic snapshotted live rating
+            // 1. If unmodified and cloned from an active live colonist, return the authentic snapshotted live rating
             if (livePartEfficiencies.TryGetValue(part, out float liveEff))
             {
                 return liveEff;
             }
 
-            // 3. Otherwise (clean species archetype), return rated biological potential
+            // 2. Otherwise (clean species archetype), return rated biological potential
             return defaultRatedEfficiency;
         }
 
@@ -772,28 +825,34 @@ namespace OverHaulers
     {
         #region 1. FIELDS & PROPERTIES
 
+        /// <summary>The sandbox pawn harness being adapted.</summary>
         private readonly SandboxPawnHarness harness;
 
+        /// <summary>The unique identifier of the sandbox pawn entity.</summary>
         public int EntityId
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => harness?.SandboxPawn?.thingIDNumber ?? 0;
         }
 
+        /// <summary>The label of the sandbox pawn entity.</summary>
         public string EntityLabel => harness?.BoundSubject?.Label ?? "SandboxPawn";
 
+        /// <summary>The body definition of the sandbox pawn.</summary>
         public BodyDef BodyDef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => harness?.BoundSubject?.BodyDef ?? harness?.SandboxPawn?.RaceProps?.body;
         }
 
+        /// <summary>The base body size of the sandbox pawn, as determined by the medical classifier.</summary>
         public float BaseBodySize
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => MedicalClassifier.GetSafeBodySize(harness?.SandboxPawn);
         }
 
+        /// <summary>Indicates whether the sandbox harness is in a valid biological state.</summary>
         public bool IsValidBiologicalState
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -804,18 +863,32 @@ namespace OverHaulers
 
         #region 2. CONSTRUCTOR, INGRESS & CAPACITY METHODS
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SandboxAnatomicalSource"/> struct with the specified sandbox harness.
+        /// </summary>
+        /// <param name="harness">The sandbox harness to adapt.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public SandboxAnatomicalSource(SandboxPawnHarness harness)
         {
             this.harness = harness;
         }
 
+        /// <summary>
+        /// Resolves the effective capacity level for the specified capacity on the sandbox pawn or source colonist.
+        /// </summary>
+        /// <param name="capacity">The capacity to query.</param>
+        /// <returns>The effective capacity level for the specified capacity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetCapacityLevel(PawnCapacityDef capacity)
         {
             return harness != null ? harness.GetEffectiveCapacityLevel(capacity) : 1.0f;
         }
 
+        /// <summary>
+        /// Resolves the effective efficiency for a body part on the sandbox pawn or source colonist.
+        /// </summary>
+        /// <param name="part">The body part to query for efficiency.</param>
+        /// <param name="defaultRatedEfficiency">The default efficiency to fall back on if no modifications are present.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
@@ -825,6 +898,7 @@ namespace OverHaulers
         /// <summary>
         /// Resolves the maximum health points for a body part on the sandbox pawn or source colonist.
         /// </summary>
+        /// <param name="part">The body part to query for maximum health.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetPartMaxHealth(BodyPartRecord part)
         {
@@ -838,6 +912,14 @@ namespace OverHaulers
             return part.def.GetMaxHealth(targetPawn);
         }
 
+        /// <summary>
+        /// Ingresses the pathology from the sandbox pawn or source colonist into the provided anatomical workspace.
+        /// </summary>
+        /// <param name="workspace">The anatomical workspace to populate with pathology data.</param>
+        /// <param name="populateColdMetadata">Whether to populate cold metadata during ingress.</param>
+        /// <remarks>
+        /// This method only ingresses authentic pathology from the sandbox pawn or source colonist and does not consider synthetic damage.
+        /// </remarks>
         public void IngressPathology(AnatomicalWorkspace workspace, bool populateColdMetadata)
         {
             if (harness == null) return;
@@ -854,6 +936,9 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Resolves the baseline capacity for the sandbox pawn.
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float ResolveBaselineCapacity()
         {

@@ -10,7 +10,14 @@ namespace OverHaulers
     {
         #region 1. [TEST-07] GOD-MODE LIVE EXPORT
 
-        /// <summary>Draws the single live-outcome review entry point while developer and god mode are active.</summary>
+        /// <summary>
+        /// Draws the single live-outcome review entry point while developer and god mode are active.
+        /// </summary>
+        /// <param name="bounds">The bounding rectangle for the control.</param>
+        /// <param name="currentY">The current Y position within the bounds.</param>
+        /// <param name="width">The width of the control.</param>
+        /// <param name="harness">The sandbox pawn harness containing the live changes.</param>
+        /// <returns>The updated Y position after drawing the control.</returns>
         private static float DrawLiveApplicationControl(
             Rect bounds,
             float currentY,
@@ -37,7 +44,10 @@ namespace OverHaulers
             return currentY + size.y + SettingsViewUtilities.CompactGap;
         }
 
-        /// <summary>Builds and displays the explicit review/confirmation batch.</summary>
+        /// <summary>
+        /// Builds and displays the explicit review/confirmation batch.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness containing the live changes.</param>
         private static void OpenLiveChangeReview(SandboxPawnHarness harness)
         {
             MedicalLiveChangePlan plan = MedicalLiveChangePlanCompiler.Build(harness);
@@ -65,6 +75,11 @@ namespace OverHaulers
 
         #region 2. [TEST-07] REVIEW FORMATTING & EXECUTION
 
+        /// <summary>
+        /// Builds the textual representation of the live change review.
+        /// </summary>
+        /// <param name="plan">The medical live change plan containing the changes to review.</param>
+        /// <returns>A formatted string representing the review of live changes.</returns>
         private static string BuildLiveChangeReviewText(MedicalLiveChangePlan plan)
         {
             var builder = new StringBuilder(512);
@@ -97,6 +112,15 @@ namespace OverHaulers
             return builder.ToString();
         }
 
+        /// <summary>
+        /// Applies the reviewed live changes to the sandbox pawn harness.
+        /// </summary>
+        /// <param name="harness">The sandbox pawn harness containing the live changes.</param>
+        /// <param name="plan">The medical live change plan containing the changes to apply.</param>
+        /// <remarks>
+        /// This method attempts to apply all changes in the plan and provides user feedback
+        /// through messages indicating the success or failure of the operation.
+        /// </remarks>
         private static void ApplyReviewedLiveChanges(
             SandboxPawnHarness harness,
             MedicalLiveChangePlan plan)

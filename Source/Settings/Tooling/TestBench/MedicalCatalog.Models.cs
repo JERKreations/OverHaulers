@@ -21,6 +21,15 @@ namespace OverHaulers
         public readonly bool IsReplacement;
         public readonly bool AffectsAthletics;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalOperationEntry"/> struct.
+        /// </summary>
+        /// <param name="recipe">The recipe definition associated with the operation.</param>
+        /// <param name="hediff">The hediff definition resulting from the operation.</param>
+        /// <param name="label">The display label for the operation.</param>
+        /// <param name="efficiency">The efficiency impact of the operation.</param>
+        /// <param name="isReplacement">Indicates whether the operation involves a replacement.</param>
+        /// <param name="affectsAthletics">Indicates whether the operation affects athletic capacity.</param>
         public MedicalOperationEntry(
             RecipeDef recipe,
             HediffDef hediff,
@@ -50,6 +59,13 @@ namespace OverHaulers
         public readonly string Label;
         public readonly string UnavailableReason;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalProcedureTarget"/> struct.
+        /// </summary>
+        /// <param name="recipe">The recipe definition associated with the procedure.</param>
+        /// <param name="part">The body part targeted by the procedure.</param>
+        /// <param name="label">The display label for the procedure.</param>
+        /// <param name="unavailableReason">The reason the procedure is unavailable, if any.</param>
         public MedicalProcedureTarget(
             RecipeDef recipe,
             BodyPartRecord part,
@@ -126,6 +142,15 @@ namespace OverHaulers
         public readonly HediffGiverSetDef GiverSet;
         public readonly IncidentDef Incident;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalConditionTarget"/> struct.
+        /// </summary>
+        /// <param name="kind">The kind of target.</param>
+        /// <param name="part">The body part associated with the target, if any.</param>
+        /// <param name="source">The source of the medical condition.</param>
+        /// <param name="species">The species associated with the target, if any.</param>
+        /// <param name="giverSet">The hediff giver set associated with the target, if any.</param>
+        /// <param name="incident">The incident associated with the target, if any.</param>
         public MedicalConditionTarget(
             MedicalConditionTargetKind kind,
             BodyPartDef part,
@@ -163,6 +188,18 @@ namespace OverHaulers
         public bool IsMedicallyCataloged { get; private set; }
         public IReadOnlyList<MedicalConditionTarget> Targets { get; private set; }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalConditionEntry"/> class.
+        /// </summary>
+        /// <param name="hediff">The medical condition definition.</param>
+        /// <param name="label">The display label for the condition.</param>
+        /// <param name="categories">The presentation-group membership categories.</param>
+        /// <param name="sources">The sources of the medical condition.</param>
+        /// <param name="hasSystemicStageImpact">Indicates if the condition impacts systemic stages.</param>
+        /// <param name="hasPartLocalImpact">Indicates if the condition impacts local body parts.</param>
+        /// <param name="targets">The list of targets associated with the condition.</param>
+        /// <param name="isSolverRelevant">Indicates if the condition is relevant for the solver.</param>
+        /// <param name="isMedicallyCataloged">Indicates if the condition is medically cataloged.</param>
         internal MedicalConditionEntry(
             HediffDef hediff,
             string label,

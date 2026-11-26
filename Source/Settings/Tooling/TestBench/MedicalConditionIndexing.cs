@@ -22,6 +22,16 @@ namespace OverHaulers
             public readonly ReadOnlyDictionary<HediffDef, MedicalConditionEntry> MedicalEntriesByHediff;
             public readonly ReadOnlyCollection<HediffDef> SystemicDrugs;
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="ConditionCatalogSnapshot"/> class with the specified entries and mappings.
+            /// </summary>
+            /// <param name="entries">The list of all medical condition entries.</param>
+            /// <param name="medicalEntries">The list of medical-specific condition entries.</param>
+            /// <param name="entriesByCategory">A dictionary mapping condition categories to their corresponding entries.</param>
+            /// <param name="medicalEntriesByCategory">A dictionary mapping medical condition categories to their corresponding entries.</param>
+            /// <param name="entriesByHediff">A dictionary mapping HediffDefs to their corresponding entries.</param>
+            /// <param name="medicalEntriesByHediff">A dictionary mapping medical HediffDefs to their corresponding entries.</param>
+            /// <param name="systemicDrugs">A list of systemic drug HediffDefs.</param>
             public ConditionCatalogSnapshot(
                 List<MedicalConditionEntry> entries,
                 List<MedicalConditionEntry> medicalEntries,
@@ -58,6 +68,10 @@ namespace OverHaulers
             public bool IsMedical;
             public bool IsPregnancy;
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="MedicalConditionBuilder"/> class for the specified HediffDef.
+            /// </summary>
+            /// <param name="hediff">The HediffDef associated with this medical condition builder.</param>
             public MedicalConditionBuilder(HediffDef hediff)
             {
                 Hediff = hediff;
@@ -217,14 +231,21 @@ namespace OverHaulers
                 systemicDrugsAndStimulants);
         }
 
-        /// <summary>Returns true when a builder belongs to either the medical or solver-relevance catalog.</summary>
+        /// <summary>
+        /// Returns true when a builder belongs to either the medical or solver-relevance catalog.
+        /// </summary>
+        /// <param name="builder">The medical condition builder to check.</param>
         private static bool IsCatalogedCondition(MedicalConditionBuilder builder)
         {
             return builder != null &&
                 (builder.IsMedical || builder.HasSystemicStageImpact || builder.HasPartLocalImpact);
         }
 
-        /// <summary>Builds independent immutable category indexes for one condition view.</summary>
+        /// <summary>
+        /// Builds independent immutable category indexes for one condition view.
+        /// </summary>
+        /// <param name="source">The list of medical condition entries to categorize.</param>
+        /// <returns>A dictionary mapping each medical condition category to its corresponding read-only collection of entries.</returns>
         private static Dictionary<MedicalConditionCategory, ReadOnlyCollection<MedicalConditionEntry>>
             CreateEntriesByCategory(List<MedicalConditionEntry> source)
         {
@@ -325,7 +346,11 @@ namespace OverHaulers
                    typeof(Hediff_MissingPart).IsAssignableFrom(hediffType);
         }
 
-        /// <summary>Excludes psychic and ability-only states from the medical catalog.</summary>
+        /// <summary>
+        /// Excludes psychic and ability-only states from the medical catalog.
+        /// </summary>
+        /// <param name="hediff">The medical condition definition to evaluate.</param>
+        /// <returns>True if the condition is psychic or ability-only; otherwise, false.</returns>
         private static bool IsPsychicOrAbilityCondition(HediffDef hediff)
         {
             Type hediffType = hediff.hediffClass;

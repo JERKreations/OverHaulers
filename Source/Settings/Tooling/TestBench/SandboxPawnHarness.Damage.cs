@@ -11,7 +11,7 @@ namespace OverHaulers
         public readonly BodyPartRecord Part;
         public readonly DamageDef Damage;
         public readonly Hediff Injury;
-        public readonly float RequestedSeverity;
+        public readonly float DamageFraction;
         public readonly float HealthBefore;
         public readonly float HealthAfter;
         public readonly float AppliedDamage;
@@ -20,7 +20,7 @@ namespace OverHaulers
             BodyPartRecord part,
             DamageDef damage,
             Hediff injury,
-            float requestedSeverity,
+            float damageFraction,
             float healthBefore,
             float healthAfter,
             float appliedDamage)
@@ -28,7 +28,7 @@ namespace OverHaulers
             Part = part;
             Damage = damage;
             Injury = injury;
-            RequestedSeverity = requestedSeverity;
+            DamageFraction = damageFraction;
             HealthBefore = healthBefore;
             HealthAfter = healthAfter;
             AppliedDamage = appliedDamage;
@@ -51,9 +51,18 @@ namespace OverHaulers
         /// Applies a synthetic injury to one selected sandbox part and records the resulting health state.
         /// This intentionally avoids the full native damage pipeline, which depends on live-world pawn state.
         /// </summary>
-        public void SimulateDamage(BodyPartRecord part, DamageDef damage, float remainingHealthFraction)
+        /// <param name="part">The body part to apply synthetic damage to.</param>
+        /// <param name="damage">The type of damage to simulate.</param>
+        /// <param name="damageFraction">The fraction of the part's health to apply as damage.</param>
+        /// <remarks>
+        /// The damage is applied synthetically and does not go through the full native damage pipeline.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the synthetic damage cannot be represented on the specified body part.
+        /// </exception>
+        public void SimulateDamage(BodyPartRecord part, DamageDef damage, float damageFraction)
         {
-            if (!TrySimulateDamage(part, damage, remainingHealthFraction))
+            if (!TrySimulateDamage(part, damage, damageFraction))
             {
                 throw new InvalidOperationException(
                     "The requested synthetic damage cannot be represented on this body part.");
@@ -63,22 +72,29 @@ namespace OverHaulers
         /// <summary>
         /// Tries to apply synthetic damage without surfacing an error for a random candidate that becomes incompatible.
         /// </summary>
-        private bool TrySimulateDamage(BodyPartRecord part, DamageDef damage, float remainingHealthFraction)
+        /// <param name="part">The body part to apply synthetic damage to.</param>
+        /// <param name="damage">The type of damage to simulate.</param>
+        /// <param name="damageFraction">The fraction of the part's health to apply as damage.</param>
+        /// <returns>True if the synthetic damage was successfully applied; otherwise, false.</returns>
+        /// <remarks>
+        /// The damage is applied synthetically and does not go through the full native damage pipeline.
+        /// </remarks>
+        private bool TrySimulateDamage(BodyPartRecord part, DamageDef damage, float damageFraction)
         {
             if (headlessPawn?.health?.hediffSet == null || part == null || damage == null)
                 return false;
-            if (float.IsNaN(remainingHealthFraction) || float.IsInfinity(remainingHealthFraction) ||
-                remainingHealthFraction <= 0f || remainingHealthFraction > 1f)
+            if (float.IsNaN(damageFraction) || float.IsInfinity(damageFraction) ||
+                damageFraction <= 0f || damageFraction > 1f)
                 return false;
             if (headlessPawn.health.hediffSet.PartIsMissing(part))
                 return false;
-            if (!CanSimulateDamage(part, damage, remainingHealthFraction))
+            if (!CanSimulateDamage(part, damage, damageFraction))
                 return false;
 
             using (EnterSafetyFallbackScope())
             {
                 float healthBefore = headlessPawn.health.hediffSet.GetPartHealth(part);
-                float requestedDamage = Math.Max(0.01f, healthBefore * remainingHealthFraction);
+                float requestedDamage = Math.Max(0.01f, healthBefore * damageFraction);
                 HediffDef injuryDef = ResolveInjuryDef(damage, part);
                 if (injuryDef == null)
                     return false;
@@ -107,7 +123,7 @@ namespace OverHaulers
                     part,
                     damage,
                     injury,
-                    remainingHealthFraction,
+                    damageFraction,
                     healthBefore,
                     healthAfter,
                     Math.Max(0f, healthBefore - healthAfter)));
@@ -122,11 +138,18 @@ namespace OverHaulers
         /// <summary>
         /// Returns whether the requested synthetic damage can be represented by a compatible injury.
         /// </summary>
-        public bool CanSimulateDamage(BodyPartRecord part, DamageDef damage, float remainingHealthFraction)
+        /// <param name="part">The body part to check for synthetic damage eligibility.</param>
+        /// <param name="damage">The type of damage to simulate.</param>
+        /// <param name="damageFraction">The fraction of the part's health to apply as damage.</param>
+        /// <returns>True if the synthetic damage can be represented on the specified body part; otherwise, false.</returns>
+        /// <remarks>
+        /// The check considers whether the part is missing, the damage fraction is valid, and a compatible injury can be applied.
+        /// </remarks>
+        public bool CanSimulateDamage(BodyPartRecord part, DamageDef damage, float damageFraction)
         {
             if (headlessPawn?.health?.hediffSet == null || part == null || damage == null ||
-                float.IsNaN(remainingHealthFraction) || float.IsInfinity(remainingHealthFraction) ||
-                remainingHealthFraction <= 0f || remainingHealthFraction > 1f ||
+                float.IsNaN(damageFraction) || float.IsInfinity(damageFraction) ||
+                damageFraction <= 0f || damageFraction > 1f ||
                 headlessPawn.health.hediffSet.PartIsMissing(part))
                 return false;
 
@@ -136,7 +159,7 @@ namespace OverHaulers
                 return injuryDef != null &&
                     typeof(Hediff_Injury).IsAssignableFrom(injuryDef.hediffClass) &&
                     headlessPawn.health.hediffSet.GetPartHealth(part) > 0f &&
-                    remainingHealthFraction < 1f;
+                    damageFraction < 1f;
             }
         }
 
@@ -145,6 +168,11 @@ namespace OverHaulers
         /// Existing sandbox damage on the selected parts is removed first, while source hediffs remain unchanged.
         /// Each chosen part loses 15-75% of its remaining health; at least one eligible part is affected when possible.
         /// </summary>
+        /// <param name="parts">The list of body parts to consider for random synthetic damage.</param>
+        /// <remarks>
+        /// The method first clears any existing synthetic damage on the specified parts, then attempts to apply new random crush damage.
+        /// At least one eligible part will receive damage if possible.
+        /// </remarks>
         public void SimulateRandomDamage(IReadOnlyList<BodyPartRecord> parts)
         {
             if (parts == null || parts.Count == 0) return;
@@ -185,7 +213,13 @@ namespace OverHaulers
             }
         }
 
-        /// <summary>Removes synthetic damage from one part while preserving authentic source hediffs.</summary>
+        /// <summary>
+        /// Removes synthetic damage from one part while preserving authentic source hediffs.
+        /// </summary>
+        /// <param name="part">The body part from which to clear synthetic damage.</param>
+        /// <remarks>
+        /// This method only removes synthetic damage applied through the sandbox harness and preserves any authentic injuries.
+        /// </remarks>
         public void ClearSimulatedDamage(BodyPartRecord part)
         {
             if (part == null || !DamageDeltas.TryGetValue(part, out List<SimulatedDamage> changes))
@@ -212,6 +246,10 @@ namespace OverHaulers
         /// Simulates removal of one part for deterministic diagnostics and self-check fixtures.
         /// Not exposed by the interactive damage picker.
         /// </summary>
+        /// <param name="part">The body part to simulate removal for.</param>
+        /// <remarks>
+        /// This method simulates the removal of a body part by applying a missing-part hediff and recording the synthetic damage.
+        /// </remarks>
         public void SimulatePartRemoval(BodyPartRecord part)
         {
             if (headlessPawn?.health?.hediffSet == null || part == null)
@@ -249,6 +287,9 @@ namespace OverHaulers
             }
         }
 
+        /// <summary>
+        /// Increments the live intent generation counter, indicating that new synthetic damage has been applied.
+        /// </summary>
         private void BumpLiveIntentGeneration()
         {
             liveIntentGeneration++;
@@ -258,6 +299,12 @@ namespace OverHaulers
 
         #region 3. [TEST-05-DAMAGE] PRIVATE RESOLUTION
 
+        /// <summary>
+        /// Resolves the appropriate hediff definition for a given damage type and body part.
+        /// </summary>
+        /// <param name="damage">The type of damage being applied.</param>
+        /// <param name="part">The body part receiving the damage.</param>
+        /// <returns>The resolved hediff definition, or null if none is applicable.</returns>
         private HediffDef ResolveInjuryDef(DamageDef damage, BodyPartRecord part)
         {
             HediffDef result = damage?.hediff;

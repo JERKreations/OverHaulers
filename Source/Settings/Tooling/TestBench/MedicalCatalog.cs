@@ -334,6 +334,9 @@ namespace OverHaulers
         /// Retrieves replacement operations whose recipes belong to the selected pawn's ThingDef.
         /// Shared body-part definitions alone are insufficient because animal and human recipes may target the same part.
         /// </summary>
+        /// <param name="pawn">The pawn for which to retrieve replacement operations.</param>
+        /// <param name="part">The body part record associated with the replacement operation.</param>
+        /// <returns>A read-only list of indexed replacement operations applicable to the pawn and body part, or null if none are available.</returns>
         public static IReadOnlyList<MedicalOperationEntry> GetReplacementsFor(Pawn pawn, BodyPartRecord part)
         {
             return GetPawnApplicableOperations(pawn, part, GetReplacementsFor(part?.def));
@@ -342,12 +345,20 @@ namespace OverHaulers
         /// <summary>
         /// Retrieves implant operations whose recipes belong to the selected pawn's ThingDef.
         /// </summary>
+        /// <param name="pawn">The pawn for which to retrieve implant operations.</param>
+        /// <param name="part">The body part record associated with the implant operation.</param>
+        /// <returns>A read-only list of indexed implant operations applicable to the pawn and body part, or null if none are available.</returns>
         public static IReadOnlyList<MedicalOperationEntry> GetImplantsFor(Pawn pawn, BodyPartRecord part)
         {
             return GetPawnApplicableOperations(pawn, part, GetImplantsFor(part?.def));
         }
 
-        /// <summary>Returns true when the recipe is owned by the pawn's ThingDef, directly or through inheritance.</summary>
+        /// <summary>
+        /// Returns true when the recipe is owned by the pawn's ThingDef, directly or through inheritance.
+        /// </summary>
+        /// <param name="pawn">The pawn whose ThingDef ownership is being checked.</param>
+        /// <param name="recipe">The recipe to check for availability.</param>
+        /// <returns>True if the recipe is available to the pawn; otherwise, false.</returns>
         public static bool IsRecipeAvailableToPawn(Pawn pawn, RecipeDef recipe)
         {
             List<RecipeDef> recipes = pawn?.def?.AllRecipes;
@@ -360,6 +371,13 @@ namespace OverHaulers
             return false;
         }
 
+        /// <summary>
+        /// Filters the candidate medical operations for those applicable to the specified pawn and body part.
+        /// </summary>
+        /// <param name="pawn">The pawn for which to retrieve applicable operations.</param>
+        /// <param name="part">The body part record associated with the operation.</param>
+        /// <param name="candidates">The list of candidate medical operations to filter.</param>
+        /// <returns>A read-only list of applicable medical operations, or null if none are available.</returns>
         private static IReadOnlyList<MedicalOperationEntry> GetPawnApplicableOperations(
             Pawn pawn,
             BodyPartRecord part,
@@ -384,6 +402,13 @@ namespace OverHaulers
                 : new ReadOnlyCollection<MedicalOperationEntry>(applicable);
         }
 
+        /// <summary>
+        /// Determines whether the specified recipe targets the given body part for the pawn.
+        /// </summary>
+        /// <param name="pawn">The pawn for which to check the recipe.</param>
+        /// <param name="part">The body part record to check against the recipe's targets.</param>
+        /// <param name="recipe">The medical recipe to evaluate.</param>
+        /// <returns>True if the recipe targets the specified body part for the pawn; otherwise, false.</returns>
         private static bool WorkerTargetsPart(Pawn pawn, BodyPartRecord part, RecipeDef recipe)
         {
             if (recipe?.Worker == null) return false;
@@ -409,43 +434,46 @@ namespace OverHaulers
             }
 
             List<MedicalProcedureTarget> targets = new List<MedicalProcedureTarget>();
-            for (int i = 0; i < recipes.Count; i++)
+            using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
-                RecipeDef recipe = recipes[i];
-                // Main-menu sandbox pawns intentionally bypass research/world availability.
-                // Live plans revalidate recipe.AvailableNow through the recipe worker path.
-                if (recipe == null || recipe.Worker == null) continue;
-                if (Current.Game != null && !recipe.AvailableNow) continue;
-
-                AcceptanceReport report = Current.Game == null
-                    ? AcceptanceReport.WasAccepted
-                    : recipe.Worker.AvailableReport(pawn);
-                if (!report.Accepted && report.Reason.NullOrEmpty()) continue;
-
-                string unavailableReason = report.Accepted ? null : report.Reason;
-                if (recipe.targetsBodyPart)
+                for (int i = 0; i < recipes.Count; i++)
                 {
-                    foreach (BodyPartRecord part in recipe.Worker.GetPartsToApplyOn(pawn, recipe))
+                    RecipeDef recipe = recipes[i];
+                    // Main-menu sandbox pawns intentionally bypass research/world availability.
+                    // Live plans revalidate recipe.AvailableNow through the recipe worker path.
+                    if (recipe == null || recipe.Worker == null) continue;
+                    if (Current.Game != null && !recipe.AvailableNow) continue;
+
+                    AcceptanceReport report = Current.Game == null
+                        ? AcceptanceReport.WasAccepted
+                        : recipe.Worker.AvailableReport(pawn);
+                    if (!report.Accepted && report.Reason.NullOrEmpty()) continue;
+
+                    string unavailableReason = report.Accepted ? null : report.Reason;
+                    if (recipe.targetsBodyPart)
                     {
-                        if (part != null && recipe.AvailableOnNow(pawn, part))
+                        foreach (BodyPartRecord part in recipe.Worker.GetPartsToApplyOn(pawn, recipe))
                         {
-                            string label = recipe.Worker.GetLabelWhenUsedOn(pawn, part);
-                            targets.Add(new MedicalProcedureTarget(
-                                recipe,
-                                part,
-                                label.NullOrEmpty() ? recipe.LabelCap.ToString() : label,
-                                unavailableReason));
+                            if (part != null && recipe.AvailableOnNow(pawn, part))
+                            {
+                                string label = recipe.Worker.GetLabelWhenUsedOn(pawn, part);
+                                targets.Add(new MedicalProcedureTarget(
+                                    recipe,
+                                    part,
+                                    label.NullOrEmpty() ? recipe.LabelCap.ToString() : label,
+                                    unavailableReason));
+                            }
                         }
                     }
-                }
-                else if (!pawn.health.hediffSet.HasHediff(recipe.addsHediff))
-                {
-                    string label = recipe.Worker.GetLabelWhenUsedOn(pawn, null);
-                    targets.Add(new MedicalProcedureTarget(
-                        recipe,
-                        null,
-                        label.NullOrEmpty() ? recipe.LabelCap.ToString() : label,
-                        unavailableReason));
+                    else if (!pawn.health.hediffSet.HasHediff(recipe.addsHediff))
+                    {
+                        string label = recipe.Worker.GetLabelWhenUsedOn(pawn, null);
+                        targets.Add(new MedicalProcedureTarget(
+                            recipe,
+                            null,
+                            label.NullOrEmpty() ? recipe.LabelCap.ToString() : label,
+                            unavailableReason));
+                    }
                 }
             }
 
@@ -542,6 +570,9 @@ namespace OverHaulers
         /// <summary>
         /// [TEST-06] Retrieves a medically cataloged condition independently of solver impact.
         /// </summary>
+        /// <param name="hediff">The HediffDef to look up.</param>
+        /// <param name="entry">The corresponding medical condition entry if found; otherwise, null.</param>
+        /// <returns>True if the entry was found; otherwise, false.</returns>
         public static bool TryGetMedicalConditionEntry(HediffDef hediff, out MedicalConditionEntry entry)
         {
             CatalogSnapshot snapshot = GetSnapshot();
@@ -554,13 +585,21 @@ namespace OverHaulers
             return false;
         }
 
-        /// <summary>Returns true when a source target is valid for the pawn's race.</summary>
+        /// <summary>
+        /// Returns true when a source target is valid for the pawn's race.
+        /// </summary>
+        /// <param name="pawn">The pawn whose race is being checked against the target.</param>
+        /// <param name="target">The medical condition target to evaluate.</param>
         public static bool ConditionTargetMatchesPawn(Pawn pawn, MedicalConditionTarget target)
         {
             return pawn != null && (target.Species == null || target.Species == pawn.def);
         }
 
-        /// <summary>Returns true when the condition has a pawn-compatible whole-body target.</summary>
+        /// <summary>
+        /// Returns true when the condition has a pawn-compatible whole-body target.
+        /// </summary>
+        /// <param name="pawn">The pawn whose compatibility is being checked.</param>
+        /// <param name="entry">The medical condition entry to evaluate.</param>
         public static bool HasWholeBodyConditionTarget(Pawn pawn, MedicalConditionEntry entry)
         {
             if (pawn == null || entry == null) return false;
@@ -624,7 +663,11 @@ namespace OverHaulers
             return result;
         }
 
-        /// <summary>Returns whether a present, natural part can receive a direct condition change.</summary>
+        /// <summary>
+        /// Returns whether a present, natural part can receive a direct condition change.
+        /// </summary>
+        /// <param name="pawn">The pawn whose body part is being evaluated.</param>
+        /// <param name="part">The body part to check for condition applicability.</param>
         public static bool CanApplyConditionToPart(Pawn pawn, BodyPartRecord part)
         {
             HediffSet set = pawn?.health?.hediffSet;
@@ -635,7 +678,11 @@ namespace OverHaulers
                 !set.AncestorHasDirectlyAddedParts(part);
         }
 
-        /// <summary>Determines whether a localized condition can affect modeled carrying capacity.</summary>
+        /// <summary>
+        /// Determines whether a localized condition can affect modeled mass capacity.
+        /// </summary>
+        /// <param name="part">The body part to evaluate.</param>
+        /// <param name="template">The species topology template for the pawn.</param>
         private static bool IsSolverRelevantConditionPart(BodyPartRecord part, SpeciesTopologyTemplate template)
         {
             if (MedicalClassifier.IsCapacitySourcePart(part.def)) return true;
@@ -668,6 +715,8 @@ namespace OverHaulers
         /// <summary>
         /// [TEST-06] Returns source-derived targets from the broader medical catalog without requiring solver impact.
         /// </summary>
+        /// <param name="hediff">The HediffDef for which to retrieve target constraints.</param>
+        /// <returns>A read-only list of medical condition targets associated with the specified HediffDef.</returns>
         public static IReadOnlyList<MedicalConditionTarget> GetMedicalConditionTargetConstraints(HediffDef hediff)
         {
             MedicalConditionEntry entry;

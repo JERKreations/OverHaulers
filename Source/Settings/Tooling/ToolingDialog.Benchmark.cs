@@ -287,6 +287,12 @@ namespace OverHaulers
             return localY + 6f;
         }
 
+        /// <summary>
+        /// Draws the benchmark progress bar, including the current progress percentage and label.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the progress bar.</param>
+        /// <param name="localY">The current Y position for drawing within the progress bar.</param>
+        /// <returns>The updated Y position after drawing the progress bar.</returns>
         private static float DrawBenchmarkProgress(Rect inner, float localY)
         {
             Rect barRect = new Rect(inner.x, localY, inner.width, 20f);
@@ -308,6 +314,14 @@ namespace OverHaulers
             return localY + 26f;
         }
 
+        /// <summary>
+        /// Draws a single line of benchmark status text with the specified color.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the status line.</param>
+        /// <param name="localY">The current Y position for drawing within the status line.</param>
+        /// <param name="text">The status text to display.</param>
+        /// <param name="color">The color to use for the status text.</param>
+        /// <returns>The updated Y position after drawing the status line.</returns>
         private static float DrawBenchmarkStatusLine(Rect inner, float localY, string text, Color color)
         {
             Text.Font = GameFont.Tiny;
@@ -322,6 +336,12 @@ namespace OverHaulers
 
         #region 3. [DIAG-03] BENCHMARK RESULT TABLES
 
+        /// <summary>
+        /// Draws the benchmark results, including startup, solver, and ramp sections.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the benchmark results.</param>
+        /// <param name="localY">The current Y position for drawing within the benchmark results area.</param>
+        /// <returns>The updated Y position after drawing the benchmark results.</returns>
         private static float DrawBenchmarkResults(Rect inner, float localY)
         {
             RefreshBenchmarkCacheIfStale();
@@ -384,6 +404,12 @@ namespace OverHaulers
             return localY;
         }
 
+        /// <summary>
+        /// Draws the benchmark snapshot table, including the header, baseline, surge, and individual snapshot rows.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the snapshot table.</param>
+        /// <param name="localY">The current Y position for drawing within the snapshot table.</param>
+        /// <returns>The updated Y position after drawing the snapshot table.</returns>
         private static float DrawBenchmarkSnapshotTable(Rect inner, float localY)
         {
             string tableHeader = SettingsViewUtilities.CachedText("OverHaulers_Benchmark_TableHeader");
@@ -413,6 +439,16 @@ namespace OverHaulers
             return localY;
         }
 
+        /// <summary>
+        /// Draws a single row of the benchmark table with the specified column fractions and cell contents.
+        /// </summary>
+        /// <param name="inner">The rectangle defining the drawing area for the row.</param>
+        /// <param name="y">The Y position for drawing the row.</param>
+        /// <param name="fractions">The column width fractions for the row.</param>
+        /// <param name="cells">The cell contents for the row.</param>
+        /// <remarks>
+        /// The first column is left-aligned, while subsequent columns are right-aligned.
+        /// </remarks>
         private static void DrawBenchmarkRow(Rect inner, float y, float[] fractions, string[] cells)
         {
             float x = inner.x;

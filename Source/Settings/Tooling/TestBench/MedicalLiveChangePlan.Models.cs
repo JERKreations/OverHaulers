@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using RimWorld;
 using Verse;
 
 namespace OverHaulers
@@ -49,6 +48,16 @@ namespace OverHaulers
         public readonly float Amount;
         public readonly string Label;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalLiveChangeIntent"/> class.
+        /// </summary>
+        /// <param name="kind">The kind of live change.</param>
+        /// <param name="part">The body part affected by the change.</param>
+        /// <param name="recipe">The recipe applied, if any.</param>
+        /// <param name="hediff">The hediff applied, if any.</param>
+        /// <param name="damage">The damage applied, if any.</param>
+        /// <param name="amount">The amount of damage, if applicable.</param>
+        /// <param name="label">The display label for the change.</param>
         public MedicalLiveChangeIntent(
             MedicalLiveChangeKind kind,
             BodyPartRecord part,
@@ -77,6 +86,14 @@ namespace OverHaulers
         public readonly BodyPartRecord ResolvedPart;
         public readonly string Reason;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalLiveChange"/> class.
+        /// </summary>
+        /// <param name="intent">The medical live change intent.</param>
+        /// <param name="policy">The action policy applied to the change.</param>
+        /// <param name="status">The status of the change.</param>
+        /// <param name="resolvedPart">The resolved body part for the change.</param>
+        /// <param name="reason">The reason for the change status.</param>
         public MedicalLiveChange(
             MedicalLiveChangeIntent intent,
             MedicalLiveActionPolicy policy,
@@ -103,6 +120,13 @@ namespace OverHaulers
         public readonly ReadOnlyCollection<MedicalLiveChange> Changes;
         public readonly int ReadyCount;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MedicalLiveChangePlan"/> class.
+        /// </summary>
+        /// <param name="pawn">The pawn for whom the change plan is created.</param>
+        /// <param name="subject">The test subject entry associated with the pawn.</param>
+        /// <param name="intentGeneration">The intent generation number.</param>
+        /// <param name="changes">The list of medical live changes.</param>
         public MedicalLiveChangePlan(
             Pawn pawn,
             TestSubjectEntry subject,

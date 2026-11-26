@@ -92,7 +92,7 @@
   <OverHaulers_LimbDepthDecayFactor_Desc>Controls weight loss along limb chains. Lower ratios concentrate carrying strength at major root joints (shoulders/hips), while higher ratios distribute budget deeper into hands, feet, and digits - making lost digits or hands far more impactful.</OverHaulers_LimbDepthDecayFactor_Desc>
 
   <OverHaulers_LimbPairDecayFactor>Auxiliary Limb Pair Scaling ( {0} )</OverHaulers_LimbPairDecayFactor>
-  <OverHaulers_LimbPairDecayFactor_Desc>Controls how much carrying capacity budget subsequent limb pairs provide relative to previous pairs for multi-limbed species and xenotypes (e.g. 4-armed aliens, insectoids, or cybernetic multi-limb rigs). Higher values reward heavy bionic investments across all extra limbs; 100% yields an uncapped flat rate, while lower values impose diminishing returns.</OverHaulers_LimbPairDecayFactor_Desc>
+  <OverHaulers_LimbPairDecayFactor_Desc>Controls how much mass capacity budget subsequent limb pairs provide relative to previous pairs for multi-limbed species and xenotypes (e.g. 4-armed aliens, insectoids, or cybernetic multi-limb rigs). Higher values reward heavy bionic investments across all extra limbs; 100% yields an uncapped flat rate, while lower values impose diminishing returns.</OverHaulers_LimbPairDecayFactor_Desc>
   
   <OverHaulers_LimbPair_Progression>Progression: 1st: {0} ➔ 2nd: {1} ➔ 3rd: {2} ➔ 4th: {3} (4-Pair Cap: {4}x)</OverHaulers_LimbPair_Progression>
 

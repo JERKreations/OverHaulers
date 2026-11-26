@@ -63,6 +63,10 @@ namespace OverHaulers
 
         #region 4. LIFECYCLE & CONSTRUCTORS
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ToolingDialog"/> class with the specified settings.
+        /// </summary>
+        /// <param name="settings">The settings object used by the tooling dialog.</param>
         public ToolingDialog(Settings settings)
         {
             this.settings = settings;
@@ -77,6 +81,9 @@ namespace OverHaulers
             resizeable = true;
         }
 
+        /// <summary>
+        /// Called before the tooling dialog window is opened, allowing for any necessary setup.
+        /// </summary>
         public override void PreOpen()
         {
             base.PreOpen();
@@ -85,6 +92,9 @@ namespace OverHaulers
             TestBench.EnsureInitialized();
         }
 
+        /// <summary>
+        /// Called before the tooling dialog window is opened, ensuring necessary initializations.
+        /// </summary>
         public override void PostClose()
         {
             base.PostClose();
@@ -98,6 +108,10 @@ namespace OverHaulers
 
         #region 5. WINDOW CONTENTS (CANONICAL ENTRY POINT)
 
+        /// <summary>
+        /// Draws the contents of the tooling dialog window, including the header, navigation tab bar, and the active tab's content.
+        /// </summary>
+        /// <param name="inRect">The rectangle defining the drawing area for the window contents.</param>
         public override void DoWindowContents(Rect inRect)
         {
             SettingsLayout.ResetControlIndex("Tooling");
@@ -132,6 +146,11 @@ namespace OverHaulers
 
         #region 6. SUB-ROUTINES: HEADER & NAVIGATION
 
+        /// <summary>
+        /// Draws the header section of the tooling dialog, including the title and action buttons.
+        /// </summary>
+        /// <param name="inRect">The rectangle defining the drawing area for the header.</param>
+        /// <param name="curY">The current Y position for drawing within the header.</param>
         private void DrawHeader(Rect inRect, ref float curY)
         {
             float availableWidth = Math.Max(1f, inRect.width - 40f);
@@ -185,6 +204,11 @@ namespace OverHaulers
             curY += SettingsViewUtilities.ControlGap;
         }
 
+        /// <summary>
+        /// Draws the test bench tab, including the test bench section and its controls.
+        /// </summary>
+        /// <param name="inRect">The rectangle defining the drawing area for the tab.</param>
+        /// <param name="curY">The current Y position for drawing within the tab.</param>
         private void DrawTabBar(Rect inRect, ref float curY)
         {
             float tabX = inRect.x;
@@ -198,6 +222,10 @@ namespace OverHaulers
             curY = tabY + rowHeight + 12f;
         }
 
+        /// <summary>
+        /// Draws the benchmark and self-check tab, including the benchmark block and the self-check block.
+        /// </summary>
+        /// <param name="canvasRect">The rectangle defining the drawing area for the tab.</param>
         private void DrawSingleTab(Rect bounds, ref float tabX, ref float tabY, ref float rowHeight, DevTab tab, string label)
         {
             Rect btnRect = SettingsViewUtilities.PlaceButton(bounds, ref tabX, ref tabY, ref rowHeight, label,
@@ -228,6 +256,10 @@ namespace OverHaulers
 
         #region 7. TAB CANVAS IMPLEMENTATIONS
 
+        /// <summary>
+        /// Draws the test bench tab, including the test bench section and its controls.
+        /// </summary>
+        /// <param name="canvasRect">The rectangle defining the drawing area for the tab.</param>
         private void DrawTestBenchTab(Rect canvasRect)
         {
             // Dynamic height measurement prevents spillage when expanding surgery accordions
@@ -242,6 +274,10 @@ namespace OverHaulers
             lastTestBenchHeight = currentY + ScrollContentBottomPadding;
         }
 
+        /// <summary>
+        /// Draws the benchmark and self-check tab, including the benchmark block and the self-check block.
+        /// </summary>
+        /// <param name="canvasRect">The rectangle defining the drawing area for the tab.</param>
         private void DrawBenchmarkAndSelfCheckTab(Rect canvasRect)
         {
             float targetHeight = Math.Max(lastBenchmarkHeight, canvasRect.height);
@@ -256,6 +292,10 @@ namespace OverHaulers
             lastBenchmarkHeight = localY + ScrollContentBottomPadding;
         }
 
+        /// <summary>
+        /// Draws the telemetry and metrics tab, including periodic telemetry logging settings and cache eviction settings.
+        /// </summary>
+        /// <param name="canvasRect">The rectangle defining the drawing area for the tab.</param>
         private void DrawTelemetryAndMetricsTab(Rect canvasRect)
         {
             float targetHeight = Math.Max(lastTelemetryHeight, canvasRect.height);
