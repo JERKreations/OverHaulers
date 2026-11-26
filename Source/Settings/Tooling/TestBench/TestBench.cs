@@ -343,7 +343,7 @@ namespace OverHaulers
 
                 // =========================================================================
                 // Unified Ingress: Evaluates via SandboxAnatomicalSource
-                // Reflects authentic live colonist state when unmodified; reflects rated surgical potential when modified.
+                // Reflects authentic live colonist state when unmodified and native current efficiency after simulation.
                 // =========================================================================
                 SandboxAnatomicalSource dataSource = Harness.CreateDataSource();
                 speciesBaseline = dataSource.ResolveBaselineCapacity();

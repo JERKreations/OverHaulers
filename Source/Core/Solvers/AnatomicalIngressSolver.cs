@@ -168,7 +168,7 @@ namespace OverHaulers
                     workspace.SetFlag(partIndex, PartFlags.IsMissing, true);
                     healths[partIndex] = 0f;
                 }
-                // 2. Added Artificial Part (Bionic / Prosthetic / Utility Limb) - Query live uninjured efficiency
+                // 2. Added Artificial Part (Bionic / Prosthetic / Utility Limb) - Query native final efficiency
                 else if (hediff is Hediff_AddedPart addedPart)
                 {
                     float ratedEfficiency = addedPart.def?.addedPartProps?.partEfficiency ?? 1.0f;
@@ -285,10 +285,6 @@ namespace OverHaulers
                         }
                     }
 
-                    if (workspace.HasFlag(i, PartFlags.HasAddedPart))
-                    {
-                        effs[i] *= healths[i]; // Couple prosthetic performance to physical HP fraction
-                    }
                 }
             }
 

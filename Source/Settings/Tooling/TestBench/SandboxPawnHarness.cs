@@ -176,7 +176,7 @@ namespace OverHaulers
                     BodyPartRecord part = allParts[i];
                     Hediff_AddedPart addedPart = sourcePawn.health.hediffSet.GetFirstHediffMatchingPart<Hediff_AddedPart>(part);
                     float defaultEff = addedPart?.def?.addedPartProps?.partEfficiency ?? 1.0f;
-                    livePartEfficiencies[part] = MedicalClassifier.GetSafePartEfficiency(sourcePawn, part, defaultEff);
+                    livePartEfficiencies[part] = MedicalClassifier.GetFinalPartEfficiency(sourcePawn, part, defaultEff);
                 }
             }
         }
@@ -703,13 +703,22 @@ namespace OverHaulers
 
         /// <summary>
         /// Resolves the effective biological or prosthetic efficiency for a body part on the sandbox pawn.
-        /// Simulates rated surgical potential for user-applied procedures while preserving authentic live state for unmodified parts.
+        /// Resolves native current efficiency for damaged/simulated parts and preserves authentic live state for untouched parts.
         /// </summary>
         public float GetEffectivePartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
             if (part == null) return defaultRatedEfficiency;
 
-            // 1. If explicitly modified by a simulated operation in the harness, use simulated surgical potential
+            if ((ReplacementDeltas.ContainsKey(part) || DamageDeltas.ContainsKey(part)) &&
+                headlessPawn?.health?.hediffSet != null)
+            {
+                return PawnCapacityUtility.CalculatePartEfficiency(
+                    headlessPawn.health.hediffSet,
+                    part,
+                    ignoreAddedParts: false);
+            }
+
+            // 1. Preserve the synthetic replacement intent when no direct damage exists.
             if (ReplacementDeltas.TryGetValue(part, out var mod))
             {
                 return mod.Efficiency;

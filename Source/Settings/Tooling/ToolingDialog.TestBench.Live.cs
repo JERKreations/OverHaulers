@@ -83,7 +83,7 @@ namespace OverHaulers
                     : SettingsViewUtilities.CachedText("OverHaulers_LiveChange_Status_Omitted");
                 string reason = change.Status == MedicalLiveChangeStatus.Ready || change.Reason.NullOrEmpty()
                     ? string.Empty
-                    : " — " + change.Reason.Translate().ToString();
+                    : " - " + change.Reason.Translate().ToString();
                 builder.AppendLine(
                     "OverHaulers_LiveChange_ReviewRow".Translate(
                         stateLabel,

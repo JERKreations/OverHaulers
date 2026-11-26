@@ -151,7 +151,7 @@
   <OverHaulers_LiveChange_ReviewTitle>Review live pawn changes</OverHaulers_LiveChange_ReviewTitle>
   <OverHaulers_LiveChange_ConfirmTitle>Apply physical Test Bench outcomes?</OverHaulers_LiveChange_ConfirmTitle>
   <OverHaulers_LiveChange_ReviewHeader>{0}: {1} physical outcome(s) are ready to apply.</OverHaulers_LiveChange_ReviewHeader>
-  <OverHaulers_LiveChange_ReviewRow>{0}: {1} — {2}{3}</OverHaulers_LiveChange_ReviewRow>
+  <OverHaulers_LiveChange_ReviewRow>{0}: {1} - {2}{3}</OverHaulers_LiveChange_ReviewRow>
   <OverHaulers_LiveChange_WholeBody>whole body</OverHaulers_LiveChange_WholeBody>
   <OverHaulers_LiveChange_Status_Ready>Apply</OverHaulers_LiveChange_Status_Ready>
   <OverHaulers_LiveChange_Status_Omitted>Sandbox only / blocked</OverHaulers_LiveChange_Status_Omitted>

@@ -118,15 +118,15 @@ namespace OverHaulers
         }
 
         /// <summary>
-        /// Resolves the intrinsic biological or prosthetic efficiency of a specific body part on the live pawn.
+        /// Resolves the final native biological or prosthetic efficiency of a specific body part on the live pawn.
         /// </summary>
         /// <param name="part">The body part record to evaluate.</param>
         /// <param name="defaultRatedEfficiency">The fallback rated XML efficiency if unmodded.</param>
-        /// <returns>The uninjured runtime efficiency rating.</returns>
+        /// <returns>The final current runtime efficiency rating.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency)
         {
-            return MedicalClassifier.GetSafePartEfficiency(pawn, part, defaultRatedEfficiency);
+            return MedicalClassifier.GetFinalPartEfficiency(pawn, part, defaultRatedEfficiency);
         }
 
         /// <summary>

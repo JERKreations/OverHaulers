@@ -41,11 +41,11 @@ namespace OverHaulers
         float GetCapacityLevel(PawnCapacityDef capacity);
 
         /// <summary>
-        /// Resolves the intrinsic biological or prosthetic efficiency rating of a specific body part.
+        /// Resolves the final current biological or prosthetic efficiency rating of a specific body part.
         /// </summary>
         /// <param name="part">The body part record to evaluate.</param>
         /// <param name="defaultRatedEfficiency">The fallback rated XML efficiency if unmodded.</param>
-        /// <returns>The uninjured efficiency rating (e.g. 0.25 for training, 1.25 for standard bionic, 1.35 for masterwork).</returns>
+        /// <returns>The final native efficiency, including part health and local efficiency modifiers.</returns>
         float GetPartEfficiency(BodyPartRecord part, float defaultRatedEfficiency);
 
         /// <summary>
