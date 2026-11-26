@@ -114,6 +114,7 @@ namespace OverHaulers
 
                 PruneRemovedConditions();
                 DirtyHealthCache();
+                BumpLiveIntentGeneration();
                 return true;
             }
         }
@@ -203,6 +204,7 @@ namespace OverHaulers
                 }
                 DamageDeltas.Remove(part);
                 DirtyHealthCache();
+                BumpLiveIntentGeneration();
             }
         }
 
@@ -243,7 +245,13 @@ namespace OverHaulers
 
                 PruneRemovedConditions();
                 DirtyHealthCache();
+                BumpLiveIntentGeneration();
             }
+        }
+
+        private void BumpLiveIntentGeneration()
+        {
+            liveIntentGeneration++;
         }
 
         #endregion

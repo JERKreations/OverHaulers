@@ -30,6 +30,27 @@ namespace OverHaulers
         public float Efficiency;
     }
 
+    /// <summary>Tracks a native worker-backed body-part state change in the sandbox.</summary>
+    public sealed class SimulatedPartStateChange
+    {
+        public readonly BodyPartRecord Part;
+        public readonly RecipeDef Recipe;
+        public readonly string DisplayLabel;
+        public readonly bool IsRemoval;
+
+        public SimulatedPartStateChange(
+            BodyPartRecord part,
+            RecipeDef recipe,
+            string displayLabel,
+            bool isRemoval)
+        {
+            Part = part;
+            Recipe = recipe;
+            DisplayLabel = displayLabel;
+            IsRemoval = isRemoval;
+        }
+    }
+
     /// <summary>A simulated condition and the state needed to undo it without removing a pre-existing hediff.</summary>
     public sealed class SimulatedCondition
     {
@@ -73,7 +94,12 @@ namespace OverHaulers
         public readonly Dictionary<BodyPartRecord, List<SimulatedModification>> ImplantDeltas =
             new Dictionary<BodyPartRecord, List<SimulatedModification>>();
 
+        /// <summary>Worker-backed removals/restorations indexed by target body part.</summary>
+        public readonly Dictionary<BodyPartRecord, SimulatedPartStateChange> PartStateDeltas =
+            new Dictionary<BodyPartRecord, SimulatedPartStateChange>();
+
         private readonly List<SimulatedCondition> simulatedConditions = new List<SimulatedCondition>();
+        private int liveIntentGeneration;
 
         #endregion
 
@@ -91,11 +117,15 @@ namespace OverHaulers
         /// <summary>Conditions applied to the sandbox, including their individual target parts.</summary>
         public IReadOnlyList<SimulatedCondition> SimulatedConditions => simulatedConditions;
 
+        /// <summary>Generation captured by live plans to detect sandbox changes after review.</summary>
+        public int LiveIntentGeneration => liveIntentGeneration;
+
         /// <summary>True if any hypothetical modifications are currently applied to the sandbox pawn.</summary>
         public bool HasModifications =>
             ReplacementDeltas.Count > 0 ||
             ImplantDeltas.Count > 0 ||
             DamageDeltas.Count > 0 ||
+            PartStateDeltas.Count > 0 ||
             simulatedConditions.Count > 0;
 
         #endregion
@@ -175,6 +205,46 @@ namespace OverHaulers
             SyncHediffsFromSource();
         }
 
+        /// <summary>Simulates a native removal-recipe outcome for the selected part.</summary>
+        public void SimulateRecipePartRemoval(BodyPartRecord part, RecipeDef recipe, string label)
+        {
+            if (headlessPawn?.health?.hediffSet == null || part == null || !(recipe?.Worker is Recipe_RemoveBodyPart))
+                throw new InvalidOperationException("A supported body-part removal recipe and target are required.");
+
+            using (EnterSafetyFallbackScope())
+            {
+                CleanDeltasRecursive(part);
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                Hediff missing = HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, headlessPawn, part);
+                if (missing == null)
+                    throw new InvalidOperationException("Could not create the sandbox missing-part state.");
+                headlessPawn.health.AddHediff(missing, part);
+                PartStateDeltas[part] = new SimulatedPartStateChange(part, recipe, label, true);
+                PruneRemovedConditions();
+                DirtyHealthCache();
+                liveIntentGeneration++;
+            }
+        }
+
+        /// <summary>Simulates a native natural-part restoration outcome for the selected missing part.</summary>
+        public void SimulateRecipeNaturalRestoration(BodyPartRecord part, RecipeDef recipe, string label)
+        {
+            if (headlessPawn?.health?.hediffSet == null || part == null ||
+                !(recipe?.Worker is Recipe_InstallNaturalBodyPart))
+                throw new InvalidOperationException("A supported natural-part restoration recipe and target are required.");
+
+            using (EnterSafetyFallbackScope())
+            {
+                CleanDeltasRecursive(part);
+                ClearSimulatedDamage(part);
+                headlessPawn.health.RestorePart(part, null, checkStateChange: false);
+                PartStateDeltas[part] = new SimulatedPartStateChange(part, recipe, label, false);
+                PruneRemovedConditions();
+                DirtyHealthCache();
+                liveIntentGeneration++;
+            }
+        }
+
         #endregion
 
         #region 6. SURGICAL SIMULATION PIPELINE
@@ -198,6 +268,7 @@ namespace OverHaulers
             {
                 DamageDeltas.Remove(part);
                 ImplantDeltas.Remove(part);
+                PartStateDeltas.Remove(part);
                 if (part.parts != null)
                 {
                     for (int i = 0; i < part.parts.Count; i++)
@@ -235,6 +306,7 @@ namespace OverHaulers
                         DisplayLabel = label,
                         Efficiency = efficiency
                     };
+                    liveIntentGeneration++;
                 }
 
                 DirtyHealthCache();
@@ -304,6 +376,7 @@ namespace OverHaulers
 
             using (EnterSafetyFallbackScope())
             {
+                PartStateDeltas.Remove(part);
                 if (!ImplantDeltas.TryGetValue(part, out var list))
                 {
                     list = new List<SimulatedModification>(4);
@@ -327,6 +400,7 @@ namespace OverHaulers
                                 DisplayLabel = label,
                                 Efficiency = 1.0f
                             });
+                            liveIntentGeneration++;
                         }
                     }
                     catch (Exception ex)
@@ -412,6 +486,7 @@ namespace OverHaulers
                 }
 
                 simulatedConditions.Add(new SimulatedCondition(target, wasExisting, originalSeverity));
+                liveIntentGeneration++;
                 DirtyHealthCache();
             }
         }
@@ -436,6 +511,7 @@ namespace OverHaulers
                 }
 
                 simulatedConditions.Remove(condition);
+                liveIntentGeneration++;
                 DirtyHealthCache();
             }
         }
@@ -498,6 +574,7 @@ namespace OverHaulers
             using (EnterSafetyFallbackScope())
             {
                 condition.Hediff.Severity = severity;
+                liveIntentGeneration++;
                 DirtyHealthCache();
             }
         }
@@ -549,6 +626,7 @@ namespace OverHaulers
                 CleanDeltasRecursive(part);
                 PruneRemovedConditions();
                 DirtyHealthCache();
+                liveIntentGeneration++;
             }
         }
 
@@ -585,6 +663,7 @@ namespace OverHaulers
             ReplacementDeltas.Remove(part);
             ImplantDeltas.Remove(part);
             DamageDeltas.Remove(part);
+            PartStateDeltas.Remove(part);
 
             if (part.parts != null)
             {
@@ -613,7 +692,9 @@ namespace OverHaulers
             ReplacementDeltas.Clear();
             ImplantDeltas.Clear();
             DamageDeltas.Clear();
+            PartStateDeltas.Clear();
             simulatedConditions.Clear();
+            liveIntentGeneration++;
         }
 
         #endregion

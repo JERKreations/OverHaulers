@@ -541,6 +541,8 @@ namespace OverHaulers
                 leftY += revertSize.y + 4f;
             }
 
+            leftY = DrawLiveApplicationControl(inner, leftY, leftWidth, harness);
+
             // 5. Flattened Accordions
             if (model.EvaluatedParts.Count > 0)
             {
@@ -1129,7 +1131,7 @@ namespace OverHaulers
 
             for (int i = 0; i < targetRecords.Count; i++)
             {
-                var repls = MedicalCatalog.GetReplacementsFor(targetRecords[i].def);
+                var repls = MedicalCatalog.GetReplacementsFor(harness.SandboxPawn, targetRecords[i]);
                 if (repls != null && repls.Count > 0)
                 {
                     for (int j = 0; j < repls.Count; j++)
@@ -1199,7 +1201,7 @@ namespace OverHaulers
                 for (int i = 0; i < targetRecords.Count; i++)
                 {
                     BodyPartRecord currentPart = targetRecords[i];
-                    var repls = MedicalCatalog.GetReplacementsFor(currentPart.def);
+                    var repls = MedicalCatalog.GetReplacementsFor(pawn, currentPart);
                     if (repls == null || repls.Count == 0) continue;
 
                     MedicalOperationEntry selectedOp = default;
@@ -1243,6 +1245,7 @@ namespace OverHaulers
         {
             using (HeadlessPawnShell.EnterSafetyFallbackScope())
             {
+                if (!MedicalCatalog.IsRecipeAvailableToPawn(pawn, recipe)) return false;
                 return !pawn.health.hediffSet.AncestorHasDirectlyAddedParts(part) &&
                     (part.parent == null || !pawn.health.hediffSet.PartIsMissing(part.parent)) &&
                     recipe.Worker.AvailableOnNow(pawn, part);
@@ -1310,7 +1313,8 @@ namespace OverHaulers
                 }
 
                 // 1. Replacements
-                IReadOnlyList<MedicalOperationEntry> availableReplacements = MedicalCatalog.GetReplacementsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableReplacements =
+                    MedicalCatalog.GetReplacementsFor(pawn, targetPart);
                 if (availableReplacements != null && availableReplacements.Count > 0)
                 {
                     for (int i = 0; i < availableReplacements.Count; i++)
@@ -1334,7 +1338,8 @@ namespace OverHaulers
                 }
 
                 // 2. Implants
-                IReadOnlyList<MedicalOperationEntry> availableImplants = MedicalCatalog.GetImplantsFor(targetPart.def);
+                IReadOnlyList<MedicalOperationEntry> availableImplants =
+                    MedicalCatalog.GetImplantsFor(pawn, targetPart);
                 if (availableImplants != null && availableImplants.Count > 0)
                 {
                     for (int i = 0; i < availableImplants.Count; i++)
@@ -1366,10 +1371,40 @@ namespace OverHaulers
                     options.Add(opt);
                 }
 
-                // 4. Revert to Authentic Live / Baseline State
+                // 4. Native Worker-Backed Part Removal / Natural Restoration
+                IReadOnlyList<MedicalProcedureTarget> procedureTargets = MedicalCatalog.GetNativeProcedureTargets(pawn);
+                for (int i = 0; i < procedureTargets.Count; i++)
+                {
+                    MedicalProcedureTarget target = procedureTargets[i];
+                    if (target.Part != targetPart || target.UnavailableReason != null) continue;
+
+                    if (target.Recipe?.Worker is Recipe_RemoveBodyPart)
+                    {
+                        RecipeDef recipe = target.Recipe;
+                        string label = "OverHaulers_Op_RemovePart".Translate(target.Label).ToString();
+                        options.Add(new FloatMenuOption(label, () =>
+                        {
+                            harness.SimulateRecipePartRemoval(targetPart, recipe, target.Label);
+                            TestBench.MarkDirty();
+                        }));
+                    }
+                    else if (target.Recipe?.Worker is Recipe_InstallNaturalBodyPart)
+                    {
+                        RecipeDef recipe = target.Recipe;
+                        string label = "OverHaulers_Op_RestoreNaturalPart".Translate(target.Label).ToString();
+                        options.Add(new FloatMenuOption(label, () =>
+                        {
+                            harness.SimulateRecipeNaturalRestoration(targetPart, recipe, target.Label);
+                            TestBench.MarkDirty();
+                        }));
+                    }
+                }
+
+                // 5. Revert to Authentic Live / Baseline State
                 if (harness.ReplacementDeltas.ContainsKey(targetPart) ||
                     harness.ImplantDeltas.ContainsKey(targetPart) ||
-                    harness.DamageDeltas.ContainsKey(targetPart))
+                    harness.DamageDeltas.ContainsKey(targetPart) ||
+                    harness.PartStateDeltas.ContainsKey(targetPart))
                 {
                     options.Add(new FloatMenuOption(
                         "OverHaulers_Op_Revert".Translate().ToString(),

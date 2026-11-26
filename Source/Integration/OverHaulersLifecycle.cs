@@ -136,9 +136,10 @@ namespace OverHaulers
                 }
 
                 // Sweep World Caravans
-                if (Find.WorldObjects?.Caravans != null)
+                WorldObjectsHolder worldObjects = Current.Game?.World?.worldObjects;
+                List<Caravan> caravans = worldObjects?.Caravans;
+                if (caravans != null)
                 {
-                    List<Caravan> caravans = Find.WorldObjects.Caravans;
                     for (int c = 0; c < caravans.Count; c++)
                     {
                         Caravan caravan = caravans[c];

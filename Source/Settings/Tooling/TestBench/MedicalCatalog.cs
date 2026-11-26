@@ -331,6 +331,70 @@ namespace OverHaulers
         }
 
         /// <summary>
+        /// Retrieves replacement operations whose recipes belong to the selected pawn's ThingDef.
+        /// Shared body-part definitions alone are insufficient because animal and human recipes may target the same part.
+        /// </summary>
+        public static IReadOnlyList<MedicalOperationEntry> GetReplacementsFor(Pawn pawn, BodyPartRecord part)
+        {
+            return GetPawnApplicableOperations(pawn, part, GetReplacementsFor(part?.def));
+        }
+
+        /// <summary>
+        /// Retrieves implant operations whose recipes belong to the selected pawn's ThingDef.
+        /// </summary>
+        public static IReadOnlyList<MedicalOperationEntry> GetImplantsFor(Pawn pawn, BodyPartRecord part)
+        {
+            return GetPawnApplicableOperations(pawn, part, GetImplantsFor(part?.def));
+        }
+
+        /// <summary>Returns true when the recipe is owned by the pawn's ThingDef, directly or through inheritance.</summary>
+        public static bool IsRecipeAvailableToPawn(Pawn pawn, RecipeDef recipe)
+        {
+            List<RecipeDef> recipes = pawn?.def?.AllRecipes;
+            if (recipes == null || recipe == null) return false;
+
+            for (int i = 0; i < recipes.Count; i++)
+            {
+                if (recipes[i] == recipe) return true;
+            }
+            return false;
+        }
+
+        private static IReadOnlyList<MedicalOperationEntry> GetPawnApplicableOperations(
+            Pawn pawn,
+            BodyPartRecord part,
+            IReadOnlyList<MedicalOperationEntry> candidates)
+        {
+            if (pawn == null || part == null || candidates == null || candidates.Count == 0)
+                return null;
+
+            List<MedicalOperationEntry> applicable = null;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                MedicalOperationEntry entry = candidates[i];
+                if (!IsRecipeAvailableToPawn(pawn, entry.Recipe)) continue;
+                if (!WorkerTargetsPart(pawn, part, entry.Recipe)) continue;
+
+                if (applicable == null) applicable = new List<MedicalOperationEntry>(4);
+                applicable.Add(entry);
+            }
+
+            return applicable == null
+                ? null
+                : new ReadOnlyCollection<MedicalOperationEntry>(applicable);
+        }
+
+        private static bool WorkerTargetsPart(Pawn pawn, BodyPartRecord part, RecipeDef recipe)
+        {
+            if (recipe?.Worker == null) return false;
+            foreach (BodyPartRecord target in recipe.Worker.GetPartsToApplyOn(pawn, recipe))
+            {
+                if (target == part) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Enumerates the recipes and concrete targets exposed by the pawn's native medical recipe workers.
         /// The result mirrors health-card procedure discovery without scheduling a bill or applying a recipe.
         /// </summary>
@@ -348,9 +412,14 @@ namespace OverHaulers
             for (int i = 0; i < recipes.Count; i++)
             {
                 RecipeDef recipe = recipes[i];
-                if (recipe == null || !recipe.AvailableNow || recipe.Worker == null) continue;
+                // Main-menu sandbox pawns intentionally bypass research/world availability.
+                // Live plans revalidate recipe.AvailableNow through the recipe worker path.
+                if (recipe == null || recipe.Worker == null) continue;
+                if (Current.Game != null && !recipe.AvailableNow) continue;
 
-                AcceptanceReport report = recipe.Worker.AvailableReport(pawn);
+                AcceptanceReport report = Current.Game == null
+                    ? AcceptanceReport.WasAccepted
+                    : recipe.Worker.AvailableReport(pawn);
                 if (!report.Accepted && report.Reason.NullOrEmpty()) continue;
 
                 string unavailableReason = report.Accepted ? null : report.Reason;

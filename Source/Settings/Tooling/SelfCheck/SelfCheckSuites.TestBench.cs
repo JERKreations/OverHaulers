@@ -332,11 +332,30 @@ namespace OverHaulers
                 BodyPartRecord independent = null;
                 RecipeDef childRecipe = null;
                 bool checkedOperationIndexReadOnly = false;
+                RecipeDef vgeElephantLeg = DefDatabase<RecipeDef>.GetNamedSilentFail("GR_InstallThrumboLeg");
+
+                if (vgeElephantLeg != null && subject.RaceDef?.race != null &&
+                    subject.RaceDef.race.Humanlike)
+                {
+                    for (int i = 0; i < parts.Count; i++)
+                    {
+                        IReadOnlyList<MedicalOperationEntry> pawnReplacements =
+                            MedicalCatalog.GetReplacementsFor(pawn, parts[i]);
+                        if (pawnReplacements == null) continue;
+                        for (int j = 0; j < pawnReplacements.Count; j++)
+                        {
+                            Expect.True(
+                                pawnReplacements[j].Recipe != vgeElephantLeg,
+                                "animal-owned VGE leg replacement must not enter a human operation list");
+                        }
+                    }
+                }
 
                 for (int i = 0; i < parts.Count && parent == null; i++)
                 {
                     BodyPartRecord candidate = parts[i];
-                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements =
+                        MedicalCatalog.GetReplacementsFor(pawn, candidate);
                     if (replacements == null) continue;
                     if (!checkedOperationIndexReadOnly)
                     {
@@ -365,7 +384,8 @@ namespace OverHaulers
                         while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                         if (ancestor == null) continue;
 
-                        IReadOnlyList<MedicalOperationEntry> childReplacements = MedicalCatalog.GetReplacementsFor(descendant.def);
+                        IReadOnlyList<MedicalOperationEntry> childReplacements =
+                            MedicalCatalog.GetReplacementsFor(pawn, descendant);
                         if (childReplacements == null) continue;
                         for (int k = 0; k < childReplacements.Count; k++)
                         {
@@ -395,7 +415,8 @@ namespace OverHaulers
                     while (ancestor != null && ancestor != candidate) ancestor = ancestor.parent;
                     if (ancestor != null) continue;
 
-                    IReadOnlyList<MedicalOperationEntry> replacements = MedicalCatalog.GetReplacementsFor(candidate.def);
+                    IReadOnlyList<MedicalOperationEntry> replacements =
+                        MedicalCatalog.GetReplacementsFor(pawn, candidate);
                     for (int j = 0; j < replacements.Count; j++)
                     {
                         if (!ToolingDialog.CanInstallReplacement(pawn, candidate, replacements[j].Recipe)) continue;
@@ -427,7 +448,8 @@ namespace OverHaulers
                 harness.ResetToSource();
                 harness.SimulatePartRemoval(parent);
                 Expect.True(pawn.health.hediffSet.PartIsMissing(parent), "the target must be missing for the replacement check");
-                IReadOnlyList<MedicalOperationEntry> missingReplacements = MedicalCatalog.GetReplacementsFor(parent.def);
+                IReadOnlyList<MedicalOperationEntry> missingReplacements =
+                    MedicalCatalog.GetReplacementsFor(pawn, parent);
                 for (int i = 0; i < missingReplacements.Count; i++)
                 {
                     RecipeDef recipe = missingReplacements[i].Recipe;

@@ -133,6 +133,8 @@
   <OverHaulers_Op_AddImplant>[+] {0}</OverHaulers_Op_AddImplant>
   <OverHaulers_Op_Damage>Apply Damage</OverHaulers_Op_Damage>
   <OverHaulers_Op_DamageEntry>{0}: {1} remaining-health damage</OverHaulers_Op_DamageEntry>
+  <OverHaulers_Op_RemovePart>Remove Part: {0}</OverHaulers_Op_RemovePart>
+  <OverHaulers_Op_RestoreNaturalPart>Restore Natural Part: {0}</OverHaulers_Op_RestoreNaturalPart>
   <OverHaulers_Op_Revert>↺ Revert to Source</OverHaulers_Op_Revert>
   <OverHaulers_Op_DisabledParentProsthetic>Disabled by parent part status</OverHaulers_Op_DisabledParentProsthetic>
   <OverHaulers_Op_DisabledParentMissing>Disabled: parent part missing</OverHaulers_Op_DisabledParentMissing>
@@ -142,6 +144,30 @@
   <OverHaulers_Sandbox_BulkBudgetUpgrade>Bulk: Budget / Basic ({0})</OverHaulers_Sandbox_BulkBudgetUpgrade>
   <OverHaulers_Sandbox_BulkDamage>Randomize Damage</OverHaulers_Sandbox_BulkDamage>
   <OverHaulers_Sandbox_BulkRevert>Revert Entire Group</OverHaulers_Sandbox_BulkRevert>
+
+  <!-- God-mode live physical outcome review -->
+  <OverHaulers_LiveChange_ReviewButton>Review &amp; Apply Viable Changes</OverHaulers_LiveChange_ReviewButton>
+  <OverHaulers_LiveChange_ReviewTooltip>Review the supported physical outcomes currently represented by this sandbox before applying them to the live pawn.</OverHaulers_LiveChange_ReviewTooltip>
+  <OverHaulers_LiveChange_ReviewTitle>Review live pawn changes</OverHaulers_LiveChange_ReviewTitle>
+  <OverHaulers_LiveChange_ConfirmTitle>Apply physical Test Bench outcomes?</OverHaulers_LiveChange_ConfirmTitle>
+  <OverHaulers_LiveChange_ReviewHeader>{0}: {1} physical outcome(s) are ready to apply.</OverHaulers_LiveChange_ReviewHeader>
+  <OverHaulers_LiveChange_ReviewRow>{0}: {1} — {2}{3}</OverHaulers_LiveChange_ReviewRow>
+  <OverHaulers_LiveChange_WholeBody>whole body</OverHaulers_LiveChange_WholeBody>
+  <OverHaulers_LiveChange_Status_Ready>Apply</OverHaulers_LiveChange_Status_Ready>
+  <OverHaulers_LiveChange_Status_Omitted>Sandbox only / blocked</OverHaulers_LiveChange_Status_Omitted>
+  <OverHaulers_LiveChange_BypassWarning>This applies vetted physical outcomes immediately. It bypasses ingredients, surgeon work, medicine, surgery queues, and failure chances. Simulation-only states such as pregnancy, substances, addiction, and genetics are never applied.</OverHaulers_LiveChange_BypassWarning>
+  <OverHaulers_LiveChange_NoReadyChanges>The current sandbox contains no supported live physical outcomes.</OverHaulers_LiveChange_NoReadyChanges>
+  <OverHaulers_LiveChange_AppliedMessage>Applied {0} physical outcome(s); {1} failed revalidation or execution.</OverHaulers_LiveChange_AppliedMessage>
+  <OverHaulers_LiveChange_NoneApplied>No reviewed live outcomes were applied.</OverHaulers_LiveChange_NoneApplied>
+  <OverHaulers_LiveChange_Error>Could not apply the reviewed live pawn changes. Check the log before retrying.</OverHaulers_LiveChange_Error>
+  <OverHaulers_LiveChange_Reason_SimulationOnly>simulation-only state</OverHaulers_LiveChange_Reason_SimulationOnly>
+  <OverHaulers_LiveChange_Reason_StalePawn>the live pawn is no longer available</OverHaulers_LiveChange_Reason_StalePawn>
+  <OverHaulers_LiveChange_Reason_StaleTarget>the body-part target changed or is missing</OverHaulers_LiveChange_Reason_StaleTarget>
+  <OverHaulers_LiveChange_Reason_UnsupportedWorker>the recipe worker has no vetted instant physical-outcome adapter</OverHaulers_LiveChange_Reason_UnsupportedWorker>
+  <OverHaulers_LiveChange_Reason_NotAvailable>the native recipe is no longer available for this target</OverHaulers_LiveChange_Reason_NotAvailable>
+  <OverHaulers_LiveChange_Reason_WorkerRejected>the native recipe worker rejected the live pawn state</OverHaulers_LiveChange_Reason_WorkerRejected>
+  <OverHaulers_LiveChange_Reason_WorkerFailed>the native recipe worker could not resolve the target</OverHaulers_LiveChange_Reason_WorkerFailed>
+  <OverHaulers_LiveChange_Reason_ExecutionFailed>the physical outcome failed during execution</OverHaulers_LiveChange_Reason_ExecutionFailed>
 
   <!-- ========================================================================= -->
   <!-- [SEC-11.F] UNIFIED DYNAMIC NODE STATUS BADGES                             -->
